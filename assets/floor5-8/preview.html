@@ -1,0 +1,12 @@
+<!doctype html><html lang="th"><meta charset="utf-8"><title>ตัวอย่างมอนชั้น 5–8</title>
+<style>body{background:#171222;color:#f5e7ce;font:16px sans-serif}canvas{width:min(960px,100%);height:auto;image-rendering:pixelated}button{padding:10px;margin:4px}</style>
+<h1>ตัวอย่างมอนชั้น 5–8</h1><p>ภาพตัวอย่างใช้ตัววาดเดียวกับสนามเกม</p>
+<canvas id="battle-canvas" width="320" height="180" aria-label="มอนชั้น 5–8"></canvas><br>
+<button data-kind="group">มอนทั่วไป</button><button data-kind="mirror_mage">กระจก</button><button data-kind="frost_lich">ลิช</button><button data-kind="storm_titan">ไททัน</button><button data-kind="arch_codex">อาร์คโคเด็กซ์</button><button id="attack">โจมตี</button>
+<script type="module">
+import { Battlefield } from '../../src/render.js'; import { createRun,createEnemy } from '../../src/run.js';
+const state=createRun('floor5-8-preview'); const field=new Battlefield(document.querySelector('canvas'),{reducedMotion:false});
+function show(kind){field.stop();state.enemies=kind==='group'?['ember_imp','iron_warden','rune_golem'].map(createEnemy):[createEnemy(kind,0)];state.turn=1;field.set(state,null)}
+for(const button of document.querySelectorAll('[data-kind]')) button.onclick=()=>show(button.dataset.kind);
+document.querySelector('#attack').onclick=()=>field.animate(state.enemies.map(e=>({type:'attack',source:e.id,amount:3})),()=>{},()=>field.stop()); show('group');
+</script></html>

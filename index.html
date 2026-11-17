@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b16">
+  <meta name="description" content="เกมไต่หอคอยประกอบคำร่ายเวทเป็นเทิร์น ภาพพิกเซล 16-bit ลองสลับคำ ค้นพบคอมโบ และอ่านผลคาดการณ์ก่อนร่าย">
+  <meta property="og:title" content="คาถานอกตำรา · Spell Foundry">
+  <meta property="og:description" content="เกมไต่หอคอยประกอบคำร่ายเวทเป็นเทิร์น ภาพพิกเซล 16-bit ลองสลับคำ ค้นพบคอมโบ และอ่านผลคาดการณ์ก่อนร่าย">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>คาถานอกตำรา · Spell Foundry</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./battle-ui.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปยังเกม</a>
+  <header class="masthead">
+    <button id="brand" class="brand" aria-label="คาถานอกตำรา กลับหน้าหลัก"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h7v2h4V4h7v15h-7v2h-4v-2H3zm3 3v9h4v2h1V8h-1V7zm7 1v10h1v-2h4V7h-4v1z"/></svg></span><span>คาถานอกตำรา<small>SPELL FOUNDRY</small></span></button>
+    <nav class="top-actions" aria-label="เมนูเกม">
+      <span class="local-note"><i></i> บันทึกในเครื่อง</span>
+      <button id="inventory-open" class="text-button inventory-nav-btn" type="button" data-open-inventory="true">🎒 กระเป๋า (0/15)</button>
+      <button id="guide-open" class="text-button">คู่มือคาถา</button>
+      <button id="map-open" class="icon-button battle-tool" type="button" aria-label="แผนที่"></button>
+      <button id="log-open" class="icon-button battle-tool" type="button" aria-label="บันทึกการต่อสู้"></button>
+      <button id="settings-open" class="icon-button" aria-label="พักเกมและตั้งค่า"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3 2h3v12H3zm7 0h3v12h-3z"/></svg></button>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <section id="home-view" class="home-view">
+      <div class="home-copy">
+        <h1>คำของคุณ<br><em>กฎของเวท</em></h1>
+        <p class="home-intro">ตำราบอกให้ท่องจำ<br>ที่นี่ให้คุณลองเรียงใหม่</p>
+        <p class="home-description">ประกอบคาถา อ่านใจศัตรู แล้วค้นพบว่า<br>แค่สลับคำ เวทก็เปลี่ยนไป</p>
+        <div class="home-buttons"><button id="new-run" class="primary-button">เริ่มไต่หอคอย <span aria-hidden="true">↗</span></button><button id="continue-run" class="secondary-button" hidden>เล่นต่อ</button></div>
+        <p id="collection-summary" class="muted"></p><p id="save-notice" class="save-notice" role="status"></p>
+        <div class="home-facts"><span>ชั้น 1–3 &amp; 5–8 + บอสพิเศษชั้น 10 &amp; จุดพัก</span><span>ปราบบอสชั้น 10 ดรอปอาติแฟคชิ้นแรก</span><span>บอสดรอปการ์ด · ไม่จับเวลา</span></div>
+      </div>
+      <div class="home-illustration"><div class="art-label"><span>ห้องทดลองคำต้องห้าม</span><span>เปิดรับความผิดพลาด</span></div><canvas id="home-canvas" width="320" height="180" role="img" aria-label="ภาพพิกเซลนักเวทในห้องสมุดใต้ดิน เผชิญหน้าผู้ถือม่านและหยดหมึก"></canvas><div class="home-spell"><span class="mini-word">ลูก</span><span class="mini-word fire">ไฟ</span><span class="mini-word">คู่</span><span class="mini-word">น้ำแข็ง</span><p>ลูกเดียวผสานสองธาตุ</p></div></div>
+      <div class="home-bottom"><span class="edition">ฉบับทดลองที่ 01</span><p>พกได้ 7 คำ · 4 ช่อง · ความเป็นไปได้ที่คุณประกอบเอง</p><span>ทุกคาถามีเหตุผล</span></div>
+    </section>
+
+    <section id="battle-view" hidden aria-label="สนามต่อสู้">
+      <div class="resource-bar">
+        <div class="resource hp-resource"><span id="hp-icon"></span><span>พลังชีวิต</span><strong id="hp-value"></strong><div class="resource-meter"><i id="hp-meter-trail" class="hp-meter-trail" aria-hidden="true"></i><i id="hp-meter"></i></div></div>
+        <div class="resource mana-resource"><span id="mana-icon"></span><span>มานา</span><strong id="mana-value"></strong><div class="mana-pips" id="mana-pips"></div></div>
+        <div class="resource rpg-resource" id="rpg-resource">
+          <div class="rpg-top-row">
+            <span class="rpg-level-badge" id="level-value" title="เลเวลผู้ร่าย">Lv.1</span>
+            <span class="rpg-exp-text" id="exp-value">EXP 0/25</span>
+            <span class="rpg-gold-badge" id="gold-value" title="ทองใช้ซื้อไอเทมได้เฉพาะที่ร้านค้าชั้นพัก (ชั้น 4 และชั้น 9)">💰 0 ทอง</span>
+          </div>
+          <div class="resource-meter exp-meter"><i id="exp-meter"></i></div>
+        </div>
+        <h1 id="tower-heading-title" class="battle-room"></h1>
+        <span id="turn-label" class="turn-label"></span>
+      </div>
+      <aside id="story-banner" class="story-banner" aria-label="บันทึกเนื้อเรื่อง" hidden></aside>
+      <div class="battlefield-wrap" id="battlefield-wrap">
+        <canvas id="battle-canvas" width="320" height="180" role="img" aria-label="สนามต่อสู้พิกเซล เลือกเป้าหมายจากป้ายเหนือศัตรู"></canvas>
+        <div id="canvas-impact-layer" class="canvas-impact-layer" aria-hidden="true"></div>
+        <div id="enemy-list" class="enemy-list" aria-label="เลือกศัตรูและอ่านเจตนา"></div>
+        <p id="shield-status" class="muted" hidden></p>
+        <aside id="tutorial" class="tutorial" hidden><span id="tutorial-icon"></span><p id="tutorial-text"></p><button id="dismiss-tip" class="text-button" aria-label="ปิดคำแนะนำนี้">×</button></aside>
+      </div>
+      <div class="combat-command">
+      <section id="spell-desk" class="spell-desk" aria-label="โต๊ะประกอบคาถา">
+        <div id="spell-slots" class="spell-slots" aria-label="ช่องคาถาสี่ช่อง"></div>
+        <div class="edit-row"><span id="expression" class="expression"></span><div class="slot-actions"><button id="move-left" class="small-button" aria-label="ย้ายคำที่เลือกไปซ้าย">←</button><button id="move-right" class="small-button" aria-label="ย้ายคำที่เลือกไปขวา">→</button><button id="remove-word" class="small-button">ถอด</button><button id="clear-spell" class="small-button">ล้าง</button></div></div>
+        <div class="word-bank-heading">
+          <h2 id="hand-count">การ์ดในมือ</h2>
+          <button id="combos-open" class="text-button" type="button">สูตรในมือทั้งหมด</button>
+        </div>
+        <div id="known-formulas-bar" class="known-formulas-bar" aria-label="สูตรที่รู้และร่ายได้จากมือ">
+          <div class="known-formulas-head">
+            <span id="known-formulas-label" class="known-formulas-label">สูตรที่รู้ · พร้อมร่าย</span>
+            <span id="known-formulas-empty" class="known-formulas-empty"></span>
+          </div>
+          <div id="known-shortcuts" class="known-shortcuts" role="group" aria-label="สูตรลัดที่ค้นพบ" hidden></div>
+        </div>
+        <div id="word-bank" class="word-bank" aria-label="คลังคำ"></div>
+        <p id="word-description" class="word-description" hidden></p>
+      </section>
+      <div class="cast-dock">
+        <label id="second-target-label" class="second-target" hidden>เป้าหมายที่สอง <select id="second-target"></select></label>
+        <label id="blackhole-target-label" class="second-target" hidden>จุดเปิดหลุมดำ <select id="blackhole-target"></select></label>
+        <div id="forecast" class="forecast" role="status" aria-live="polite" aria-atomic="true"></div>
+        <p id="spell-feedback" class="spell-feedback" role="status"></p>
+        <div id="cast-fx-banner" class="cast-fx-banner" role="status" hidden></div>
+        <div id="animation-controls" class="animation-controls" hidden>
+          <span id="animation-status-text" class="animation-live-status" role="status">กำลังร่ายคาถา…</span>
+          <button id="skip-animation" class="secondary-button" type="button">ข้ามภาพ</button>
+        </div>
+        <div class="cast-actions"><button id="guard-button" class="secondary-button" title="ใช้ 0 มานา กันความเสียหาย 3">ตั้งรับ</button><button id="cast-button" class="primary-button" disabled><span id="cast-label">ร่ายคาถา</span> <span id="cast-cost"></span></button></div>
+      </div>
+      </div>
+    </section>
+
+    <section id="reward-view" class="intermission" hidden><span id="reward-emblem" class="result-seal"></span><h1>เปิดการ์ดคำ</h1><p id="reward-subtitle"></p><div id="reward-story" class="story-card" hidden></div><div id="reward-player" class="reward-player"></div><div id="reward-list" class="reward-list"></div><p class="muted">การ์ดที่เลือกจะเก็บในคลังข้ามรอบ</p></section>
+
+    <section id="loadout-view" class="intermission" hidden>
+      <h1>จัดคำก่อนขึ้นชั้น</h1>
+      <p id="loadout-count"></p>
+      <div id="loadout-story" class="story-card" hidden></div>
+      <div id="loadout-words" class="loadout-words"></div>
+      <div class="intermission-actions">
+        <button id="climb-button" class="primary-button">ขึ้นชั้นถัดไป</button>
+        <button id="loadout-sanctuary-button" class="secondary-button" type="button">🏕 แวะชั้นพัก &amp; ร้านค้าเวทมนตร์</button>
+      </div>
+    </section>
+
+    <section id="sanctuary-view" class="intermission sanctuary-view" hidden aria-label="ชั้นพักและร้านค้าเวทมนตร์">
+
+      <div class="sanctuary-room">
+        <header class="sanctuary-hud">
+          <h1 id="sanctuary-title">ชั้นพัก · ชั้น 4</h1>
+          <div id="sanctuary-status" class="sanctuary-status"></div>
+        </header>
+        <div class="sanctuary-scene">
+          <div class="sanctuary-stations" aria-label="กิจกรรมชั้นพัก">
+            <button id="sanctuary-shop-tab" class="sanctuary-plaque" type="button" data-sanctuary-menu="shop" aria-haspopup="dialog">ร้านค้า</button>
+            <button id="sanctuary-rest-btn" class="sanctuary-plaque sanctuary-heal" type="button"><span id="sanctuary-rest-label">พักฟื้น</span><span id="sanctuary-rest-gain"></span></button>
+            <button id="sanctuary-forge-tab" class="sanctuary-plaque" type="button" data-sanctuary-menu="forge" aria-haspopup="dialog">ตีบวก</button>
+          </div>
+          <div class="sanctuary-exit">
+            <button id="sanctuary-next-room-btn" class="sanctuary-plaque sanctuary-climb" type="button"><span id="sanctuary-next-room-label">ไต่ต่อ</span><span aria-hidden="true">→</span></button>
+            <button id="sanctuary-map-open" class="sanctuary-plaque sanctuary-map-open" type="button" data-sanctuary-menu="map" aria-haspopup="dialog">เลือกชั้นอื่น</button>
+          </div>
+          <div class="sanctuary-tools" aria-label="เครื่องมือ">
+            <button class="sanctuary-plaque" type="button" data-open-inventory="true" aria-haspopup="dialog">กระเป๋า</button>
+            <button id="sanctuary-deck-tab" class="sanctuary-plaque" type="button" data-sanctuary-menu="deck" aria-haspopup="dialog">ชุดคำ</button>
+            <button class="sanctuary-plaque" type="button" data-sanctuary-menu="tome" aria-haspopup="dialog">ตำรา</button>
+          </div>
+        </div>
+      </div>
+      <dialog id="sanctuary-menu" class="sanctuary-menu" aria-labelledby="sanctuary-menu-title">
+        <div class="sanctuary-menu-head">
+          <h2 id="sanctuary-menu-title"></h2>
+          <form method="dialog"><button class="icon-button" autofocus aria-label="ปิดแผง">×</button></form>
+        </div>
+        <section id="sanctuary-map-panel" class="sanctuary-panel" hidden>
+          <label for="sanctuary-floor-select">ปลายทาง</label>
+          <select id="sanctuary-floor-select"></select>
+          <div id="sanctuary-floor-map" class="sanctuary-floor-map"></div>
+          <p id="sanctuary-revisit-note" class="muted" hidden>ห้องที่ผ่านแล้วให้ทองและ EXP 20% บอสไม่ดรอปการ์ดคำซ้ำ</p>
+        </section>
+        <div id="sanctuary-tome-panel" hidden>
+          <article class="sanctuary-panel" id="sanctuary-insight-panel">
+            <div class="sanctuary-panel-head">
+              <h2>🔮 โต๊ะถอดรหัสสูตรคาถานอกตำรา</h2>
+              <span id="sanctuary-formula-progress" class="sanctuary-rule-pill">ค้นพบแล้ว 0 สูตร</span>
+            </div>
+            <p id="sanctuary-insight-desc" class="muted">ให้ปราชญ์ประจำชั้นพักช่วยถอดรหัสสูตรคาถาจากคำที่คุณมีอยู่ เพื่อปลดล็อกการคาดการณ์ผลลัพธ์ทันทีโดยไม่ต้องเสี่ยงเสียมานาในสนาม</p>
+            <div id="sanctuary-insight-preview" class="sanctuary-insight-preview"></div>
+            <div class="sanctuary-action-row">
+              <button id="sanctuary-unlock-formula-btn" class="secondary-button" type="button">📜 ถอดรหัสสูตรใหม่ · 💰 12 ทอง</button>
+              <button id="sanctuary-open-grimoire-btn" class="text-button" type="button">เปิดสมุดตำราคาถา ↗</button>
+            </div>
+          </article>
+          <details id="sanctuary-story-details" class="sanctuary-extra" hidden>
+            <summary>เรื่องราวชั้นพัก</summary>
+            <div id="sanctuary-story" class="story-card sanctuary-story-card"></div>
+          </details>
+        </div>
+        <section class="sanctuary-panel sanctuary-shop-panel" id="sanctuary-shop-panel" hidden>
+          <div class="sanctuary-panel-head">
+            <span id="sanctuary-shop-gold" class="rpg-gold-badge">💰 0 ทอง</span>
+          </div>
+          <div id="sanctuary-shop-list" class="sanctuary-shop-list"></div>
+        </section>
+
+        <section class="sanctuary-panel sanctuary-upgrade-panel" id="sanctuary-upgrade-panel" hidden>
+          <div class="sanctuary-panel-head">
+            <div class="sanctuary-forge-resources" id="sanctuary-forge-resources">
+              <span id="sanctuary-forge-gold" class="rpg-gold-badge">💰 0 ทอง</span>
+            </div>
+          </div>
+          <p class="muted">ใช้ทองตีบวกการ์ดได้ถึง <strong>+10</strong> หากตีพลาด การ์ดจะอยู่ระดับเดิม เมื่อถึง <strong>+7, +9 และ +10</strong> เอฟเฟกต์รองจะปลดล็อกและเพิ่มระดับอัตโนมัติ</p>
+          <div id="sanctuary-upgrade-list" class="sanctuary-upgrade-list"></div>
+        </section>
+
+        <div id="sanctuary-deck-panel" hidden>
+          <section class="sanctuary-panel">
+            <div class="sanctuary-panel-head">
+              <h2>📖 แท่นปรับชุดคำประจำตัว</h2>
+              <span id="sanctuary-deck-count" class="sanctuary-rule-pill">7 / 7 คำ</span>
+            </div>
+            <div id="sanctuary-words" class="loadout-words"></div>
+            <button id="sanctuary-save-deck" class="secondary-button" type="button">บันทึกชุดคำที่เลือก</button>
+          </section>
+          <details class="sanctuary-extra"><summary>เครื่องราง</summary>
+            <section class="sanctuary-panel sanctuary-panel-wide sanctuary-charm-panel" id="sanctuary-charm-panel">
+              <div class="sanctuary-panel-head">
+                <h2>🔮 ช่องใส่เครื่องราง &amp; อาติแฟค (บอสชั้น 10 / 20 / 30)</h2>
+                <span id="sanctuary-charm-count" class="sanctuary-rule-pill">สวมใส่ 0 / 3 ช่อง</span>
+              </div>
+              <p class="muted">ช่องสวมใส่เครื่องรางแยกต่างหากจากเข็มขัดไอเทมและชุดคำ · กด <strong>ถอด</strong> หรือ <strong>สวมใส่</strong> อาติแฟคที่ได้รับจากบอสชั้นที่ 10 ได้อย่างอิสระ</p>
+              <div id="sanctuary-charm-slots" class="sanctuary-charm-slots" aria-label="ช่องสวมใส่เครื่องรางแยกต่างหาก"></div>
+              <div class="sanctuary-charm-vault-head">
+                <strong>คลังอาติแฟคบอสชั้นลึก</strong>
+                <span class="muted">ครอบครองแล้วสามารถกดสวมใส่หรือถอดเก็บได้ตลอดเวลาในจุดพัก</span>
+              </div>
+              <div id="sanctuary-relic-list" class="sanctuary-relic-list"></div>
+            </section>
+          </details>
+        </div>
+      </dialog>
+    </section>
+
+    <section id="result-view" class="intermission" hidden><span id="result-seal" class="result-seal"></span><h1 id="result-title"></h1><p id="result-description"></p><div id="result-stats" class="result-stats"></div><div id="discoveries" class="discoveries"></div><div class="result-actions"><button id="result-sanctuary" class="primary-button" hidden>🏕 เข้าสู่ชั้นที่ 4: ชั้นพัก &amp; ไต่ต่อชั้น 5–9</button><button id="result-new" class="primary-button">เริ่มรอบใหม่</button><button id="replay-seed" class="secondary-button">ทดลอง seed เดิม</button><button id="result-home" class="text-button">หน้าหลัก</button></div><p id="result-seed" class="muted"></p></section>
+    <p id="storage-warning" class="storage-warning" role="status" hidden></p>
+  </main>
+  <footer class="site-footer"><span>คาถานอกตำรา</span><span>อ่านผลก่อนร่าย แล้วเขียนทางออกของคุณเอง</span></footer>
+  <dialog id="battle-tools" class="game-sheet" aria-labelledby="tools-title">
+      <div class="dialog-heading">
+        <h2 id="tools-title">ตำราคาถา</h2>
+        <form method="dialog"><button class="icon-button" aria-label="ปิดแผง">×</button></form>
+      </div>
+      <div class="surface-tabs" role="tablist" aria-label="เมนูระหว่างเล่น">
+        <button id="tools-tome-tab" type="button" role="tab" aria-selected="true" aria-controls="tools-tome">ตำรา</button>
+        <button id="tools-bag-tab" type="button" role="tab" aria-selected="false" aria-controls="tools-bag" tabindex="-1">กระเป๋า</button>
+        <button id="tools-map-tab" type="button" role="tab" aria-selected="false" aria-controls="tools-map" tabindex="-1">แผนที่</button>
+        <button id="tools-log-tab" type="button" role="tab" aria-selected="false" aria-controls="tools-log" tabindex="-1">บันทึก</button>
+      </div>
+      <section id="tools-tome" class="sheet-panel" role="tabpanel" aria-labelledby="tools-tome-tab">
+        <div id="tools-hand-formulas" hidden><div id="quick-combos" class="quick-combos" aria-label="สูตรคาถาที่ใช้ได้จากมือ" hidden></div></div>
+        <div class="grimoire-summary"><div class="grimoire-summary-head"><strong id="grimoire-progress-text"></strong></div><div class="grimoire-meter"><i id="grimoire-progress-bar"></i></div></div>
+        <div id="grimoire-tabs" class="grimoire-tabs" aria-label="หมวดหมู่ตำราคาถา"><button type="button" class="grimoire-tab active" data-grimoire-tab="discovered">ค้นพบแล้ว</button><button type="button" class="grimoire-tab" data-grimoire-tab="all">ทุกสูตร</button><button type="button" class="grimoire-tab" data-grimoire-tab="attack">โจมตี</button><button type="button" class="grimoire-tab" data-grimoire-tab="defense">ป้องกัน</button><button type="button" class="grimoire-tab" data-grimoire-tab="words">การ์ดคำ</button></div>
+        <div id="grimoire-filters" class="grimoire-controls">
+          <label for="grimoire-word-filter">คำในสูตร</label>
+          <select id="grimoire-word-filter"><option value="">ทุกคำ</option></select>
+          <label id="grimoire-castable-label" class="grimoire-castable"><input id="grimoire-castable" type="checkbox"> ร่ายได้ตอนนี้</label>
+        </div>
+        <nav id="grimoire-pages" class="grimoire-controls grimoire-pages" aria-label="หน้าตำราคาถา" hidden>
+          <button id="grimoire-prev" type="button" class="secondary-button small-button">ก่อนหน้า</button>
+          <span id="grimoire-page-number" aria-live="polite"></span>
+          <button id="grimoire-next" type="button" class="secondary-button small-button">ถัดไป</button>
+        </nav>
+        <div id="grimoire-list" class="grimoire-list"></div><div id="word-guide" hidden></div>
+      </section>
+      <section id="tools-bag" class="sheet-panel" role="tabpanel" aria-labelledby="tools-bag-tab" hidden>
+      <div id="item-belt-bar" class="item-belt-bar" aria-label="เข็มขัดไอเทมด่วน" hidden></div>
+      <div id="inventory-hero-stats" class="inventory-hero-stats"></div>
+      <div id="inventory-tabs" class="grimoire-tabs inventory-tabs" role="tablist" aria-label="หมวดหมู่กระเป๋าไอเทม">
+        <button type="button" class="grimoire-tab active" data-inventory-tab="items">ไอเทม</button>
+        <button type="button" class="grimoire-tab" data-inventory-tab="cards">การ์ดคำ</button>
+        <button type="button" class="grimoire-tab" data-inventory-tab="relics">เครื่องราง</button>
+      </div>
+      <div id="inventory-body" class="inventory-body"></div>
+      </section>
+      <section id="tools-map" class="sheet-panel" role="tabpanel" aria-labelledby="tools-map-tab" hidden>
+        <div id="room-track" class="room-track" aria-label="ความคืบหน้าหอคอยและการเลือกชั้น"></div>
+        <p id="room-subtitle" class="muted"></p>
+        <p id="stage-bounty-note" class="muted"></p>
+      </section>
+      <section id="tools-log" class="sheet-panel" role="tabpanel" aria-labelledby="tools-log-tab" hidden>
+        <p id="seed-label" class="muted"></p>
+        <ol id="combat-log" class="combat-log"></ol>
+      </section>
+  </dialog>
+  <dialog id="discard-panel" class="game-sheet discard-sheet" aria-labelledby="discard-title">
+    <div class="dialog-heading"><h2 id="discard-title"></h2></div>
+    <div class="sheet-panel"><div id="discard-cards" class="loadout-words"></div></div>
+    <div class="dialog-actions"><button id="confirm-discard" class="primary-button" disabled>ยืนยันทิ้งการ์ด</button></div>
+  </dialog>
+  <dialog id="settings-dialog" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-heading"><h2 id="settings-title">พักสักครู่</h2><button class="icon-button" aria-label="ปิดการตั้งค่า" value="close">×</button></div><p class="muted">เกมเป็นเทิร์น คุณมีเวลาคิดเต็มที่</p><label class="setting">เพลง <input id="music-volume" type="range" min="0" max="100" step="1"><output id="music-output"></output></label><label class="setting">เสียงเอฟเฟกต์ <input id="sfx-volume" type="range" min="0" max="100" step="1"><output id="sfx-output"></output></label><label class="setting">เสียงปุ่ม <input id="ui-volume" type="range" min="0" max="100" step="1"><output id="ui-output"></output></label><label class="check-setting"><input id="reduce-motion" type="checkbox">ลดการเคลื่อนไหว</label><label class="check-setting"><input id="show-tips" type="checkbox">แสดงคำแนะนำ</label><div class="dialog-actions"><button id="mute-all" class="secondary-button" type="button">ปิดเสียงทั้งหมด</button><button class="primary-button" value="close">กลับไปเล่น</button></div><button id="pause-home" class="text-button" type="button">บันทึกแล้วกลับหน้าหลัก</button></form></dialog>
+  <dialog id="replace-dialog" aria-labelledby="replace-title"><form method="dialog"><h2 id="replace-title">เริ่มการทดลองใหม่?</h2><p>รอบใหม่จะใช้ช่องเซฟปัจจุบัน คุณยังกลับไปเล่นรอบเดิมได้หากยกเลิก</p><div class="dialog-actions"><button class="secondary-button" value="cancel">ยกเลิก</button><button id="confirm-new" class="primary-button" type="button">เริ่มรอบใหม่</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <noscript><p class="storage-warning">เกมนี้ต้องเปิด JavaScript เพื่อประกอบและจำลองคาถา</p></noscript>
+</body>
+</html>

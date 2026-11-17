@@ -1,0 +1,16 @@
+<!doctype html><html lang="th"><meta charset="utf-8"><title>ตัวอย่างมอนชั้น 2</title>
+<style>body{background:#171222;color:#f5e7ce;font:16px sans-serif}canvas{width:min(960px,100%);height:auto;image-rendering:pixelated}button{padding:10px;margin:4px}</style>
+<h1>ตัวอย่างมอนชั้น 2</h1><p>ภาพตัวอย่างใช้ตัววาดเดียวกับสนามเกม</p>
+<canvas id="battle-canvas" width="320" height="180" aria-label="โกเลมและผู้พิทักษ์หอเหล็ก"></canvas><br>
+<button id="idle">ยืน</button><button id="charge">ชาร์จ</button><button id="attack">ทุบ</button>
+<script type="module">
+import { Battlefield } from '../../src/render.js';
+import { createRun, createEnemy } from '../../src/run.js';
+const canvas=document.querySelector('canvas'), state=createRun('floor2-preview');
+state.enemies=[createEnemy('charger',0),createEnemy('sentinel',3)]; state.turn=1;
+const field=new Battlefield(canvas,{reducedMotion:false}); field.set(state,null);
+document.querySelector('#idle').onclick=()=>{field.stop();state.turn=1};
+document.querySelector('#charge').onclick=()=>{state.turn=1;field.animate(state.enemies.map(e=>({type:'charge',source:e.id})),()=>{},()=>{state.turn=2;field.stop()})};
+document.querySelector('#attack').onclick=()=>{state.turn=2;field.animate(state.enemies.map(e=>({type:'attack',source:e.id,amount:7})),()=>{},()=>{state.turn=1;field.stop()})};
+</script></html>
+

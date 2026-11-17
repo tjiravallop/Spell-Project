@@ -1,0 +1,6 @@
+{
+  "name": "คาถานอกตำรา · Spell Foundry",
+  "description": "เกมไต่หอคอยประกอบคำร่ายเวทเป็นเทิร์น ภาพพิกเซล 16-bit ลองสลับคำ ค้นพบคอมโบ และอ่านผลคาดการณ์ก่อนร่าย",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

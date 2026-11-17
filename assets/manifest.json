@@ -1,0 +1,355 @@
+{
+  "project": "Spell Foundry / คาถานอกตำรา",
+  "provenance": "Original artwork, generated pixel-art backdrops, synthesized audio, and adapted PixelFX sprite sheets. Imported sprites are hand-authored pixel art informed by generated concept references.",
+  "license": "Original assets belong to the project. Third-party assets list their license below. No external fonts bundled.",
+  "palette": {
+    "source": "src/render.js PALETTE",
+    "colors": 32,
+    "filtering": "nearest-neighbor",
+    "stage": [
+      320,
+      180
+    ]
+  },
+  "assets": [
+    {
+      "id": "wizard",
+      "source": "src/render.js sprite",
+      "size": [
+        32,
+        32
+      ],
+      "states": [
+        "idle",
+        "cast",
+        "hurt",
+        "dead"
+      ],
+      "animation": "four procedural phases; stable baseline",
+      "pivot": "bottom-center",
+      "collision": "none; deterministic simulation"
+    },
+    {
+      "id": "enemies",
+      "source": "src/render.js sprite",
+      "members": [
+        "striker",
+        "warden",
+        "armored",
+        "swarm",
+        "charger",
+        "support",
+        "elite"
+      ],
+      "size": [
+        32,
+        32
+      ],
+      "states": [
+        "idle",
+        "hurt",
+        "dead"
+      ],
+      "animation": "four idle/death phases plus attack events"
+    },
+    {
+      "id": "middle-tower-enemies",
+      "source": "src/middle-sprites.js",
+      "license": "Original project artwork",
+      "members": [
+        "ink_ray",
+        "prism_crab",
+        "lantern_wisp",
+        "scroll_moth",
+        "chain_hound"
+      ],
+      "size": [
+        32,
+        32
+      ],
+      "states": [
+        "idle",
+        "attack",
+        "hurt",
+        "dead",
+        "exposed (prism_crab)"
+      ],
+      "pivot": "bottom-center",
+      "animation": "Pixel-aligned Canvas rectangles with existing hit and death poses"
+    },
+    {
+      "id": "boss",
+      "source": "src/render.js sprite",
+      "size": [
+        64,
+        64
+      ],
+      "states": [
+        "idle",
+        "hurt",
+        "dead"
+      ],
+      "pivot": "bottom-center"
+    },
+    {
+      "id": "library",
+      "source": "src/render.js paintRoom",
+      "size": [
+        320,
+        180
+      ],
+      "description": "original pixel masonry, shelves, books, candles, window, floor and summoning marks"
+    },
+    {
+      "id": "library-tower",
+      "source": "assets/library-tower.png",
+      "description": "Candlelit pixel library generated with OpenAI ImageGen for the battle screen, rendered on the 320 × 180 canvas."
+    },
+    {
+      "id": "sanctuary-room",
+      "source": "assets/sanctuary-room.png",
+      "description": "16-bit pixel-art sanctuary backdrop generated with OpenAI ImageGen from the approved sanctuary mockup. Game controls are rendered separately."
+    },
+    {
+      "id": "spell-effects",
+      "source": "src/render.js draw",
+      "members": [
+        "carrier",
+        "fire",
+        "ice",
+        "lightning",
+        "shield",
+        "ward",
+        "damage",
+        "healing"
+      ]
+    },
+    {
+      "id": "pixelfx-arcane-beam",
+      "source": "https://github.com/patch-gg/pixelfx/blob/5294518ce7c72e48b6100a744596e0acf57f2826/src/fx/arcane/arcane-beam.js",
+      "files": [
+        "assets/pixelfx/arcane-beam-fire.png",
+        "assets/pixelfx/arcane-beam-ice.png",
+        "assets/pixelfx/arcane-beam-lightning.png"
+      ],
+      "license": "MIT",
+      "notices": [
+        "assets/pixelfx/LICENSE",
+        "assets/pixelfx/NOTICE.md"
+      ],
+      "description": "Arcane Beam by Patch, adapted from Hugo Duprez. Exported without characters at 18 fps in three palettes."
+    },
+    {
+      "id": "ui-icons",
+      "source": "src/icons.js",
+      "size": [
+        16,
+        16
+      ],
+      "format": "original pixel-aligned SVG paths"
+    },
+    {
+      "id": "pixelfx-ice-lance",
+      "source": "https://github.com/patch-gg/pixelfx/blob/5294518ce7c72e48b6100a744596e0acf57f2826/src/fx/ice/ice-lance.js",
+      "files": [
+        "assets/pixelfx/ice-lance.png"
+      ],
+      "license": "MIT",
+      "notices": [
+        "assets/pixelfx/LICENSE",
+        "assets/pixelfx/NOTICE.md"
+      ],
+      "description": "Shortened Ice Lance for single-element ice projectiles."
+    },
+    {
+      "id": "pixelfx-shield-block",
+      "source": "https://github.com/patch-gg/pixelfx/blob/5294518ce7c72e48b6100a744596e0acf57f2826/src/fx/impacts/shield-block.js",
+      "files": [
+        "assets/pixelfx/shield-block.png"
+      ],
+      "license": "MIT",
+      "notices": [
+        "assets/pixelfx/LICENSE",
+        "assets/pixelfx/NOTICE.md"
+      ],
+      "description": "Shield Block recolored for the player's barrier, exported without its stock character."
+    },
+    {
+      "id": "pixelfx-campfire-embers",
+      "source": "https://github.com/patch-gg/pixelfx/blob/5294518ce7c72e48b6100a744596e0acf57f2826/src/fx/fire/campfire.js",
+      "files": [
+        "assets/pixelfx/campfire-embers.png"
+      ],
+      "license": "MIT",
+      "notices": [
+        "assets/pixelfx/LICENSE",
+        "assets/pixelfx/NOTICE.md"
+      ],
+      "description": "Campfire ember layer at half density, without a second fire or logs."
+    },
+    {
+      "id": "favicon",
+      "source": "assets/favicon.svg",
+      "size": [
+        32,
+        32
+      ],
+      "format": "original SVG"
+    },
+    {
+      "id": "audio",
+      "source": "src/audio.js",
+      "format": "runtime Web Audio synthesis",
+      "buses": [
+        "music",
+        "sfx",
+        "ui"
+      ],
+      "members": [
+        "ambient arpeggio",
+        "place",
+        "remove",
+        "cast",
+        "ward",
+        "hit",
+        "win",
+        "lose"
+      ],
+      "maximumVoices": 16
+    },
+    {
+      "id": "fonts",
+      "source": "operating system",
+      "families": [
+        "Tahoma",
+        "Leelawadee UI",
+        "sans-serif",
+        "Georgia"
+      ],
+      "bundled": false
+    },
+    {
+      "id": "runescribe-sprite",
+      "source": "assets/caster-rig/rig.json and export.py",
+      "files": [
+        "assets/caster-rig/runescribe-sheet.png",
+        "assets/caster-rig/sunmage-sheet.png",
+        "assets/caster-rig/nightwarden-sheet.png"
+      ],
+      "size": [
+        32,
+        32
+      ],
+      "states": [
+        "idle",
+        "cast"
+      ],
+      "note": "Runescribe used in game; other two remain editable prototypes. Procedural fallback for hurt and death."
+    },
+    {
+      "id": "floor1-ink-sprites",
+      "source": "assets/floor1-monsters/source.json and export.py",
+      "files": [
+        "assets/floor1-monsters/imp-sheet.png",
+        "assets/floor1-monsters/slime-sheet.png"
+      ],
+      "size": [
+        32,
+        32
+      ],
+      "states": [
+        "idle",
+        "attack",
+        "hurt"
+      ]
+    },
+    {
+      "id": "prism-crab-sprite",
+      "source": "assets/prism-crab/rig.json and export.py",
+      "files": [
+        "assets/prism-crab/prism-crab-sheet.png"
+      ],
+      "size": [
+        32,
+        32
+      ],
+      "states": [
+        "closed",
+        "open",
+        "pinch"
+      ]
+    },
+    {
+      "id": "first-floor-warden-sprite",
+      "source": "assets/floor1-warden-v2/rig.json and export.py",
+      "files": [
+        "assets/floor1-warden-v2/warden-sheet.png"
+      ],
+      "size": [
+        64,
+        64
+      ],
+      "states": [
+        "idle",
+        "ward",
+        "break",
+        "attack"
+      ],
+      "pivot": [
+        32,
+        58
+      ]
+    },
+    {
+      "id": "floor2-golem-sprites",
+      "source": "assets/floor2-golems/rig.json and export.py",
+      "files": [
+        "assets/floor2-golems/lantern-golem-sheet.png",
+        "assets/floor2-golems/iron-sentinel-sheet.png"
+      ],
+      "states": [
+        "idle",
+        "charge",
+        "attack",
+        "hurt"
+      ],
+      "provenance": "Hand-authored pixel parts guided by generated concept reference."
+    },
+    {
+      "id": "floor3-enemy-sprites",
+      "source": "assets/floor3-monsters/rig.json and export.py",
+      "files": [
+        "assets/floor3-monsters/armored-sheet.png",
+        "assets/floor3-monsters/warden-sheet.png",
+        "assets/floor3-monsters/support-sheet.png",
+        "assets/floor3-monsters/boss-sheet.png"
+      ],
+      "states": [
+        "idle",
+        "attack",
+        "hurt"
+      ],
+      "provenance": "Hand-authored pixel parts guided by generated concept reference."
+    },
+    {
+      "id": "floor5-8-sprites",
+      "source": "assets/floor5-8/rig.json and export.py; earlier monster rigs",
+      "files": [
+        "assets/floor5-8/ember_imp-sheet.png",
+        "assets/floor5-8/iron_warden-sheet.png",
+        "assets/floor5-8/rune_golem-sheet.png",
+        "assets/floor5-8/mirror_mage-sheet.png",
+        "assets/floor5-8/frost_lich-sheet.png",
+        "assets/floor5-8/storm_titan-sheet.png",
+        "assets/floor5-8/arch_codex-sheet.png"
+      ],
+      "states": [
+        "idle",
+        "attack",
+        "hurt",
+        "charge for golems"
+      ],
+      "provenance": "Hand-authored pixel parts guided by generated concept reference."
+    }
+  ]
+}
