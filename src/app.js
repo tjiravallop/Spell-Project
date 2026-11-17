@@ -43,7 +43,7 @@ import {
   buyShopItem,
   ENEMIES,
 } from './run.js';
-import { simulateTurn } from './combat.js';
+import { simulateTurn, estimateWordCost } from './combat.js';
 import { loadRun, saveRun, loadSettings, storeSettings, tutorialSeen, completeTutorial } from './save.js';
 import { Battlefield, fizzleLabel } from './render.js';
 import { GameAudio } from './audio.js';
@@ -77,6 +77,7 @@ import {
   renderRoomTrack,
   updateInventoryNavBadge,
   syncRpgResourceBar as syncResourceBarView,
+  syncManaPipsPreview,
   renderBattleStory,
   renderCastFxBanner,
   renderEnemies,
@@ -520,6 +521,12 @@ function renderBattle() {
   $('seed-label').textContent = `SEED ${state.seed}`;
   const parsed = parseSpell(words, p.words);
   const knownSpell = isKnownValidSpell(words);
+  const pendingCost = busy || !words.length
+    ? 0
+    : parsed.ok
+      ? parsed.cost
+      : estimateWordCost(words, p.words);
+  syncManaPipsPreview(state, pendingCost);
   if (!knownSpell || parsed.ids.join(' ') !== lastJustUnlockedKey) lastJustUnlockedKey = null;
   const selectable = state.enemies.filter(enemy => enemy.hp > 0);
   const aimingBlackhole = parsed.ok && parsed.spell.form === 'blackhole';
@@ -597,7 +604,7 @@ function renderBattleCastStart(parsed, knownSpell) {
   castRafBatch1 = requestAnimationFrame(() => {
     castRafBatch1 = 0;
     if (!busy) return;
-    const fxClass = castFxState?.type ? `slot-fx-${castFxState.type}` : '';
+    const fxClass = castFxState?.type && !castFxState.isGuard ? `slot-fx-${castFxState.type}` : '';
     document.querySelectorAll('#spell-slots .spell-slot.filled').forEach(slotEl => {
       slotEl.classList.remove('slot-fx-discover', 'slot-fx-success', 'slot-fx-fizzle');
       if (fxClass) slotEl.classList.add(fxClass);
@@ -718,6 +725,7 @@ function commit(guard = false) {
   } else {
     setCastFx({
       type: 'success',
+      isGuard: true,
       badge: '🛡 ตั้งรับพื้นฐาน',
       title: 'ตั้งการ์ดป้องกัน (+3 เกราะชั่วคราว)',
       detail: 'ลดความเสียหายที่ได้รับในเทิร์นนี้ลง 3 หน่วย',
@@ -1154,6 +1162,15 @@ document.addEventListener('click', event => {
       persist();
       audio.play(res.failed ? 'invalid' : 'discover');
       renderSanctuary(); updateInventoryNavBadge(state);
+      const forgeCardEl = document.querySelector(`#sanctuary-upgrade-list [data-forge-card="${wordId}"]`);
+      if (forgeCardEl) {
+        const fxCls = res.failed
+          ? 'forge-fail-shake'
+          : (res.milestoneUnlocked || mode === 'secondary')
+            ? 'forge-milestone-flash'
+            : 'forge-success-flash';
+        queueFxClassRestart(forgeCardEl, ['forge-success-flash', 'forge-milestone-flash', 'forge-fail-shake'], fxCls);
+      }
       for (const id of ['gold-value', 'sanctuary-shop-gold', 'sanctuary-forge-gold', 'sanctuary-gold-pill']) {
         const el = $(id);
         if (el) queueFxClassRestart(el, ['gold-balance-flash'], 'gold-balance-flash');

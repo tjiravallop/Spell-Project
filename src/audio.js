@@ -63,7 +63,16 @@ export class GameAudio {
       if (event.blocked) this.play('ward');
       else if (event.form === 'storm' && !event.elements.length) this.tone(240, 0.20, 'sfx', 'triangle', 0, 82);
       else for (const element of event.elements) {
-        const [start, end, wave] = { fire: [240, 100, 'sawtooth'], ice: [690, 970, 'sine'], lightning: [950, 410, 'square'], vayu: [450, 155, 'triangle'] }[elementFamily(element)];
+        const fam = elementFamily(element);
+        const [start, end, wave] = ({
+          fire: [240, 100, 'sawtooth'],
+          ice: [690, 970, 'sine'],
+          lightning: [950, 410, 'square'],
+          earth: [165, 68, 'triangle'],
+          water: [520, 740, 'sine'],
+          wind: [450, 155, 'triangle'],
+          vayu: [450, 155, 'triangle'],
+        }[fam] ?? [330, 180, 'triangle']);
         this.tone(event.size > 1 ? start / 1.4 : start, event.form === 'beam' ? 0.15 : 0.10, 'sfx', wave, 0, end);
       }
       if (event.pierce && !event.blocked) this.tone(1150, 0.065, 'sfx', 'triangle', 0.02, 520);

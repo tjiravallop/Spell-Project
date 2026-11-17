@@ -33,6 +33,9 @@ export const CARD_META = Object.freeze({
   fire: { roleClass: 'role-element' },
   ice: { roleClass: 'role-element' },
   lightning: { roleClass: 'role-element' },
+  earth: { roleClass: 'role-element' },
+  water: { roleClass: 'role-element' },
+  wind: { roleClass: 'role-element' },
   pair: { roleClass: 'role-mod' },
   blast: { roleClass: 'role-mod' },
   devastation: { roleClass: 'role-mod' },
@@ -43,7 +46,11 @@ export const CARD_META = Object.freeze({
   burn: { roleClass: 'role-mod' },
   freeze: { roleClass: 'role-mod' },
   push: { roleClass: 'role-mod' },
+  pull: { roleClass: 'role-mod' },
   pierce: { roleClass: 'role-mod' },
+  seal: { roleClass: 'role-mod' },
+  dispel: { roleClass: 'role-mod' },
+  brace: { roleClass: 'role-defense' },
   large: { roleClass: 'role-mod' },
   grand: { roleClass: 'role-mod' },
 });
@@ -78,13 +85,20 @@ const pendingFxRestarts = new Map();
 export function queueFxClassRestart(el, removeClasses, addClass) {
   if (!el) return;
   el.classList.remove(...removeClasses);
-  if (!addClass) return;
-  pendingFxRestarts.set(el, addClass);
+  const queued = pendingFxRestarts.get(el);
+  if (queued) {
+    for (const cls of removeClasses) queued.delete(cls);
+  }
+  const nextClasses = typeof addClass === 'string' ? addClass.trim().split(/\s+/).filter(Boolean) : [];
+  if (!nextClasses.length) return;
+  const targetSet = queued ?? new Set();
+  for (const cls of nextClasses) targetSet.add(cls);
+  pendingFxRestarts.set(el, targetSet);
   if (!fxRafId) {
     fxRafId = requestAnimationFrame(() => {
       fxRafId = 0;
-      for (const [node, cls] of pendingFxRestarts.entries()) {
-        if (node.isConnected) node.classList.add(cls);
+      for (const [node, classes] of pendingFxRestarts.entries()) {
+        if (node.isConnected && classes.size) node.classList.add(...classes);
       }
       pendingFxRestarts.clear();
     });

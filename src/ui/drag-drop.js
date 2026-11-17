@@ -34,7 +34,10 @@ export function initDragDrop(ctx) {
       document.body.classList.add('is-dragging');
     }
     drag.ghost.style.transform = `translate(${event.clientX - 64}px, ${event.clientY - 88}px) rotate(-4deg) scale(1.04)`;
-    document.querySelectorAll('.drop-hover').forEach(el => el.classList.remove('drop-hover'));
+    document.querySelectorAll('.drop-hover').forEach(el => {
+      el.classList.remove('drop-hover');
+      delete el.dataset.dragPreview;
+    });
     $('word-bank')?.classList.remove('drop-return-hover');
     $('spell-slots')?.classList.remove('drop-zone-active');
     const hovered = document.elementFromPoint(event.clientX, event.clientY);
@@ -42,6 +45,7 @@ export function initDragDrop(ctx) {
     const inSlotsArea = hovered?.closest('#spell-slots');
     if (slotEl) {
       slotEl.classList.add('drop-hover');
+      slotEl.dataset.dragPreview = WORDS[drag.id].label;
       const slotIdx = Number(slotEl.dataset.slot);
       const slotNum = slotIdx + 1;
       drag.ghost.classList.remove('will-remove');
@@ -73,7 +77,10 @@ export function initDragDrop(ctx) {
     current.ghost?.remove();
     current.handle.closest('.word-item, .spell-slot')?.classList.remove('dragging-source');
     document.body.classList.remove('is-dragging');
-    document.querySelectorAll('.drop-hover, .slot-preview-hover').forEach(el => el.classList.remove('drop-hover', 'slot-preview-hover'));
+    document.querySelectorAll('.drop-hover, .slot-preview-hover').forEach(el => {
+      el.classList.remove('drop-hover', 'slot-preview-hover');
+      delete el.dataset.dragPreview;
+    });
     $('word-bank')?.classList.remove('drop-return-hover');
     $('spell-slots')?.classList.remove('drop-zone-active');
     ctx.setSuppressNextClick(true);

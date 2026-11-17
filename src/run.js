@@ -1,4 +1,4 @@
-import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, ASCENDED_ELEMENTS, FUSED_ELEMENTS } from './words.js';
+import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, ASCENDED_ELEMENTS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS } from './words.js';
 import { RIFT_ENEMIES, RIFT_TOWER, SPACED_FLOORS } from './upper-tower.js';
 import { MIDDLE_BATTLES, MIDDLE_ENEMIES } from './middle-tower.js';
 
@@ -684,6 +684,7 @@ export function prepareEnemies(state) {
       enemy.armor = phase === 1 ? 4 : phase === 2 ? 5 : phase === 3 ? 3 : 0;
     }
     if (enemy.magmaArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
+    if (enemy.earthArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - (enemy.earthArmorShred ?? 1));
     if (enemy.wardGrant) {
       if (enemy.hp > 0) enemy.ward = Math.min(3, enemy.ward + enemy.wardGrant);
       delete enemy.wardGrant;
@@ -832,7 +833,7 @@ export function getRewardPool(state) {
     if (id === 'self' && !ownsRewardWord(state, 'heal')) return false;
     if (id === 'pull') return state.room >= PULL_REWARD_ROOM;
     if (UPPER_REWARD_WORDS.includes(id)) return state.room >= FLOOR25_BOSS_ROOM;
-    if (Object.hasOwn(ASCENDED_ELEMENTS, id) || id === 'vayu') return state.room >= FLOOR30_BOSS_ROOM;
+    if (Object.hasOwn(SECOND_TIER_ELEMENTS, id)) return state.room >= FLOOR30_BOSS_ROOM;
     return state.room >= getFloorStartRoom(3) || !START_WORDS.includes(id);
   });
 }

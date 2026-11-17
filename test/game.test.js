@@ -1,16 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSpell, WORDS, START_WORDS, ELEMENTS, FUSED_ELEMENTS, DEVASTATION_FORMULAS, getSpellCatalog } from '../src/words.js';
+import { parseSpell, WORDS, START_WORDS, ELEMENTS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, DEVASTATION_FORMULAS, getSpellCatalog, elementFamily } from '../src/words.js';
 import {
   createRun, createEnemy, prepareEnemies, chooseReward, equipWords, makeRewards, intent, discardOverflow, isBossRoom, ENEMIES,
   getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
   enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom,
-  RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
+  getRewardPool, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
   FLOOR5_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR15_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR20_BOSS_ROOM,
   FLOOR21_START_ROOM, FLOOR25_BOSS_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS,
 } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
 import { Battlefield } from '../src/render.js';
+import { GameAudio } from '../src/audio.js';
+import { cardMeta } from '../src/ui/dom.js';
 import { saveRun, loadRun, validateRun, SAVE_KEY, BACKUP_KEY, loadSettings, storeSettings } from '../src/save.js';
 import { getBattleStory, getBossRewardStory, getLoadoutTransitionStory, getSanctuaryStory } from '../src/story.js';
 import { computePlayableCombos, canFormPhraseInHand, describeFormulaEffect, MASTER_FORMULAS } from '../src/combos.js';
@@ -962,7 +964,12 @@ test('seeded tower run wins nine fights, sees three drafts, and reloads each che
       const replay = structuredClone(state);
       assert.deepEqual(replay.rewards, state.rewards);
       drafts.push(state.room);
-      state = chooseReward(state, state.rewards.find(id => id === 'beam') ?? state.rewards.find(id => id === 'blast') ?? state.rewards[0]);
+      state = chooseReward(
+        state,
+        state.rewards.find(id => !state.player.words.includes(id) && (id === 'beam' || id === 'blast'))
+          ?? state.rewards.find(id => !state.player.words.includes(id))
+          ?? state.rewards[0]
+      );
     } else if (state.phase === 'loadout') {
       state = equipWords(state, state.player.words);
     } else {
@@ -2323,8 +2330,8 @@ test('grand storm element pair casts without fizzling, adds mana cost, +2 pierce
 
   assert.equal(parseSpell(['grand', 'storm', 'akki', 'pair']).cost, 18);
   assert.equal(parseSpell(['grand', 'storm', 'magma', 'pair']).cost, 20);
-  // Still rejects unrelated multi-tail grand combos
-  assert.equal(parseSpell(['grand', 'beam', 'fire', 'pair']).ok, false);
+  // Still rejects invalid multi-tail grand combos (e.g. non-ice freeze)
+  assert.equal(parseSpell(['grand', 'beam', 'fire', 'freeze']).ok, false);
 
   const center = 'enemy-2';
   const res = cast(state, 'grand storm fire pair', center);
@@ -2347,3 +2354,360 @@ test('grand storm element pair casts without fizzling, adds mana cost, +2 pierce
   // Center takes Wave 2 (14): 52->38; neighbors take Wave 1 (12) + Wave 2 (7) + Wave 2 grand (7) = 26 -> 26
   assert.deepEqual(hp(warded), [52, 26, 38, 26, 52]);
 });
+
+test('shot blast variants and grand shield pair parse, register in catalog, and outperform plain blast', () => {
+  const catalog = getSpellCatalog();
+  const expectedCosts = [
+    ['shot blast', 5],
+    ['shot blast pair', 10],
+    ['shot blast large', 7],
+    ['shot blast large pair', 14],
+    ['shot blast pair large', 14],
+    ['shot blast fire', 7],
+    ['shot blast fire pair', 14],
+    ['shot blast pair fire', 14],
+    ['shot blast fire large', 9],
+    ['shot blast large fire', 9],
+    ['shot blast fire ice', 8],
+    ['shot blast ice fire', 8],
+    ['shot blast devastation', 10],
+    ['shot blast fire devastation', 12],
+    ['grand shot blast', 8],
+    ['grand shot blast fire', 10],
+    ['grand shield pair', 12],
+  ];
+  for (const [phrase, cost] of expectedCosts) {
+    const parsed = parseSpell(phrase.split(' '));
+    assert.equal(parsed.ok, true, phrase);
+    assert.equal(parsed.cost, cost, phrase);
+    assert.equal(catalog.has(phrase), true, `catalog missing: ${phrase}`);
+  }
+  assert.deepEqual(parseSpell(['shot', 'blast', 'fire', 'ice']).spell, parseSpell(['shot', 'blast', 'ice', 'fire']).spell);
+  assert.deepEqual(parseSpell(['shot', 'blast', 'fire', 'pair']).spell, parseSpell(['shot', 'blast', 'pair', 'fire']).spell);
+  assert.equal(parseSpell(['shot', 'blast', 'fire', 'fire']).ok, false);
+  assert.equal(parseSpell(['shot', 'blast', 'blast']).ok, false);
+  assert.equal(parseSpell(['grand', 'shield', 'pair', 'devastation']).ok, false);
+
+  const state = battle(['rune_ram', 'rune_ram', 'rune_ram']);
+  state.player.maxMana = state.player.mana = 20;
+  state.player.maxHp = state.player.hp = 120;
+  for (const enemy of state.enemies) enemy.armor = 0;
+  const hp = result => Object.values(result.summary.enemyHp);
+
+  // shot blast (5 MP): projectile 8 + radius-1 blast ceil(8*0.6)=5 => 13 center / 5 neighbors vs blast (6 center / 3 neighbors)
+  const plainBlast = cast(state, 'blast', 'enemy-1');
+  const shellBlast = cast(state, 'shot blast', 'enemy-1');
+  assert.deepEqual(hp(plainBlast), [49, 46, 49]);
+  assert.deepEqual(hp(shellBlast), [47, 39, 47]);
+  assert.ok(shellBlast.summary.damage > plainBlast.summary.damage);
+
+  // shot blast fire (7 MP): projectile 10 + radius-1 fire blast 6 => 16 center / 6 neighbors vs blast fire (10 center / 5 neighbors)
+  const fireBlast = cast(state, 'blast fire', 'enemy-1');
+  const fireShell = cast(state, 'shot blast fire', 'enemy-1');
+  assert.deepEqual(hp(fireBlast), [47, 42, 47]);
+  assert.deepEqual(hp(fireShell), [46, 36, 46]);
+  assert.ok(fireShell.summary.damage > fireBlast.summary.damage);
+
+  // Ward interaction differs: blast fire skips warded center without breaking ward, whereas shot blast fire pops ward as a projectile
+  state.enemies[1].ward = 1;
+  const wardedBlast = cast(state, 'blast fire', 'enemy-1');
+  const wardedShell = cast(state, 'shot blast fire', 'enemy-1');
+  assert.equal(wardedBlast.summary.enemyStatus['enemy-1'].ward, 1);
+  assert.equal(wardedBlast.summary.wards, 0);
+  assert.equal(wardedShell.summary.enemyStatus['enemy-1'].ward, 0);
+  assert.equal(wardedShell.summary.wards, 1);
+  assert.equal(wardedShell.summary.damage, 0);
+  state.enemies[1].ward = 0;
+
+  // shot blast large: 1.5x projectile (12) + blast (8) => 20 center / 8 neighbors
+  const largeShell = cast(state, 'shot blast large', 'enemy-1');
+  assert.deepEqual(hp(largeShell), [44, 32, 44]);
+
+  // shot blast fire ice: dual element projectile (avg 8) + chill 2 + blast (5) => 13 center / 5 neighbors, all chilled
+  const dualShell = cast(state, 'shot blast fire ice', 'enemy-1');
+  assert.deepEqual(hp(dualShell), [47, 39, 47]);
+  assert.equal(dualShell.summary.enemyStatus['enemy-0'].chill, 2);
+  assert.equal(dualShell.summary.enemyStatus['enemy-1'].chill, 4);
+
+  // shot blast pair & shot blast fire pair hit two selected targets
+  const pairedShell = cast(state, 'shot blast fire pair', 'enemy-0', 'enemy-2');
+  assert.equal(pairedShell.events.filter(ev => ev.type === 'projectile').length, 2);
+  assert.equal(pairedShell.events.filter(ev => ev.type === 'blast').length, 2);
+  // enemy-0: 16 direct + 6 splash from enemy-2? slot diff is 2 so no overlap -> enemy-0: 16, enemy-1: 6+6=12, enemy-2: 16
+  assert.deepEqual(hp(pairedShell), [36, 40, 36]);
+
+  // grand shield pair: 2 layers x 12 = 24 shield, renews +3 on front layer when remaining
+  const defState = battle(['striker']);
+  defState.player.maxMana = defState.player.mana = 15;
+  const grandShieldPair = cast(defState, 'grand shield pair');
+  assert.deepEqual(grandShieldPair.state.player.shield.layers, [12, 12]);
+  assert.equal(grandShieldPair.events.at(-1).restored, 3);
+  assert.equal(grandShieldPair.summary.shield, 24);
+});
+
+test('expanded heal, shield, blast, form modifiers, grand pairs, and epic/legendary extensions work in catalog and combat', () => {
+  const catalog = getSpellCatalog();
+  const validPhrases = [
+    ['heal pair', 6], ['heal self pair', 6], ['heal large pair', 10], ['heal self large pair', 10],
+    ['grand heal large', 9], ['grand heal self large', 9],
+    ['shield heal large', 7], ['shield fire heal', 6], ['shield fire heal pair', 8],
+    ['shield brace pair', 8], ['shield pair brace', 8], ['shield large brace', 6], ['shield brace large', 6],
+    ['grand shield large', 8], ['grand shield fire', 7], ['grand shield brace', 7],
+    ['veil pair', 14], ['veil large', 9], ['veil large pair', 18], ['grand veil', 10],
+    ['blast pair', 7], ['blast large', 6], ['blast large pair', 9], ['blast fire large', 8],
+    ['blast devastation', 9], ['blast fire devastation', 11], ['grand blast fire ice', 10],
+    ['shot blast fire burn', 8], ['shot blast ice freeze', 10], ['shot blast fire pierce', 8],
+    ['shot blast fire push', 8], ['shot blast fire dispel', 9], ['shot blast fire seal', 9],
+    ['beam fire burn', 5], ['beam fire large', 6], ['beam fire blast', 6], ['beam fire pierce', 5],
+    ['wave fire large', 7], ['wave ice freeze', 8], ['wave fire burn', 6], ['wave fire pull', 6],
+    ['storm fire large', 9], ['storm fire burn', 8], ['storm ice freeze', 10], ['storm fire seal', 9],
+    ['grand beam fire pair', 14], ['grand wave fire pair', 16],
+    ['meteor large', 11], ['meteor pair', 18], ['grand meteor', 12], ['meteor devastation', 14],
+    ['blackhole large', 12], ['grand blackhole', 13], ['blackhole devastation', 15],
+  ];
+  for (const [phrase, cost] of validPhrases) {
+    const parsed = parseSpell(phrase.split(' '));
+    assert.equal(parsed.ok, true, phrase);
+    assert.equal(parsed.cost, cost, phrase);
+    assert.equal(catalog.has(phrase), true, `catalog missing: ${phrase}`);
+  }
+  // Ensure ice-only freeze and grand-blast rules remain strict
+  assert.equal(parseSpell(['beam', 'fire', 'freeze']).ok, false);
+  assert.equal(parseSpell(['wave', 'fire', 'freeze']).ok, false);
+  assert.equal(parseSpell(['storm', 'fire', 'freeze']).ok, false);
+  assert.equal(parseSpell(['grand', 'blast']).ok, false);
+  assert.equal(parseSpell(['death', 'pair']).ok, false);
+
+  // Word order on shield heal + large: shield large heal (9 shield, 4 heal) vs shield heal large (6 shield, 8 heal)
+  const shState = battle(['striker']);
+  shState.player.hp = 10;
+  const shieldBig = cast(shState, 'shield large heal');
+  const healBig = cast(shState, 'shield heal large');
+  assert.equal(shieldBig.summary.healed, 4);
+  assert.equal(shieldBig.summary.shield, 6);
+  assert.equal(healBig.summary.healed, 8);
+  assert.equal(healBig.summary.shield, 3);
+
+  // grand veil: 18 veil + renews +4 next turn; striker deals 3 => 15 + 3 = 18 (capped at 18)
+  const veilRes = cast(battle(['striker']), 'grand veil');
+  assert.equal(veilRes.state.player.shield.effect, 'veil');
+  assert.equal(veilRes.state.player.shield.layers[0], 18);
+
+  // meteor pair hits two chosen targets; meteor devastation adds radius-2 burst
+  const mState = battle(['rune_ram', 'rune_ram', 'rune_ram', 'rune_ram']);
+  mState.player.maxMana = mState.player.mana = 24;
+  for (const enemy of mState.enemies) { enemy.armor = 0; enemy.hp = 80; }
+  const pairMeteor = cast(mState, 'meteor pair', 'enemy-0', 'enemy-3');
+  assert.equal(pairMeteor.events.filter(ev => ev.type === 'blast').length, 2);
+  assert.deepEqual(Object.values(pairMeteor.summary.enemyHp), [52, 70, 70, 52]);
+
+  mState.enemies[1].hp = 100;
+  const devMeteor = cast(mState, 'meteor devastation', 'enemy-1');
+  assert.equal(devMeteor.events.some(ev => ev.type === 'blast' && ev.devastation), true);
+  assert.equal(devMeteor.summary.enemyHp['enemy-1'], 100 - 56 - 28);
+
+  // blast fire devastation triggers both blast and radius-2 devastation shockwave
+  const blastDev = cast(mState, 'blast fire devastation', 'enemy-1');
+  assert.equal(blastDev.events.some(ev => ev.type === 'blast' && ev.devastation), true);
+  assert.ok(blastDev.summary.damage > cast(mState, 'blast fire', 'enemy-1').summary.damage);
+
+  // grand beam fire pair & grand wave fire pair execute cleanly with grand shockwaves
+  const gBeam = cast(mState, 'grand beam fire pair', 'enemy-1', 'enemy-2');
+  assert.equal(gBeam.events.filter(ev => ev.type === 'projectile').length, 2);
+  assert.equal(gBeam.events.filter(ev => ev.type === 'blast').length, 2);
+  const gWave = cast(mState, 'grand wave fire pair', 'enemy-1');
+  assert.equal(gWave.events.filter(ev => ev.type === 'blast').length, 2);
+
+  // blackhole large sets power = 45
+  const bh = cast(mState, 'blackhole large', 'slot-1');
+  assert.equal(bh.state.blackhole.power, 45);
+});
+
+test('grand prefix supports all valid 1-3 word attack, shield, veil, heal, meteor, and blackhole combos', () => {
+  const catalog = getSpellCatalog();
+  const grandPhrases = [
+    ['grand shot blast pair', 16],
+    ['grand shot blast large', 10],
+    ['grand shot fire large', 8],
+    ['grand beam fire large', 9],
+    ['grand beam fire burn', 8],
+    ['grand wave fire large', 10],
+    ['grand storm fire large', 12],
+    ['grand storm fire ice', 11],
+    ['grand blast pair', 10],
+    ['grand blast large', 9],
+    ['grand blast fire large', 11],
+    ['grand meteor large', 14],
+    ['grand meteor pair', 24],
+    ['grand blackhole large', 15],
+    ['grand shield fire pair', 14],
+    ['grand shield fire large', 9],
+    ['grand shield large pair', 16],
+    ['grand shield brace pair', 14],
+    ['grand shield heal', 9],
+    ['grand veil large', 12],
+    ['grand veil pair', 20],
+    ['grand heal pair', 14],
+    ['grand heal self pair', 14],
+  ];
+  for (const [phrase, cost] of grandPhrases) {
+    const parsed = parseSpell(phrase.split(' '));
+    assert.equal(parsed.ok, true, phrase);
+    assert.equal(parsed.cost, cost, phrase);
+    assert.equal(catalog.has(phrase), true, `catalog missing: ${phrase}`);
+  }
+  assert.equal(parseSpell(['grand', 'death']).ok, false);
+  assert.equal(parseSpell(['grand', 'blast']).ok, false);
+
+  // Verify grand shield heal grants 12-HP shield, immediate heal 6, and next-turn heal 4 + shield renewal
+  const state = battle(['striker']);
+  state.player.maxMana = state.player.mana = 24;
+  state.player.maxHp = 50;
+  state.player.hp = 20;
+  const gsh = cast(state, 'grand shield heal');
+  assert.equal(gsh.state.player.shield.layers[0], 12);
+  assert.equal(gsh.summary.healed, 10);
+  assert.equal(gsh.state.player.hp, 30);
+
+  // Verify grand shot blast large deals scaled projectile (18) + shell blast (11) + grand neighbor splash (9+11 = 20)
+  const atkState = battle(['rune_ram', 'rune_ram', 'rune_ram']);
+  atkState.player.maxMana = atkState.player.mana = 24;
+  for (const enemy of atkState.enemies) { enemy.armor = 0; enemy.hp = 60; }
+  const gsbl = cast(atkState, 'grand shot blast large', 'enemy-1');
+  assert.deepEqual(Object.values(gsbl.summary.enemyHp), [40, 31, 40]);
+
+  // Verify grand meteor pair drops 2 boosted meteors (42 center each)
+  const gmp = cast(atkState, 'grand meteor pair', 'enemy-0', 'enemy-2');
+  assert.equal(gmp.events.filter(ev => ev.type === 'blast').length, 2);
+  assert.deepEqual(Object.values(gmp.summary.enemyHp), [18, 30, 18]);
+});
+
+test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance, combine, react, persist, and render cleanly', () => {
+  const catalog = getSpellCatalog();
+  const storage = new MemoryStorage();
+
+  // Balance & family parity: Tier-1 = 2 MP, Tier-2 = 5 MP (2x damage), Tier-3 = 7 MP
+  for (const [t1, t2, dmg1] of [['earth', 'pathaphi', 8], ['water', 'wari', 7], ['wind', 'vayu', 7]]) {
+    assert.equal(WORDS[t1].cost, 2);
+    assert.equal(WORDS[t1].damage, dmg1);
+    assert.equal(WORDS[t2].cost, 5);
+    assert.equal(WORDS[t2].damage, dmg1 * 2);
+    assert.equal(WORDS[t2].rarity, 'special');
+    assert.equal(SECOND_TIER_ELEMENTS[t2], t1);
+    assert.equal(elementFamily(t2), t1);
+    assert.equal(cardMeta(t1).roleClass, 'role-element');
+    assert.equal(cardMeta(t2).roleClass, 'role-element');
+    assert.equal(catalog.has(`shot ${t1}`), true);
+    assert.equal(catalog.has(`shot ${t2}`), true);
+    assert.equal(catalog.has(`shield ${t1}`), true);
+    assert.equal(catalog.has(`shield ${t2}`), true);
+    assert.equal(catalog.has(`storm ${t1}`), true);
+    assert.equal(catalog.has(`grand shot ${t2}`), true);
+  }
+
+  // Early reward pool includes Tier-1 earth/water/wind, while Tier-2 pathaphi/wari/vayu gate at Floor 30+
+  const earlyRun = createRun('elem-pool', false);
+  earlyRun.room = 1;
+  const earlyPool = getRewardPool(earlyRun);
+  for (const id of ['earth', 'water', 'wind']) assert.equal(earlyPool.includes(id), true);
+  for (const id of ['pathaphi', 'wari', 'vayu']) assert.equal(earlyPool.includes(id), false);
+  const lateRun = createRun('elem-pool-late', false);
+  lateRun.room = FLOOR30_BOSS_ROOM;
+  const latePool = getRewardPool(lateRun);
+  for (const id of ['pathaphi', 'wari', 'vayu']) assert.equal(latePool.includes(id), true);
+
+  // Earth: 8 dmg - armor(2) = 6 dmg, grants +2 block (reduces rune_ram 6 -> 4), shreds 1 armor until turn + 1 & persists in save
+  const earthState = battle(['rune_ram']); // hp 52, armor 2, attacks on turn 1 for 6
+  earthState.player.maxHp = earthState.player.hp = 50;
+  earthState.collection.push('earth', 'pathaphi');
+  earthState.learned.push('earth', 'pathaphi');
+  earthState.player.words = [...START_WORDS, 'earth', 'pathaphi'];
+  earthState.player.hand = ['shot', 'earth', 'pathaphi'];
+  const earthHit = cast(earthState, 'shot earth');
+  assert.equal(earthHit.summary.damage, 6);
+  assert.equal(earthHit.summary.blocked, 2);
+  assert.equal(earthHit.summary.incoming, 4);
+  assert.equal(earthHit.state.enemies[0].armor, 1);
+  assert.equal(earthHit.state.enemies[0].earthArmorUntil, 2);
+  assert.equal(earthHit.state.enemies[0].earthArmorShred, 1);
+  assert.equal(saveRun(earthHit.state, storage).ok, true);
+  const loadedEarth = loadRun(storage).state;
+  assert.equal(loadedEarth.enemies[0].armor, 1);
+  // Expiry at end of turn 2 restores base armor = 2 on turn 3
+  const afterTurn2 = cast(loadedEarth, 'guard');
+  assert.equal(afterTurn2.state.enemies[0].armor, 2);
+  assert.equal(afterTurn2.state.enemies[0].earthArmorUntil, undefined);
+
+  // Pathaphi: 16 dmg - armor(2) = 14 dmg, grants +4 block (reduces rune_ram 6 -> 2), shreds 2 armor (2 -> 0)
+  const pathaHit = cast(earthState, 'shot pathaphi');
+  assert.equal(pathaHit.summary.damage, 14);
+  assert.equal(pathaHit.summary.blocked, 4);
+  assert.equal(pathaHit.summary.incoming, 2);
+  assert.equal(pathaHit.state.enemies[0].armor, 0);
+
+  // Shield Earth & Shield Pathaphi counter-shred attacker armor and deal earth damage
+  const earthShield = cast(battle(['rune_ram']), 'shield earth');
+  assert.equal(earthShield.summary.damage, 2); // armor drops 2->1 first, then 3 tremor - 1 armor = 2
+  assert.equal(earthShield.state.enemies[0].armor, 1);
+  const pathaShield = cast(battle(['rune_ram']), 'shield pathaphi');
+  assert.equal(pathaShield.summary.damage, 5); // armor drops 2->0 first, then 5 quake - 0 armor = 5
+  assert.equal(pathaShield.state.enemies[0].armor, 0);
+
+  // Water conductivity with Lightning & Hail freeze, plus Wari neighbor wet splash + chill
+  const wetComboState = battle(['striker', 'striker']); // hp 16, armor 0
+  const waterFirst = cast(wetComboState, 'shot water', 'enemy-0');
+  assert.equal(waterFirst.summary.damage, 7);
+  assert.equal(waterFirst.state.enemies[0].wetUntil, 2);
+  waterFirst.state.player.mana = 12;
+  const lightningFollow = cast(waterFirst.state, 'shot lightning', 'enemy-0');
+  // 8 base + 2 wet conductivity = 10 dmg on wet target (exceeds 16 - 7 = 9, so kills enemy-0!)
+  assert.equal(lightningFollow.events.find(ev => ev.type === 'damage').amount, 10);
+  assert.equal(lightningFollow.summary.enemyHp['enemy-0'], 0);
+
+  // Dual fusion: shot water pair lightning => avg(7, 8)=7.5 + 2 conductivity = 9.5 -> ceil 10 dmg, wets target
+  const fusedShock = cast(battle(['rune_ram']), 'shot water pair lightning');
+  assert.equal(fusedShock.summary.cost, 5);
+  assert.equal(fusedShock.summary.damage, 10);
+  assert.equal(fusedShock.state.enemies[0].wetUntil, 2);
+
+  // Water -> Hail freezes cleanly (use void_imp so target survives hail impact and has normal attack intent)
+  const hailState = battle(['void_imp']);
+  hailState.player.maxMana = 20;
+  hailState.player.mana = 20;
+  const wetTarget = cast(hailState, 'shot water', 'enemy-0');
+  wetTarget.state.player.mana = 20;
+  const wetHail = cast(wetTarget.state, 'shot hail', 'enemy-0');
+  assert.equal(wetHail.summary.enemyActions['enemy-0'].type, 'frozen');
+
+  // Wari: 14 dmg, chill +2 (reduces striker 3 -> 1), wets main target AND adjacent enemy
+  const wariRes = cast(battle(['striker', 'striker', 'striker']), 'shot wari', 'enemy-1');
+  assert.equal(wariRes.summary.damage, 14);
+  assert.equal(wariRes.state.enemies[0].wetUntil, 2);
+  assert.equal(wariRes.state.enemies[1].wetUntil, 2);
+  assert.equal(wariRes.state.enemies[2].wetUntil, 2);
+  assert.equal(wariRes.state.enemies[1].chill, 0); // spent on striker turn 1 attack (3 - 2 = 1)
+  assert.equal(wariRes.events.find(ev => ev.type === 'attack' && ev.source === 'enemy-1').rawAttack, 1);
+
+  // Wind & Vayu push behavior (Tier-2 deals 2x Tier-1 damage)
+  const windHit = cast(battle(['rune_ram']), 'shot wind');
+  assert.equal(windHit.summary.damage, 5); // 7 - 2 armor
+  assert.equal(windHit.state.enemies[0].slot, 1);
+  const vayuHit = cast(battle(['rune_ram']), 'shot vayu');
+  assert.equal(vayuHit.summary.damage, 12); // 14 - 2 armor
+  assert.equal(vayuHit.state.enemies[0].slot, 1);
+  assert.equal(cast(battle(['rune_ram']), 'shield wind').state.enemies[0].slot, 1);
+
+  // Audio playback & formula descriptions cover all ELEMENTS without throwing
+  const audio = new GameAudio({ music: 0, sfx: 0, ui: 0 });
+  for (const id of ELEMENTS) {
+    assert.doesNotThrow(() => audio.combat({ type: 'projectile', form: 'shot', elements: [id], element: id, size: 1, blocked: false }));
+    const atkDesc = describeFormulaEffect({ phrase: ['shot', id], spell: parseSpell(['shot', id]).spell });
+    const shdDesc = describeFormulaEffect({ phrase: ['shield', id], spell: parseSpell(['shield', id]).spell });
+    assert.ok(atkDesc.length > 0, id);
+    assert.ok(shdDesc.length > 0, id);
+  }
+});
+
+
+
+

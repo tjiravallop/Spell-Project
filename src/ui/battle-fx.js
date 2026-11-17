@@ -60,11 +60,30 @@ export function pulsePlayerHud(kind = 'shield') {
   }
 }
 
+const CAST_ELEM_CLASSES = ['cast-elem-fire', 'cast-elem-ice', 'cast-elem-lightning', 'cast-elem-earth', 'cast-elem-water', 'cast-elem-wind', 'cast-elem-shield', 'cast-elem-heal'];
+const CAST_BURST_CLASSES = ['cast-burst-fire', 'cast-burst-ice', 'cast-burst-lightning'];
+const CANVAS_IMPACT_CLASSES = [
+  'canvas-impact-fire', 'canvas-impact-ice', 'canvas-impact-lightning',
+  'canvas-impact-earth', 'canvas-impact-water', 'canvas-impact-wind',
+  'canvas-impact-blast', 'canvas-impact-ward', 'canvas-impact-shield',
+  'canvas-impact-heal', 'canvas-impact-death', 'canvas-impact-meteor',
+  'canvas-impact-blackhole', 'canvas-impact-veil', 'canvas-impact-brace',
+  'canvas-impact-grand',
+];
+const DIRECT_OVERLAY_THEMES = new Set(['death', 'meteor', 'blackhole', 'veil', 'brace', 'grand', 'blast', 'ward', 'shield', 'heal']);
+
+function resolveOverlayTheme(elem, fallback = 'fire') {
+  if (!elem) return fallback;
+  if (DIRECT_OVERLAY_THEMES.has(elem)) return elem;
+  return elementFamily(elem);
+}
+
 export function pulseSpellSlotsElem(elem = 'fire') {
   const family = elementFamily(elem);
   const slots = $('spell-slots');
   if (!slots) return;
-  queueFxClassRestart(slots, ['cast-elem-fire', 'cast-elem-ice', 'cast-elem-lightning', 'cast-elem-shield', 'cast-elem-heal'], `cast-elem-${family}`);
+  const burstClass = family === 'fire' || family === 'ice' || family === 'lightning' ? ` cast-burst-${family}` : '';
+  queueFxClassRestart(slots, [...CAST_ELEM_CLASSES, ...CAST_BURST_CLASSES], `cast-elem-${family}${burstClass}`);
 }
 
 export function createBattleFxController({ getState, getTargetId, getSettings, getAudio, getBattlefield }) {
@@ -189,6 +208,41 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     layer.innerHTML = `<span class="canvas-impact-node elem-fire" style="--impact-x:${x}%;--impact-y:${y}%"><span class="impact-shock-ring"></span></span>`;
   }
 
+  function pulseElementalOverlay(elem, impactX = 64, impactY = 64, { grand = false, large = false, boosted = false, withVignette = false } = {}) {
+    if (getSettings().reducedMotion) return;
+    const theme = resolveOverlayTheme(elem, 'fire');
+    const canvas = $('battle-canvas');
+    if (canvas) queueFxClassRestart(canvas, CANVAS_IMPACT_CLASSES, `canvas-impact-${theme}`);
+    const layer = $('canvas-impact-layer');
+    if (!layer) return;
+    const isGrand = Boolean(grand);
+    const isLarge = Boolean(!isGrand && large);
+    const isBoosted = Boolean(!isGrand && !isLarge && boosted);
+    const hasSecondaryRing = isGrand || isLarge || isBoosted;
+    const shardCount = isGrand ? 8 : (isLarge || isBoosted) ? 6 : 4;
+    const shards = Array.from({ length: shardCount }, (_, idx) => `<i style="--ang:${Math.round(idx * (360 / shardCount))}deg"></i>`).join('');
+    const sizeClass = isGrand ? 'is-grand' : isLarge ? 'is-large' : isBoosted ? 'is-boosted' : 'is-compact';
+    const hasCrest = theme === 'ice' || theme === 'fire' || theme === 'blast' || theme === 'meteor';
+    layer.innerHTML = `
+      ${withVignette ? `<span class="canvas-impact-vignette elem-${theme}"></span>` : ''}
+      <span class="canvas-impact-node ${sizeClass} elem-${theme}" style="--impact-x:${impactX}%;--impact-y:${impactY}%">
+        <span class="impact-core-flare"></span>
+        <span class="impact-shock-ring"></span>
+        ${hasSecondaryRing ? '<span class="impact-shock-ring ring-secondary"></span>' : ''}
+        ${hasCrest ? '<span class="impact-prism-crest"></span>' : ''}
+        <span class="impact-shards">${shards}</span>
+      </span>`;
+  }
+
+  function enemyImpactCoords(enemyId, fallbackX = 64) {
+    const enemy = getState()?.enemies?.find(candidate => candidate.id === enemyId);
+    if (!enemy) return { x: fallbackX, y: 64 };
+    return {
+      x: getBattlefield().enemyX(enemy) / 3.2,
+      y: ENEMIES[enemy.kind]?.isBoss ? 58 : 66,
+    };
+  }
+
   function handleCombatStep(event) {
     const state = getState();
     const audio = getAudio();
@@ -200,9 +254,20 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         const form = WORDS[event.form]?.label ?? event.form;
         const element = (event.elements ?? [event.element]).map(id => WORDS[id]?.label ?? id).join('+');
         if (event.element !== 'storm') pulseSpellSlotsElem(event.element ?? 'fire');
+        if (!event.blocked) {
+          const { x, y } = enemyImpactCoords(event.target);
+          pulseElementalOverlay(event.element ?? 'fire', x, y, {
+            grand: Boolean(event.grand),
+            large: Boolean(event.large),
+            boosted: Boolean(event.shellBlast),
+            withVignette: Boolean(event.grand),
+          });
+        }
         if (event.blocked) {
           triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
           spawnEnemyPop(event.target, 'กันม่าน', 'ward');
+          const { x, y } = enemyImpactCoords(event.target);
+          pulseElementalOverlay('ward', x, y);
           const wardBadge = document.querySelector(`#target-${event.target} .badge-ward:not(.badge-sealed)`);
           if (wardBadge) {
             if (event.wardRemaining > 0) wardBadge.textContent = `🔮 ม่าน ${event.wardRemaining}`;
@@ -217,6 +282,15 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         break;
       }
       case 'damage': {
+        if (event.element === 'death' && event.amount > 0) {
+          const { x, y } = enemyImpactCoords(event.target);
+          pulseElementalOverlay('death', x, y, {
+            grand: Boolean(event.grand),
+            large: Boolean(event.large),
+            boosted: true,
+            withVignette: true,
+          });
+        }
         if (event.amount > 0) {
           changeAnimatedEnemyHp(event.target, -(event.actual ?? event.amount));
           triggerEnemyCardFx(event.target, 'enemy-hit-shake');
@@ -234,6 +308,23 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         pulseSpellSlotsElem(event.element ?? 'fire');
         const label = event.element === 'blackhole' ? 'หลุมดำยุบ' : event.element === 'meteor' ? 'อุกกาบาตตก' : event.devastation ? 'ทำลายล้าง' : event.radius === 2 ? 'มหาระเบิด' : 'ระเบิด';
         const elements = (event.elements ?? []).map(id => WORDS[id].label).join('+');
+        const targetXs = (event.targets ?? [])
+          .map(id => state?.enemies?.find(candidate => candidate.id === id))
+          .filter(Boolean)
+          .map(enemy => battlefield.enemyX(enemy) / 3.2);
+        const blastX = targetXs.length
+          ? targetXs.reduce((sum, val) => sum + val, 0) / targetXs.length
+          : event.slot !== undefined
+            ? battlefield.puddleX(event.slot) / 3.2
+            : 64;
+        const blastTheme = event.element ?? 'blast';
+        const isBoostedBlast = Boolean(event.devastation || event.radius === 2 || blastTheme === 'meteor' || blastTheme === 'blackhole');
+        pulseElementalOverlay(blastTheme, blastX, 64, {
+          grand: Boolean(event.grand),
+          large: Boolean(event.large),
+          boosted: isBoostedBlast,
+          withVignette: Boolean(event.grand || isBoostedBlast),
+        });
         for (const id of event.wardedTargets ?? []) spawnEnemyPop(id, 'กันม่าน', 'ward');
         status.textContent = `${[label, elements].filter(Boolean).join(' ')} · ${event.targets.length} เป้า`;
         break;
@@ -273,21 +364,52 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
       case 'brace':
         status.textContent = 'โล่ยืนหยัด · กันเพิ่ม 6';
         pulsePlayerHud('shield');
+        pulseElementalOverlay('brace', 16, 66);
         break;
-      case 'shield':
-        pulseSpellSlotsElem('shield');
+      case 'shield': {
+        pulseSpellSlotsElem(event.elements?.[0] ?? 'shield');
         pulsePlayerHud('shield');
+        if (!event.secondary) {
+          const shieldTheme = event.grand
+            ? 'grand'
+            : event.shieldKind === 'veil' || event.element === 'veil'
+              ? 'veil'
+              : event.shieldKind === 'brace'
+                ? 'brace'
+                : event.elements?.[0]
+                  ? resolveOverlayTheme(event.elements[0], 'shield')
+                  : 'shield';
+          pulseElementalOverlay(shieldTheme, 16, 66, {
+            grand: Boolean(event.grand),
+            large: Boolean(event.large),
+            withVignette: Boolean(event.grand),
+          });
+        }
         status.textContent = event.restored ? `ต้นเทิร์นถัดไปเติมโล่ +${event.restored}` : `กางโล่ +${event.amount}`;
         break;
+      }
       case 'heal': {
         if (event.target === 'player') {
           changeAnimatedPlayerHp(event.amount);
           pulseSpellSlotsElem('heal');
           pulsePlayerHud('heal');
+          if (event.amount > 0 && event.healKind !== 'bonus') {
+            const isGrandHeal = Boolean(event.grand || event.healKind === 'grand' || event.healKind === 'regen');
+            const isLargeHeal = Boolean(!isGrandHeal && (event.large || event.healKind === 'large'));
+            pulseElementalOverlay(isGrandHeal ? 'grand' : 'heal', 16, 66, {
+              grand: isGrandHeal,
+              large: isLargeHeal,
+              withVignette: isGrandHeal,
+            });
+          }
         } else {
           changeAnimatedEnemyHp(event.target, event.amount);
           triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
-          if (event.amount > 0) spawnEnemyPop(event.target, `+${event.amount}`, 'heal');
+          if (event.amount > 0) {
+            spawnEnemyPop(event.target, `+${event.amount}`, 'heal');
+            const { x, y } = enemyImpactCoords(event.target);
+            pulseElementalOverlay('ward', x, y);
+          }
         }
         const action = event.target !== 'player' ? 'ศัตรูฟื้น' : event.nextTurn ? 'ต้นเทิร์นถัดไปฟื้น' : 'ฟื้น';
         status.textContent = `${action} +${event.amount} HP`;

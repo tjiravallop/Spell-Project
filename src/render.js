@@ -52,6 +52,24 @@ const ELEMENT_IMPACT = Object.freeze({
     secondary: '#9b5de5',
     rim: '#fff699',
   },
+  earth: {
+    core: '#fff2cf',
+    primary: '#c9944c',
+    secondary: '#6b4725',
+    rim: '#e8c17d',
+  },
+  water: {
+    core: '#ebffff',
+    primary: '#3cb9f5',
+    secondary: '#175a94',
+    rim: '#8ee3ff',
+  },
+  wind: {
+    core: '#f3fff6',
+    primary: '#86e3b6',
+    secondary: '#2d7f6e',
+    rim: '#c2fae0',
+  },
   blast: {
     core: '#fff8db',
     primary: '#ff5719',
@@ -67,6 +85,8 @@ const ELEMENT_IMPACT = Object.freeze({
   akki: { core: '#fff6b7', primary: '#ff5741', secondary: '#a32251', rim: '#ffad69' },
   heman: { core: '#e7f1ff', primary: '#7aa8ff', secondary: '#4a50be', rim: '#9ed8ff' },
   asani: { core: '#fff2ff', primary: '#dba1ff', secondary: '#7934ca', rim: '#ffda98' },
+  pathaphi: { core: '#fff3c4', primary: '#e0a84d', secondary: '#74481e', rim: '#f7d588' },
+  wari: { core: '#e9ffff', primary: '#44d0ff', secondary: '#14629c', rim: '#a8f2ff' },
   magma: { core: '#ffed99', primary: '#ff8543', secondary: '#b73e23', rim: '#ffc354' },
   mist: { core: '#f2fff7', primary: '#93dbc6', secondary: '#4e807b', rim: '#c0eade' },
   hail: { core: '#f5fdff', primary: '#b7e9ff', secondary: '#518bcf', rim: '#d0e1ff' },
@@ -80,6 +100,7 @@ const ELEMENT_IMPACT = Object.freeze({
 });
 const elementColor = Object.fromEntries(Object.entries(ELEMENT_IMPACT).map(([id, palette]) => [id, palette.primary]));
 elementColor['akki-blast'] = elementColor.akki;
+export const vfxScale = source => (source?.grand ? 5 : source?.large ? 2 : 1);
 
 export class Battlefield {
   constructor(canvas, settings) {
@@ -188,6 +209,8 @@ export class Battlefield {
       layers: shield?.layers.length ?? 0,
       element: shield?.effect,
       layerEffects: shield?.layerEffects?.map(layer => layer.elements),
+      grand: Boolean(shield?.grand),
+      large: Boolean(shield?.large),
     };
     const curPositions = [...basePositions];
     const curDead = new Set();
@@ -522,39 +545,47 @@ export class Battlefield {
     }
   }
 
-  pixelCircle(cx, cy, radius, color, filled = false) {
+  pixelCircle(cx, cy, radius, color, filled = false, thickness = 1) {
     const g = this.ctx;
     const r = Math.max(1, Math.round(radius));
+    const t = Math.max(1, Math.min(r, Math.round(thickness)));
     const r2 = r * r;
-    const inner2 = (r - 1.35) * (r - 1.35);
+    const inner = Math.max(0, r - 1.35 * t);
+    const inner2 = inner * inner;
     g.fillStyle = color;
-    for (let dy = -r; dy <= r; dy++) {
+    const minDy = Math.max(-r, -Math.round(cy));
+    const maxDy = Math.min(r, 180 - Math.round(cy));
+    for (let dy = minDy; dy <= maxDy; dy++) {
       const dy2 = dy * dy;
       const maxDx = Math.floor(Math.sqrt(Math.max(0, r2 - dy2)));
       if (filled) {
         g.fillRect(Math.round(cx - maxDx), Math.round(cy + dy), maxDx * 2 + 1, 1);
       } else {
         const minDx = dy2 < inner2 ? Math.ceil(Math.sqrt(inner2 - dy2)) : 0;
-        const span = Math.max(1, maxDx - minDx + 1);
+        const span = Math.max(t, maxDx - minDx + 1);
         g.fillRect(Math.round(cx - maxDx), Math.round(cy + dy), span, 1);
         if (maxDx > 0) g.fillRect(Math.round(cx + minDx), Math.round(cy + dy), span, 1);
       }
     }
   }
 
-  pixelEllipse(cx, cy, rx, ry, color, filled = false) {
+  pixelEllipse(cx, cy, rx, ry, color, filled = false, thickness = 1) {
     const g = this.ctx;
     const a = Math.max(1, Math.round(rx));
     const b = Math.max(1, Math.round(ry));
+    const t = Math.max(1, Math.round(thickness));
     g.fillStyle = color;
-    for (let dy = -b; dy <= b; dy++) {
+    const minDy = Math.max(-b, -Math.round(cy));
+    const maxDy = Math.min(b, 180 - Math.round(cy));
+    for (let dy = minDy; dy <= maxDy; dy++) {
       const normY = dy / b;
       const maxDx = Math.round(a * Math.sqrt(Math.max(0, 1 - normY * normY)));
       if (filled) {
         g.fillRect(Math.round(cx - maxDx), Math.round(cy + dy), maxDx * 2 + 1, 1);
       } else {
-        g.fillRect(Math.round(cx - maxDx), Math.round(cy + dy), 2, 1);
-        g.fillRect(Math.round(cx + maxDx - 1), Math.round(cy + dy), 2, 1);
+        const edgeW = Math.min(maxDx + 1, Math.max(2, t * 2));
+        g.fillRect(Math.round(cx - maxDx), Math.round(cy + dy), edgeW, 1);
+        g.fillRect(Math.round(cx + maxDx - edgeW + 1), Math.round(cy + dy), edgeW, 1);
       }
     }
   }
@@ -570,37 +601,39 @@ export class Battlefield {
       g.fillRect(x - span, y + dy, span * 2 + 1, 1);
     }
     if (s >= 2) {
+      const coreHalf = Math.max(1, Math.floor(s / 3));
       g.fillStyle = coreColor;
-      g.fillRect(x - 1, y, 3, 1);
-      g.fillRect(x, y - 1, 1, 3);
+      g.fillRect(x - coreHalf, y, coreHalf * 2 + 1, 1);
+      g.fillRect(x, y - coreHalf, 1, coreHalf * 2 + 1);
     }
   }
 
-  pixelBolt(x1, y1, x2, y2, seed, auraColor, coreColor = C[9]) {
+  pixelBolt(x1, y1, x2, y2, seed, auraColor, coreColor = C[9], thickness = 1) {
     const g = this.ctx;
+    const t = Math.max(1, Math.min(5, Math.round(thickness)));
     const steps = Math.max(4, Math.floor(Math.hypot(x2 - x1, y2 - y1) / 8));
     let px = x1;
     let py = y1;
     for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      const jitter = i === steps ? 0 : Math.sin(seed * 3.7 + i * 2.3) * 6;
-      const nx = Math.round(x1 + (x2 - x1) * t);
-      const ny = Math.round(y1 + (y2 - y1) * t + jitter);
+      const frac = i / steps;
+      const jitter = i === steps ? 0 : Math.sin(seed * 3.7 + i * 2.3) * 6 * Math.min(2.5, Math.sqrt(t));
+      const nx = Math.round(x1 + (x2 - x1) * frac);
+      const ny = Math.round(y1 + (y2 - y1) * frac + jitter);
       const segSteps = Math.max(1, Math.abs(nx - px), Math.abs(ny - py));
       for (let s = 0; s <= segSteps; s++) {
         const lx = Math.round(px + (nx - px) * (s / segSteps));
         const ly = Math.round(py + (ny - py) * (s / segSteps));
         g.fillStyle = auraColor;
-        g.fillRect(lx - 1, ly - 1, 3, 3);
+        g.fillRect(lx - t, ly - t, t * 2 + 1, t * 2 + 1);
         g.fillStyle = coreColor;
-        g.fillRect(lx, ly, 1, 1);
+        g.fillRect(lx - Math.floor((t - 1) / 2), ly - Math.floor((t - 1) / 2), t, t);
       }
       if (i % 2 === 1 && i < steps) {
-        const bx = nx + (i % 4 === 1 ? 5 : -4);
-        const by = ny + (i % 4 === 1 ? -5 : 5);
+        const bx = nx + (i % 4 === 1 ? 5 * t : -4 * t);
+        const by = ny + (i % 4 === 1 ? -5 * t : 5 * t);
         g.fillStyle = auraColor;
-        g.fillRect(Math.round((nx + bx) / 2), Math.round((ny + by) / 2), 2, 2);
-        g.fillRect(bx, by, 1, 1);
+        g.fillRect(Math.round((nx + bx) / 2), Math.round((ny + by) / 2), 1 + t, 1 + t);
+        g.fillRect(bx, by, Math.max(1, t), Math.max(1, t));
       }
       px = nx;
       py = ny;
@@ -619,12 +652,21 @@ export class Battlefield {
     g.fillRect(x + 4, 152, 2, 1);
   }
 
-  drawGravityWell(x, scale) {
+  drawGravityWell(x, scale, now = 0) {
     const width = Math.round(16 * scale);
     const height = Math.round(7 * scale);
     this.pixelEllipse(x, 147, width + 5, height + 3, ELEMENT_IMPACT.blackhole.secondary, false);
     this.pixelEllipse(x, 147, width, height, ELEMENT_IMPACT.blackhole.primary, true);
     this.pixelEllipse(x, 147, Math.max(1, width - 3), Math.max(1, height - 2), C[0], true);
+    if (!this.settings.reducedMotion) {
+      for (let i = 0; i < 6; i++) {
+        const ang = now / 130 + (i * Math.PI) / 3;
+        const r = Math.round((width + 6) * (0.45 + ((i * 3 + Math.floor(now / 120)) % 4) * 0.18));
+        const mx = Math.round(x + Math.cos(ang) * r);
+        const my = Math.round(145 + Math.sin(ang) * Math.max(3, height * 0.65));
+        this.pixelDiamond(mx, my, i % 2 ? 2 : 1, ELEMENT_IMPACT.blackhole.rim, ELEMENT_IMPACT.blackhole.core);
+      }
+    }
   }
 
   drawCasterAura(now, color, fraction = 0.5) {
@@ -709,8 +751,12 @@ export class Battlefield {
       this.drawMagmaPuddle(this.puddleX(slot));
     }
     const blackholes = snap?.blackholes ?? (this.state?.blackhole ? [this.state.blackhole.slot] : []);
-    for (const slot of blackholes) this.drawGravityWell(this.puddleX(slot), 1);
-    if (event?.type === 'blackhole-open') this.drawGravityWell(this.puddleX(event.slot), this.settings.reducedMotion ? 1 : Math.max(0.25, progress));
+    const bhScale = vfxScale(this.state?.blackhole);
+    for (const slot of blackholes) this.drawGravityWell(this.puddleX(slot), bhScale, now);
+    if (event?.type === 'blackhole-open') {
+      const openScale = vfxScale(event) * (this.settings.reducedMotion ? 1 : Math.max(0.25, progress));
+      this.drawGravityWell(this.puddleX(event.slot), openScale, now);
+    }
     if (!playing && this.target?.startsWith('slot-')) {
       this.pixelEllipse(this.puddleX(Number(this.target.at(-1))), 150, 15, 4, elementColor.blackhole, false);
     }
@@ -730,6 +776,8 @@ export class Battlefield {
       layers: shield?.layers.length ?? 0,
       element: shield?.effect,
       layerEffects: shield?.layerEffects?.map(layer => layer.elements),
+      grand: Boolean(shield?.grand),
+      large: Boolean(shield?.large),
     };
     if (event?.type === 'shield') protection = event;
     if (event?.type === 'brace') protection = event.protection;
@@ -738,18 +786,31 @@ export class Battlefield {
     const shieldCasting = event?.type === 'shield';
     if (protection.amount || shieldHit) {
       const [front, back] = protection.layerEffects ?? [];
-      const primaryElem = front?.[0] ?? protection.element;
-      const secondaryElem = back?.[0] ?? front?.[1] ?? protection.element;
+      const primaryElem = front?.[0] ?? protection.element ?? protection.elements?.[0] ?? protection.shieldKind;
+      const secondaryElem = back?.[0] ?? front?.[1] ?? protection.element ?? protection.elements?.[1];
+      const shieldOpts = {
+        grand: Boolean(protection.grand),
+        large: Boolean(protection.large),
+        shieldKind: protection.shieldKind ?? protection.element ?? 'shield',
+        restored: Boolean(protection.restored),
+      };
+      const shieldScale = shieldOpts.grand ? 5 : shieldOpts.large ? 2 : 1;
       if (protection.layers === 2 || front?.[1]) {
-        this.barrier(51, 99, 48, elementColor[secondaryElem] ?? C[26], false, secondaryElem, now, shieldCasting ? progress : 1, true);
+        const outerW = Math.round(48 * shieldScale);
+        const outerTop = 148 - Math.round(49 * shieldScale);
+        this.barrier(51, outerTop, outerW, elementColor[secondaryElem] ?? C[26], false, secondaryElem, now, shieldCasting ? progress : 1, true, shieldOpts);
       }
       const shieldBroke = shieldHit && protection.layers > (event.protection?.layers ?? 0);
       const shieldImpact = shieldHit && protection.layers > 0 && event.type === 'attack' && !this.settings.reducedMotion
-        && drawCombatSprite(g, combatSpriteSheets.shieldBlock, Math.max(0, (progress - 0.62) / 0.38) * (shieldBroke ? 1 : 0.40), 51, 146, 0.76);
+        && drawCombatSprite(g, combatSpriteSheets.shieldBlock, Math.max(0, (progress - 0.62) / 0.38) * (shieldBroke ? 1 : 0.40), 51, 146, 0.76 * shieldScale);
       if (!shieldImpact || !shieldBroke) {
-        this.barrier(51, 103, 42, elementColor[primaryElem] ?? C[27], shieldHit && !shieldImpact && !this.settings.reducedMotion, primaryElem, now, shieldCasting && !this.settings.reducedMotion ? progress : 1, false);
+        const baseDomeW = shieldOpts.shieldKind === 'guard' ? 34 : 42;
+        const baseDomeH = shieldOpts.shieldKind === 'guard' ? 38 : 45;
+        const domeW = Math.round(baseDomeW * shieldScale);
+        const domeTop = 148 - Math.round(baseDomeH * shieldScale);
+        this.barrier(51, domeTop, domeW, elementColor[primaryElem] ?? (shieldOpts.shieldKind === 'guard' ? C[14] : C[27]), shieldHit && !shieldImpact && !this.settings.reducedMotion, primaryElem, now, shieldCasting && !this.settings.reducedMotion ? progress : 1, false, shieldOpts);
       }
-      const shieldName = protection.element === 'veil' ? 'ม่าน' : 'โล่';
+      const shieldName = protection.element === 'veil' ? 'ม่าน' : protection.element === 'brace' ? 'โล่ยืนหยัด' : shieldOpts.grand ? 'มหาโล่' : 'โล่';
       this.barrierLabel(51, 79, shieldHit ? `กัน ${event.absorbed}${shieldBroke ? ` · ${shieldName}แตก` : ''}` : `${shieldName} ${protection.amount}`, shieldHit ? C[9] : C[8]);
     }
 
@@ -927,19 +988,20 @@ export class Battlefield {
         const color = elementColor[event.element] ?? C[30];
         const secondColor = event.elements?.[1] ? (elementColor[event.elements[1]] ?? C[31]) : C[9];
 
+        const projScale = vfxScale(event);
         if (event.form === 'beam') {
-          this.drawBeamVfx(startX, startY, px, event.element, secondColor, Boolean(event.elements?.[1]), fraction, now);
+          this.drawBeamVfx(startX, startY, px, event.element, secondColor, Boolean(event.elements?.[1]), fraction, now, event);
         } else if (event.form === 'wave') {
-          this.drawWaveVfx(startX, x, color, secondColor, Boolean(event.elements?.[1]), travel);
+          this.drawWaveVfx(startX, x, color, secondColor, Boolean(event.elements?.[1]), travel, event.element, now, Boolean(event.grand), projScale);
         } else if (event.form === 'storm') {
-          this.drawStormVfx(x, event.element, fraction, event.elements?.[1]);
+          this.drawStormVfx(x, event.element, fraction, event.elements?.[1], now, Boolean(event.grand), projScale);
         } else {
           this.drawShotVfx(startX, startY, x, px, py, travel, fraction, event, secondColor, now);
         }
         if (impact && event.damage) {
           const sinceHit = this.settings.reducedMotion ? 0 : Math.max(0, (fraction - 0.65) / 0.35);
           if (event.form === 'wave' && event.damage.amount > 0 && !this.settings.reducedMotion) {
-            this.drawHitBurstVfx(x, 126, color, sinceHit, event.element, now);
+            this.drawHitBurstVfx(x, 126, color, sinceHit, event.element, now, projScale);
           }
           this.drawDamagePopup(x, sinceHit, event.damage, color);
         }
@@ -948,8 +1010,9 @@ export class Battlefield {
       if (event.type === 'chain-lightning' && event.damage) {
         const sourceIndex = this.state.enemies.findIndex(enemy => enemy.id === event.source);
         const palette = ELEMENT_IMPACT[event.element] ?? ELEMENT_IMPACT.asani;
+        const chainScale = vfxScale(event);
         if (!this.settings.reducedMotion) {
-          this.pixelBolt(positions[sourceIndex], 120, x, 120, now * 0.04, palette.primary, palette.core);
+          this.pixelBolt(positions[sourceIndex], 120, x, 120, now * 0.04, palette.primary, palette.core, Math.min(5, chainScale));
         }
         this.drawDamagePopup(x, this.settings.reducedMotion ? 0 : fraction, event.damage, palette.primary);
       }
@@ -966,21 +1029,28 @@ export class Battlefield {
       if (event.type === 'blast') {
         const center = blastX;
         const elem = event.element ?? 'blast';
-        if (elem === 'meteor' && !this.settings.reducedMotion && fraction < 0.34) {
-          const descent = fraction / 0.34;
-          const y = Math.round(27 + 102 * descent);
-          g.fillStyle = ELEMENT_IMPACT.meteor.secondary;
-          g.fillRect(center + 4, y - 21, 7, 25);
-          g.fillStyle = ELEMENT_IMPACT.meteor.primary;
-          g.fillRect(center - 6, y, 13, 9);
-          g.fillStyle = ELEMENT_IMPACT.meteor.core;
-          g.fillRect(center - 3, y + 3, 6, 5);
-        } else if (elem === 'fire' && !event.devastation && !event.radius) {
-          this.drawFireBurst(center, fraction, event.targets, positions);
+        const blastMult = vfxScale(event);
+        if (elem === 'meteor' && !this.settings.reducedMotion && fraction < 0.38) {
+          const descent = fraction / 0.38;
+          const mx = Math.round(center - 44 * (1 - descent));
+          const my = Math.round(6 + 118 * descent);
+          const boulderR = Math.round(7 * blastMult);
+          const trailStepX = Math.round(6 * Math.min(2.5, blastMult));
+          const trailStepY = Math.round(14 * Math.min(2, blastMult));
+          for (let t = 1; t <= 6; t++) {
+            const tx = Math.round(mx - t * trailStepX);
+            const ty = Math.round(my - t * trailStepY);
+            this.pixelCircle(tx, ty, Math.max(2, Math.round(boulderR * (1 - t / 7))), t % 2 ? ELEMENT_IMPACT.meteor.secondary : ELEMENT_IMPACT.meteor.primary, true);
+          }
+          this.pixelCircle(mx, my, boulderR + Math.max(2, Math.round(2 * blastMult)), ELEMENT_IMPACT.meteor.secondary, true);
+          this.pixelCircle(mx, my, boulderR, ELEMENT_IMPACT.meteor.primary, true);
+          this.pixelCircle(mx + Math.round(blastMult), my + Math.round(blastMult), Math.max(3, Math.round(boulderR * 0.6)), ELEMENT_IMPACT.meteor.core, true);
+        } else if (elem === 'fire' && !event.devastation && !event.radius && !event.grand) {
+          this.drawFireBurst(center, fraction, event.targets, positions, blastMult);
         } else {
-          if (!this.settings.reducedMotion) this.drawElementalImpactFlash(center, 126, elem, fraction);
-          const scale = (event.devastation || event.radius === 2 ? 1.6 : 1) * (event.scale === 0.6 ? 0.8 : 1);
-          this.drawExplosionVfx(center, 126, fraction, event.targets, positions, elem, scale, event.elements?.[1]);
+          if (!this.settings.reducedMotion) this.drawElementalImpactFlash(center, 126, elem, fraction, blastMult);
+          const scale = blastMult * (event.devastation ? 1.35 : !event.grand && event.radius === 2 ? 1.5 : 1) * (event.scale === 0.6 ? 0.8 : 1);
+          this.drawExplosionVfx(center, 126, fraction, event.targets, positions, elem, scale, event.elements?.[1], Boolean(event.devastation));
         }
         for (const { damage, arrival, x: hitX, labelLift } of event.hits) {
           if (fraction < arrival) continue;
@@ -992,17 +1062,23 @@ export class Battlefield {
       if (event.type === 'damage') {
         const elem = event.element ?? 'fire';
         const color = elementColor[elem] ?? ELEMENT_IMPACT.fire.primary;
+        const dmgScale = vfxScale(event);
         if (event.amount > 0 && !this.settings.reducedMotion) {
-          this.drawElementalImpactFlash(x, 124, elem, fraction);
-          this.drawHitBurstVfx(x, 124, color, fraction, elem, now);
+          if (elem === 'death') {
+            this.drawDeathVfx(x, 122, fraction, now);
+          } else {
+            this.drawElementalImpactFlash(x, 124, elem, fraction, dmgScale);
+            this.drawHitBurstVfx(x, 124, color, fraction, elem, now, dmgScale);
+          }
         }
         this.drawDamagePopup(x, this.settings.reducedMotion ? 0 : fraction, event, color);
       }
 
       if (event.type === 'heal') {
         const px = event.target === 'player' ? 51 : x;
-        this.drawHealVfx(px, 146, fraction, now);
-        this.drawFloatingPopup(px, 96 - Math.round(fraction * 12), `+${event.amount} HP`, C[9], C[26]);
+        this.drawHealVfx(px, 146, fraction, now, event);
+        const healEdge = event.healKind === 'grand' ? C[31] : event.source !== 'player' ? C[22] : C[26];
+        this.drawFloatingPopup(px, 96 - Math.round(fraction * 12), `+${event.amount} HP`, C[9], healEdge);
       }
 
       if (event.type === 'attack') {
@@ -1116,105 +1192,225 @@ export class Battlefield {
     }
   }
 
-  drawElementalImpactFlash(targetX, targetY, element = 'fire', fraction = 0) {
+  drawElementalImpactFlash(targetX, targetY, element = 'fire', fraction = 0, scale = 1) {
     if (this.settings.reducedMotion) return;
     const pal = ELEMENT_IMPACT[element] ?? ELEMENT_IMPACT.fire;
+    const fam = elementFamily(element);
     const g = this.ctx;
     const flashWindow = Math.max(0, 1 - fraction / 0.72);
     if (flashWindow <= 0) return;
+    const stroke = Math.max(1, Math.min(4, Math.round(scale)));
 
     g.save();
-    if (element === 'ice') {
-      // Crystalline Blue Prism Spires rising around impact point
+    if (fam === 'ice') {
+      // Crystalline Prism Spires rising around impact point
       for (const [dx, w, maxH] of [[-12, 6, 26], [0, 8, 36], [12, 6, 24]]) {
-        const h = Math.max(4, Math.round(maxH * Math.sin((1 - flashWindow * 0.4) * Math.PI * 0.85)));
-        const sx = Math.round(targetX + dx - w / 2);
-        const sy = 146 - h;
+        const sw = Math.round(w * scale);
+        const h = Math.min(144, Math.max(4, Math.round(maxH * scale * Math.sin((1 - flashWindow * 0.4) * Math.PI * 0.85))));
+        const sx = Math.round(targetX + dx * scale - sw / 2);
+        const sy = Math.max(0, 146 - h);
+        const drawH = 146 - sy;
         g.globalAlpha = flashWindow * 0.55;
         g.fillStyle = pal.secondary;
-        g.fillRect(sx - 1, sy + 2, w + 2, h - 2);
+        g.fillRect(sx - stroke, Math.min(145, sy + 2), sw + stroke * 2, Math.max(1, drawH - 2));
         g.globalAlpha = flashWindow * 0.88;
         g.fillStyle = pal.primary;
-        g.fillRect(sx, sy, w, h);
+        g.fillRect(sx, sy, sw, drawH);
         g.globalAlpha = flashWindow * 0.96;
         g.fillStyle = pal.core;
-        g.fillRect(sx + Math.floor(w / 2) - 1, sy - 2, 2, h + 2);
+        g.fillRect(sx + Math.floor(sw / 2) - stroke, Math.max(0, sy - 2), stroke * 2, Math.min(146 - Math.max(0, sy - 2), drawH + 2));
       }
-    } else if (element === 'fire' || element === 'blast') {
-      // Fiery Orange Solar Flare & Ground Magma Plume
-      g.globalAlpha = flashWindow * 0.52;
-      this.pixelCircle(targetX, targetY, Math.round(24 + (1 - flashWindow) * 16), pal.secondary, true);
+    } else if (fam === 'earth' || element === 'magma') {
+      // Jagged tectonic rock spires & seismic ground crack
+      for (const [dx, w, maxH] of [[-13, 6, 22], [-4, 8, 32], [6, 7, 27], [14, 5, 18]]) {
+        const sw = Math.round(w * scale);
+        const h = Math.min(144, Math.max(4, Math.round(maxH * scale * Math.sin((1 - flashWindow * 0.35) * Math.PI * 0.85))));
+        const sx = Math.round(targetX + dx * scale - sw / 2);
+        const sy = Math.max(0, 146 - h);
+        const drawH = 146 - sy;
+        g.globalAlpha = flashWindow * 0.9;
+        g.fillStyle = pal.secondary;
+        g.fillRect(sx - stroke, sy, sw + stroke * 2, drawH);
+        g.fillStyle = pal.primary;
+        g.fillRect(sx, sy + 2, sw, Math.max(2, drawH - 2));
+        g.fillStyle = pal.core;
+        g.fillRect(sx + stroke, sy, Math.max(1, sw - stroke * 2), Math.min(drawH, 2 * stroke));
+      }
+    } else if (fam === 'water') {
+      // Rising geyser splash column & spreading pool
+      const splashH = Math.min(144, Math.round(30 * scale * Math.sin((1 - flashWindow * 0.3) * Math.PI * 0.85)));
+      const sy = Math.max(0, 146 - splashH);
+      const drawH = 146 - sy;
+      g.globalAlpha = flashWindow * 0.72;
+      g.fillStyle = pal.secondary;
+      g.fillRect(targetX - Math.round(9 * scale), sy, Math.round(18 * scale), drawH);
+      g.fillStyle = pal.primary;
+      g.fillRect(targetX - Math.round(5 * scale), Math.max(0, sy - 3), Math.round(10 * scale), Math.min(146 - Math.max(0, sy - 3), drawH + 3));
+      g.fillStyle = pal.core;
+      g.fillRect(targetX - Math.round(2 * scale), Math.max(0, sy - 5), Math.round(4 * scale), Math.max(3, drawH));
+    } else if (fam === 'wind') {
+      // Sweeping vortex rings lifting from ground
       g.globalAlpha = flashWindow * 0.78;
-      this.pixelCircle(targetX, targetY, Math.round(16 + (1 - flashWindow) * 10), pal.primary, true);
+      this.pixelEllipse(targetX, Math.max(6, 134 - Math.round((1 - flashWindow) * 14 * scale)), Math.round((14 + (1 - flashWindow) * 10) * scale), Math.min(24, Math.round(5 * scale)), pal.primary, false, stroke);
+      this.pixelEllipse(targetX, Math.max(4, 120 - Math.round((1 - flashWindow) * 18 * scale)), Math.round((9 + (1 - flashWindow) * 8) * scale), Math.min(18, Math.round(3 * scale)), pal.core, false, stroke);
+    } else if (element === 'blackhole') {
+      // Dark singularity flash core
+      g.globalAlpha = flashWindow * 0.88;
+      this.pixelCircle(targetX, targetY, Math.round((22 * flashWindow + 4) * scale), pal.secondary, true);
+      this.pixelCircle(targetX, targetY, Math.round((14 * flashWindow + 2) * scale), C[0], true);
+      this.pixelCircle(targetX, targetY, Math.round((22 + (1 - flashWindow) * 16) * scale), pal.rim, false, stroke);
+    } else if (fam === 'fire' || element === 'blast' || element === 'meteor') {
+      g.globalAlpha = flashWindow * 0.52;
+      this.pixelCircle(targetX, targetY, Math.round((24 + (1 - flashWindow) * 16) * scale), pal.secondary, true);
+      g.globalAlpha = flashWindow * 0.78;
+      this.pixelCircle(targetX, targetY, Math.round((16 + (1 - flashWindow) * 10) * scale), pal.primary, true);
     }
 
-    // Concentrate the glow and ground reflection around the impact.
-    g.globalAlpha = flashWindow * 0.5;
-    this.pixelCircle(targetX, targetY, Math.round(20 + (1 - flashWindow) * 14), pal.primary, true);
+    g.globalAlpha = flashWindow * 0.48;
+    this.pixelCircle(targetX, targetY, Math.round((18 + (1 - flashWindow) * 14) * scale), pal.primary, true);
     g.globalAlpha = flashWindow * 0.82;
-    this.pixelCircle(targetX, targetY, Math.round(10 + (1 - flashWindow) * 6), pal.core, true);
-    this.pixelEllipse(targetX, 146, Math.round(24 + (1 - flashWindow) * 12), 5, pal.primary, true);
-    this.pixelEllipse(targetX, 146, Math.round(15 + (1 - flashWindow) * 5), 2, pal.core, true);
+    this.pixelCircle(targetX, targetY, Math.round((9 + (1 - flashWindow) * 6) * scale), element === 'blackhole' ? C[0] : pal.core, true);
+    this.pixelEllipse(targetX, 146, Math.round((24 + (1 - flashWindow) * 12) * scale), Math.min(20, Math.round(5 * scale)), pal.primary, true);
+    this.pixelEllipse(targetX, 146, Math.round((14 + (1 - flashWindow) * 5) * scale), Math.min(12, Math.round(2 * scale)), pal.core, true);
     g.restore();
   }
 
   drawShotVfx(startX, startY, targetX, px, py, travel, fraction, event, secondColor, now) {
     const g = this.ctx;
-    const size = event.size > 1 ? 6 : 4;
+    const scale = vfxScale(event);
+    const baseSize = event.size > 1 ? 6 : 4;
+    const size = Math.round(baseSize * scale);
+    const stroke = Math.min(4, scale);
+    const smallDiam = Math.round(2 * Math.min(2.5, scale));
     const elem = event.element ?? 'fire';
+    const fam = elementFamily(elem);
     const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.fire;
+    const dual = event.elements?.length === 2;
+
     if (travel < 1) {
-      if (elem === 'ice' && event.elements?.length === 1 && !this.settings.reducedMotion
-        && drawCombatSprite(g, combatSpriteSheets.iceLance, travel, px, py, event.size > 1 ? 0.78 : 0.55)) return;
+      if (elem === 'ice' && !dual && !event.grand && !this.settings.reducedMotion
+        && drawCombatSprite(g, combatSpriteSheets.iceLance, travel, px, py, (event.size > 1 ? 0.78 : 0.55) * scale)) return;
+
       for (let t = 1; t <= 7; t++) {
         const trailT = Math.max(0, travel - t * 0.055);
         const tx = Math.round(startX + (targetX - startX) * trailT);
-        const ty = Math.round(startY - Math.sin(trailT * Math.PI) * 16 + Math.sin(now / 45 + t) * (event.elements?.length === 2 ? 3 : 1));
-        const tSize = Math.max(1, Math.round((size - t * 0.6)));
-        g.fillStyle = t % 2 === 1 && event.elements?.length === 2 ? secondColor : t > 4 ? pal.secondary : pal.primary;
+        const waveShift = (fam === 'wind' ? Math.sin(now / 32 + t * 0.9) * 4 : Math.sin(now / 45 + t) * (dual ? 3 : 1)) * Math.min(2.5, scale);
+        const ty = Math.round(startY - Math.sin(trailT * Math.PI) * 16 + waveShift);
+        const tSize = Math.max(1, Math.round(size - t * 0.55 * scale));
+        g.fillStyle = t % 2 === 1 && dual ? secondColor : t > 4 ? pal.secondary : pal.primary;
         g.fillRect(tx - Math.floor(tSize / 2), ty - Math.floor(tSize / 2), tSize, tSize);
       }
 
-      if (elementFamily(elem) === 'lightning') {
-        this.pixelBolt(Math.max(startX, px - 26), py, px + 4, py, now * 0.04, pal.primary, pal.core);
-        this.pixelDiamond(px, py, size + 1, pal.primary, pal.core);
-      } else if (elementFamily(elem) === 'ice') {
-        this.pixelDiamond(px, py, size + 2, pal.primary, pal.core);
+      if (fam === 'lightning') {
+        const boltSpan = Math.round(28 * Math.min(2.5, scale));
+        const boltThick = Math.min(5, scale);
+        this.pixelBolt(Math.max(startX, px - boltSpan), py + (elem === 'asani' ? -2 * scale : 0), px + Math.round(4 * scale), py, now * 0.04, pal.primary, pal.core, boltThick);
+        if (elem === 'asani' || elem === 'thunderstorm' || event.grand || event.large) {
+          this.pixelBolt(Math.max(startX, px - Math.round(24 * Math.min(2.5, scale))), py + Math.round(4 * scale), px + Math.round(3 * scale), py - Math.round(2 * scale), now * 0.05 + 2, pal.secondary, pal.rim, Math.max(1, boltThick - 1));
+        }
+        this.pixelDiamond(px, py, size + scale, pal.primary, pal.core);
+      } else if (fam === 'ice') {
+        this.pixelDiamond(px, py, size + 2 * scale, pal.primary, pal.core);
         g.fillStyle = pal.core;
-        g.fillRect(px - size - 2, py, size * 2 + 5, 1);
-        g.fillRect(px, py - size - 2, 1, size * 2 + 5);
+        const barThick = Math.max(1, Math.round(scale));
+        const reach = size + 3 * scale;
+        g.fillRect(px - reach, py - Math.floor(barThick / 2), reach * 2 + barThick, barThick);
+        g.fillRect(px - Math.floor(barThick / 2), py - reach, barThick, reach * 2 + barThick);
+        if (elem === 'hail' || elem === 'heman' || scale > 1) {
+          this.pixelDiamond(px - Math.round(6 * scale), py - Math.round(4 * scale), smallDiam, pal.secondary, pal.core);
+          this.pixelDiamond(px - Math.round(5 * scale), py + Math.round(5 * scale), smallDiam, pal.rim, pal.core);
+        }
+      } else if (fam === 'earth') {
+        // Faceted angular monolith boulder projectile
+        g.fillStyle = pal.secondary;
+        g.fillRect(px - size - scale, py - size, size * 2 + scale, size * 2);
+        g.fillStyle = pal.primary;
+        g.fillRect(px - size + scale, py - size + scale, Math.max(2, size * 2 - 2 * scale), Math.max(2, size * 2 - 2 * scale));
+        g.fillStyle = pal.core;
+        g.fillRect(px - scale, py - size + scale, Math.max(2, size - scale), Math.max(2, 2 * Math.min(3, scale)));
+        if (elem === 'pathaphi' || event.large || event.grand) {
+          this.pixelDiamond(px - size - Math.round(3 * scale), py - Math.round(3 * scale), smallDiam, pal.rim, pal.core);
+          this.pixelDiamond(px - size - Math.round(2 * scale), py + Math.round(4 * scale), smallDiam, pal.primary, pal.core);
+        }
+      } else if (fam === 'water') {
+        // Surging hydro orb with crescent wake & splash beads
+        this.pixelCircle(px, py, size + scale, pal.secondary, true);
+        this.pixelCircle(px, py, Math.max(2, size - scale), pal.primary, true);
+        g.fillStyle = pal.core;
+        g.fillRect(px - scale, py - 2 * scale, 3 * scale, 2 * scale);
+        this.pixelEllipse(px - 3 * scale, py, size + 2 * scale, Math.max(2, size - scale), pal.rim, false, stroke);
+        if (elem === 'wari' || elem === 'mist' || scale > 1) {
+          this.pixelDiamond(px - Math.round(6 * scale), py - Math.round(5 * scale), smallDiam, pal.rim, pal.core);
+          this.pixelDiamond(px - Math.round(6 * scale), py + Math.round(5 * scale), smallDiam, pal.primary, pal.core);
+        }
+      } else if (fam === 'wind') {
+        // Spinning emerald gale crescent blade
+        const rad = size + scale;
+        const w1 = Math.max(2, Math.round(3 * scale));
+        const w2 = Math.max(2, Math.round(2 * scale));
+        for (let dy = -rad; dy <= rad; dy++) {
+          const curve = Math.round((1 - (dy * dy) / ((rad + 1) * (rad + 1))) * 5 * scale);
+          const wy = py + dy;
+          if (wy < 0 || wy > 147) continue;
+          g.fillStyle = pal.secondary;
+          g.fillRect(px + curve - Math.round(4 * scale), wy, w1, 1);
+          g.fillStyle = pal.primary;
+          g.fillRect(px + curve - scale, wy, w1, 1);
+          g.fillStyle = pal.core;
+          g.fillRect(px + curve + 2 * scale, wy, w2, 1);
+        }
+        this.pixelEllipse(px - 2 * scale, py, size + 2 * scale, Math.max(2, Math.round(size * 0.5)), pal.rim, false, stroke);
       } else {
-        this.pixelCircle(px, py, size + 1, pal.secondary, true);
+        // Fire / Akki / Magma flaring comet fireball
+        this.pixelCircle(px, py, size + 2 * scale, pal.secondary, true);
         this.pixelCircle(px, py, size, pal.primary, true);
-        this.pixelCircle(px + 1, py, Math.max(2, size - 2), pal.core, true);
+        this.pixelCircle(px + scale, py, Math.max(2, size - 2 * scale), pal.core, true);
+        const flicker = Math.round(Math.sin(now / 32) * 2 * scale);
+        this.pixelDiamond(px - size - 2 * scale, py + flicker, smallDiam, pal.rim, pal.core);
+        if (elem === 'akki' || elem === 'magma' || scale > 1) {
+          this.pixelDiamond(px, py, size, pal.rim, pal.core);
+        }
       }
 
-      if (event.elements?.length === 2) {
-        const orbitY = Math.round(py + Math.sin(now / 40) * (size + 2));
-        this.pixelDiamond(px - 2, orbitY, 3, secondColor, C[9]);
+      if (event.shellBlast) {
+        // Volatile ignited shell aura for 'ลูก ระเบิด'
+        this.pixelCircle(px, py, size + 3 * scale, C[30], false, stroke);
+        this.pixelDiamond(px - size - scale, py - size - scale, smallDiam, C[16], C[9]);
+      }
+      if (event.grand) {
+        this.pixelEllipse(px, py, size + 5 * scale, size + 3 * scale, C[31], false, stroke);
+        this.pixelDiamond(px, Math.max(4, py - size - 3 * scale), smallDiam, C[31], C[9]);
+      }
+      if (dual) {
+        const orbitY = Math.round(py + Math.sin(now / 40) * (size + 3 * scale));
+        this.pixelDiamond(px - 2 * scale, Math.max(4, Math.min(144, orbitY)), Math.round(3 * Math.min(2.5, scale)), secondColor, C[9]);
       }
       if (event.pierce) {
-        this.pixelEllipse(px + 3, py, 3, size + 3, pal.core, false);
+        this.pixelEllipse(px + 3 * scale, py, Math.max(3, 3 * scale), size + 3 * scale, pal.core, false, stroke);
         g.fillStyle = pal.core;
-        g.fillRect(px + size, py - 1, 8, 2);
+        g.fillRect(px + size, py - Math.max(1, Math.floor(scale / 2)), 9 * scale, Math.max(2, 2 * Math.min(3, scale)));
       }
     } else if (!event.blocked && event.damage?.amount > 0 && !this.settings.reducedMotion) {
       const imp = Math.max(0, (fraction - 0.65) / 0.35);
-      this.drawElementalImpactFlash(targetX, 122, elem, imp);
-      this.drawHitBurstVfx(targetX, 122, pal.primary, imp, elem, now);
+      this.drawElementalImpactFlash(targetX, 122, elem, imp, scale);
+      this.drawHitBurstVfx(targetX, 122, pal.primary, imp, elem, now, scale);
     }
   }
 
-  drawBeamVfx(startX, startY, targetX, element, secondColor, dual, fraction, now) {
+  drawBeamVfx(startX, startY, targetX, element, secondColor, dual, fraction, now, event = null) {
     const g = this.ctx;
     const width = Math.max(0, targetX - startX);
     if (width < 1) return;
-    const sheet = arcaneBeamSheets.get(element);
+    const scale = vfxScale(event);
+    const isGrand = Boolean(event?.grand);
+    const isPierce = Boolean(event?.pierce);
+    const stroke = Math.min(4, scale);
+    const sheet = !isGrand ? arcaneBeamSheets.get(element) : null;
     if (!this.settings.reducedMotion && sheet?.complete && sheet.naturalWidth) {
       const { frameWidth, frameHeight, columns, frames, startX: source, endX, centerY } = arcaneBeam;
       const index = Math.min(frames - 1, Math.floor(fraction * frames));
       const scaleX = width / (endX - source);
-      const scaleY = 0.75;
+      const scaleY = 0.75 * scale;
       g.save();
       g.globalAlpha = Math.min(1, fraction / 0.18, (1 - fraction) / 0.12);
       g.drawImage(sheet, index % columns * frameWidth, Math.floor(index / columns) * frameHeight,
@@ -1222,9 +1418,9 @@ export class Battlefield {
         Math.round(startY - centerY * scaleY), Math.max(1, Math.round(frameWidth * scaleX)), frameHeight * scaleY);
       if (dual) {
         for (let x = startX + 4; x < targetX - 4; x += 8) {
-          const y = startY + Math.round(Math.sin(x * 0.22 - fraction * 20) * 5);
+          const y = startY + Math.round(Math.sin(x * 0.22 - fraction * 20) * 5 * scale);
           g.fillStyle = secondColor;
-          g.fillRect(x, y, 3, 2);
+          g.fillRect(x, y, 3 * scale, 2 * scale);
         }
       }
       g.restore();
@@ -1232,101 +1428,247 @@ export class Battlefield {
     }
     if (this.settings.reducedMotion) now = 0;
     const pulse = Math.round(Math.sin(now / 35) * 2);
+    const fam = elementFamily(element ?? 'fire');
     const pal = ELEMENT_IMPACT[element] ?? ELEMENT_IMPACT.fire;
     if (fraction > 0.25 && fraction < 0.85) {
-      this.drawElementalImpactFlash(targetX, startY, element, Math.abs(fraction - 0.5) * 1.4);
+      this.drawElementalImpactFlash(targetX, startY, element, Math.abs(fraction - 0.5) * 1.4, scale);
     }
     g.save();
-    g.globalAlpha = 0.38;
+    const outerHalf = Math.round((6 + pulse) * scale);
+    const primHalf = Math.round(3 * scale);
+    const coreHalf = Math.max(1, Math.round(scale));
+    g.globalAlpha = 0.42;
     g.fillStyle = pal.secondary;
-    g.fillRect(startX, startY - 6 - pulse, width, 13 + pulse * 2);
-    g.globalAlpha = 0.9;
+    g.fillRect(startX, Math.max(0, startY - outerHalf), width, outerHalf * 2 + 1);
+    g.globalAlpha = 0.92;
     g.fillStyle = pal.primary;
-    g.fillRect(startX, startY - 3, width, 7);
+    g.fillRect(startX, Math.max(0, startY - primHalf), width, primHalf * 2 + 1);
+    g.globalAlpha = 1;
+    g.fillStyle = pal.core;
+    g.fillRect(startX, Math.max(0, startY - coreHalf), width, coreHalf * 2 + 1);
+
+    if (fam === 'lightning') {
+      const boltThick = Math.min(5, scale);
+      this.pixelBolt(startX, startY - 2 * scale, targetX, startY - 2 * scale, now * 0.05, pal.primary, pal.core, boltThick);
+      this.pixelBolt(startX, startY + 2 * scale, targetX, startY + 2 * scale, now * 0.06 + 2.5, pal.secondary, pal.core, boltThick);
+    } else if (fam === 'ice') {
+      const step = Math.round(12 * Math.min(2, scale));
+      for (let bx = startX + 8; bx < targetX - 6; bx += step) {
+        const h = Math.round((4 + ((bx / 12) % 2) * 2) * scale);
+        g.fillStyle = pal.rim;
+        g.fillRect(bx, Math.max(0, startY - h - 2 * scale), Math.round(2 * scale), h);
+        g.fillRect(bx + 5, startY + 3 * scale, Math.round(2 * scale), h);
+      }
+    } else if (fam === 'earth') {
+      const step = Math.round(14 * Math.min(2, scale));
+      for (let bx = startX + ((Math.floor(now / 18)) % step); bx < targetX - 4; bx += step) {
+        g.fillStyle = pal.secondary;
+        g.fillRect(bx - 2 * scale, Math.max(0, startY - 6 * scale), Math.round(5 * scale), Math.round(4 * scale));
+        g.fillRect(bx - scale, startY + 4 * scale, Math.round(4 * scale), Math.round(4 * scale));
+      }
+    } else if (fam === 'water' || fam === 'wind') {
+      g.fillStyle = pal.rim;
+      for (let bx = startX; bx < targetX; bx += 6) {
+        const wy = Math.round(Math.sin((bx - now * 0.35) * 0.16) * 5 * scale);
+        g.fillRect(bx, Math.max(0, startY + wy - scale), Math.round(4 * Math.min(2.5, scale)), Math.max(2, Math.round(2 * scale)));
+      }
+    }
+
     if (dual) {
       g.fillStyle = secondColor;
       for (let bx = startX; bx < targetX; bx += 8) {
-        const waveY = Math.round(Math.sin((bx + now * 0.25) * 0.18) * 4);
-        g.fillRect(bx, startY + waveY - 1, 5, 3);
+        const waveY = Math.round(Math.sin((bx + now * 0.25) * 0.18) * 5 * scale);
+        g.fillRect(bx, Math.max(0, startY + waveY - scale), Math.round(5 * Math.min(2.5, scale)), Math.max(3, Math.round(3 * scale)));
       }
     }
-    g.globalAlpha = 1;
-    g.fillStyle = pal.core;
-    g.fillRect(startX, startY - 1, width, 3);
-    for (let bx = startX + ((Math.floor(now / 20)) % 14); bx < targetX; bx += 14) {
-      this.pixelDiamond(bx, startY, 3, pal.primary, pal.core);
+    const diamondStep = Math.round(14 * Math.min(2, scale));
+    const diamondR = Math.round(3 * Math.min(3, scale));
+    for (let bx = startX + ((Math.floor(now / 20)) % diamondStep); bx < targetX; bx += diamondStep) {
+      this.pixelDiamond(bx, startY, diamondR, pal.primary, pal.core);
     }
-    this.pixelDiamond(startX, startY, 6, pal.primary, pal.core);
-    this.pixelCircle(targetX, startY, Math.round(7 + Math.sin(fraction * Math.PI) * 9), pal.primary, false);
-    this.pixelDiamond(targetX, startY, 8, dual ? secondColor : pal.primary, pal.core);
+    if (isGrand || isPierce || scale > 1) {
+      this.pixelEllipse(startX + 4 * scale, startY, Math.round(4 * scale), Math.round(10 * scale), isGrand ? C[31] : pal.core, false, stroke);
+    }
+    this.pixelDiamond(startX, startY, Math.round(6 * Math.min(3, scale)), pal.primary, pal.core);
+    this.pixelCircle(targetX, startY, Math.round((7 + Math.sin(fraction * Math.PI) * 9) * scale), pal.primary, false, stroke);
+    this.pixelDiamond(targetX, startY, Math.round(8 * Math.min(3, scale)), dual ? secondColor : pal.primary, pal.core);
     g.restore();
   }
 
-  drawWaveVfx(startX, targetX, color, secondColor, dual, travel) {
+  drawWaveVfx(startX, targetX, color, secondColor, dual, travel, element = null, now = 0, isGrand = false, scale = isGrand ? 5 : 1) {
     const g = this.ctx;
-    const elem = color === elementColor.ice ? 'ice' : color === elementColor.lightning ? 'lightning' : 'fire';
-    const pal = ELEMENT_IMPACT[elem];
+    const elem = element ?? Object.keys(ELEMENT_IMPACT).find(id => ELEMENT_IMPACT[id].primary === color) ?? 'fire';
+    const fam = elementFamily(elem);
+    const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.fire;
     const waveX = Math.round(startX + (targetX - startX) * travel);
-    for (let dy = -18; dy <= 16; dy++) {
-      const curve = Math.round(Math.cos((dy / 18) * (Math.PI / 2)) * 10);
-      const wx = waveX + curve;
-      const wy = 128 + dy;
-      const c = dual && Math.abs(dy) % 4 < 2 ? secondColor : pal.primary;
-      g.fillStyle = pal.secondary;
-      g.fillRect(wx - 9, wy, 3, 1);
-      g.fillStyle = c;
-      g.fillRect(wx - 6, wy, 7, 1);
-      g.fillStyle = pal.core;
-      g.fillRect(wx + 1, wy, 2, 1);
+    const heightHalf = Math.round(18 * scale);
+    const hScale = Math.min(3, scale);
+    const stroke = Math.min(4, scale);
+
+    if (fam === 'lightning') {
+      // Sweeping curtain of crackling vertical thunderbolts
+      const boltThick = Math.min(5, scale);
+      const topY = Math.max(0, 126 - heightHalf);
+      this.pixelBolt(waveX + Math.round(2 * scale), topY, waveX - Math.round(2 * scale), 146, now * 0.06, pal.primary, pal.core, boltThick);
+      this.pixelBolt(waveX - Math.round(6 * scale), Math.max(0, topY + Math.round(4 * scale)), waveX - Math.round(9 * scale), 146, now * 0.07 + 2, pal.secondary, pal.core, boltThick);
+      if (dual) this.pixelBolt(waveX + Math.round(7 * scale), Math.max(0, 130 - heightHalf), waveX + Math.round(5 * scale), 146, now * 0.05 + 4, secondColor, pal.core, boltThick);
+    } else if (fam === 'earth') {
+      // Tectonic rising earth spikes marching along floor
+      for (const [dx, w, baseH] of [[-10, 5, 14], [-3, 7, 26], [5, 5, 19]]) {
+        const sw = Math.round(w * scale);
+        const h = Math.min(144, Math.round(baseH * scale));
+        const sx = waveX + Math.round(dx * scale);
+        const sy = Math.max(0, 146 - h);
+        const drawH = 146 - sy;
+        g.fillStyle = pal.secondary;
+        g.fillRect(sx - stroke, sy, sw + stroke * 2, drawH);
+        g.fillStyle = pal.primary;
+        g.fillRect(sx, sy + 2, sw, Math.max(2, drawH - 2));
+        g.fillStyle = pal.core;
+        g.fillRect(sx, sy, sw, Math.min(drawH, 2 * stroke));
+      }
+    } else if (fam === 'ice') {
+      // Sweeping glacial wall with sharp forward icicle teeth
+      for (let dy = -heightHalf; dy <= 18; dy++) {
+        const wy = 128 + dy;
+        if (wy < 0 || wy > 146) continue;
+        const normDy = dy < 0 ? dy / heightHalf : dy / 18;
+        const jagged = (Math.abs(dy) % Math.round(6 * Math.min(2, scale)) < Math.round(3 * Math.min(2, scale))) ? Math.round(4 * hScale) : -Math.round(hScale);
+        const wx = waveX + Math.round(Math.cos(normDy * (Math.PI / 2)) * 9 * hScale) + jagged;
+        g.fillStyle = pal.secondary; g.fillRect(wx - Math.round(8 * hScale), wy, Math.round(4 * hScale), 1);
+        g.fillStyle = dual && Math.abs(dy) % 4 < 2 ? secondColor : pal.primary; g.fillRect(wx - Math.round(4 * hScale), wy, Math.round(5 * hScale), 1);
+        g.fillStyle = pal.core; g.fillRect(wx + Math.round(hScale), wy, Math.round(3 * hScale), 1);
+      }
+    } else if (fam === 'wind') {
+      // Twin slicing emerald crescent blades
+      for (const offset of [-5, 4]) {
+        for (let dy = -heightHalf; dy <= 18; dy++) {
+          const wy = 128 + dy;
+          if (wy < 0 || wy > 146) continue;
+          const normDy = dy < 0 ? dy / heightHalf : dy / 18;
+          const curve = Math.round(Math.cos(normDy * (Math.PI / 2)) * 12 * hScale);
+          const wx = waveX + curve + Math.round(offset * hScale);
+          g.fillStyle = offset > 0 ? pal.core : pal.primary;
+          g.fillRect(wx - Math.round(2 * hScale), wy, Math.round(4 * hScale), 1);
+        }
+      }
+    } else if (fam === 'water') {
+      // Cresting tsunami wave with curling foam lip & droplet spray
+      for (let dy = -heightHalf; dy <= 18; dy++) {
+        const wy = 128 + dy;
+        if (wy < 0 || wy > 146) continue;
+        const normDy = dy < 0 ? dy / heightHalf : dy / 18;
+        const curl = dy < -Math.round(8 * scale) ? Math.round((dy + Math.round(8 * scale)) * -0.9) : 0;
+        const curve = Math.round(Math.cos(normDy * (Math.PI / 2)) * 10 * hScale) + curl;
+        const wx = waveX + curve;
+        g.fillStyle = pal.secondary; g.fillRect(wx - Math.round(10 * hScale), wy, Math.round(4 * hScale), 1);
+        g.fillStyle = dual && Math.abs(dy) % 4 < 2 ? secondColor : pal.primary; g.fillRect(wx - Math.round(6 * hScale), wy, Math.round(7 * hScale), 1);
+        g.fillStyle = dy < -Math.round(7 * scale) ? pal.core : pal.rim; g.fillRect(wx + Math.round(hScale), wy, Math.round(3 * hScale), 1);
+      }
+      this.pixelDiamond(waveX + Math.round(10 * hScale), Math.max(8, 128 - heightHalf), Math.round(2 * Math.min(2.5, scale)), pal.rim, pal.core);
+    } else {
+      // Fire / Akki roaring flame crest wave
+      for (let dy = -heightHalf; dy <= 18; dy++) {
+        const wy = 128 + dy;
+        if (wy < 0 || wy > 146) continue;
+        const normDy = dy < 0 ? dy / heightHalf : dy / 18;
+        const flicker = Math.round(Math.sin(dy * 0.45 + now * 0.03) * 3 * hScale);
+        const curve = Math.round(Math.cos(normDy * (Math.PI / 2)) * 10 * hScale) + flicker;
+        const wx = waveX + curve;
+        const c = dual && Math.abs(dy) % 4 < 2 ? secondColor : pal.primary;
+        g.fillStyle = pal.secondary; g.fillRect(wx - Math.round(9 * hScale), wy, Math.round(3 * hScale), 1);
+        g.fillStyle = c; g.fillRect(wx - Math.round(6 * hScale), wy, Math.round(7 * hScale), 1);
+        g.fillStyle = pal.core; g.fillRect(wx + Math.round(hScale), wy, Math.round(2 * hScale), 1);
+      }
     }
-    this.pixelEllipse(waveX + 4, 146, 15, 3, pal.core, false);
+    this.pixelEllipse(waveX + Math.round(4 * hScale), 146, Math.round(15 * scale), Math.min(14, Math.round(3 * scale)), pal.core, false, stroke);
   }
 
-  drawStormVfx(x, element, fraction, secondaryElement) {
+  drawStormVfx(x, element, fraction, secondaryElement, now = 0, isGrand = false, scale = isGrand ? 5 : 1) {
     const g = this.ctx;
+    const fam = elementFamily(element ?? 'storm');
     const palette = ELEMENT_IMPACT[element] ?? ELEMENT_IMPACT.storm;
     const grow = Math.min(1, fraction / 0.65);
+    const rings = isGrand ? 5 : 4;
+    const stroke = Math.min(4, scale);
+    const orbDiam = Math.round(2 * Math.min(2.5, scale));
     g.save();
     g.globalAlpha = this.settings.reducedMotion ? 0.75 : 1 - Math.max(0, fraction - 0.72) * 2;
-    for (let ring = 0; ring < 4; ring++) {
-      const radius = Math.round((6 + ring * 4) * (0.4 + grow * 0.6));
+    if (fam === 'lightning') {
+      // Storm cloud canopy + sky thunderbolts crashing into cyclone
+      this.pixelEllipse(x, 32, Math.round(22 * scale), Math.min(18, Math.round(6 * Math.min(3, scale))), C[21], true);
+      this.pixelEllipse(x, 30, Math.round(18 * scale), Math.min(14, Math.round(4 * Math.min(3, scale))), C[20], true);
+      if (fraction > 0.12 && fraction < 0.85) {
+        this.pixelBolt(x + Math.round(Math.sin(now / 35) * 8 * scale), 34, x, 136, now * 0.08, palette.primary, palette.core, Math.min(5, scale));
+      }
+    } else if (fam === 'ice') {
+      // Falling crystal hailstones & frost cyclone
+      for (let s = 0; s < 5; s++) {
+        const sx = Math.round(x + (-16 + s * 8 + Math.sin(fraction * 8 + s) * 3) * scale);
+        const sy = Math.round(Math.max(12, 66 - (scale - 1) * 10) + ((fraction * 82 + s * 19) % (74 + (scale - 1) * 10)));
+        this.pixelDiamond(sx, sy, Math.round((s % 2 ? 3 : 2) * Math.min(2.5, scale)), palette.primary, palette.core);
+      }
+    } else if (fam === 'earth') {
+      // Levitating stone chunks orbiting rock cyclone
+      const cSize = Math.min(3, scale);
+      for (let b = 0; b < 5; b++) {
+        const ang = fraction * Math.PI * 3.5 + b * 1.25;
+        const bx = Math.round(x + Math.cos(ang) * (12 + b * 2) * scale);
+        const by = Math.round(Math.max(14, 138 - b * Math.round(9 * Math.min(2.6, scale)) + Math.sin(ang) * 3 * scale));
+        g.fillStyle = palette.secondary; g.fillRect(bx - Math.round(3 * cSize), by - Math.round(2 * cSize), Math.round(6 * cSize), Math.round(5 * cSize));
+        g.fillStyle = palette.primary; g.fillRect(bx - Math.round(2 * cSize), by - Math.round(cSize), Math.round(4 * cSize), Math.round(3 * cSize));
+      }
+    }
+    const stepY = Math.round(9 * Math.min(2.6, scale));
+    for (let ring = 0; ring < rings; ring++) {
+      const radius = Math.round((6 + ring * 4) * scale * (0.4 + grow * 0.6));
       const angle = fraction * Math.PI * 4 + ring * 1.3;
-      const y = 145 - ring * 9;
+      const y = Math.max(8, 145 - ring * stepY);
+      const ry = Math.min(22, Math.round((2 + ring) * Math.min(2.5, scale)));
       const color = ring % 2 ? palette.primary : elementColor[secondaryElement] ?? palette.secondary;
-      this.pixelEllipse(x, y, radius, 2 + ring, color, false);
-      g.fillStyle = palette.core;
-      g.fillRect(x + Math.round(Math.cos(angle) * radius) - 2, y + Math.round(Math.sin(angle) * 3), 5, 1);
+      this.pixelEllipse(x, y, radius, ry, color, false, stroke);
+      if (fam === 'fire' || fam === 'wind' || fam === 'water') {
+        this.pixelDiamond(x + Math.round(Math.cos(angle) * radius), y + Math.round(Math.sin(angle) * 3 * Math.min(2.5, scale)), orbDiam, palette.primary, palette.core);
+      } else {
+        g.fillStyle = palette.core;
+        g.fillRect(x + Math.round(Math.cos(angle) * radius) - Math.round(2 * Math.min(2.5, scale)), y + Math.round(Math.sin(angle) * 3 * Math.min(2.5, scale)), Math.round(5 * Math.min(2.5, scale)), Math.max(1, stroke));
+      }
+    }
+    if (isGrand || scale > 1) {
+      this.pixelEllipse(x, 146, Math.round(20 * scale * grow), Math.min(16, Math.round(4 * Math.min(3, scale))), isGrand ? C[31] : palette.core, false, stroke);
     }
     g.restore();
   }
 
-  drawFireBurst(centerX, fraction, targets, positions) {
+  drawFireBurst(centerX, fraction, targets, positions, scale = 1) {
     const g = this.ctx;
     const pal = ELEMENT_IMPACT.blast;
     const reduced = this.settings.reducedMotion;
+    const stroke = Math.min(4, scale);
     g.save();
     if (!reduced) {
       g.globalAlpha = Math.min(1, (1 - fraction) / 0.35);
-      if (!drawCombatSprite(g, combatSpriteSheets.fireBurst, fraction, centerX, 145, 0.7)) {
-        this.drawExplosionVfx(centerX, 126, fraction, [], [], 'blast');
+      if (!drawCombatSprite(g, combatSpriteSheets.fireBurst, fraction, centerX, 145, 0.7 * scale)) {
+        this.drawExplosionVfx(centerX, 126, fraction, [], [], 'blast', scale);
       }
     } else {
-      this.pixelEllipse(centerX, 145, 20, 5, pal.primary, false);
+      this.pixelEllipse(centerX, 145, Math.round(20 * scale), Math.min(18, Math.round(5 * scale)), pal.primary, false, stroke);
     }
     g.globalAlpha = reduced ? 1 : Math.min(1, (1 - fraction) / 0.22);
+    const satScale = Math.min(3, scale);
     for (const [index, enemy] of this.state.enemies.entries()) {
       const x = positions[index];
       if (x === centerX || !targets?.includes(enemy.id)) continue;
       const arrival = this.blastArrival(x, centerX);
       if (fraction < arrival) {
         const edge = Math.round(centerX + (x - centerX) * fraction / arrival);
-        this.pixelEllipse(edge, 146, 7, 2, pal.rim, false);
+        this.pixelEllipse(edge, 146, Math.round(7 * satScale), Math.min(10, Math.round(2 * satScale)), pal.rim, false, stroke);
       } else {
         const local = reduced ? 0.45 : (fraction - arrival) / (1 - arrival);
-        const lift = Math.round(Math.sin(local * Math.PI) * 11);
-        this.pixelEllipse(x, 146, Math.round(7 + local * 7), 3, pal.rim, false);
+        const lift = Math.round(Math.sin(local * Math.PI) * 11 * satScale);
+        this.pixelEllipse(x, 146, Math.round((7 + local * 7) * satScale), Math.min(12, Math.round(3 * satScale)), pal.rim, false, stroke);
         for (const dx of [-6, 0, 6]) {
-          this.pixelDiamond(x + dx, 141 - lift + Math.abs(dx), dx === 0 ? 3 : 2, pal.primary, pal.core);
+          this.pixelDiamond(x + Math.round(dx * satScale), Math.max(6, 141 - lift + Math.round(Math.abs(dx) * satScale)), Math.round((dx === 0 ? 3 : 2) * satScale), pal.primary, pal.core);
         }
       }
     }
@@ -1338,115 +1680,197 @@ export class Battlefield {
     return x === centerX ? 0 : Math.min(0.5, 0.10 + Math.abs(x - centerX) / 420);
   }
 
-  drawExplosionVfx(centerX, centerY, fraction, targets = [], positions = [], elem = 'blast', scale = 1, secondElement) {
+  drawExplosionVfx(centerX, centerY, fraction, targets = [], positions = [], elem = 'blast', scale = 1, secondElement, devastation = false) {
     const g = this.ctx;
+    const fam = elementFamily(elem);
     const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.blast;
+    const stroke = Math.max(1, Math.min(4, Math.round(scale)));
     const outerR = Math.round((8 + fraction * 28) * scale);
     const innerR = Math.round((5 + Math.sin(fraction * Math.PI) * 16) * scale);
-    this.pixelEllipse(centerX, 146, outerR + 6, 6, pal.secondary, false);
-    this.pixelEllipse(centerX, 146, outerR, 4, pal.primary, false);
-    this.pixelCircle(centerX, centerY, outerR, pal.primary, false);
-    this.pixelCircle(centerX, centerY, Math.max(2, outerR - 3), ELEMENT_IMPACT[secondElement]?.primary ?? pal.rim, false);
-    if (fraction < 0.78) {
-      this.pixelCircle(centerX, centerY, innerR, pal.primary, true);
-      this.pixelCircle(centerX, centerY, Math.max(2, Math.round(innerR * 0.6)), pal.core, true);
+    this.pixelEllipse(centerX, 146, outerR + Math.round(6 * scale), Math.min(24, Math.round(6 * Math.min(3, scale))), pal.secondary, false, stroke);
+    this.pixelEllipse(centerX, 146, outerR, Math.min(18, Math.round(4 * Math.min(3, scale))), pal.primary, false, stroke);
+    this.pixelCircle(centerX, centerY, outerR, pal.primary, false, stroke);
+    this.pixelCircle(centerX, centerY, Math.max(2, outerR - Math.round(3 * Math.min(3, scale))), ELEMENT_IMPACT[secondElement]?.primary ?? pal.rim, false, stroke);
+    if (devastation) {
+      this.pixelCircle(centerX, centerY, Math.round(outerR * 1.25), C[31], false, stroke);
     }
+    if (fraction < 0.78) {
+      this.pixelCircle(centerX, centerY, innerR, elem === 'blackhole' ? C[0] : pal.primary, true);
+      this.pixelCircle(centerX, centerY, Math.max(2, Math.round(innerR * 0.55)), elem === 'blackhole' ? pal.secondary : pal.core, true);
+    }
+    const rayBoltThick = Math.max(1, Math.min(5, Math.round(scale)));
+    const rayDiamSize = Math.round((fraction < 0.5 ? 3 : 2) * Math.min(2.5, Math.max(1, scale)));
     for (let i = 0; i < 12; i++) {
       const ang = (i * Math.PI) / 6 + fraction * 1.25;
-      const dist = Math.round(fraction * 30);
+      const dist = Math.round(fraction * 30 * scale);
       const ex = Math.round(centerX + Math.cos(ang) * dist);
       const ey = Math.round(centerY + Math.sin(ang) * dist * 0.75);
-      this.pixelDiamond(ex, ey, fraction < 0.5 ? 3 : 2, pal.primary, pal.core);
+      if (fam === 'lightning' && i % 3 === 0) {
+        this.pixelBolt(centerX, centerY, ex, ey, i + fraction * 6, pal.primary, pal.core, rayBoltThick);
+      } else {
+        this.pixelDiamond(ex, ey, rayDiamSize, pal.primary, pal.core);
+      }
     }
+    const pScale = Math.min(3.5, Math.max(1, scale));
+    const pwOuter = Math.round(8 * Math.min(3, scale));
+    const pwMid = Math.round(5 * Math.min(3, scale));
+    const pwCore = Math.max(2, Math.round(2 * Math.min(3, scale)));
     for (const id of targets ?? []) {
       const idx = this.state?.enemies.findIndex(enemy => enemy.id === id) ?? -1;
       const hitX = positions[idx];
       if (!hitX) continue;
       const arrival = this.blastArrival(hitX, centerX);
       if (fraction < arrival) continue;
-      const pillarH = Math.round(Math.sin((fraction - arrival) / (1 - arrival) * Math.PI) * 34);
+      const pillarH = Math.min(144, Math.round(Math.sin((fraction - arrival) / (1 - arrival) * Math.PI) * 34 * pScale));
       if (pillarH > 2) {
+        const py = Math.max(0, 146 - pillarH);
+        const drawH = 146 - py;
         g.fillStyle = pal.secondary;
-        g.fillRect(hitX - 8, 146 - pillarH, 16, pillarH);
+        g.fillRect(hitX - pwOuter, py, pwOuter * 2, drawH);
         g.fillStyle = pal.primary;
-        g.fillRect(hitX - 5, 146 - pillarH, 10, pillarH);
-        g.fillStyle = pal.core;
-        g.fillRect(hitX - 2, 146 - pillarH, 4, pillarH);
+        g.fillRect(hitX - pwMid, py, pwMid * 2, drawH);
+        g.fillStyle = elem === 'blackhole' ? C[0] : pal.core;
+        g.fillRect(hitX - pwCore, py, pwCore * 2, drawH);
       }
     }
   }
 
-  drawHitBurstVfx(x, y, color, fraction, elem = null, now = 0) {
+  drawDeathVfx(x, y, fraction, now = 0) {
+    const g = this.ctx;
+    const pal = ELEMENT_IMPACT.death;
+    const f = Math.max(0, Math.min(1, fraction));
+    g.save();
+    // Vertical execution pillar + sweeping crimson grim X-slash
+    if (f < 0.7) {
+      g.globalAlpha = Math.sin((f / 0.7) * Math.PI) * 0.7;
+      g.fillStyle = pal.secondary; g.fillRect(x - 10, 18, 20, 128);
+      g.fillStyle = pal.primary; g.fillRect(x - 4, 24, 8, 122);
+      g.fillStyle = pal.core; g.fillRect(x - 1, 30, 2, 116);
+    }
+    g.globalAlpha = Math.max(0, 1 - f * 0.85);
+    const reach = Math.round(8 + Math.min(1, f * 1.8) * 18);
+    for (let s = -reach; s <= reach; s++) {
+      g.fillStyle = pal.secondary; g.fillRect(x + s - 2, y + s - 2, 4, 4);
+      g.fillStyle = pal.primary; g.fillRect(x + s - 1, y + s - 1, 2, 2);
+      g.fillStyle = pal.core; g.fillRect(x + s, y + s, 1, 1);
+      g.fillStyle = pal.primary; g.fillRect(x + s - 1, y - s - 1, 2, 2);
+    }
+    this.pixelCircle(x, y, Math.round(8 + f * 24), pal.primary, false);
+    this.pixelEllipse(x, 146, Math.round(14 + f * 16), 4, pal.secondary, false);
+    for (let i = 0; i < 8; i++) {
+      const ang = (i * Math.PI) / 4 + now * 0.002;
+      const sx = Math.round(x + Math.cos(ang) * (6 + f * 20));
+      const sy = Math.round(y + Math.sin(ang) * (6 + f * 20) - f * 12);
+      this.pixelDiamond(sx, sy, 2, pal.primary, pal.core);
+    }
+    g.restore();
+  }
+
+  drawHitBurstVfx(x, y, color, fraction, elem = null, now = 0, scale = 1) {
     const g = this.ctx;
     const f = Math.max(0, Math.min(1, fraction));
     const resolvedElem = elem ?? (color === elementColor.ice ? 'ice' : color === elementColor.lightning ? 'lightning' : 'fire');
+    const fam = elementFamily(resolvedElem);
     const pal = ELEMENT_IMPACT[resolvedElem] ?? ELEMENT_IMPACT.fire;
+    const stroke = Math.max(1, Math.min(4, Math.round(scale)));
+    const dMult = Math.min(2.5, Math.max(1, scale));
 
-    if (resolvedElem === 'ice') {
-      // Crystalline Blue Impact: 8-pointed frost lance burst + shattering ice diamonds + dual frost rings
-      const r = Math.round(6 + f * 22);
-      this.pixelCircle(x, y, r, pal.secondary, false);
-      this.pixelCircle(x, y, Math.max(3, r - 2), pal.primary, false);
-      this.pixelCircle(x, y, Math.max(2, r - 5), pal.core, false);
-      if (f < 0.72) {
-        this.pixelDiamond(x, y, Math.round(11 - f * 9), pal.primary, pal.core);
-      }
+    if (fam === 'ice') {
+      const r = Math.round((6 + f * 22) * scale);
+      this.pixelCircle(x, y, r, pal.secondary, false, stroke);
+      this.pixelCircle(x, y, Math.max(3, r - 2 * stroke), pal.primary, false, stroke);
+      this.pixelCircle(x, y, Math.max(2, r - 5 * stroke), pal.core, false, Math.max(1, stroke - 1));
+      if (f < 0.72) this.pixelDiamond(x, y, Math.round((11 - f * 9) * dMult), pal.primary, pal.core);
       for (let i = 0; i < 8; i++) {
         const ang = (i * Math.PI) / 4;
-        const innerD = Math.round(2 + f * 4);
-        const outerD = Math.round(12 + f * 20);
-        for (let s = innerD; s <= outerD; s += 2) {
-          const lx = Math.round(x + Math.cos(ang) * s);
-          const ly = Math.round(y + Math.sin(ang) * s);
+        const innerD = Math.round((2 + f * 4) * scale);
+        const outerD = Math.round((12 + f * 20) * scale);
+        const step = Math.max(2, Math.round(2 * scale));
+        const dotS = Math.max(2, Math.round(2 * dMult));
+        for (let s = innerD; s <= outerD; s += step) {
           g.fillStyle = s > (innerD + outerD) / 2 ? pal.primary : pal.core;
-          g.fillRect(lx - 1, ly - 1, 2, 2);
+          g.fillRect(Math.round(x + Math.cos(ang) * s) - Math.floor(dotS / 2), Math.round(y + Math.sin(ang) * s) - Math.floor(dotS / 2), dotS, dotS);
         }
-        const shardX = Math.round(x + Math.cos(ang + 0.39) * (7 + f * 18));
-        const shardY = Math.round(y + Math.sin(ang + 0.39) * (7 + f * 18));
-        this.pixelDiamond(shardX, shardY, f < 0.55 ? 3 : 2, pal.primary, pal.core);
+        this.pixelDiamond(Math.round(x + Math.cos(ang + 0.39) * (7 + f * 18) * scale), Math.round(y + Math.sin(ang + 0.39) * (7 + f * 18) * scale), Math.round((f < 0.55 ? 3 : 2) * dMult), pal.primary, pal.core);
       }
-    } else if (resolvedElem === 'lightning') {
-      // Electric Gold-Violet Impact: vertical sky-strike bolt + branching radial arcs + bright flash core
+    } else if (fam === 'lightning') {
+      const boltThick = Math.min(5, scale);
       if (f < 0.75) {
-        this.pixelBolt(x + Math.round(Math.sin(f * 20) * 6), 14, x, y, now * 0.06 + f * 10, pal.primary, pal.core);
+        this.pixelBolt(x + Math.round(Math.sin(f * 20) * 6 * scale), Math.max(0, 14 - (scale - 1) * 4), x, y, now * 0.06 + f * 10, pal.primary, pal.core, boltThick);
       }
-      const r = Math.round(6 + f * 19);
-      this.pixelCircle(x, y, r, pal.secondary, false);
-      this.pixelCircle(x, y, Math.max(2, r - 2), pal.primary, false);
-      if (f < 0.65) {
-        this.pixelDiamond(x, y, Math.round(9 - f * 7), pal.primary, pal.core);
-      }
+      const r = Math.round((6 + f * 19) * scale);
+      this.pixelCircle(x, y, r, pal.secondary, false, stroke);
+      this.pixelCircle(x, y, Math.max(2, r - 2 * stroke), pal.primary, false, stroke);
+      if (f < 0.65) this.pixelDiamond(x, y, Math.round((9 - f * 7) * dMult), pal.primary, pal.core);
       for (let i = 0; i < 4; i++) {
         const ang = (i * Math.PI) / 2 + 0.78;
-        const tx = Math.round(x + Math.cos(ang) * (12 + f * 18));
-        const ty = Math.round(y + Math.sin(ang) * (12 + f * 18));
-        this.pixelBolt(x, y, tx, ty, i * 3.1 + f * 8, i % 2 ? pal.secondary : pal.primary, pal.core);
+        this.pixelBolt(x, y, Math.round(x + Math.cos(ang) * (12 + f * 18) * scale), Math.round(y + Math.sin(ang) * (12 + f * 18) * scale), i * 3.1 + f * 8, i % 2 ? pal.secondary : pal.primary, pal.core, Math.max(1, boltThick - 1));
       }
+    } else if (fam === 'earth') {
+      // Shattering stone splinters & quake ring
+      this.pixelEllipse(x, 146, Math.round((10 + f * 22) * scale), Math.min(18, Math.round(5 * Math.min(3, scale))), pal.secondary, false, stroke);
+      this.pixelEllipse(x, 146, Math.round((6 + f * 16) * scale), Math.min(12, Math.round(3 * Math.min(3, scale))), pal.primary, false, stroke);
+      const sBox = Math.round(5 * dMult);
+      const sMid = Math.round(3 * dMult);
+      for (let i = 0; i < 6; i++) {
+        const dx = Math.round((i - 2.5) * (6 + f * 6) * scale);
+        const dy = Math.max(4, Math.round(y + 16 - Math.sin(f * Math.PI) * (18 + (i % 3) * 6) * Math.min(3, scale)));
+        g.fillStyle = pal.secondary; g.fillRect(x + dx - Math.floor(sBox / 2), dy - Math.floor(sBox / 2), sBox, sBox);
+        g.fillStyle = pal.primary; g.fillRect(x + dx - Math.floor(sMid / 2), dy - Math.floor(sMid / 2), sMid, sMid);
+        g.fillStyle = pal.core; g.fillRect(x + dx - 1, dy - 1, Math.max(1, Math.floor(dMult)), Math.max(1, Math.floor(dMult)));
+      }
+    } else if (fam === 'water') {
+      // Aqua hydro burst & rising splash arcs
+      const r = Math.round((5 + f * 20) * scale);
+      this.pixelEllipse(x, 146, r + Math.round(4 * scale), Math.min(16, Math.round(4 * Math.min(3, scale))), pal.primary, false, stroke);
+      this.pixelCircle(x, y, r, pal.secondary, false, stroke);
+      this.pixelCircle(x, y, Math.max(2, r - 4 * stroke), pal.core, false, Math.max(1, stroke - 1));
+      for (let i = 0; i < 8; i++) {
+        const ang = -Math.PI * 0.15 - (i * Math.PI) / 7;
+        const dist = (5 + f * 22) * scale;
+        const sx = Math.round(x + Math.cos(ang) * dist);
+        const sy = Math.max(4, Math.round(y + 6 + Math.sin(ang) * dist + f * f * 14 * scale));
+        this.pixelDiamond(sx, sy, Math.round(2 * dMult), pal.primary, pal.core);
+      }
+    } else if (fam === 'wind') {
+      // Diagonal dual wind-scythe gale slashes
+      const reach = Math.round((7 + f * 14) * scale);
+      const thick = Math.max(2, Math.round(2 * dMult));
+      for (let s = -reach; s <= reach; s++) {
+        const wy1 = y + Math.round(s * 0.6);
+        const wy2 = y - Math.round(s * 0.6);
+        if (wy1 >= 0 && wy1 <= 146) {
+          g.fillStyle = pal.secondary; g.fillRect(x + s - 1, wy1 - 1, thick + 1, thick);
+        }
+        if (wy2 >= 0 && wy2 <= 146) {
+          g.fillStyle = pal.core; g.fillRect(x + s, wy2, thick, Math.max(1, thick - 1));
+        }
+      }
+      this.pixelEllipse(x, y, Math.round((12 + f * 14) * scale), Math.min(36, Math.round((5 + f * 6) * scale)), pal.primary, false, stroke);
     } else {
-      // Fiery Orange Impact: erupting flame column + double fiery shockwave ring + rising ember sparks
-      const r = Math.round(6 + f * 22);
-      const flameH = Math.round(Math.sin(f * Math.PI) * 32);
+      const r = Math.round((6 + f * 22) * scale);
+      const flameH = Math.min(144, Math.round(Math.sin(f * Math.PI) * 32 * Math.min(3.5, scale)));
       if (flameH > 2) {
-        g.fillStyle = pal.secondary;
-        g.fillRect(x - 10, 146 - flameH, 20, flameH);
-        g.fillStyle = pal.primary;
-        g.fillRect(x - 6, 146 - flameH + 2, 12, flameH - 2);
-        g.fillStyle = pal.core;
-        g.fillRect(x - 3, 146 - flameH + 4, 6, Math.max(2, flameH - 4));
+        const fy = Math.max(0, 146 - flameH);
+        const drawH = 146 - fy;
+        const fw1 = Math.round(10 * Math.min(3, scale));
+        const fw2 = Math.round(6 * Math.min(3, scale));
+        const fw3 = Math.round(3 * Math.min(3, scale));
+        g.fillStyle = pal.secondary; g.fillRect(x - fw1, fy, fw1 * 2, drawH);
+        g.fillStyle = pal.primary; g.fillRect(x - fw2, fy + 2, fw2 * 2, Math.max(2, drawH - 2));
+        g.fillStyle = pal.core; g.fillRect(x - fw3, fy + 4, fw3 * 2, Math.max(2, drawH - 4));
       }
-      this.pixelCircle(x, y, r + 2, pal.secondary, false);
-      this.pixelCircle(x, y, r, pal.primary, false);
-      this.pixelCircle(x, y, Math.max(2, r - 3), pal.rim, false);
+      this.pixelCircle(x, y, r + 2 * stroke, pal.secondary, false, stroke);
+      this.pixelCircle(x, y, r, pal.primary, false, stroke);
+      this.pixelCircle(x, y, Math.max(2, r - 3 * stroke), pal.rim, false, Math.max(1, stroke - 1));
       if (f < 0.68) {
-        this.pixelCircle(x, y, Math.max(2, Math.round(10 - f * 10)), pal.core, true);
-        this.pixelDiamond(x, y, Math.round(11 - f * 9), pal.primary, pal.core);
+        this.pixelCircle(x, y, Math.max(2, Math.round((10 - f * 10) * scale)), pal.core, true);
+        this.pixelDiamond(x, y, Math.round((11 - f * 9) * dMult), pal.primary, pal.core);
       }
       for (let i = 0; i < 10; i++) {
         const ang = (i * Math.PI) / 5 + f * 0.7;
-        const d = Math.round(5 + f * 22);
-        const sx = Math.round(x + Math.cos(ang) * d);
-        const sy = Math.round(y + Math.sin(ang) * d - f * 10);
-        this.pixelDiamond(sx, sy, i % 2 === 0 && f < 0.65 ? 3 : 2, i % 3 === 0 ? pal.secondary : pal.primary, pal.core);
+        const d = Math.round((5 + f * 22) * scale);
+        this.pixelDiamond(Math.round(x + Math.cos(ang) * d), Math.max(4, Math.round(y + Math.sin(ang) * d - f * 10 * scale)), Math.round((i % 2 === 0 && f < 0.65 ? 3 : 2) * dMult), i % 3 === 0 ? pal.secondary : pal.primary, pal.core);
       }
     }
   }
@@ -1565,16 +1989,132 @@ export class Battlefield {
     }
   }
 
-  drawHealVfx(x, baselineY, fraction, now) {
+  drawHealVfx(x, baselineY, fraction, now, event = null) {
     const g = this.ctx;
+    const f = this.settings.reducedMotion ? 0.55 : fraction;
+    const kind = event?.healKind ?? 'heal';
+    const isEnemy = Boolean(event && event.source !== 'player');
+    const isGrand = Boolean(event?.grand || kind === 'grand' || kind === 'regen');
+    const isLarge = Boolean(!isGrand && (event?.large || kind === 'large'));
+    const isShieldHeal = kind === 'shield-heal';
+    const isPair = kind === 'pair';
+
+    if (isEnemy) {
+      // Enemy ritual mend: dark violet/amber sigil + inward siphon motes
+      this.pixelEllipse(x, baselineY, 15, 4, C[22], false);
+      this.pixelEllipse(x, baselineY, 9, 2, C[30], false);
+      for (let i = 0; i < 6; i++) {
+        const ang = (i * Math.PI) / 3 + f * 1.4;
+        const dist = Math.round((1 - f * 0.55) * 14 + 3);
+        const mx = Math.round(x + Math.cos(ang) * dist);
+        const my = Math.round(baselineY - 12 - f * 18 + Math.sin(ang) * 4);
+        this.pixelDiamond(mx, my, i % 2 === 0 ? 2 : 1, i % 2 === 0 ? C[22] : C[30], C[23]);
+      }
+      return;
+    }
+
+    const scale = isGrand ? 5 : isLarge ? 2 : 1;
+    const stroke = Math.min(4, scale);
+    const hScale = Math.min(3.2, scale);
+    const crossArm = Math.round(2 * Math.min(3, scale));
+    const crossThick = Math.max(1, Math.round(Math.min(2.5, scale)));
+    const drawCross = (cx, cy, color) => {
+      if (cy < 2 || cy > baselineY) return;
+      g.fillStyle = color;
+      g.fillRect(cx - crossArm, cy - Math.floor(crossThick / 2), crossArm * 2 + 1, crossThick);
+      g.fillRect(cx - Math.floor(crossThick / 2), cy - crossArm, crossThick, crossArm * 2 + 1);
+    };
+
+    if (isGrand) {
+      // Sanctuary mandala + golden-jade colossal beam + twin rising helix spirals (5x scale)
+      this.pixelEllipse(x, baselineY, Math.round(22 * scale), Math.min(20, Math.round(4 * scale)), C[31], false, stroke);
+      this.pixelEllipse(x, baselineY, Math.round(16 * scale), Math.min(15, Math.round(3 * scale)), C[26], false, stroke);
+      this.pixelEllipse(x, baselineY, Math.round(10 * scale), Math.min(10, Math.round(2 * scale)), C[9], false, Math.max(1, stroke - 1));
+      const beamH = Math.min(baselineY - 2, Math.round(Math.sin(Math.min(1, f) * Math.PI) * 44 * hScale));
+      if (beamH > 3) {
+        const by = Math.max(0, baselineY - beamH);
+        const drawH = baselineY - by;
+        g.save();
+        g.globalAlpha = 0.16;
+        g.fillStyle = C[26]; g.fillRect(x - Math.round(10 * scale), by, Math.round(20 * scale), drawH);
+        g.fillStyle = C[31]; g.fillRect(x - Math.round(5 * scale), Math.max(0, by - 4), Math.round(10 * scale), Math.min(baselineY - Math.max(0, by - 4), drawH + 4));
+        g.restore();
+      }
+      for (let i = 0; i < 8; i++) {
+        const phase = f * Math.PI * 2 + i * 0.78;
+        const rise = ((f * 40 * hScale + i * 5 * hScale) % Math.max(24, baselineY - 12));
+        const lx = Math.round(x + Math.sin(phase) * 11 * scale);
+        const rx = Math.round(x - Math.sin(phase) * 11 * scale);
+        const py = Math.round(baselineY - 5 - rise);
+        drawCross(lx, py, i % 2 === 0 ? C[31] : C[26]);
+        this.pixelDiamond(rx, Math.max(4, py - 2), Math.round((i % 3 === 0 ? 2 : 1.5) * Math.min(2.5, scale)), C[31], C[9]);
+      }
+      if (!this.settings.reducedMotion) {
+        this.pixelDiamond(x, Math.max(10, baselineY - Math.round(36 * hScale) - Math.round(Math.sin(now / 120) * 2 * scale)), Math.round(3 * Math.min(2.5, scale)), C[31], C[9]);
+      }
+      return;
+    }
+
+    if (isLarge) {
+      // Double floor rings + emerald-gold light pillar + bold crosses (2x scale)
+      this.pixelEllipse(x, baselineY, Math.round(18 * scale), Math.min(14, Math.round(4 * scale)), C[26], false, stroke);
+      this.pixelEllipse(x, baselineY, Math.round(12 * scale), Math.min(10, Math.round(3 * scale)), C[31], false, stroke);
+      const pillarH = Math.min(baselineY - 2, Math.round(Math.sin(Math.min(1, f) * Math.PI) * 38 * scale));
+      if (pillarH > 2) {
+        const py = Math.max(0, baselineY - pillarH);
+        const drawH = baselineY - py;
+        g.save();
+        g.globalAlpha = 0.2;
+        g.fillStyle = C[26]; g.fillRect(x - Math.round(8 * scale), py, Math.round(16 * scale), drawH);
+        g.fillStyle = C[31]; g.fillRect(x - Math.round(3 * scale), py + 2, Math.round(6 * scale), Math.max(2, drawH - 2));
+        g.restore();
+      }
+      for (let i = 0; i < 8; i++) {
+        const cx = Math.round(x + (-14 + i * 4 + Math.sin(now / 85 + i) * 2) * scale);
+        const cy = Math.round(baselineY - 6 - ((f * 36 * scale + i * 5 * scale) % (36 * scale)));
+        drawCross(cx, cy, i % 3 === 0 ? C[31] : i % 2 ? C[9] : C[26]);
+      }
+      return;
+    }
+
+    if (isShieldHeal) {
+      // Aqua-emerald ward mend + shield crest sparkles
+      this.pixelEllipse(x, baselineY, Math.round(17 * scale), Math.min(12, Math.round(4 * scale)), C[27], false, stroke);
+      this.pixelEllipse(x, baselineY, Math.round(11 * scale), Math.min(8, Math.round(2 * scale)), C[26], false, stroke);
+      this.pixelCircle(x, baselineY - Math.round(18 * scale), Math.round((14 + Math.sin(f * Math.PI) * 4) * scale), C[27], false, stroke);
+      for (let i = 0; i < 6; i++) {
+        const ang = (i * Math.PI) / 3 + f * 0.9;
+        const sx = Math.round(x + Math.cos(ang) * 14 * scale);
+        const sy = Math.round(baselineY - 18 * scale + Math.sin(ang) * 12 * scale);
+        this.pixelDiamond(sx, sy, i % 2 === 0 ? 2 : 1, C[26], C[9]);
+      }
+      for (let i = 0; i < 4; i++) {
+        const cx = Math.round(x + (-9 + i * 6) * scale);
+        const cy = Math.round(baselineY - 6 - ((f * 28 + i * 7) % 28) * scale);
+        drawCross(cx, cy, i % 2 ? C[9] : C[26]);
+      }
+      return;
+    }
+
+    if (isPair) {
+      // Twin interlocking heal circles + mirrored rising cross columns
+      this.pixelEllipse(x - 5, baselineY, 13, 3, C[26], false);
+      this.pixelEllipse(x + 5, baselineY, 13, 3, C[27], false);
+      for (let i = 0; i < 6; i++) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const cx = Math.round(x + side * (6 + Math.sin(now / 90 + i) * 3));
+        const cy = Math.round(baselineY - 6 - ((f * 34 + i * 6) % 34));
+        drawCross(cx, cy, side < 0 ? C[26] : C[9]);
+      }
+      return;
+    }
+
     this.pixelEllipse(x, baselineY, 16, 4, C[26], false);
     this.pixelEllipse(x, baselineY, 10, 2, C[9], false);
     for (let i = 0; i < 6; i++) {
       const cx = Math.round(x - 10 + i * 4 + Math.sin(now / 90 + i) * 3);
-      const cy = Math.round(baselineY - 6 - ((fraction * 32 + i * 6) % 32));
-      g.fillStyle = i % 2 ? C[9] : C[26];
-      g.fillRect(cx - 2, cy, 5, 1);
-      g.fillRect(cx, cy - 2, 1, 5);
+      const cy = Math.round(baselineY - 6 - ((f * 32 + i * 6) % 32));
+      drawCross(cx, cy, i % 2 ? C[9] : C[26]);
     }
   }
 
@@ -1615,63 +2155,171 @@ export class Battlefield {
     g.restore();
   }
 
-  barrier(x, top, width, color, hit, kind = 'shield', now = 0, appearProgress = 1, isOuterLayer = false) {
+  barrier(x, top, width, color, hit, kind = 'shield', now = 0, appearProgress = 1, isOuterLayer = false, options = {}) {
     const g = this.ctx;
     const rx = Math.round((width / 2) * Math.min(1, 0.4 + appearProgress * 0.6));
     const bottom = 148;
     const height = Math.max(12, bottom - top);
     const cy = bottom - Math.round(height * 0.45);
     const ry = Math.round(height * 0.56);
+    const resolvedKind = kind || options.shieldKind || 'shield';
+    const fam = resolvedKind === 'ward' || resolvedKind === 'veil' || resolvedKind === 'brace' || resolvedKind === 'guard'
+      ? resolvedKind
+      : elementFamily(resolvedKind);
+    const isGrand = Boolean(options.grand);
+    const isLarge = Boolean(!isGrand && options.large);
+    const scale = isGrand ? 5 : isLarge ? 2 : 1;
+    const stroke = Math.min(3, scale);
+    const dMult = Math.min(2.5, scale);
 
     g.save();
-    this.pixelEllipse(x, bottom - 1, rx + 2, 4, hit ? C[9] : color, false);
+    this.pixelEllipse(x, bottom - 1, rx + (isGrand ? 4 * scale : 2 * scale), Math.min(16, Math.round(4 * Math.min(3, scale))), hit ? C[9] : (isGrand ? C[31] : color), false, stroke);
+    if (isGrand && !isOuterLayer) {
+      this.pixelEllipse(x, bottom - 1, rx + scale, Math.min(10, Math.round(2 * Math.min(3, scale))), C[9], false, Math.max(1, stroke - 1));
+    }
 
     for (let dy = -ry; dy <= Math.round(ry * 0.78); dy++) {
-      const normY = dy / ry;
-      const span = Math.round(rx * Math.sqrt(Math.max(0, 1 - normY * normY)));
-      if (span <= 0) continue;
       const py = cy + dy;
-      if (py > bottom) continue;
+      if (py < 0 || py > bottom) continue;
+      const normY = dy / ry;
+      let span;
+      if (fam === 'brace') {
+        // Broad flat-topped fortress bulwark silhouette
+        const taper = dy < -ry * 0.55 ? Math.round(((-dy - ry * 0.55) / (ry * 0.45)) * 4 * scale) : 0;
+        span = Math.max(4, rx - taper);
+      } else if (fam === 'ice') {
+        // Angular hexagonal crystalline frost wall
+        const bevel = Math.abs(normY);
+        span = bevel < 0.42 ? rx : Math.max(3, Math.round(rx * (1.28 - bevel * 0.88)));
+      } else if (fam === 'earth') {
+        // Faceted tiered monolith shield wall
+        const tier = (Math.floor((dy + ry) / (7 * scale)) % 2) * scale;
+        span = Math.max(3, Math.round(rx * Math.sqrt(Math.max(0, 1 - normY * normY))) - tier);
+      } else {
+        span = Math.round(rx * Math.sqrt(Math.max(0, 1 - normY * normY)));
+      }
+      if (span <= 0) continue;
 
       if (!isOuterLayer) {
-        g.globalAlpha = hit ? 0.36 : (dy % 4 === 0 ? 0.20 : 0.11);
+        if (fam === 'veil') {
+          // Staggered translucent curtain shimmer bands
+          const shimmer = Math.sin(dy * 0.45 + now / 110) > 0;
+          g.globalAlpha = hit ? 0.36 : (shimmer ? 0.24 : 0.08);
+        } else if (fam === 'water') {
+          const ripple = Math.sin(dy * 0.45 - now / 100) > 0.25;
+          g.globalAlpha = hit ? 0.36 : (ripple ? 0.25 : 0.10);
+        } else {
+          g.globalAlpha = hit ? 0.36 : (dy % 4 === 0 ? 0.22 : 0.11);
+        }
         g.fillStyle = hit ? C[9] : color;
         g.fillRect(Math.round(x - span), py, span * 2 + 1, 1);
       }
 
-      g.globalAlpha = hit ? 1 : isOuterLayer ? 0.65 : 0.92;
+      g.globalAlpha = hit ? 1 : isOuterLayer ? 0.68 : 0.94;
       g.fillStyle = hit ? C[9] : color;
-      const edgeW = dy < -ry * 0.6 ? 3 : 2;
+      const edgeW = (fam === 'brace' ? 3 : dy < -ry * 0.6 ? 3 : 2) * stroke;
       g.fillRect(Math.round(x - span), py, edgeW, 1);
       g.fillRect(Math.round(x + span - edgeW + 1), py, edgeW, 1);
 
-      if (!isOuterLayer && dy > -ry + 3 && dy < 0 && span > 5) {
-        g.globalAlpha = 0.45;
+      if (fam === 'brace' && (dy === -ry || dy === Math.round(-ry * 0.25))) {
+        g.globalAlpha = 0.72;
+        g.fillStyle = C[31];
+        g.fillRect(Math.round(x - span + edgeW), py, Math.max(2, span * 2 - edgeW * 2), 1);
+      } else if (!isOuterLayer && dy > -ry + 3 && dy < 0 && span > 5) {
+        g.globalAlpha = fam === 'ice' ? 0.75 : 0.45;
         g.fillStyle = C[9];
-        g.fillRect(Math.round(x - span + 3), py, 1, 1);
+        g.fillRect(Math.round(x - span + edgeW + 1), py, fam === 'ice' ? 2 * stroke : stroke, 1);
       }
     }
 
     g.globalAlpha = 1;
+    const visTop = Math.max(6, top);
+    // Silhouette accents per barrier type
+    if (fam === 'brace') {
+      // Corner fortress rivets
+      this.pixelDiamond(x - rx + 3 * stroke, visTop + 5, Math.round(2 * dMult), C[31], C[9]);
+      this.pixelDiamond(x + rx - 3 * stroke, visTop + 5, Math.round(2 * dMult), C[31], C[9]);
+    } else if (fam === 'guard') {
+      // Compact buckler center boss rivet
+      this.pixelDiamond(x, Math.max(8, cy), Math.round(2 * dMult), color, C[9]);
+    } else if (fam === 'ice') {
+      // Sharp crystalline apex spire
+      const spireH = Math.round(6 * Math.min(3, scale));
+      const sy = Math.max(2, visTop - spireH);
+      g.fillStyle = color; g.fillRect(x - 2 * stroke, sy, 4 * stroke, spireH);
+      g.fillStyle = C[9]; g.fillRect(x - stroke, Math.max(0, sy - 2), 2 * stroke, spireH);
+    } else if (fam === 'earth') {
+      // Monolith stone slab blocks along rim
+      for (let b = -1; b <= 1; b += 2) {
+        const bw = 4 * stroke;
+        const bh = Math.round(12 * Math.min(3, scale));
+        const by = Math.max(4, cy - Math.floor(bh / 2));
+        g.fillStyle = C[11]; g.fillRect(x + b * (rx - 2 * stroke) - Math.floor(bw / 2), by, bw, bh);
+        g.fillStyle = color; g.fillRect(x + b * (rx - 2 * stroke) - Math.floor(bw / 4), by + 1, Math.max(2, Math.floor(bw / 2)), bh - 2);
+      }
+    } else if (fam === 'fire') {
+      // Flickering ember flame crest along arch
+      for (let i = -2; i <= 2; i++) {
+        const fx = x + i * Math.max(4, Math.round(rx * 0.35));
+        const fh = Math.round((3 + ((Math.floor(now / 100) + Math.abs(i)) % 4)) * Math.min(3, scale));
+        const fy = Math.max(2, visTop - fh + Math.abs(i) * 2 * stroke);
+        g.fillStyle = color; g.fillRect(fx - stroke, fy, 3 * stroke, fh);
+        g.fillStyle = C[31]; g.fillRect(fx, fy + 1, stroke, Math.max(1, fh - 1));
+      }
+    } else if (fam === 'wind') {
+      // Sweeping emerald gale ribbons
+      for (let s = -1; s <= 1; s += 2) {
+        const shift = this.settings.reducedMotion ? 0 : Math.floor((now / 80) % 10) * stroke;
+        g.fillStyle = C[9];
+        g.fillRect(x + s * (rx - stroke), Math.max(4, cy + 6 - shift), 2 * stroke, 5 * stroke);
+        g.fillStyle = color;
+        g.fillRect(x + s * (rx - 3 * stroke), Math.max(4, cy - 4 - shift), 2 * stroke, 6 * stroke);
+      }
+    }
+
+    if ((isLarge || isGrand) && !isOuterLayer) {
+      // Outer reinforced double halo rim & grand solar crown
+      this.pixelEllipse(x, bottom - 1, rx + 5 * Math.min(3, scale), Math.min(18, 5 * Math.min(3, scale)), isGrand ? C[31] : color, false, stroke);
+      if (isGrand) {
+        this.pixelEllipse(x, Math.max(6, visTop - 4), Math.round(rx * 0.62), Math.min(12, 3 * stroke), C[31], false, stroke);
+        this.pixelDiamond(x, Math.max(4, visTop - 7), Math.round(2 * dMult), C[31], C[9]);
+      }
+    }
+
+    if (options.restored) {
+      this.pixelDiamond(x - Math.round(rx * 0.6), bottom - 4, Math.round(2 * dMult), C[26], C[9]);
+      this.pixelDiamond(x + Math.round(rx * 0.6), bottom - 4, Math.round(2 * dMult), C[26], C[9]);
+    }
+
     if (!this.settings.reducedMotion) {
-      const nodeCount = 4;
+      if (fam === 'lightning' && !isOuterLayer) {
+        // Static electric arcs flickering between nodes
+        const a1 = now / 210;
+        const a2 = a1 + Math.PI * 0.7;
+        const n1x = Math.round(x + Math.cos(a1) * (rx - 1));
+        const n1y = Math.max(2, Math.round(cy + Math.sin(a1) * (ry * 0.55)));
+        const n2x = Math.round(x + Math.cos(a2) * (rx - 1));
+        const n2y = Math.max(2, Math.round(cy + Math.sin(a2) * (ry * 0.55)));
+        this.pixelBolt(n1x, Math.min(bottom, n1y), n2x, Math.min(bottom, n2y), now * 0.05, color, C[9], Math.min(4, scale));
+      }
+      const nodeCount = fam === 'veil' ? 6 : isGrand ? 6 : 4;
       for (let i = 0; i < nodeCount; i++) {
-        const ang = (now / 260) + (i * Math.PI * 2) / nodeCount;
+        const ang = (now / (fam === 'wind' ? 180 : 260)) + (i * Math.PI * 2) / nodeCount;
         const nx = Math.round(x + Math.cos(ang) * (rx - 1));
         const ny = Math.round(cy + Math.sin(ang) * (ry * 0.55));
-        if (ny <= bottom) {
-          this.pixelDiamond(nx, ny, kind === 'fire' || kind === 'blast' ? 2 : 1, color, C[9]);
+        if (ny >= 2 && ny <= bottom) {
+          this.pixelDiamond(nx, ny, Math.round(((fam === 'fire' || isGrand) && i % 2 === 0 ? 2 : 1) * dMult), isGrand && i % 2 === 0 ? C[31] : color, C[9]);
         }
       }
     }
 
     if (hit) {
-      this.pixelCircle(x + (x < 100 ? 12 : -12), cy, Math.round(rx * 0.55), C[9], false);
+      this.pixelCircle(x + (x < 100 ? 12 * scale : -12 * scale), Math.max(12, cy), Math.round(rx * 0.55), C[9], false, stroke);
       for (let i = 0; i < 6; i++) {
         const ang = (i * Math.PI) / 3;
-        const sx = Math.round(x + Math.cos(ang) * (rx + 4));
-        const sy = Math.round(cy + Math.sin(ang) * (ry * 0.6));
-        this.pixelDiamond(sx, sy, 2, color, C[9]);
+        const sx = Math.round(x + Math.cos(ang) * (rx + 4 * scale));
+        const sy = Math.max(4, Math.min(bottom, Math.round(cy + Math.sin(ang) * (ry * 0.6))));
+        this.pixelDiamond(sx, sy, Math.round(2 * dMult), color, C[9]);
       }
     }
     g.restore();

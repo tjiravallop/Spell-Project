@@ -71,7 +71,29 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
 #battle-view .resource { gap: 7px; min-height: 23px; }
 #battle-view .resource strong { font-size: 16px; }
 #battle-view .mana-resource { color: var(--mana-blue); }
-#battle-view .mana-pip.full { background: var(--mana-blue); }
+#battle-view #mana-value.is-short { color: var(--danger); }
+#battle-view .mana-pip { transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+#battle-view .mana-pip.full { background: var(--mana-blue); border-color: #a6d4ff; }
+#battle-view .mana-pip.will-spend {
+  background: #ffe082;
+  border-color: #fff2b8;
+  box-shadow: 0 0 7px rgba(255, 224, 130, .75);
+  animation: mana-pip-spend 1.15s ease-in-out infinite;
+}
+#battle-view .mana-pip.insufficient {
+  background: rgba(255, 118, 118, .28);
+  border-color: #ff8e8e;
+  box-shadow: 0 0 6px rgba(255, 118, 118, .55);
+  animation: mana-pip-short .9s ease-in-out infinite;
+}
+@keyframes mana-pip-spend {
+  0%, 100% { transform: scaleY(1); filter: brightness(1); }
+  50% { transform: scaleY(1.16); filter: brightness(1.16); }
+}
+@keyframes mana-pip-short {
+  0%, 100% { opacity: .65; }
+  50% { opacity: 1; }
+}
 #battle-view .hp-resource > .resource-meter { position: relative; height: 6px; border-radius: 2px; background: #3b2032; overflow: hidden; }
 #battle-view .hp-resource > .resource-meter i { position: relative; z-index: 2; display: block; height: 100%; }
 #battle-view .hp-resource > .resource-meter .hp-meter-trail { position: absolute; inset: 0 auto 0 0; z-index: 1; background: #ffe4a3; transition: width 540ms cubic-bezier(.16, 1, .3, 1) 140ms; }
@@ -136,7 +158,23 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
   pointer-events: auto;
   transition: left 260ms cubic-bezier(.22, 1, .36, 1), top 220ms cubic-bezier(.22, 1, .36, 1), border-color 160ms ease, background-color 160ms ease, opacity 220ms ease;
 }
-#enemy-list .enemy-card.target { border-color: var(--accent); box-shadow: 0 3px 12px #120b21cc; }
+#enemy-list .enemy-card.target { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 3px 12px #120b21cc; }
+#enemy-list .enemy-card:has(.intent-heavy):not(:disabled):not(.target) {
+  border-color: rgba(255, 138, 132, .82);
+  animation: enemy-threat-pulse 1.8s ease-in-out infinite;
+}
+#enemy-list .enemy-card:has(.intent-charge):not(:disabled):not(.target) {
+  border-color: rgba(158, 217, 255, .78);
+  animation: enemy-charge-pulse 1.9s ease-in-out infinite;
+}
+@keyframes enemy-threat-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 120, 112, .16), 0 3px 10px rgba(10, 6, 18, .75); }
+  50% { box-shadow: 0 0 0 2px rgba(255, 120, 112, .38), 0 4px 16px rgba(255, 92, 84, .32); }
+}
+@keyframes enemy-charge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(136, 214, 255, .14), 0 3px 10px rgba(10, 6, 18, .75); }
+  50% { box-shadow: 0 0 0 2px rgba(136, 214, 255, .36), 0 4px 16px rgba(110, 198, 255, .28); }
+}
 #enemy-list .enemy-card:hover:not(:disabled) { background: #2a1e39; }
 @media (max-width: 700px) {
   #enemy-list .enemy-card[data-middle-lane="0"] { top: 67%; }
@@ -227,18 +265,575 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
   border-radius: 11px;
   background: radial-gradient(ellipse at 50% 0%, #201b38 0%, #0d0d1c 100%);
   box-shadow: 0 10px 26px rgba(5, 4, 16, .82), inset 0 1px 0 rgba(255, 224, 170, .14);
+  transition: border-color .24s ease, box-shadow .24s ease, background .24s ease;
+}
+#spell-desk .spell-slots[data-desk-elem="fire"] {
+  --desk-aura-rgb: 245 138 94;
+  --desk-flow-rgb: 255 212 110;
+  --flow-elem-factor: .88;
+  --desk-filter-anim: spell-slots-filter-fire;
+  --desk-filter-dur: 2.3s;
+  --desk-overlay-anim: spell-slots-overlay-fire;
+  --desk-overlay-dur: 2.8s;
+  --desk-overlay-bg:
+    radial-gradient(circle at 22% 78%, rgba(255, 224, 138, .48) 0 2px, transparent 3px),
+    radial-gradient(circle at 74% 66%, rgba(255, 146, 82, .46) 0 2px, transparent 3px),
+    radial-gradient(circle at 48% 84%, rgba(255, 240, 188, .4) 0 1.5px, transparent 2.5px),
+    linear-gradient(162deg, transparent 24%, rgba(255, 122, 62, .22) 48%, rgba(255, 214, 112, .16) 56%, transparent 78%);
+  --desk-overlay-size: 100% 180%, 100% 180%, 100% 180%, 220% 220%;
+}
+#spell-desk .spell-slots[data-desk-elem="ice"] {
+  --desk-aura-rgb: 136 216 255;
+  --desk-flow-rgb: 218 250 255;
+  --flow-elem-factor: 1.16;
+  --desk-filter-anim: spell-slots-filter-ice;
+  --desk-filter-dur: 3.1s;
+  --desk-overlay-anim: spell-slots-overlay-ice;
+  --desk-overlay-dur: 3.6s;
+  --desk-overlay-bg:
+    linear-gradient(125deg, transparent 30%, rgba(224, 250, 255, .28) 46%, rgba(136, 224, 255, .18) 54%, transparent 68%),
+    repeating-linear-gradient(60deg, rgba(176, 238, 255, .07) 0 2px, transparent 2px 16px);
+  --desk-overlay-size: 240% 240%, 100% 100%;
+}
+#spell-desk .spell-slots[data-desk-elem="lightning"] {
+  --desk-aura-rgb: 255 220 112;
+  --desk-flow-rgb: 182 142 255;
+  --flow-elem-factor: .74;
+  --desk-filter-anim: spell-slots-filter-lightning;
+  --desk-filter-dur: 2.1s;
+  --desk-overlay-anim: spell-slots-overlay-lightning;
+  --desk-overlay-dur: 2.2s;
+  --desk-overlay-bg:
+    linear-gradient(108deg, transparent 36%, rgba(255, 246, 168, .32) 48%, rgba(196, 155, 255, .22) 53%, transparent 64%),
+    linear-gradient(248deg, transparent 38%, rgba(255, 232, 118, .22) 49%, transparent 60%);
+  --desk-overlay-size: 230% 230%, 230% 230%;
+}
+#spell-desk .spell-slots[data-desk-elem="earth"] {
+  --desk-aura-rgb: 224 168 77;
+  --desk-flow-rgb: 154 201 118;
+  --flow-elem-factor: 1.2;
+  --desk-filter-anim: spell-slots-filter-earth;
+  --desk-filter-dur: 3.4s;
+  --desk-overlay-anim: spell-slots-overlay-earth;
+  --desk-overlay-dur: 3.8s;
+  --desk-overlay-bg:
+    radial-gradient(circle at 28% 82%, rgba(242, 204, 128, .4) 0 2px, transparent 3px),
+    radial-gradient(circle at 72% 76%, rgba(188, 224, 146, .34) 0 1.5px, transparent 2.5px),
+    linear-gradient(180deg, transparent 35%, rgba(224, 168, 77, .22) 65%, rgba(154, 201, 118, .14) 85%, transparent 100%);
+  --desk-overlay-size: 100% 170%, 100% 170%, 100% 220%;
+}
+#spell-desk .spell-slots[data-desk-elem="water"] {
+  --desk-aura-rgb: 68 208 255;
+  --desk-flow-rgb: 110 245 220;
+  --flow-elem-factor: 1.05;
+  --desk-filter-anim: spell-slots-filter-water;
+  --desk-filter-dur: 3s;
+  --desk-overlay-anim: spell-slots-overlay-water;
+  --desk-overlay-dur: 3.4s;
+  --desk-overlay-bg:
+    linear-gradient(102deg, transparent 20%, rgba(110, 245, 220, .24) 44%, rgba(68, 208, 255, .2) 56%, transparent 78%),
+    linear-gradient(258deg, transparent 24%, rgba(164, 242, 255, .2) 48%, transparent 72%);
+  --desk-overlay-size: 220% 160%, 220% 160%;
+}
+#spell-desk .spell-slots[data-desk-elem="wind"],
+#spell-desk .spell-slots[data-desk-elem="vayu"] {
+  --desk-aura-rgb: 158 238 212;
+  --desk-flow-rgb: 214 252 232;
+  --flow-elem-factor: .84;
+  --desk-filter-anim: spell-slots-filter-wind;
+  --desk-filter-dur: 2.5s;
+  --desk-overlay-anim: spell-slots-overlay-wind;
+  --desk-overlay-dur: 2.3s;
+  --desk-overlay-bg:
+    linear-gradient(112deg, transparent 28%, rgba(214, 252, 232, .26) 46%, rgba(148, 236, 198, .18) 54%, transparent 72%),
+    repeating-linear-gradient(112deg, transparent 0 22px, rgba(188, 248, 224, .09) 22px 24px, transparent 24px 48px);
+  --desk-overlay-size: 240% 100%, 200% 100%;
+}
+#spell-desk .spell-slots[data-desk-elem="shield"] {
+  --desk-aura-rgb: 120 208 240;
+  --desk-flow-rgb: 162 238 230;
+  --flow-elem-factor: 1.1;
+  --desk-filter-anim: spell-slots-filter-shield;
+  --desk-filter-dur: 3.2s;
+  --desk-overlay-anim: spell-slots-overlay-shield;
+  --desk-overlay-dur: 3.2s;
+  --desk-overlay-bg:
+    linear-gradient(90deg, transparent 32%, rgba(162, 238, 230, .25) 48%, rgba(120, 208, 240, .22) 54%, transparent 68%),
+    radial-gradient(ellipse at 50% 0%, rgba(162, 238, 230, .2) 0%, transparent 65%);
+  --desk-overlay-size: 240% 100%, 100% 100%;
+}
+#spell-desk .spell-slots[data-desk-elem="heal"] {
+  --desk-aura-rgb: 138 232 164;
+  --desk-flow-rgb: 210 250 184;
+  --flow-elem-factor: 1.12;
+  --desk-filter-anim: spell-slots-filter-heal;
+  --desk-filter-dur: 3s;
+  --desk-overlay-anim: spell-slots-overlay-heal;
+  --desk-overlay-dur: 3.2s;
+  --desk-overlay-bg:
+    radial-gradient(circle at 24% 80%, rgba(210, 250, 184, .46) 0 2px, transparent 3px),
+    radial-gradient(circle at 68% 72%, rgba(138, 232, 164, .44) 0 2px, transparent 3px),
+    linear-gradient(0deg, rgba(138, 232, 164, .2) 0%, rgba(210, 250, 184, .12) 45%, transparent 78%);
+  --desk-overlay-size: 100% 180%, 100% 180%, 100% 180%;
+}
+#spell-desk .spell-slots[data-desk-elem="arcane"] {
+  --desk-aura-rgb: 198 148 248;
+  --desk-flow-rgb: 240 198 135;
+  --flow-elem-factor: 1;
+  --desk-filter-anim: spell-slots-filter-arcane;
+  --desk-filter-dur: 3.2s;
+  --desk-overlay-anim: spell-slots-overlay-arcane;
+  --desk-overlay-dur: 3.4s;
+  --desk-overlay-bg:
+    linear-gradient(132deg, transparent 28%, rgba(216, 172, 255, .24) 47%, rgba(240, 198, 135, .2) 55%, transparent 72%);
+  --desk-overlay-size: 230% 230%;
+}
+#spell-desk .spell-slots[data-desk-elem] {
+  --energy-alpha: .16;
+  --energy-secondary: .1;
+  --energy-glow: .22;
+  --energy-border: .68;
+  --flow-duration: 6.4s;
+  --overlay-opacity: .34;
+  border-color: rgb(var(--desk-aura-rgb) / var(--energy-border));
+  background-color: #0d0d1c;
+  background-image:
+    linear-gradient(115deg, transparent 16%, rgb(var(--desk-aura-rgb) / var(--energy-alpha)) 42%, rgb(var(--desk-flow-rgb, var(--desk-aura-rgb)) / var(--energy-secondary)) 54%, transparent 78%),
+    linear-gradient(295deg, transparent 22%, rgb(var(--desk-flow-rgb, var(--desk-aura-rgb)) / var(--energy-secondary)) 48%, rgb(var(--desk-aura-rgb) / var(--energy-alpha)) 58%, transparent 82%),
+    radial-gradient(ellipse 76% 88% at 50% 10%, rgb(var(--desk-aura-rgb) / var(--energy-alpha)) 0%, transparent 70%),
+    radial-gradient(ellipse at 50% 10%, rgb(var(--desk-aura-rgb) / .14) 0%, #191630 56%, #0d0d1c 100%);
+  background-size: 240% 240%, 240% 240%, 116% 116%, 100% 100%;
+  background-position: 0% 50%, 100% 50%, 50% 0%, 50% 50%;
+  box-shadow: 0 10px 26px rgba(5, 4, 16, .82), 0 0 22px rgb(var(--desk-aura-rgb) / var(--energy-glow)), inset 0 1px 0 rgb(var(--desk-aura-rgb) / .28);
+  animation:
+    spell-slots-energy-flow calc(var(--flow-duration) * var(--flow-elem-factor, 1)) ease-in-out infinite alternate,
+    var(--desk-filter-anim, spell-slots-filter-arcane) var(--desk-filter-dur, 3.2s) ease-in-out infinite;
+}
+#spell-desk .spell-slots[data-desk-elem][data-elem-power="charged"] {
+  --overlay-opacity: .48;
+  --energy-glow: .28;
+}
+#spell-desk .spell-slots[data-desk-elem][data-elem-power="surge"] {
+  --overlay-opacity: .64;
+  --energy-alpha: .26;
+  --energy-glow: .36;
+  --energy-border: .88;
+}
+#spell-desk .spell-slots[data-desk-elem].is-combo-linked {
+  --energy-alpha: .24;
+  --energy-secondary: .16;
+  --energy-glow: .3;
+  --energy-border: .82;
+  --flow-duration: 4.5s;
+  --overlay-opacity: .56;
+}
+#spell-desk .spell-slots[data-desk-elem].is-known-ready {
+  --energy-alpha: .32;
+  --energy-secondary: .22;
+  --energy-glow: .38;
+  --energy-border: .92;
+  --flow-duration: 3.3s;
+  --overlay-opacity: .72;
+}
+#spell-desk .spell-slots[data-desk-elem]:is(.cast-fx-success, .cast-fx-discover) {
+  --energy-alpha: .4;
+  --energy-secondary: .28;
+  --energy-glow: .48;
+  --energy-border: 1;
+  --flow-duration: 2.2s;
+  --overlay-opacity: .85;
+}
+#spell-desk .spell-slots[data-desk-elem]:not(.cast-fx-success):not(.cast-fx-discover):not(.cast-fx-fizzle)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  mix-blend-mode: screen;
+  opacity: var(--overlay-opacity, .34);
+  background-repeat: no-repeat;
+  background-image: var(--desk-overlay-bg);
+  background-size: var(--desk-overlay-size, 220% 220%);
+  animation: var(--desk-overlay-anim, spell-slots-overlay-arcane) var(--desk-overlay-dur, 3.4s) linear infinite;
+}
+@keyframes spell-slots-energy-flow {
+  0% {
+    background-position: 0% 42%, 100% 58%, 50% 0%, 50% 50%;
+    box-shadow: 0 10px 26px rgba(5, 4, 16, .82), 0 0 18px rgb(var(--desk-aura-rgb) / var(--energy-glow)), inset 0 1px 0 rgb(var(--desk-aura-rgb) / .24);
+  }
+  50% {
+    background-position: 56% 52%, 44% 48%, 50% 8%, 50% 50%;
+    box-shadow: 0 10px 28px rgba(5, 4, 16, .84), 0 0 28px rgb(var(--desk-aura-rgb) / calc(var(--energy-glow) + .08)), inset 0 1px 0 rgb(var(--desk-flow-rgb, var(--desk-aura-rgb)) / .36);
+  }
+  100% {
+    background-position: 100% 58%, 0% 42%, 50% 2%, 50% 50%;
+    box-shadow: 0 10px 26px rgba(5, 4, 16, .82), 0 0 22px rgb(var(--desk-aura-rgb) / var(--energy-glow)), inset 0 1px 0 rgb(var(--desk-aura-rgb) / .28);
+  }
+}
+@keyframes spell-slots-filter-fire {
+  0%, 100% { filter: drop-shadow(0 0 9px rgba(245, 118, 64, .34)) brightness(1) saturate(1.04); }
+  38% { filter: drop-shadow(0 0 16px rgba(255, 166, 84, .52)) brightness(1.07) saturate(1.16); }
+  72% { filter: drop-shadow(0 0 12px rgba(255, 108, 48, .44)) brightness(1.03) saturate(1.1); }
+}
+@keyframes spell-slots-filter-ice {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(124, 216, 255, .36)) brightness(1) contrast(1.01); }
+  50% { filter: drop-shadow(0 0 17px rgba(186, 244, 255, .52)) brightness(1.06) contrast(1.06); }
+}
+@keyframes spell-slots-filter-lightning {
+  0%, 100% { filter: drop-shadow(0 0 9px rgba(255, 220, 102, .34)) brightness(1) contrast(1); }
+  16% { filter: drop-shadow(0 0 18px rgba(255, 236, 138, .6)) brightness(1.1) contrast(1.07); }
+  30% { filter: drop-shadow(0 0 10px rgba(182, 142, 255, .38)) brightness(1.01) contrast(1.02); }
+  58% { filter: drop-shadow(0 0 15px rgba(255, 228, 120, .52)) brightness(1.07) contrast(1.05); }
+}
+@keyframes spell-slots-filter-earth {
+  0%, 100% { filter: drop-shadow(0 2px 9px rgba(224, 168, 77, .32)) sepia(.06) saturate(1.06) brightness(.99); }
+  50% { filter: drop-shadow(0 3px 15px rgba(224, 168, 77, .48)) sepia(.12) saturate(1.15) brightness(1.04); }
+}
+@keyframes spell-slots-filter-water {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(68, 208, 255, .34)) saturate(1.06) brightness(1); }
+  50% { filter: drop-shadow(0 0 17px rgba(110, 245, 220, .5)) saturate(1.18) brightness(1.05); }
+}
+@keyframes spell-slots-filter-wind {
+  0%, 100% { filter: drop-shadow(0 0 9px rgba(134, 227, 182, .32)) brightness(1) hue-rotate(0deg); }
+  50% { filter: drop-shadow(0 0 16px rgba(196, 252, 224, .48)) brightness(1.06) hue-rotate(4deg); }
+}
+@keyframes spell-slots-filter-shield {
+  0%, 100% { filter: drop-shadow(0 0 9px rgba(120, 208, 240, .32)) contrast(1.02) brightness(1); }
+  50% { filter: drop-shadow(0 0 15px rgba(162, 238, 230, .48)) contrast(1.06) brightness(1.05); }
+}
+@keyframes spell-slots-filter-heal {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(138, 232, 164, .34)) brightness(1) saturate(1.04); }
+  50% { filter: drop-shadow(0 0 17px rgba(210, 250, 184, .52)) brightness(1.07) saturate(1.14); }
+}
+@keyframes spell-slots-filter-arcane {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(198, 148, 248, .34)) brightness(1) saturate(1.04); }
+  50% { filter: drop-shadow(0 0 16px rgba(240, 198, 135, .46)) brightness(1.06) saturate(1.12); }
+}
+@keyframes spell-slots-overlay-fire {
+  0% { background-position: 0% 100%, 0% 100%, 0% 100%, 0% 100%; }
+  100% { background-position: 0% 0%, 0% 0%, 0% 0%, 100% 0%; }
+}
+@keyframes spell-slots-overlay-ice {
+  0% { background-position: -60% 0%, 0% 0%; }
+  100% { background-position: 160% 100%, 16px 0%; }
+}
+@keyframes spell-slots-overlay-lightning {
+  0%, 100% { background-position: 0% 50%, 100% 50%; opacity: calc(var(--overlay-opacity, .34) * .78); }
+  18% { background-position: 42% 35%, 58% 65%; opacity: var(--overlay-opacity, .34); }
+  34% { background-position: 62% 55%, 38% 45%; opacity: calc(var(--overlay-opacity, .34) * .45); }
+  54% { background-position: 100% 40%, 0% 60%; opacity: var(--overlay-opacity, .34); }
+}
+@keyframes spell-slots-overlay-earth {
+  0% { background-position: 0% 95%, 0% 90%, 0% 100%; }
+  100% { background-position: 0% 10%, 0% 15%, 0% 0%; }
+}
+@keyframes spell-slots-overlay-water {
+  0% { background-position: 0% 45%, 100% 55%; }
+  50% { background-position: 55% 58%, 45% 42%; }
+  100% { background-position: 100% 45%, 0% 55%; }
+}
+@keyframes spell-slots-overlay-wind {
+  0% { background-position: -40% 50%, 0% 50%; }
+  100% { background-position: 140% 50%, 48px 50%; }
+}
+@keyframes spell-slots-overlay-shield {
+  0% { background-position: -50% 0%, 50% 0%; }
+  100% { background-position: 150% 0%, 50% 0%; }
+}
+@keyframes spell-slots-overlay-heal {
+  0% { background-position: 0% 100%, 0% 100%, 0% 100%; }
+  100% { background-position: 0% 0%, 0% 0%, 0% 0%; }
+}
+@keyframes spell-slots-overlay-arcane {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+@keyframes spell-slots-conduit-pulse {
+  0%, 100% {
+    filter: brightness(1);
+    box-shadow: 0 0 7px rgb(var(--desk-aura-rgb, 240 198 135) / .65);
+  }
+  50% {
+    filter: brightness(1.22);
+    box-shadow: 0 0 12px rgb(var(--desk-flow-rgb, var(--desk-aura-rgb, 240 198 135)) / .95);
+  }
+}
+#spell-desk .spell-slots.is-combo-linked .spell-slot.filled + .spell-slot.filled::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -11px;
+  width: 11px;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgb(var(--desk-aura-rgb, 240 198 135) / .55), rgb(var(--desk-flow-rgb, var(--desk-aura-rgb, 240 198 135)) / .98), rgb(var(--desk-aura-rgb, 240 198 135) / .55));
+  box-shadow: 0 0 8px rgb(var(--desk-aura-rgb, 240 198 135) / .8);
+  animation: spell-slots-conduit-pulse 2.2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 4;
+}
+#spell-desk .spell-slots.cast-fx-success { border-color: #82bd8a; }
+#spell-desk .spell-slots.cast-fx-discover { border-color: var(--gold); }
+#spell-desk .spell-slots.cast-fx-fizzle { border-color: var(--danger); }
+#spell-desk .spell-slots:is(.cast-fx-success, .cast-fx-discover)::after {
+  --ring-rgb: 130 189 138;
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 13px;
+  border: 2px solid rgb(var(--ring-rgb) / .85);
+  pointer-events: none;
+  opacity: 0;
+  animation: spell-slots-ring-pulse .72s cubic-bezier(.16, 1, .3, 1) forwards;
+}
+#spell-desk .spell-slots.cast-fx-discover::after {
+  --ring-rgb: 240 198 135;
+}
+#spell-desk .spell-slots.cast-fx-success:is(.cast-elem-fire, .cast-burst-fire, [data-desk-elem="fire"])::after {
+  --ring-rgb: 255 138 75;
+}
+#spell-desk .spell-slots.cast-fx-success:is(.cast-elem-ice, .cast-burst-ice, [data-desk-elem="ice"])::after {
+  --ring-rgb: 124 230 255;
+}
+#spell-desk .spell-slots.cast-fx-success:is(.cast-elem-lightning, .cast-burst-lightning, [data-desk-elem="lightning"])::after {
+  --ring-rgb: 255 224 102;
+}
+#spell-desk .spell-slots:is(
+  .cast-burst-fire,
+  .cast-burst-ice,
+  .cast-burst-lightning,
+  :is(.cast-fx-success, .cast-fx-discover):is(
+    .cast-elem-fire,
+    .cast-elem-ice,
+    .cast-elem-lightning,
+    [data-desk-elem="fire"],
+    [data-desk-elem="ice"],
+    [data-desk-elem="lightning"]
+  )
+)::before {
+  content: '';
+  position: absolute;
+  inset: -32px -36px;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  background-repeat: no-repeat;
+}
+#spell-desk .spell-slots:is(
+  .cast-burst-fire,
+  :is(.cast-fx-success, .cast-fx-discover):is(.cast-elem-fire, [data-desk-elem="fire"])
+)::before {
+  background-image:
+    radial-gradient(circle, #fff3c4 0 58%, transparent 65%),
+    radial-gradient(circle, #ff9c47 0 58%, transparent 65%),
+    radial-gradient(circle, #ff682b 0 58%, transparent 65%),
+    radial-gradient(circle, #ffe08a 0 58%, transparent 65%),
+    radial-gradient(circle, #ff7a33 0 58%, transparent 65%),
+    radial-gradient(circle, #ffd27a 0 58%, transparent 65%),
+    radial-gradient(circle, #ff9c47 0 58%, transparent 65%),
+    radial-gradient(circle, #fff3c4 0 58%, transparent 65%),
+    radial-gradient(circle, #ff682b 0 58%, transparent 65%),
+    radial-gradient(circle, #ffe08a 0 58%, transparent 65%);
+  background-size: 3px 3px, 4px 4px, 3px 3px, 2px 2px, 3px 3px, 3px 3px, 2px 2px, 3px 3px, 3px 3px, 2px 2px;
+  animation: spell-slots-burst-fire .68s cubic-bezier(.16, 1, .3, 1) forwards;
+}
+#spell-desk .spell-slots:is(
+  .cast-burst-ice,
+  :is(.cast-fx-success, .cast-fx-discover):is(.cast-elem-ice, [data-desk-elem="ice"])
+)::before {
+  background-image:
+    linear-gradient(135deg, transparent 28%, #ffffff 29% 71%, transparent 72%),
+    linear-gradient(135deg, transparent 28%, #9beeff 29% 71%, transparent 72%),
+    linear-gradient(135deg, transparent 28%, #57c8f7 29% 71%, transparent 72%),
+    radial-gradient(circle, #e6fbff 0 58%, transparent 65%),
+    linear-gradient(135deg, transparent 28%, #b2f2ff 29% 71%, transparent 72%),
+    linear-gradient(135deg, transparent 28%, #ffffff 29% 71%, transparent 72%),
+    radial-gradient(circle, #7ce6ff 0 58%, transparent 65%),
+    linear-gradient(135deg, transparent 28%, #9beeff 29% 71%, transparent 72%),
+    radial-gradient(circle, #d4faff 0 58%, transparent 65%),
+    linear-gradient(135deg, transparent 28%, #57c8f7 29% 71%, transparent 72%);
+  background-size: 5px 5px, 4px 4px, 5px 5px, 3px 3px, 4px 4px, 4px 4px, 3px 3px, 5px 5px, 2px 2px, 4px 4px;
+  animation: spell-slots-burst-ice .64s cubic-bezier(.16, 1, .3, 1) forwards;
+}
+#spell-desk .spell-slots:is(
+  .cast-burst-lightning,
+  :is(.cast-fx-success, .cast-fx-discover):is(.cast-elem-lightning, [data-desk-elem="lightning"])
+)::before {
+  background-image:
+    linear-gradient(90deg, #ffffff 0 100%),
+    linear-gradient(0deg, #ffe966 0 100%),
+    linear-gradient(90deg, #c49bff 0 100%),
+    radial-gradient(circle, #fff8c4 0 58%, transparent 65%),
+    linear-gradient(0deg, #ffe966 0 100%),
+    linear-gradient(90deg, #ffffff 0 100%),
+    linear-gradient(0deg, #c49bff 0 100%),
+    radial-gradient(circle, #ffe066 0 58%, transparent 65%),
+    linear-gradient(90deg, #ffe966 0 100%),
+    radial-gradient(circle, #ffffff 0 58%, transparent 65%);
+  background-size: 7px 2px, 2px 7px, 6px 2px, 3px 3px, 2px 6px, 7px 2px, 2px 7px, 3px 3px, 6px 2px, 2px 2px;
+  animation: spell-slots-burst-lightning .5s cubic-bezier(.15, .9, .3, 1) forwards;
+}
+@keyframes spell-slots-ring-pulse {
+  0% {
+    opacity: .9;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(var(--ring-rgb) / .52), 0 0 14px rgb(var(--ring-rgb) / .4);
+  }
+  55% {
+    opacity: .5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.06, 1.14);
+    box-shadow: 0 0 0 10px rgb(var(--ring-rgb) / 0), 0 0 24px rgb(var(--ring-rgb) / 0);
+  }
+}
+@keyframes spell-slots-burst-fire {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scale(.96);
+    background-position:
+      36px 32px,
+      28% 30px,
+      50% 29px,
+      72% 30px,
+      calc(100% - 36px) 32px,
+      33px 54%,
+      calc(100% - 33px) 50%,
+      40px calc(100% - 34px),
+      64% calc(100% - 31px),
+      calc(100% - 40px) calc(100% - 34px);
+  }
+  18% {
+    opacity: .88;
+  }
+  58% {
+    opacity: .66;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px) scale(1.02);
+    background-position:
+      22px 8px,
+      25% 4px,
+      52% 2px,
+      76% 6px,
+      calc(100% - 20px) 10px,
+      16px 32%,
+      calc(100% - 14px) 28%,
+      24px calc(100% - 48px),
+      66% calc(100% - 46px),
+      calc(100% - 24px) calc(100% - 50px);
+  }
+}
+@keyframes spell-slots-burst-ice {
+  0% {
+    opacity: 0;
+    transform: scale(.94);
+    filter: brightness(1);
+    background-position:
+      36px 32px,
+      26% 30px,
+      50% 29px,
+      74% 30px,
+      calc(100% - 36px) 32px,
+      32px 50%,
+      calc(100% - 32px) 50%,
+      38px calc(100% - 32px),
+      50% calc(100% - 30px),
+      calc(100% - 38px) calc(100% - 32px);
+  }
+  20% {
+    opacity: .86;
+    filter: brightness(1.16);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.04);
+    filter: brightness(1);
+    background-position:
+      16px 12px,
+      23% 10px,
+      50% 7px,
+      77% 10px,
+      calc(100% - 16px) 12px,
+      11px 50%,
+      calc(100% - 11px) 50%,
+      18px calc(100% - 13px),
+      50% calc(100% - 10px),
+      calc(100% - 18px) calc(100% - 13px);
+  }
+}
+@keyframes spell-slots-burst-lightning {
+  0% {
+    opacity: 0;
+    transform: scale(.97);
+    filter: brightness(1);
+    background-position:
+      36px 32px,
+      27% 30px,
+      50% 29px,
+      73% 30px,
+      calc(100% - 36px) 32px,
+      32px 46%,
+      calc(100% - 32px) 54%,
+      38px calc(100% - 32px),
+      48% calc(100% - 30px),
+      calc(100% - 38px) calc(100% - 32px);
+  }
+  10% {
+    opacity: .94;
+    filter: brightness(1.26);
+  }
+  24% {
+    opacity: .34;
+    filter: brightness(1.05);
+  }
+  38% {
+    opacity: .88;
+    filter: brightness(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.03);
+    filter: brightness(1);
+    background-position:
+      14px 14px,
+      24% 8px,
+      53% 6px,
+      78% 12px,
+      calc(100% - 14px) 10px,
+      10px 40%,
+      calc(100% - 10px) 62%,
+      16px calc(100% - 14px),
+      44% calc(100% - 9px),
+      calc(100% - 14px) calc(100% - 16px);
+  }
 }
 #spell-desk .spell-slot {
   height: clamp(106px, 10.4vw, 128px);
   min-height: 0;
   border-radius: 9px;
-  border: 1.5px dashed #4a4068;
-  background: linear-gradient(180deg, #141226 0%, #0d0d1b 100%);
-  transition: transform .16s cubic-bezier(.16,1,.3,1), border-color .16s, box-shadow .16s;
+  border: 1.5px dashed rgba(134, 114, 176, .42);
+  background-color: #121024;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .035) 0%, rgba(0, 0, 0, .22) 100%);
+  transition: transform .22s cubic-bezier(.16,1,.3,1), border-color .22s ease, background-color .22s ease, box-shadow .22s ease;
 }
-#spell-desk .spell-slot.empty-slot:hover {
-  border-color: #8c76a8;
-  background: linear-gradient(180deg, #1a1732 0%, #111022 100%);
+#spell-desk .spell-slot.empty-slot:not(.selected):not(.drop-hover):not(:hover):not(:has(.slot-main:disabled)) {
+  animation: empty-slot-breathe 3.2s ease-in-out var(--slot-breathe-delay, 0s) infinite;
+}
+#spell-desk .spell-slot.empty-slot:nth-child(1) { --slot-breathe-delay: 0s; }
+#spell-desk .spell-slot.empty-slot:nth-child(2) { --slot-breathe-delay: -.8s; }
+#spell-desk .spell-slot.empty-slot:nth-child(3) { --slot-breathe-delay: -1.6s; }
+#spell-desk .spell-slot.empty-slot:nth-child(4) { --slot-breathe-delay: -2.4s; }
+#spell-desk .spell-slot.empty-slot:hover:not(:has(.slot-main:disabled)),
+#spell-desk .spell-slot.empty-slot:focus-within:not(:has(.slot-main:disabled)) {
+  border-color: rgba(206, 184, 236, .88);
+  background-color: #231f42;
+  transform: translateY(-2px) scale(1.025);
+  box-shadow: inset 0 0 16px rgba(176, 150, 224, .22), 0 6px 16px rgba(10, 8, 26, .65);
 }
 #spell-desk .spell-slot.filled {
   border-style: solid;
@@ -271,6 +866,40 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
 }
 #spell-desk .spell-slot.valid-slot { border-color: #a9cc85; }
 #spell-desk .spell-slot.untested-slot { border-color: #9e82ba; }
+#spell-desk .spell-slot.drop-hover[data-drag-preview]::after {
+  content: '↳ ' attr(data-drag-preview);
+  position: absolute;
+  left: 50%;
+  bottom: 7px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 8px);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(15, 13, 28, .94);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  z-index: 8;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .78);
+}
+#spell-desk .spell-slot.filled.slot-just-placed:not(.slot-fx-discover):not(.slot-fx-success):not(.slot-fx-fizzle) {
+  animation: slot-card-snap-in 210ms cubic-bezier(.18, 1.28, .36, 1) both;
+}
+@keyframes slot-card-snap-in {
+  0% {
+    opacity: .45;
+    transform: translateY(-10px) rotate(0deg) scale(.86);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(var(--scatter-y, 0px)) rotate(var(--scatter-rot, 0deg)) scale(1);
+  }
+}
 #spell-desk .spell-slot.selected {
   transform: translateY(-5px) rotate(0deg) scale(1.02);
   z-index: 6;
@@ -281,23 +910,100 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
 }
 #spell-desk .slot-socket-frame {
   padding: 7px 6px;
-  border: 1px dashed #3a3357;
+  border: 1px dashed rgba(122, 106, 166, .35);
   border-radius: 6px;
-  background: radial-gradient(circle at 50% 52%, #191630 0%, #0d0d1b 100%);
+  background-color: #131126;
+  background-image: radial-gradient(circle at 50% 52%, rgba(255, 255, 255, .04) 0%, rgba(0, 0, 0, .28) 100%);
+  transition: border-color .22s ease, background-color .22s ease;
 }
-#spell-desk .slot-number { font-size: 10px; color: #9c92b6; letter-spacing: .02em; }
+#spell-desk .spell-slot.empty-slot:not(:hover):not(:focus-within):not(:has(.slot-main:disabled)) .slot-socket-frame {
+  animation: empty-socket-breathe 3.2s ease-in-out var(--slot-breathe-delay, 0s) infinite;
+}
+#spell-desk .spell-slot.empty-slot:hover:not(:has(.slot-main:disabled)) .slot-socket-frame,
+#spell-desk .spell-slot.empty-slot:focus-within:not(:has(.slot-main:disabled)) .slot-socket-frame {
+  border-color: rgba(186, 164, 224, .65);
+  background-color: #211d3f;
+}
+#spell-desk .slot-number { font-size: 10px; color: #9c92b6; letter-spacing: .02em; transition: color .22s ease; }
+#spell-desk .spell-slot.empty-slot:hover:not(:has(.slot-main:disabled)) .slot-number { color: #d5cce8; }
 #spell-desk .slot-empty-emblem {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   color: var(--gold);
-  border-color: #5a4b75;
-  background: #141226;
+  border-color: rgba(140, 118, 178, .55);
+  background-color: #141226;
   box-shadow: inset 0 0 8px rgba(214, 171, 109, .15);
   font-size: 15px;
+  transition: transform .22s ease, border-color .22s ease, background-color .22s ease, box-shadow .22s ease, opacity .22s ease;
+}
+#spell-desk .spell-slot.empty-slot:not(:hover):not(:focus-within):not(:has(.slot-main:disabled)) .slot-empty-emblem {
+  animation: empty-emblem-breathe 3.2s ease-in-out var(--slot-breathe-delay, 0s) infinite;
+}
+#spell-desk .spell-slot.empty-slot:hover:not(:has(.slot-main:disabled)) .slot-empty-emblem,
+#spell-desk .spell-slot.empty-slot:focus-within:not(:has(.slot-main:disabled)) .slot-empty-emblem {
+  transform: scale(1.1);
+  opacity: 1;
+  border-color: rgba(214, 171, 109, .85);
+  background-color: #261e3c;
+  box-shadow: inset 0 0 10px rgba(214, 171, 109, .34), 0 0 10px rgba(214, 171, 109, .24);
+}
+@keyframes empty-slot-breathe {
+  0%, 100% {
+    transform: scale(1);
+    border-color: rgba(134, 114, 176, .42);
+    box-shadow: inset 0 0 8px rgba(130, 108, 178, .06), 0 0 0 rgba(214, 171, 109, 0);
+  }
+  50% {
+    transform: scale(1.024);
+    border-color: rgba(170, 146, 214, .66);
+    box-shadow: inset 0 0 14px rgba(158, 130, 186, .18), 0 4px 12px rgba(120, 96, 170, .16);
+  }
+}
+@keyframes empty-socket-breathe {
+  0%, 100% {
+    border-color: rgba(122, 106, 166, .35);
+    background-color: #131126;
+  }
+  50% {
+    border-color: rgba(156, 134, 200, .52);
+    background-color: #1a1734;
+  }
+}
+@keyframes empty-emblem-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: .76;
+    border-color: rgba(140, 118, 178, .55);
+    box-shadow: inset 0 0 8px rgba(214, 171, 109, .14), 0 0 0 rgba(214, 171, 109, 0);
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+    border-color: rgba(182, 152, 216, .75);
+    box-shadow: inset 0 0 10px rgba(214, 171, 109, .3), 0 0 8px rgba(214, 171, 109, .2);
+  }
 }
 body.reduced-motion #spell-desk .word-item,
-body.reduced-motion #spell-desk .spell-slot { transition: none; }
+body.reduced-motion #spell-desk .spell-slot,
+body.reduced-motion #spell-desk .slot-socket-frame,
+body.reduced-motion #spell-desk .slot-empty-emblem,
+body.reduced-motion #spell-desk .slot-number,
+body.reduced-motion #spell-desk .slot-empty-text { transition: none; }
+body.reduced-motion #spell-desk .spell-slot.empty-slot:not(.selected):not(.drop-hover):not(:hover):not(:has(.slot-main:disabled)),
+body.reduced-motion #spell-desk .spell-slot.empty-slot:not(:hover):not(:focus-within):not(:has(.slot-main:disabled)) .slot-socket-frame,
+body.reduced-motion #spell-desk .spell-slot.empty-slot:not(:hover):not(:focus-within):not(:has(.slot-main:disabled)) .slot-empty-emblem,
+body.reduced-motion #spell-desk .spell-slots:is(.cast-fx-success, .cast-fx-discover)::after,
+body.reduced-motion #spell-desk .spell-slots[data-desk-elem]::after,
+body.reduced-motion #spell-desk .spell-slots[data-desk-elem],
+body.reduced-motion .spell-slots[data-desk-elem],
+body.reduced-motion #spell-desk .spell-slots.is-combo-linked .spell-slot.filled + .spell-slot.filled::before,
+body.reduced-motion #spell-desk .spell-slots::before,
+body.reduced-motion .spell-slots::before,
+body.reduced-motion #spell-desk .spell-slot.filled.slot-just-placed,
+body.reduced-motion #battle-view .mana-pip,
+body.reduced-motion #enemy-list .enemy-card,
+body.reduced-motion .combat-command #cast-button.cast-ready::after { animation: none; }
 body.reduced-motion #spell-desk .word-item:hover:not(.depleted),
 body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY(var(--scatter-y, 0px)) rotate(var(--scatter-rot, 0deg)); }
 #spell-desk .slot-empty-text { font-size: 10.5px; color: #8c84a6; }
@@ -445,6 +1151,13 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   box-shadow: 0 0 0 1px rgba(240, 198, 135, .35);
 }
 .known-shortcuts .known-chip.is-active .known-chip-name { color: var(--accent); }
+.known-shortcuts .known-chip.is-short-mana {
+  opacity: .74;
+  border-style: dashed;
+  border-color: #7d4a4e;
+  background: #171222;
+}
+.known-chip-cost.is-short { color: var(--danger); }
 .known-shortcuts .known-chip:focus-visible { outline-offset: -3px; }
 #combos-open { min-height: 30px; color: var(--accent); padding: 0 3px; font-size: 12px; }
 #spell-desk .word-bank {
@@ -534,8 +1247,17 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 #spell-desk :is(.word-ice,.word-freeze) :is(.word-add,.playing-card-inner) {
   background: linear-gradient(168deg, rgba(28, 46, 74, .84) 0%, rgba(18, 27, 46, .78) 58%, rgba(12, 17, 32, .88) 100%);
 }
-#spell-desk .word-lightning :is(.word-add,.playing-card-inner) {
+#spell-desk :is(.word-lightning,.word-asani) :is(.word-add,.playing-card-inner) {
   background: linear-gradient(168deg, rgba(49, 40, 74, .84) 0%, rgba(27, 23, 46, .78) 58%, rgba(16, 14, 30, .88) 100%);
+}
+#spell-desk :is(.word-earth,.word-pathaphi) :is(.word-add,.playing-card-inner) {
+  background: linear-gradient(168deg, rgba(66, 48, 28, .84) 0%, rgba(38, 28, 19, .78) 58%, rgba(22, 16, 12, .88) 100%);
+}
+#spell-desk :is(.word-water,.word-wari) :is(.word-add,.playing-card-inner) {
+  background: linear-gradient(168deg, rgba(22, 52, 76, .84) 0%, rgba(16, 33, 52, .78) 58%, rgba(11, 20, 34, .88) 100%);
+}
+#spell-desk :is(.word-wind,.word-vayu) :is(.word-add,.playing-card-inner) {
+  background: linear-gradient(168deg, rgba(24, 58, 50, .84) 0%, rgba(16, 36, 34, .78) 58%, rgba(11, 22, 22, .88) 100%);
 }
 #spell-desk :is(.word-shield,.word-heal,.word-self) :is(.word-add,.playing-card-inner) {
   background: linear-gradient(168deg, rgba(26, 52, 54, .84) 0%, rgba(18, 33, 42, .78) 58%, rgba(13, 20, 29, .88) 100%);
@@ -554,6 +1276,9 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 #spell-desk .word-ice .card-emblem,
 #spell-desk .word-freeze .card-emblem { color: #a9e1ff; }
 #spell-desk .word-lightning .card-emblem { color: #ffe37a; }
+#spell-desk :is(.word-earth,.word-pathaphi) .card-emblem { color: #ebc078; }
+#spell-desk :is(.word-water,.word-wari) .card-emblem { color: #6ed8ff; }
+#spell-desk :is(.word-wind,.word-vayu) .card-emblem { color: #9cf0c6; }
 #spell-desk .word-pair .card-emblem,
 #spell-desk .word-blast .card-emblem { color: #deb2ff; }
 #spell-desk .word-shield .card-emblem { color: #9ec4ff; }
@@ -569,6 +1294,28 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   background: radial-gradient(circle at 50% 42%, rgba(240, 198, 135, .09) 0%, rgba(12, 12, 24, .52) 76%);
   box-shadow: inset 1px 1px 0 rgba(255, 248, 224, .1), inset 0 0 10px rgba(0, 0, 0, .42);
 }
+#spell-desk .playing-card .playing-card-inner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 6px;
+  right: 6px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--role-bar, rgba(240, 198, 135, .45));
+  box-shadow: 0 1px 6px var(--role-bar-glow, transparent);
+  pointer-events: none;
+}
+#spell-desk .role-form { --role-bar: #d8a8ff; --role-bar-glow: rgba(216, 168, 255, .42); }
+#spell-desk .role-element { --role-bar: #ffad70; --role-bar-glow: rgba(255, 173, 112, .45); }
+#spell-desk .role-element:is(.word-ice,.word-heman,.word-mist,.word-hail) { --role-bar: #8de2ff; --role-bar-glow: rgba(141, 226, 255, .45); }
+#spell-desk .role-element:is(.word-lightning,.word-asani,.word-thunderstorm) { --role-bar: #ffe37a; --role-bar-glow: rgba(255, 227, 122, .45); }
+#spell-desk .role-element:is(.word-earth,.word-pathaphi) { --role-bar: #e0a84d; --role-bar-glow: rgba(224, 168, 77, .45); }
+#spell-desk .role-element:is(.word-water,.word-wari) { --role-bar: #44d0ff; --role-bar-glow: rgba(68, 208, 255, .45); }
+#spell-desk .role-element:is(.word-wind,.word-vayu) { --role-bar: #8de8c6; --role-bar-glow: rgba(141, 232, 198, .42); }
+#spell-desk .role-mod { --role-bar: #cfa0f4; --role-bar-glow: rgba(207, 160, 244, .38); }
+#spell-desk .role-defense { --role-bar: #74d9ff; --role-bar-glow: rgba(116, 217, 255, .42); }
+#spell-desk .role-support { --role-bar: #8ef0b4; --role-bar-glow: rgba(142, 240, 180, .42); }
 #spell-desk .card-corner { font-size: 10px; min-height: 14px; }
 #spell-desk .corner-name { display: none; }
 #spell-desk .corner-icon .icon { width: 12px; height: 12px; opacity: .9; }
@@ -589,6 +1336,9 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 #spell-desk :is(.word-fire,.word-burn,.word-grand) .card-art-frame { background: radial-gradient(circle, #4f252e 0%, #1d1018 100%); border-color: rgba(245, 148, 102, .52); }
 #spell-desk :is(.word-ice,.word-freeze) .card-art-frame { background: radial-gradient(circle, #223b5e 0%, #10192b 100%); border-color: rgba(132, 212, 255, .5); }
 #spell-desk .word-lightning .card-art-frame { background: radial-gradient(circle, #423663 0%, #171326 100%); border-color: rgba(255, 224, 112, .52); }
+#spell-desk :is(.word-earth,.word-pathaphi) .card-art-frame { background: radial-gradient(circle, #4f3a22 0%, #1c140d 100%); border-color: rgba(224, 168, 77, .52); }
+#spell-desk :is(.word-water,.word-wari) .card-art-frame { background: radial-gradient(circle, #18425e 0%, #0d1824 100%); border-color: rgba(68, 208, 255, .52); }
+#spell-desk :is(.word-wind,.word-vayu) .card-art-frame { background: radial-gradient(circle, #1d4a40 0%, #0d1f1b 100%); border-color: rgba(141, 232, 198, .5); }
 #spell-desk :is(.word-shield,.word-heal,.word-self) .card-art-frame { background: radial-gradient(circle, #204646 0%, #0f1d21 100%); border-color: rgba(136, 228, 196, .48); }
 #spell-desk .card-emblem .icon, .discard-sheet .card-emblem .icon { width: 24px; height: 24px; }
 #spell-desk .spell-slot .card-emblem .icon { width: 21px; height: 21px; }
@@ -690,6 +1440,8 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   border-color: var(--accent);
 }
 .combat-command .cast-actions .primary-button {
+  position: relative;
+  overflow: hidden;
   color: #211319;
   background: linear-gradient(180deg, #f6cb7d 0%, #db9b43 100%);
   border: 1px solid #ffe4ad;
@@ -697,6 +1449,33 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 }
 .combat-command .cast-actions .primary-button:hover:not(:disabled) {
   background: linear-gradient(180deg, #ffda98 0%, #e7ab53 100%);
+}
+.combat-command #cast-button.cast-ready:not(:disabled) {
+  box-shadow: 0 0 0 1px rgba(255, 228, 173, .45), 0 0 16px rgba(246, 203, 125, .36), 0 3px 10px rgba(10, 6, 18, .75);
+}
+.combat-command #cast-button.cast-ready:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 22%, rgba(255, 250, 232, .34) 48%, transparent 74%);
+  transform: translateX(-130%);
+  pointer-events: none;
+  animation: cast-ready-sheen 3.2s ease-in-out infinite;
+}
+@keyframes cast-ready-sheen {
+  0%, 58% { transform: translateX(-130%); }
+  88%, 100% { transform: translateX(130%); }
+}
+.combat-command #cast-button.cast-insufficient:disabled {
+  opacity: .72;
+  background: linear-gradient(180deg, #4b313a 0%, #311d24 100%);
+  color: #f6dcd8;
+  border-color: #a85c62;
+}
+.combat-command .cast-cost-short {
+  color: #ffb3ad;
+  font-weight: 700;
+  margin-left: 3px;
 }
 .combat-command #cast-cost { font-size: 11px; white-space: nowrap; opacity: .9; }
 .combat-command .second-target { font-size: 12px; margin: 0; }
@@ -789,12 +1568,13 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   .top-actions { gap: 3px; }
   body[data-screen="battle"] main { width: 100%; }
   #battle-view {
-    --battlefield-row: clamp(196px, 76vw, 350px);
+    --battlefield-row: clamp(208px, 74vw, 350px);
     align-content: start;
     min-height: 0;
     height: auto;
     max-height: none;
   }
+  .battlefield-wrap { padding-bottom: 8px; }
   #battle-view .resource-bar { flex-wrap: nowrap; gap: 8px; padding: 5px 7px; }
   #battle-view .resource strong { font-size: 14px; }
   #battle-view .resource > span:nth-child(2), #battle-view .mana-pips, #battle-view .rpg-resource, #battle-view .turn-sep, #battle-view .turn-status { display: none; }
@@ -802,7 +1582,8 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   .battle-room { font-size: 12px; }
   .combat-command { grid-template-columns: minmax(0,1fr); padding: 0 8px 6px; }
   #spell-desk { padding: 0; }
-  #spell-desk .spell-slots { grid-template-columns: repeat(4, minmax(64px, 76px)); gap: 6px; padding: 6px; margin-top: -18px; }
+  #spell-desk .spell-slots { grid-template-columns: repeat(4, minmax(64px, 76px)); gap: 6px; padding: 6px; margin-top: -10px; }
+  #spell-desk .spell-slots.is-combo-linked .spell-slot.filled + .spell-slot.filled::before { left: -8px; width: 8px; }
   #spell-desk .spell-slot { height: 96px; border-radius: 8px; }
   #spell-desk .spell-slot .card-art-frame { width: 32px; height: 32px; }
   #spell-desk .spell-slot .card-emblem .icon { width: 18px; height: 18px; }
@@ -818,8 +1599,8 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   .known-formulas-bar { margin: 3px 0 4px; padding: 4px 6px; gap: 4px; }
   .known-formulas-empty.is-hint { display: none; }
   .known-shortcuts .known-chip { min-height: 44px; padding: 4px 8px; font-size: 12px; gap: 5px; }
-  .combat-command .cast-dock { padding: 6px 0 0; border: 0; }
-  .combat-command .forecast { max-width: none; }
+  .combat-command .cast-dock { padding: 6px 0 2px; gap: 6px; border: 0; }
+  .combat-command .forecast { max-width: none; padding: 7px 9px; font-size: 12.5px; }
   .combat-command .forecast details { margin-top: 1px; }
   .combat-command .cast-actions { grid-template-columns: minmax(88px, .7fr) minmax(0, 1.3fr); }
   .game-sheet { inset: auto 0 0; width: 100%; max-height: min(46dvh, calc(100dvh - 70px)); padding: 8px 10px max(10px, env(safe-area-inset-bottom)); border-radius: 12px 12px 0 0; }

@@ -75,6 +75,8 @@ export function validateRun(state) {
       || ![...ATTACK_FORMS, 'blast', 'blackhole', 'meteor'].includes(enemy.readForm))) invalid();
     if (enemy.wetUntil !== undefined && !integer(enemy.wetUntil, state.turn, state.turn + 1)) invalid();
     if (enemy.magmaArmorUntil !== undefined && !integer(enemy.magmaArmorUntil, state.turn, state.turn + 1)) invalid();
+    if (enemy.earthArmorUntil !== undefined && !integer(enemy.earthArmorUntil, state.turn, state.turn + 1)) invalid();
+    if (enemy.earthArmorShred !== undefined && !integer(enemy.earthArmorShred, 1, 2)) invalid();
     if (enemy.healCutUntil !== undefined && !integer(enemy.healCutUntil, state.turn, state.turn + 1)) invalid();
     const legacyBossHp = previousRiftBossHp[enemy.kind];
     if ((enemy.maxHp !== ENEMIES[enemy.kind].hp && (legacyBossHp === undefined || enemy.maxHp !== legacyBossHp))

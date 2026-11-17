@@ -1,4 +1,4 @@
-import { WORDS } from '../words.js';
+import { WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS } from '../words.js';
 import {
   HAND_LIMIT,
   MAX_BELT_ITEMS,
@@ -240,12 +240,7 @@ export function syncRpgResourceBar(ctx, levelUpRewards, nextExpForLevel) {
   p.items ??= [];
 
   renderPlayerHp(p.hp, p.maxHp);
-  if ($('mana-value')) $('mana-value').textContent = `${p.mana} / ${p.maxMana}`;
-  if ($('mana-pips')) {
-    const count = Math.min(p.maxMana, 16);
-    const filled = Math.ceil(count * p.mana / p.maxMana);
-    $('mana-pips').innerHTML = Array.from({ length: count }, (_, i) => `<i class="mana-pip ${i < filled ? 'full' : ''}"></i>`).join('');
-  }
+  syncManaPipsPreview(state, 0);
 
   const nextExp = nextExpForLevel(p.level);
   const nextMpLevel = Math.ceil((p.level + 1) / 5) * 5;
@@ -272,6 +267,36 @@ export function syncRpgResourceBar(ctx, levelUpRewards, nextExpForLevel) {
     statusEl.innerHTML = `<span class="sanctuary-level" title="EXP ${p.exp}/${nextExp}">Lv.${p.level}</span><span class="sanctuary-hp" aria-label="HP ${p.hp}/${p.maxHp}">${icon('heart')} ${p.hp}/${p.maxHp}</span><span class="sanctuary-mana" aria-label="MP ${p.mana}/${p.maxMana}">${icon('mana')} ${p.mana}/${p.maxMana}</span><span id="sanctuary-gold-pill" class="sanctuary-gold" data-gold="${p.gold}" aria-label="${p.gold} ทอง">${icon('coin')} ${p.gold}</span>`;
   }
   renderItemBelt(ctx);
+}
+
+export function syncManaPipsPreview(state, pendingCost = 0) {
+  const p = state?.player;
+  if (!p) return;
+  const manaEl = $('mana-value');
+  const pipsEl = $('mana-pips');
+  const cost = Math.max(0, Number(pendingCost) || 0);
+  const short = cost > p.mana;
+  if (manaEl) {
+    manaEl.textContent = `${p.mana} / ${p.maxMana}`;
+    manaEl.classList.toggle('is-short', short);
+    manaEl.title = short
+      ? `มานาไม่พอ (ต้องการ ${cost} · ขาด ${cost - p.mana})`
+      : cost > 0
+        ? `คาถาบนแท่นใช้ ${cost} มานา (จะเหลือ ${p.mana - cost})`
+        : `มานา ${p.mana} / ${p.maxMana}`;
+  }
+  if (pipsEl) {
+    const count = Math.min(p.maxMana, 16);
+    const filled = Math.ceil(count * p.mana / p.maxMana);
+    const spendPips = cost > 0 ? Math.min(count, Math.ceil(count * cost / p.maxMana)) : 0;
+    pipsEl.classList.toggle('has-shortage', short);
+    pipsEl.innerHTML = Array.from({ length: count }, (_, i) => {
+      const isFull = i < filled;
+      const willSpend = isFull && spendPips > 0 && i >= Math.max(0, filled - spendPips);
+      const isDeficit = !isFull && short && i < spendPips;
+      return `<i class="mana-pip ${isFull ? 'full' : ''} ${willSpend ? 'will-spend' : ''} ${isDeficit ? 'insufficient' : ''}"></i>`;
+    }).join('');
+  }
 }
 
 export function renderBattleStory(state, collapsedStoryIds) {
@@ -301,7 +326,14 @@ export function renderCastFxBanner(busy, castFxState) {
   const slotsEl = $('spell-slots');
   if (slotsEl) {
     slotsEl.classList.remove('cast-fx-discover', 'cast-fx-success', 'cast-fx-fizzle');
-    if (busy && castFxState?.type) slotsEl.classList.add(`cast-fx-${castFxState.type}`);
+    if (busy && castFxState?.type && !castFxState.isGuard) {
+      slotsEl.classList.add(`cast-fx-${castFxState.type}`);
+      if (castFxState.type === 'fizzle') {
+        slotsEl.classList.remove('cast-burst-fire', 'cast-burst-ice', 'cast-burst-lightning', 'cast-elem-fire', 'cast-elem-ice', 'cast-elem-lightning', 'cast-elem-earth', 'cast-elem-water', 'cast-elem-wind', 'cast-elem-shield', 'cast-elem-heal');
+      }
+    } else {
+      slotsEl.classList.remove('cast-burst-fire', 'cast-burst-ice', 'cast-burst-lightning', 'cast-elem-fire', 'cast-elem-ice', 'cast-elem-lightning', 'cast-elem-earth', 'cast-elem-water', 'cast-elem-wind', 'cast-elem-shield', 'cast-elem-heal');
+    }
   }
   if (!banner) return;
   if (!castFxState) {
@@ -313,6 +345,18 @@ export function renderCastFxBanner(busy, castFxState) {
   banner.hidden = false;
   banner.className = `cast-fx-banner fx-${castFxState.type}`;
   banner.innerHTML = `<span class="cast-fx-badge">${castFxState.badge}</span><div class="cast-fx-copy"><strong>${escape(castFxState.title)}</strong><span>${escape(castFxState.detail)}</span></div>`;
+}
+
+function intentIconHtml(action) {
+  if (action.type === 'attack') return icon('sword');
+  if (action.type === 'heal') return icon('heal');
+  if (action.type === 'charge') return icon('mana');
+  if (action.type === 'ward-grant') return icon('veil');
+  if (action.type === 'sealed') return icon('seal');
+  if (action.type === 'frozen') return icon('freeze');
+  if (action.type === 'recover') return icon('book');
+  if (action.type === 'brace' || action.type === 'guard') return icon('brace');
+  return icon('arrow');
 }
 
 export function renderEnemies({ state, battlefield, targetId, busy }, forecast) {
@@ -349,7 +393,8 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     if (status.slot !== enemy.slot) badges.push(`<span class="enemy-badge badge-push">↪ ไปช่อง ${status.slot + 1}</span>`);
 
     const intentClass = action.type === 'attack' && action.amount >= 6 ? 'heavy' : action.type;
-    const intentLabel = action.shortLabel ?? (action.type === 'attack' ? `${icon('sword')} ${action.amount}` : action.type === 'heal' ? `${icon('heal')} ${action.amount}` : action.type === 'charge' ? 'ชาร์จ' : action.type === 'sealed' ? 'ติดผนึก' : action.type === 'recover' ? 'เปิดช่อง' : 'แช่แข็ง');
+    const baseIntentLabel = action.shortLabel ?? (action.type === 'attack' ? `${icon('sword')} ${action.amount}` : action.type === 'heal' ? `${icon('heal')} ${action.amount}` : action.type === 'charge' ? 'ชาร์จ' : action.type === 'sealed' ? 'ติดผนึก' : action.type === 'recover' ? 'เปิดช่อง' : 'แช่แข็ง');
+    const intentLabel = String(baseIntentLabel).includes('<svg') ? baseIntentLabel : `${intentIconHtml(action)} ${baseIntentLabel}`;
     const description = [base.name, `ช่อง ${enemy.slot + 1}`, `HP ${enemy.hp}/${enemy.maxHp}`, action.label, exposedHint, readLabel && `รูปเวทที่จำ ${readLabel}`, readHint, trait?.passive(state.turn), trait?.counter].filter(Boolean).join(' · ');
     const predicted = finalHp ?? after;
     const projectedLabel = projectedAction.type === 'dead' ? ' → 0'
@@ -363,9 +408,112 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
   }).join('');
 }
 
+let lastRenderedSlotState = { room: null, words: [] };
+
+const CORE_ELEMENT_FAMILIES = new Set(['fire', 'ice', 'lightning', 'earth', 'water', 'wind']);
+
+export function inferDeskElement(words = [], parsed = null) {
+  const placed = words.filter(Boolean);
+  if (!placed.length) return '';
+  const scores = Object.create(null);
+  const addScore = (key, weight) => {
+    if (!key) return;
+    scores[key] = (scores[key] ?? 0) + weight;
+  };
+
+  for (const id of placed) {
+    const fam = elementFamily(id);
+    if (SECOND_TIER_ELEMENTS[id] || FUSED_ELEMENTS[id]) {
+      addScore(fam, 3);
+    } else if (CORE_ELEMENT_FAMILIES.has(fam)) {
+      addScore(fam, 2);
+    } else if (id === 'burn') {
+      addScore('fire', 1.5);
+    } else if (id === 'freeze') {
+      addScore('ice', 1.5);
+    } else if (id === 'meteor') {
+      addScore('fire', 2);
+    } else if (id === 'blast') {
+      addScore('fire', 0.8);
+    } else if (id === 'heal') {
+      addScore('heal', 2.2);
+    } else if (id === 'shield' || id === 'veil' || id === 'brace') {
+      addScore('shield', 2);
+    } else if (id === 'blackhole' || id === 'death') {
+      addScore('arcane', 2.5);
+    }
+  }
+
+  if (parsed?.ok && parsed.spell) {
+    const spellElems = parsed.spell.elements?.length
+      ? parsed.spell.elements
+      : parsed.spell.layerEffects?.flat() ?? (parsed.spell.effect ? [parsed.spell.effect] : []);
+    if (parsed.spell.form === 'heal' || parsed.spell.healing > 0) addScore('heal', 2.5);
+    let hasElementalAura = false;
+    for (let i = 0; i < spellElems.length; i++) {
+      const raw = spellElems[i] === 'akki-blast' || spellElems[i] === 'blast' ? 'fire' : spellElems[i];
+      const fam = elementFamily(raw);
+      if (CORE_ELEMENT_FAMILIES.has(fam)) {
+        addScore(fam, i === 0 ? 1.8 : 1.2);
+        hasElementalAura = true;
+      }
+    }
+    if (!hasElementalAura && parsed.spell.type === 'self') {
+      addScore('shield', 1.5);
+    } else if (!hasElementalAura && (parsed.spell.form === 'blast' || parsed.spell.shellBlast)) {
+      addScore('fire', 1);
+    }
+  }
+
+  let bestElem = '';
+  let bestScore = 0;
+  for (const [key, value] of Object.entries(scores)) {
+    if (value > bestScore) {
+      bestScore = value;
+      bestElem = key;
+    }
+  }
+  return bestElem || 'arcane';
+}
+
+export function inferDeskPower(words = [], parsed = null, deskElem = '') {
+  if (!deskElem) return '';
+  const placed = words.filter(Boolean);
+  if (
+    parsed?.spell?.grand ||
+    parsed?.spell?.large ||
+    placed.some(id => id === 'grand' || SECOND_TIER_ELEMENTS[id] || FUSED_ELEMENTS[id])
+  ) {
+    return 'surge';
+  }
+  const elemMatches = placed.filter(id => elementFamily(id) === deskElem).length;
+  if (elemMatches >= 2 || (parsed?.ok && parsed.spell && placed.length >= 2)) {
+    return 'charged';
+  }
+  return 'base';
+}
+
 export function renderSlots({ state, words, selectedSlot, busy, castFxState }, parsed, knownSpell = false) {
+  const slotsEl = $('spell-slots');
   const fxClass = busy && castFxState?.type ? `slot-fx-${castFxState.type}` : '';
-  $('spell-slots').innerHTML = Array.from({ length: 4 }, (_, index) => {
+  const deskElem = inferDeskElement(words, parsed);
+  const elemPower = inferDeskPower(words, parsed, deskElem);
+  if (deskElem) {
+    slotsEl.dataset.deskElem = deskElem;
+    slotsEl.dataset.elemPower = elemPower;
+  } else {
+    delete slotsEl.dataset.deskElem;
+    delete slotsEl.dataset.elemPower;
+  }
+
+  const filledCount = words.filter(Boolean).length;
+  slotsEl.classList.toggle('is-combo-linked', Boolean(!busy && filledCount >= 2 && (knownSpell || parsed?.ok)));
+  slotsEl.classList.toggle('is-known-ready', Boolean(!busy && knownSpell && parsed?.ok));
+
+  const canAnimateSnap = !busy && lastRenderedSlotState.room === state.room;
+  const prevWords = lastRenderedSlotState.words;
+
+  slotsEl.innerHTML = Array.from({ length: 4 }, (_, index) => {
     const id = words[index];
     const word = WORDS[id];
     const meta = word ? cardMeta(id) : null;
@@ -373,22 +521,49 @@ export function renderSlots({ state, words, selectedSlot, busy, castFxState }, p
     if (!word) {
       return `<div class="spell-slot empty-slot ${selectedSlot === index ? 'selected' : ''}" data-slot="${index}"><button id="slot-${index}" class="slot-main empty" data-select-slot="${index}" aria-pressed="${selectedSlot === index}" aria-label="${stepLabel} ว่าง" ${busy ? 'disabled' : ''}><span class="slot-socket-frame"><span class="slot-top"><span class="slot-number">${stepLabel}</span></span><span class="slot-empty-emblem" aria-hidden="true">+</span><span class="slot-empty-text">ว่าง</span></span></button></div>`;
     }
+    const justPlaced = canAnimateSnap && prevWords[index] !== id;
     const slotTag = `<span class="slot-pill-num">${stepLabel}</span>`;
-    return `<div class="spell-slot filled playing-card word-${id} ${rarityClass(word)} ${meta.roleClass} ${selectedSlot === index ? 'selected' : ''} ${knownSpell ? 'valid-slot' : 'untested-slot'} ${fxClass}" style="--slot-idx:${index}" data-slot="${index}"><button id="slot-${index}" class="slot-main" data-select-slot="${index}" data-drag-slot="${index}" aria-pressed="${selectedSlot === index}" aria-label="${stepLabel} ${word.label}" ${busy ? 'disabled' : ''}>${playingCardFace(state, id, { headerRight: slotTag })}</button><button type="button" class="slot-remove" data-remove-slot="${index}" aria-label="ถอดคำ ${word.label} ออกจาก${stepLabel}" title="ถอดกลับมือ" ${busy ? 'disabled' : ''}>×</button><button class="drag-handle" data-drag-slot="${index}" tabindex="-1" aria-label="ลากคำ ${word.label}" ${busy ? 'disabled' : ''}></button></div>`;
+    return `<div class="spell-slot filled playing-card word-${id} ${rarityClass(word)} ${meta.roleClass} ${selectedSlot === index ? 'selected' : ''} ${knownSpell ? 'valid-slot' : 'untested-slot'} ${justPlaced ? 'slot-just-placed' : ''} ${fxClass}" style="--slot-idx:${index}" data-slot="${index}"><button id="slot-${index}" class="slot-main" data-select-slot="${index}" data-drag-slot="${index}" aria-pressed="${selectedSlot === index}" aria-label="${stepLabel} ${word.label}" ${busy ? 'disabled' : ''}>${playingCardFace(state, id, { headerRight: slotTag })}</button><button type="button" class="slot-remove" data-remove-slot="${index}" aria-label="ถอดคำ ${word.label} ออกจาก${stepLabel}" title="ถอดกลับมือ" ${busy ? 'disabled' : ''}>×</button><button class="drag-handle" data-drag-slot="${index}" tabindex="-1" aria-label="ลากคำ ${word.label}" ${busy ? 'disabled' : ''}></button></div>`;
   }).join('');
+
+  lastRenderedSlotState = {
+    room: state.room,
+    words: busy ? [] : Array.from({ length: 4 }, (_, i) => words[i] ?? null),
+  };
 }
 
 export function getKnownCastableInHand(state, accountDiscovered) {
   const knownKeys = new Set([...accountDiscovered, ...(state?.stats?.discovered ?? [])]);
   const catOrder = { combo_attack: 0, combo_shield: 1, combo_heal: 2 };
   const castable = [];
+  const shortMana = [];
   let cardsOnlyCount = 0;
   for (const key of knownKeys) {
     const phrase = key.split(' ').filter(Boolean);
     if (!phrase.length) continue;
     const recipe = canFormPhraseInHand(state, phrase);
     if (!recipe) {
-      if (canFormCardsInHand(state, phrase)) cardsOnlyCount += 1;
+      const cardsMatch = canFormCardsInHand(state, phrase);
+      if (cardsMatch) {
+        cardsOnlyCount += 1;
+        const detonateOk = cardsMatch.spell.form !== 'detonate' || fireShieldLayers(state.player.shield, cardsMatch.spell.element).length > 0;
+        if (detonateOk && cardsMatch.cost > state.player.mana) {
+          const isHeal = cardsMatch.spell.form === 'heal' || cardsMatch.spell.healing > 0;
+          const isDefense = cardsMatch.spell.type === 'self';
+          const category = isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
+          const kindClass = isHeal ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack';
+          const catRank = isHeal ? catOrder.combo_heal : isDefense ? catOrder.combo_shield : catOrder.combo_attack;
+          shortMana.push({
+            key,
+            phrase: cardsMatch.ids,
+            expression: cardsMatch.expression,
+            cost: cardsMatch.cost,
+            category,
+            kindClass,
+            catRank,
+          });
+        }
+      }
       continue;
     }
     const isHeal = recipe.spell.form === 'heal' || recipe.spell.healing > 0;
@@ -409,7 +584,8 @@ export function getKnownCastableInHand(state, accountDiscovered) {
     });
   }
   castable.sort((a, b) => a.catRank - b.catRank || a.cost - b.cost || a.phrase.length - b.phrase.length || a.key.localeCompare(b.key));
-  return { castable, cardsOnlyCount, totalDiscovered: knownKeys.size };
+  shortMana.sort((a, b) => a.cost - b.cost || a.catRank - b.catRank || a.phrase.length - b.phrase.length || a.key.localeCompare(b.key));
+  return { castable, shortMana, cardsOnlyCount, totalDiscovered: knownKeys.size };
 }
 
 export function renderQuickCombos(ctx, parsed, knownSpell = false) {
@@ -420,7 +596,7 @@ export function renderQuickCombos(ctx, parsed, knownSpell = false) {
   const barEl = $('known-formulas-bar');
   const scrollLeft = shortcuts.scrollLeft;
   const selected = words.filter(Boolean).join(' ');
-  const { castable, cardsOnlyCount, totalDiscovered } = getKnownCastableInHand(state, accountDiscovered);
+  const { castable, shortMana, cardsOnlyCount, totalDiscovered } = getKnownCastableInHand(state, accountDiscovered);
 
   if (labelEl) labelEl.innerHTML = `สูตรที่รู้ · พร้อมร่าย <span class="known-formulas-count">${castable.length}</span>`;
   if (barEl) barEl.classList.toggle('has-formulas', castable.length > 0);
@@ -431,6 +607,9 @@ export function renderQuickCombos(ctx, parsed, knownSpell = false) {
     } else if (state?.player?.hand?.length > HAND_LIMIT) {
       emptyEl.textContent = 'กรุณาทิ้งไพ่ส่วนเกินในมือก่อน';
       emptyEl.className = 'known-formulas-empty';
+    } else if (shortMana.length > 0) {
+      emptyEl.textContent = `มี ${shortMana.length} สูตรที่ตรงไพ่ในมือ แต่มานายังไม่พอ`;
+      emptyEl.className = 'known-formulas-empty is-warn';
     } else if (cardsOnlyCount > 0) {
       emptyEl.textContent = `มี ${cardsOnlyCount} สูตรที่ตรงไพ่ในมือ แต่มานา/เงื่อนไขยังไม่พอ`;
       emptyEl.className = 'known-formulas-empty is-warn';
@@ -443,13 +622,19 @@ export function renderQuickCombos(ctx, parsed, knownSpell = false) {
     }
   }
 
-  shortcuts.innerHTML = castable.map(item => {
+  const readyHtml = castable.map(item => {
     const active = item.key === selected;
     const label = escape(item.expression);
     const desc = item.effectDesc ? `${item.effectDesc} · คลิกเพื่อวางลงแท่นร่าย` : 'คลิกเพื่อวางลงแท่นร่าย';
     return `<button type="button" id="shortcut-${item.phrase.join('-')}" class="known-chip ${item.kindClass} ${active ? 'is-active' : ''}" data-combo="${item.key}" aria-pressed="${active}" aria-label="วางสูตร ${label} ใช้ ${item.cost} มานา" title="${escape(desc)}" ${busy ? 'disabled' : ''}><span class="known-chip-cat">${item.category}</span><span class="known-chip-name">${label}</span><small class="known-chip-cost">${item.cost} MP</small>${active ? '<span class="known-chip-badge">✓ บนแท่น</span>' : ''}</button>`;
   }).join('');
-  shortcuts.hidden = !castable.length;
+  const shortHtml = shortMana.slice(0, 4).map(item => {
+    const label = escape(item.expression);
+    const missing = Math.max(1, item.cost - state.player.mana);
+    return `<button type="button" class="known-chip is-short-mana ${item.kindClass}" disabled aria-label="สูตร ${label} ใช้ ${item.cost} มานา ขาดอีก ${missing} มานา" title="มีไพ่ครบแล้ว แต่มานาขาดอีก ${missing} หน่วย (ต้องใช้ ${item.cost} MP)"><span class="known-chip-cat">${item.category}</span><span class="known-chip-name">${label}</span><small class="known-chip-cost is-short">${item.cost} MP · ขาด ${missing}</small></button>`;
+  }).join('');
+  shortcuts.innerHTML = readyHtml + shortHtml;
+  shortcuts.hidden = !(castable.length || shortMana.length);
   shortcuts.scrollLeft = scrollLeft;
 
   const container = $('quick-combos');
@@ -533,17 +718,19 @@ export function renderWordBank({ state, words, busy }) {
 
 export function renderForecast({ state, words, busy }, parsed, forecast, knownSpell = false) {
   const box = $('forecast');
+  const castBtn = $('cast-button');
   box.className = 'forecast';
-  $('cast-button').removeAttribute('aria-label');
+  castBtn.removeAttribute('aria-label');
+  castBtn.classList.remove('cast-ready', 'cast-insufficient');
   if (busy) {
     box.replaceChildren();
     $('spell-feedback').textContent = '';
-    $('cast-button').disabled = true;
+    castBtn.disabled = true;
     return;
   }
   if (!words.length) {
     $('cast-cost').textContent = '';
-    $('cast-button').disabled = true;
+    castBtn.disabled = true;
     $('spell-feedback').textContent = '';
     box.classList.add('invalid');
     box.replaceChildren();
@@ -553,23 +740,37 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
     const attemptCost = estimateWordCost(words, state.player.words);
     const overHand = state.player.hand.length > HAND_LIMIT;
     const notEnoughMana = attemptCost > state.player.mana;
-    $('cast-cost').textContent = `${attemptCost} มานา`;
-    $('cast-button').disabled = overHand || notEnoughMana;
+    if (notEnoughMana) {
+      const missing = attemptCost - state.player.mana;
+      $('cast-cost').innerHTML = `${attemptCost} มานา <span class="cast-cost-short">ขาด ${missing}</span>`;
+      castBtn.classList.add('cast-insufficient');
+    } else {
+      $('cast-cost').textContent = `${attemptCost} มานา`;
+    }
+    castBtn.disabled = overHand || notEnoughMana;
     if (overHand || notEnoughMana) {
       box.classList.add('invalid');
       box.replaceChildren();
       $('spell-feedback').textContent = overHand ? 'เลือกทิ้งการ์ดที่เกินก่อนเล่นต่อ' : `ต้องใช้ ${attemptCost} มานา ขณะนี้มี ${state.player.mana}`;
       return;
     }
+    castBtn.classList.add('cast-ready');
     $('spell-feedback').textContent = '';
     box.classList.add('experimental');
     const phraseLabel = words.map(id => WORDS[id].label).join(' · ');
     box.innerHTML = '<strong>สูตรยังไม่ถูกค้นพบ</strong><p>ถ้าร่ายเฟล จะเสียไพ่ มานา และเทิร์น</p>';
-    $('cast-button').setAttribute('aria-label', `ทดลองร่ายคาถา ${phraseLabel} ใช้ ${attemptCost} มานา`);
+    castBtn.setAttribute('aria-label', `ทดลองร่ายคาถา ${phraseLabel} ใช้ ${attemptCost} มานา`);
     return;
   }
-  $('cast-cost').textContent = parsed.ok ? `${parsed.cost} มานา` : '';
-  $('cast-button').disabled = !forecast?.ok;
+  const notEnoughMana = parsed.ok && parsed.cost > state.player.mana;
+  if (notEnoughMana) {
+    const missing = parsed.cost - state.player.mana;
+    $('cast-cost').innerHTML = `${parsed.cost} มานา <span class="cast-cost-short">ขาด ${missing}</span>`;
+    castBtn.classList.add('cast-insufficient');
+  } else {
+    $('cast-cost').textContent = parsed.ok ? `${parsed.cost} มานา` : '';
+  }
+  castBtn.disabled = !forecast?.ok;
   $('spell-feedback').textContent = '';
   if (!forecast?.ok) {
     box.classList.add('invalid');
@@ -577,6 +778,7 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
     $('spell-feedback').textContent = words.length ? forecast?.error || parsed.error : '';
     return;
   }
+  castBtn.classList.add('cast-ready');
   const s = forecast.summary;
   const fell = Boolean(s.fellToFloor || s.fellToFloor4);
   if (s.hp <= 0 || fell) box.classList.add('danger');
