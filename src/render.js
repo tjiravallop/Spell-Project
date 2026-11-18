@@ -5,6 +5,7 @@ import { loadSpriteArt, spriteFrame } from './sprite-art.js';
 
 export const PALETTE = ['#10191b', '#172326', '#203033', '#2b3d3c', '#3b4b46', '#536454', '#718063', '#9da77c', '#cbd5a1', '#eff0c4', '#332d2b', '#514036', '#765740', '#a57a50', '#d3aa6b', '#efd19a', '#4d3036', '#7b464c', '#b46c67', '#e29d83', '#3d374e', '#60516f', '#907ba6', '#bca5d2', '#335250', '#53857b', '#8bb7a0', '#b7d9bd', '#7e512e', '#b98745', '#e4b659', '#f5db87'];
 const C = PALETTE;
+const vfxFamily = element => element === 'mist' ? 'water' : elementFamily(element);
 const LARGE_BOSS_KINDS = new Set([
   'boss', 'mirror_mage', 'frost_lich', 'storm_titan', 'arch_codex', 'ember_overlord',
   'prism_watcher', 'astral_sentinel', 'elder_grimoire', 'eclipse_mage', 'glacial_sovereign', 'thunder_colossus', 'nexus_codex', 'tempest_archon',
@@ -756,12 +757,14 @@ export class Battlefield {
     if (event?.type === 'blackhole-open') {
       const openScale = vfxScale(event) * (this.settings.reducedMotion ? 1 : Math.max(0.25, progress));
       this.drawGravityWell(this.puddleX(event.slot), openScale, now);
+      if (!this.settings.reducedMotion) this.drawSpecialVfx('blackhole', this.puddleX(event.slot), 140, progress, vfxScale(event));
     }
     if (!playing && this.target?.startsWith('slot-')) {
       this.pixelEllipse(this.puddleX(Number(this.target.at(-1))), 150, 15, 4, elementColor.blackhole, false);
     }
 
-    const isCastingEvent = ['projectile', 'shield', 'heal', 'blast', 'fizzle'].includes(event?.type);
+    const isCastingEvent = ['projectile', 'shield', 'heal', 'blast', 'fizzle', 'blackhole-open'].includes(event?.type)
+      || (event?.type === 'damage' && event.element === 'death');
     const playerPose = isCastingEvent ? 'cast' : event?.type === 'attack' && impact && event.amount > 0 ? 'hurt' : this.state?.player.hp === 0 ? 'dead' : 'idle';
     g.fillStyle = C[0]; g.fillRect(38, 146, 27, 3);
     if (isCastingEvent && event.type !== 'fizzle' && !this.settings.reducedMotion) {
@@ -809,6 +812,12 @@ export class Battlefield {
         const domeW = Math.round(baseDomeW * shieldScale);
         const domeTop = 148 - Math.round(baseDomeH * shieldScale);
         this.barrier(51, domeTop, domeW, elementColor[primaryElem] ?? (shieldOpts.shieldKind === 'guard' ? C[14] : C[27]), shieldHit && !shieldImpact && !this.settings.reducedMotion, primaryElem, now, shieldCasting && !this.settings.reducedMotion ? progress : 1, false, shieldOpts);
+      }
+      if (shieldCasting && primaryElem === 'veil' && !this.settings.reducedMotion) this.drawSpecialVfx('veil', 51, 120, progress, shieldScale);
+      if (shieldCasting && !event.secondary && primaryElem !== 'veil' && !this.settings.reducedMotion) {
+        const shieldElements = [...new Set((protection.layerEffects ?? []).flat().filter(Boolean))];
+        if (!shieldElements.length && ELEMENT_IMPACT[primaryElem]) shieldElements.push(primaryElem);
+        this.drawShieldCastVfx(51, 119, progress, shieldScale, shieldElements, shieldOpts.shieldKind, protection.layers ?? 1);
       }
       const shieldName = protection.element === 'veil' ? 'ม่าน' : protection.element === 'brace' ? 'โล่ยืนหยัด' : shieldOpts.grand ? 'มหาโล่' : 'โล่';
       this.barrierLabel(51, 79, shieldHit ? `กัน ${event.absorbed}${shieldBroke ? ` · ${shieldName}แตก` : ''}` : `${shieldName} ${protection.amount}`, shieldHit ? C[9] : C[8]);
@@ -976,6 +985,7 @@ export class Battlefield {
         const targetIndex = this.state.enemies.findIndex(enemy => enemy.id === event.target);
         const targetX = positions[targetIndex] ?? x;
         const label = event.type === 'dispel' ? `สลายม่าน ${event.amount} ชั้น` : event.type === 'seal' ? 'ติดผนึก' : 'ม่านเทิร์นหน้า';
+        if (!this.settings.reducedMotion && event.type !== 'ward-grant') this.drawModifierVfx(event.type, targetX, 120, fraction, true);
         this.barrierLabel(targetX, 94, label, '#d6a2ff');
       }
       if (event.type === 'projectile') {
@@ -989,6 +999,9 @@ export class Battlefield {
         const secondColor = event.elements?.[1] ? (elementColor[event.elements[1]] ?? C[31]) : C[9];
 
         const projScale = vfxScale(event);
+        if (!this.settings.reducedMotion && fraction < 0.4) {
+          this.drawCastSigil(startX, startY, event.element, fraction / 0.4, projScale, secondColor, Boolean(event.elements?.[1]));
+        }
         if (event.form === 'beam') {
           this.drawBeamVfx(startX, startY, px, event.element, secondColor, Boolean(event.elements?.[1]), fraction, now, event);
         } else if (event.form === 'wave') {
@@ -997,6 +1010,27 @@ export class Battlefield {
           this.drawStormVfx(x, event.element, fraction, event.elements?.[1], now, Boolean(event.grand), projScale);
         } else {
           this.drawShotVfx(startX, startY, x, px, py, travel, fraction, event, secondColor, now);
+        }
+        if (!this.settings.reducedMotion) {
+          for (const modifier of event.visualModifiers ?? []) {
+            if (travel < 1) this.drawModifierVfx(modifier, event.form === 'storm' ? x : px, event.form === 'storm' ? 110 : py, fraction, false);
+          }
+          if (event.form === 'storm' && event.element === 'storm') this.drawNeutralStormVfx(x, fraction, projScale);
+          if (event.shellBlast && travel < 1) this.drawBlastAccents(px, py, fraction, projScale, event.elements, false, false);
+          for (const element of event.elements ?? [event.element]) {
+            if (travel < 1) {
+              const vx = event.form === 'storm' ? x : px;
+              const vy = event.form === 'storm' ? 110 : py;
+              this.drawHybridVfx(element, vx, vy, fraction, projScale, false);
+              this.drawAscendedVfx(element, vx, vy, fraction, projScale, false);
+              this.drawBasicElementVfx(element, vx, vy, fraction, projScale, false);
+            } else if (!event.blocked && event.damage?.amount > 0) {
+              const hitProgress = (fraction - 0.65) / 0.35;
+              this.drawHybridVfx(element, x, 122, hitProgress, projScale, true);
+              this.drawAscendedVfx(element, x, 122, hitProgress, projScale, true);
+              this.drawBasicElementVfx(element, x, 122, hitProgress, projScale, true);
+            }
+          }
         }
         if (impact && event.damage) {
           const sinceHit = this.settings.reducedMotion ? 0 : Math.max(0, (fraction - 0.65) / 0.35);
@@ -1051,6 +1085,10 @@ export class Battlefield {
           if (!this.settings.reducedMotion) this.drawElementalImpactFlash(center, 126, elem, fraction, blastMult);
           const scale = blastMult * (event.devastation ? 1.35 : !event.grand && event.radius === 2 ? 1.5 : 1) * (event.scale === 0.6 ? 0.8 : 1);
           this.drawExplosionVfx(center, 126, fraction, event.targets, positions, elem, scale, event.elements?.[1], Boolean(event.devastation));
+          if (!this.settings.reducedMotion && elem === 'meteor') this.drawSpecialVfx('meteor', center, 140, (fraction - 0.38) / 0.62, blastMult);
+        }
+        if (!this.settings.reducedMotion && elem !== 'meteor' && elem !== 'blackhole') {
+          this.drawBlastAccents(center, 126, fraction, blastMult, event.elements?.length ? event.elements : [elem], Boolean(event.devastation), event.target === 'player');
         }
         for (const { damage, arrival, x: hitX, labelLift } of event.hits) {
           if (fraction < arrival) continue;
@@ -1066,6 +1104,7 @@ export class Battlefield {
         if (event.amount > 0 && !this.settings.reducedMotion) {
           if (elem === 'death') {
             this.drawDeathVfx(x, 122, fraction, now);
+            this.drawSpecialVfx('death', x, 122, fraction, dmgScale);
           } else {
             this.drawElementalImpactFlash(x, 124, elem, fraction, dmgScale);
             this.drawHitBurstVfx(x, 124, color, fraction, elem, now, dmgScale);
@@ -1077,6 +1116,7 @@ export class Battlefield {
       if (event.type === 'heal') {
         const px = event.target === 'player' ? 51 : x;
         this.drawHealVfx(px, 146, fraction, now, event);
+        if (event.source === 'player' && !this.settings.reducedMotion) this.drawHealingSigil(px, 146, fraction, event.healKind, vfxScale(event));
         const healEdge = event.healKind === 'grand' ? C[31] : event.source !== 'player' ? C[22] : C[26];
         this.drawFloatingPopup(px, 96 - Math.round(fraction * 12), `+${event.amount} HP`, C[9], healEdge);
       }
@@ -1150,6 +1190,21 @@ export class Battlefield {
         this.drawFloatingPopup(x, 94 - Math.round(fraction * 10), ice ? '🧊 แช่แข็ง!' : '🔥 ติดไฟ!', ELEMENT_IMPACT[elem].core, ELEMENT_IMPACT[elem].primary);
       }
 
+      if (event.type === 'push' && !this.settings.reducedMotion) {
+        const direction = event.pulled ? -1 : 1;
+        const fade = Math.sin(Math.PI * fraction);
+        g.save();
+        g.globalAlpha = Math.max(0, fade);
+        for (let i = 0; i < 3; i++) {
+          const cx = Math.round(x + direction * (4 + i * 6 + fraction * 8));
+          const cy = 123 - i * 4;
+          g.fillStyle = event.pulled ? C[23] : C[26];
+          g.fillRect(cx, cy, 7, 2);
+          g.fillRect(cx + (direction > 0 ? 5 : 0), cy - 2, 2, 6);
+        }
+        g.restore();
+      }
+
       if (event.type === 'charge') {
         if (event.specialBoss) {
           const isStorm = event.sourceKind === 'tempest_archon';
@@ -1195,7 +1250,7 @@ export class Battlefield {
   drawElementalImpactFlash(targetX, targetY, element = 'fire', fraction = 0, scale = 1) {
     if (this.settings.reducedMotion) return;
     const pal = ELEMENT_IMPACT[element] ?? ELEMENT_IMPACT.fire;
-    const fam = elementFamily(element);
+    const fam = vfxFamily(element);
     const g = this.ctx;
     const flashWindow = Math.max(0, 1 - fraction / 0.72);
     if (flashWindow <= 0) return;
@@ -1275,6 +1330,317 @@ export class Battlefield {
     g.restore();
   }
 
+  drawNeutralStormVfx(x, progress, scale) {
+    const g = this.ctx;
+    const t = Math.max(0, Math.min(1, progress));
+    const s = Math.min(2, Math.max(1, scale));
+    g.save();
+    g.globalAlpha = Math.sin(Math.PI * t) * 0.75;
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3 + t * 3;
+      const radius = (8 + i * 2) * s;
+      const px = Math.round(x + Math.cos(angle) * radius);
+      const py = Math.round(142 - i * 8 * s + Math.sin(angle) * 4 * s);
+      g.fillStyle = i % 2 ? ELEMENT_IMPACT.storm.primary : ELEMENT_IMPACT.storm.rim;
+      g.fillRect(px - Math.round(3 * s), py, Math.round(6 * s), Math.max(1, Math.round(s)));
+    }
+    g.restore();
+  }
+
+  drawBlastAccents(x, y, progress, scale, elements = [], devastation = false, shieldDetonation = false) {
+    const g = this.ctx;
+    const t = Math.max(0, Math.min(1, progress));
+    const s = Math.min(2.5, Math.max(1, scale));
+    const radius = (6 + t * (shieldDetonation ? 30 : 22)) * s;
+    const colors = elements.filter(element => ELEMENT_IMPACT[element]);
+    g.save();
+    g.globalAlpha = (1 - t) * 0.8;
+    if (shieldDetonation) this.pixelEllipse(x, 146, Math.round(radius * 1.3), Math.max(2, Math.round(4 * s)), ELEMENT_IMPACT.blast.rim, false);
+    if (devastation) this.pixelCircle(x, y, Math.round(radius * 1.2), C[31], false);
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4 + t * 0.6;
+      const px = Math.round(x + Math.cos(angle) * radius);
+      const py = Math.round(y + Math.sin(angle) * radius * 0.7);
+      const element = colors[i % Math.max(1, colors.length)] ?? 'blast';
+      const pal = ELEMENT_IMPACT[element];
+      const family = vfxFamily(element);
+      const unit = Math.max(1, Math.round(s));
+      if (family === 'lightning') {
+        this.pixelBolt(x, y, px, py, i + t * 6, pal.primary, pal.core, 1);
+      } else if (family === 'earth') {
+        g.fillStyle = pal.secondary; g.fillRect(px - unit * 2, py - unit * 2, unit * 4, unit * 4);
+        g.fillStyle = pal.rim; g.fillRect(px - unit, py - unit, unit * 2, unit);
+      } else if (family === 'water' || family === 'wind') {
+        this.pixelEllipse(px, py, unit * 3, unit * 2, pal.rim, false);
+      } else {
+        this.pixelDiamond(px, py, family === 'ice' ? unit * 2 : unit + 1, pal.primary, pal.core);
+      }
+    }
+    g.restore();
+  }
+
+  drawShieldCastVfx(x, y, progress, scale, elements, kind, layers) {
+    const g = this.ctx;
+    const t = Math.max(0, Math.min(1, progress));
+    const s = Math.min(2, Math.max(1, scale));
+    const radius = (10 + t * 12) * s;
+    g.save();
+    g.globalAlpha = Math.sin(Math.PI * t) * 0.8;
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3 + t * 0.8;
+      const px = Math.round(x + Math.cos(angle) * radius);
+      const py = Math.round(y + Math.sin(angle) * radius * 0.75);
+      const element = elements[i % Math.max(1, elements.length)];
+      const pal = ELEMENT_IMPACT[element] ?? ELEMENT_IMPACT.ward;
+      const family = vfxFamily(element);
+      if (family === 'lightning') {
+        this.pixelBolt(px - 3, py - 3, px + 3, py + 3, i + t * 4, pal.primary, pal.core);
+      } else if (family === 'earth' || kind === 'brace') {
+        g.fillStyle = pal.secondary; g.fillRect(px - 3, py - 3, 6, 6);
+        g.fillStyle = pal.rim; g.fillRect(px - 2, py - 2, 3, 2);
+      } else if (family === 'water' || family === 'wind' || element === 'mist') {
+        this.pixelEllipse(px, py, 4, 2, pal.primary, false);
+      } else {
+        this.pixelDiamond(px, py, family === 'ice' ? 3 : 2, pal.primary, pal.core);
+      }
+    }
+    if (layers > 1) this.pixelEllipse(x, 146, Math.round((14 + t * 10) * s), 4, C[31], false);
+    g.restore();
+  }
+
+  drawHealingSigil(x, baseline, progress, kind, scale) {
+    const g = this.ctx;
+    const t = Math.max(0, Math.min(1, progress));
+    const s = Math.min(2, Math.max(1, scale));
+    const radius = (9 + Math.sin(Math.PI * t) * 7) * s;
+    g.save();
+    g.globalAlpha = Math.sin(Math.PI * t) * 0.7;
+    this.pixelEllipse(x, baseline - 1, Math.round(radius), Math.max(2, Math.round(3 * s)), C[26], false);
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3 + t * 1.2;
+      const px = Math.round(x + Math.cos(angle) * radius);
+      const py = Math.round(baseline - 12 - t * 18 + Math.sin(angle) * radius * 0.3);
+      const color = kind === 'shield-heal' ? C[27] : i % 2 ? C[26] : C[31];
+      this.pixelDiamond(px, py, Math.max(1, Math.round(s)), color, C[9]);
+    }
+    g.restore();
+  }
+
+  drawSpecialVfx(kind, x, y, progress, scale) {
+    if (!['blackhole', 'meteor', 'death', 'veil'].includes(kind)) return;
+    const g = this.ctx;
+    const t = Math.max(0, Math.min(1, progress));
+    const s = Math.min(2.5, Math.max(1, scale));
+    const pal = ELEMENT_IMPACT[kind];
+    g.save();
+    g.globalAlpha = Math.sin(Math.PI * t) * 0.85;
+    if (kind === 'blackhole') {
+      // Motes spiral inward toward the selected slot before the well persists.
+      for (let i = 0; i < 8; i++) {
+        const angle = i * Math.PI / 4 + t * 4;
+        const radius = (24 - t * 18) * s;
+        this.pixelDiamond(Math.round(x + Math.cos(angle) * radius), Math.round(y - 10 + Math.sin(angle) * radius * 0.55), Math.max(1, Math.round(s)), pal.primary, pal.core);
+      }
+    } else if (kind === 'meteor') {
+      // Scatter fragments from the impact rather than another circular glow.
+      this.pixelEllipse(x, 146, Math.round((10 + t * 22) * s), Math.max(2, Math.round(3 * s)), pal.secondary, false);
+      for (let i = 0; i < 7; i++) {
+        const dx = Math.round((i - 3) * (4 + t * 4) * s);
+        const dy = Math.round(Math.sin(t * Math.PI) * (7 + (i % 3) * 5) * s);
+        g.fillStyle = i % 2 ? pal.primary : pal.secondary;
+        g.fillRect(x + dx - 2, y - dy, Math.max(2, Math.round(4 * s)), Math.max(2, Math.round(3 * s)));
+      }
+    } else if (kind === 'death') {
+      // A closing rune makes the execution distinct from elemental damage.
+      const radius = Math.round((19 - t * 10) * s);
+      this.pixelCircle(x, y, radius, pal.rim, false);
+      g.fillStyle = pal.core;
+      g.fillRect(x - Math.round(s), y - Math.round(9 * s), Math.max(2, Math.round(2 * s)), Math.round(18 * s));
+      g.fillRect(x - Math.round(5 * s), y - Math.round(4 * s), Math.round(10 * s), Math.max(2, Math.round(2 * s)));
+    } else {
+      // The rising bands form a translucent curtain around the player.
+      for (let i = 0; i < 5; i++) {
+        const offset = (i - 2) * 6 * s;
+        const top = Math.round(y + 17 - Math.sin(Math.PI * t) * (18 + (2 - Math.abs(i - 2)) * 5) * s);
+        g.fillStyle = i % 2 ? pal.primary : pal.rim;
+        g.fillRect(Math.round(x + offset), top, Math.max(1, Math.round(s)), Math.max(2, Math.round(9 * s)));
+        this.pixelDiamond(Math.round(x + offset), top, Math.max(1, Math.round(s)), pal.primary, pal.core);
+      }
+    }
+    g.restore();
+  }
+
+  drawBasicElementVfx(element, x, y, progress, scale, impact) {
+    if (!['fire', 'ice', 'lightning', 'earth', 'water', 'wind'].includes(element)) return;
+    const g = this.ctx;
+    const pal = ELEMENT_IMPACT[element];
+    const t = Math.max(0, Math.min(1, progress));
+    const size = Math.min(2, Math.max(1, scale));
+    const radius = (impact ? 5 + t * 18 : 7 + t * 3) * size;
+    g.save();
+    g.globalAlpha = impact ? 1 - t : 0.75;
+    for (let i = 0; i < 5; i++) {
+      const angle = i * Math.PI * 2 / 5 + t * 0.8;
+      const px = Math.round(x + Math.cos(angle) * radius);
+      const py = Math.round(y + Math.sin(angle) * radius * 0.65);
+      const unit = Math.max(1, Math.round(size));
+      if (element === 'fire') {
+        this.pixelDiamond(px, py - Math.round(t * 6), unit + 1, pal.primary, pal.core);
+      } else if (element === 'ice') {
+        g.fillStyle = pal.rim;
+        g.fillRect(px - unit, py - unit * 3, unit * 2, unit * 6);
+        g.fillRect(px - unit * 3, py - unit, unit * 6, unit * 2);
+      } else if (element === 'lightning') {
+        this.pixelBolt(px - unit * 3, py - unit * 3, px + unit * 3, py + unit * 3, i + t * 4, pal.primary, pal.core, 1);
+      } else if (element === 'earth') {
+        g.fillStyle = pal.secondary; g.fillRect(px - unit * 2, py - unit * 2, unit * 4, unit * 4);
+        g.fillStyle = pal.rim; g.fillRect(px - unit, py - unit, unit * 2, unit);
+      } else if (element === 'water') {
+        this.pixelDiamond(px, py, unit + 1, pal.primary, pal.core);
+        g.fillStyle = pal.rim; g.fillRect(px, py - unit * 3, unit, unit * 2);
+      } else {
+        this.pixelEllipse(px, py, unit * 3, unit, pal.rim, false);
+        g.fillStyle = pal.primary; g.fillRect(px - unit * 4, py + unit * 2, unit * 4, unit);
+      }
+    }
+    g.restore();
+  }
+
+  drawAscendedVfx(element, x, y, progress, scale, impact) {
+    if (!['akki', 'heman', 'asani', 'pathaphi', 'wari', 'vayu'].includes(element)) return;
+    const g = this.ctx;
+    const pal = ELEMENT_IMPACT[element];
+    const t = Math.max(0, Math.min(1, progress));
+    const s = Math.min(2.5, Math.max(1, scale));
+    const radius = (impact ? 8 + t * 16 : 10 + t * 4) * s;
+    g.save();
+    g.globalAlpha = impact ? 1 - t : 0.85;
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3 + t * 1.2;
+      const px = Math.round(x + Math.cos(angle) * radius);
+      const py = Math.round(y + Math.sin(angle) * radius * 0.65);
+      if (element === 'akki') {
+        this.pixelDiamond(px, py - Math.round(t * 5 * s), Math.max(2, Math.round(2 * s)), pal.secondary, pal.rim);
+        g.fillStyle = pal.core;
+        g.fillRect(px, py - Math.round(4 * s), Math.max(1, Math.round(s)), Math.round(3 * s));
+      } else if (element === 'heman') {
+        this.pixelDiamond(px, py, Math.max(2, Math.round(3 * s)), pal.secondary, pal.core);
+        g.fillStyle = pal.rim;
+        g.fillRect(px - Math.round(s), py - Math.round(5 * s), Math.max(1, Math.round(2 * s)), Math.round(3 * s));
+      } else if (element === 'asani') {
+        this.pixelBolt(x, y, px, py, i + t * 5, pal.primary, pal.core, 1);
+      } else if (element === 'pathaphi') {
+        const size = Math.max(2, Math.round(3 * s));
+        g.fillStyle = pal.secondary; g.fillRect(px - size, py - size, size * 2, size * 2);
+        g.fillStyle = pal.rim; g.fillRect(px - size + 1, py - size + 1, size, Math.max(1, Math.round(s)));
+      } else if (element === 'wari') {
+        this.pixelEllipse(px, py, Math.max(2, Math.round(3 * s)), Math.max(2, Math.round(4 * s)), pal.primary, true);
+        g.fillStyle = pal.core; g.fillRect(px - 1, py - Math.round(2 * s), Math.max(1, Math.round(s)), Math.max(1, Math.round(s)));
+      } else {
+        const length = Math.round((5 + i % 2 * 3) * s);
+        g.fillStyle = i % 2 ? pal.rim : pal.primary;
+        g.fillRect(px - length, py, length, Math.max(1, Math.round(s)));
+        g.fillRect(px - Math.round(2 * s), py - Math.round(2 * s), Math.round(2 * s), Math.round(5 * s));
+      }
+    }
+    g.restore();
+  }
+
+  drawModifierVfx(modifier, x, y, progress, impact) {
+    const g = this.ctx;
+    const t = Math.max(0, Math.min(1, progress));
+    const pulse = Math.round(Math.sin(t * Math.PI) * 4);
+    g.save();
+    if (impact) g.globalAlpha = Math.sin(t * Math.PI);
+    if (modifier === 'burn') {
+      for (let i = 0; i < 5; i++) {
+        const dx = (i - 2) * 4;
+        const rise = Math.round((t * 12 + i * 3) % 12);
+        this.pixelDiamond(x + dx, y - 8 - rise, i % 2 ? 1 : 2, '#ff7722', '#fff7d6');
+      }
+    } else if (modifier === 'freeze') {
+      this.pixelCircle(x, y, 10 + pulse, '#a6f4ff', false);
+      for (let i = 0; i < 4; i++) {
+        const angle = i * Math.PI / 2 + t;
+        this.pixelDiamond(Math.round(x + Math.cos(angle) * 13), Math.round(y + Math.sin(angle) * 13), 2, '#29d6ff', '#f2ffff');
+      }
+    } else if (modifier === 'pierce') {
+      g.fillStyle = '#fff7d6';
+      for (let i = 0; i < 3; i++) {
+        const dx = 8 + i * 4;
+        g.fillRect(x + dx, y - (3 - i), 3, 2);
+        g.fillRect(x + dx, y + (2 - i), 3, 2);
+      }
+    } else if (modifier === 'seal') {
+      const radius = impact ? 10 + pulse : 9;
+      this.pixelCircle(x, y, radius, '#d6a2ff', false);
+      g.fillStyle = '#f2ecff';
+      g.fillRect(x - 4, y - 1, 9, 2);
+      g.fillRect(x - 1, y - 4, 2, 9);
+    } else if (modifier === 'dispel') {
+      const gap = impact ? Math.round(t * 9) : 2;
+      this.pixelEllipse(x - gap, y, 9, 6, '#c77dff', false);
+      g.fillStyle = '#f9eeff';
+      g.fillRect(x - 2 + gap, y - 10, 2, 5);
+      g.fillRect(x + 4 + gap, y + 5, 2, 5);
+    } else if (modifier === 'push' || modifier === 'pull') {
+      const direction = modifier === 'push' ? 1 : -1;
+      g.fillStyle = modifier === 'push' ? '#86e3b6' : '#d6a2ff';
+      for (let i = 0; i < 3; i++) {
+        const ax = x + direction * (8 + i * 4);
+        g.fillRect(ax, y - 4 + i, 2, 8 - i * 2);
+      }
+    }
+    g.restore();
+  }
+
+  drawHybridVfx(element, x, y, progress, scale, impact) {
+    if (!['magma', 'mist', 'hail', 'thunderstorm'].includes(element)) return;
+    const g = this.ctx;
+    const s = Math.min(2.5, Math.max(1, scale));
+    const t = Math.max(0, Math.min(1, progress));
+    const spread = (impact ? 7 + t * 14 : 6 + t * 4) * s;
+    g.save();
+    g.globalAlpha = impact ? Math.max(0, 1 - t) : 0.85;
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3 + t * 1.5;
+      const px = Math.round(x + Math.cos(angle) * spread);
+      const py = Math.round(y + Math.sin(angle) * spread * 0.55 - (impact ? t * 5 : 0));
+      if (element === 'magma') {
+        const size = Math.max(2, Math.round((i % 2 ? 2 : 3) * s));
+        g.fillStyle = i % 2 ? '#ff8543' : '#6b4725';
+        g.fillRect(px - size, py - size, size * 2, size * 2);
+        g.fillStyle = '#ffed99';
+        g.fillRect(px, py, Math.max(1, Math.round(s)), Math.max(1, Math.round(s)));
+      } else if (element === 'mist') {
+        this.pixelEllipse(px, py, Math.round(4 * s), Math.max(1, Math.round(2 * s)), i % 2 ? '#c0eade' : '#4e807b', false);
+      } else if (element === 'hail') {
+        this.pixelDiamond(px, py, Math.max(2, Math.round(2 * s)), '#b7e9ff', '#f5fdff');
+        g.fillStyle = '#518bcf';
+        g.fillRect(px - Math.round(s), py - Math.round(5 * s), Math.max(1, Math.round(s)), Math.round(3 * s));
+      } else {
+        this.pixelBolt(px - Math.round(3 * s), py - Math.round(4 * s), px + Math.round(3 * s), py + Math.round(4 * s), i + t * 4, '#abef79', '#fcffee', 1);
+      }
+    }
+    g.restore();
+  }
+
+  drawCastSigil(x, y, element, progress, scale, secondColor, dual) {
+    const g = this.ctx;
+    const pal = ELEMENT_IMPACT[element] ?? ELEMENT_IMPACT.fire;
+    const size = Math.min(2.5, scale);
+    const radius = Math.round((7 + progress * 8) * size);
+    g.save();
+    g.globalAlpha = (1 - progress) * 0.85;
+    this.pixelEllipse(x, y, Math.round(radius * 0.6), radius, pal.primary, false);
+    this.pixelEllipse(x, y, Math.round(radius * 0.4), Math.round(radius * 0.7), dual ? secondColor : pal.rim, false);
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3 + progress * 1.4;
+      this.pixelDiamond(Math.round(x + Math.cos(angle) * radius * 0.6), Math.round(y + Math.sin(angle) * radius), Math.max(1, Math.round(size)), i % 2 && dual ? secondColor : pal.primary, pal.core);
+    }
+    g.restore();
+  }
+
   drawShotVfx(startX, startY, targetX, px, py, travel, fraction, event, secondColor, now) {
     const g = this.ctx;
     const scale = vfxScale(event);
@@ -1283,7 +1649,7 @@ export class Battlefield {
     const stroke = Math.min(4, scale);
     const smallDiam = Math.round(2 * Math.min(2.5, scale));
     const elem = event.element ?? 'fire';
-    const fam = elementFamily(elem);
+    const fam = vfxFamily(elem);
     const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.fire;
     const dual = event.elements?.length === 2;
 
@@ -1299,6 +1665,15 @@ export class Battlefield {
         const tSize = Math.max(1, Math.round(size - t * 0.55 * scale));
         g.fillStyle = t % 2 === 1 && dual ? secondColor : t > 4 ? pal.secondary : pal.primary;
         g.fillRect(tx - Math.floor(tSize / 2), ty - Math.floor(tSize / 2), tSize, tSize);
+      }
+      if (!this.settings.reducedMotion) {
+        for (let i = 0; i < 6; i++) {
+          const trailT = Math.max(0, travel - (i + 1) * 0.07);
+          const tx = Math.round(startX + (targetX - startX) * trailT);
+          const spread = (i % 2 ? 1 : -1) * (1 + i * 0.4) * scale;
+          const ty = Math.round(py + spread);
+          this.pixelDiamond(tx, ty, Math.max(1, Math.round((3 - i * 0.3) * Math.min(2, scale))), dual && i % 2 ? secondColor : pal.rim, pal.core);
+        }
       }
 
       if (fam === 'lightning') {
@@ -1428,7 +1803,7 @@ export class Battlefield {
     }
     if (this.settings.reducedMotion) now = 0;
     const pulse = Math.round(Math.sin(now / 35) * 2);
-    const fam = elementFamily(element ?? 'fire');
+    const fam = vfxFamily(element ?? 'fire');
     const pal = ELEMENT_IMPACT[element] ?? ELEMENT_IMPACT.fire;
     if (fraction > 0.25 && fraction < 0.85) {
       this.drawElementalImpactFlash(targetX, startY, element, Math.abs(fraction - 0.5) * 1.4, scale);
@@ -1498,7 +1873,7 @@ export class Battlefield {
   drawWaveVfx(startX, targetX, color, secondColor, dual, travel, element = null, now = 0, isGrand = false, scale = isGrand ? 5 : 1) {
     const g = this.ctx;
     const elem = element ?? Object.keys(ELEMENT_IMPACT).find(id => ELEMENT_IMPACT[id].primary === color) ?? 'fire';
-    const fam = elementFamily(elem);
+    const fam = vfxFamily(elem);
     const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.fire;
     const waveX = Math.round(startX + (targetX - startX) * travel);
     const heightHalf = Math.round(18 * scale);
@@ -1582,11 +1957,18 @@ export class Battlefield {
       }
     }
     this.pixelEllipse(waveX + Math.round(4 * hScale), 146, Math.round(15 * scale), Math.min(14, Math.round(3 * scale)), pal.core, false, stroke);
+    if (!this.settings.reducedMotion) {
+      for (let i = 0; i < 6; i++) {
+        const dx = Math.round((i * 6 + 4) * scale);
+        const dy = Math.round((4 + (i % 3) * 7 + travel * 10) * hScale);
+        this.pixelDiamond(waveX - dx, Math.max(4, 142 - dy), Math.max(1, Math.round(hScale)), i % 2 && dual ? secondColor : pal.primary, pal.core);
+      }
+    }
   }
 
   drawStormVfx(x, element, fraction, secondaryElement, now = 0, isGrand = false, scale = isGrand ? 5 : 1) {
     const g = this.ctx;
-    const fam = elementFamily(element ?? 'storm');
+    const fam = vfxFamily(element ?? 'storm');
     const palette = ELEMENT_IMPACT[element] ?? ELEMENT_IMPACT.storm;
     const grow = Math.min(1, fraction / 0.65);
     const rings = isGrand ? 5 : 4;
@@ -1637,6 +2019,14 @@ export class Battlefield {
     if (isGrand || scale > 1) {
       this.pixelEllipse(x, 146, Math.round(20 * scale * grow), Math.min(16, Math.round(4 * Math.min(3, scale))), isGrand ? C[31] : palette.core, false, stroke);
     }
+    if (!this.settings.reducedMotion) {
+      for (let i = 0; i < 8; i++) {
+        const angle = fraction * Math.PI * 3 + i * Math.PI / 4;
+        const radius = (9 + i * 2) * Math.min(2.5, scale) * grow;
+        const py = Math.max(5, Math.round(142 - ((fraction * 42 + i * 8) % 55) * Math.min(2, scale)));
+        this.pixelDiamond(Math.round(x + Math.cos(angle) * radius), py, Math.max(1, Math.round(Math.min(2, scale))), i % 2 ? palette.rim : palette.primary, palette.core);
+      }
+    }
     g.restore();
   }
 
@@ -1682,7 +2072,7 @@ export class Battlefield {
 
   drawExplosionVfx(centerX, centerY, fraction, targets = [], positions = [], elem = 'blast', scale = 1, secondElement, devastation = false) {
     const g = this.ctx;
-    const fam = elementFamily(elem);
+    const fam = vfxFamily(elem);
     const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.blast;
     const stroke = Math.max(1, Math.min(4, Math.round(scale)));
     const outerR = Math.round((8 + fraction * 28) * scale);
@@ -1770,10 +2160,28 @@ export class Battlefield {
     const g = this.ctx;
     const f = Math.max(0, Math.min(1, fraction));
     const resolvedElem = elem ?? (color === elementColor.ice ? 'ice' : color === elementColor.lightning ? 'lightning' : 'fire');
-    const fam = elementFamily(resolvedElem);
+    const fam = vfxFamily(resolvedElem);
     const pal = ELEMENT_IMPACT[resolvedElem] ?? ELEMENT_IMPACT.fire;
     const stroke = Math.max(1, Math.min(4, Math.round(scale)));
     const dMult = Math.min(2.5, Math.max(1, scale));
+
+    // A brief directional star and outward fragments make contact readable at game scale.
+    if (!this.settings.reducedMotion && f < 0.8) {
+      const reach = Math.round((5 + f * 22) * dMult);
+      g.save();
+      g.globalAlpha = 1 - f / 0.8;
+      for (let i = 0; i < 8; i++) {
+        const angle = i * Math.PI / 4;
+        const inner = reach * 0.45;
+        const outerX = Math.round(x + Math.cos(angle) * reach);
+        const outerY = Math.round(y + Math.sin(angle) * reach * 0.7);
+        const innerX = Math.round(x + Math.cos(angle) * inner);
+        const innerY = Math.round(y + Math.sin(angle) * inner * 0.7);
+        this.pixelDiamond(outerX, outerY, Math.max(1, Math.round((1.8 - f) * dMult)), i % 2 ? pal.rim : pal.primary, pal.core);
+        if (f < 0.35) this.pixelDiamond(innerX, innerY, Math.max(1, Math.round(dMult)), pal.primary, pal.core);
+      }
+      g.restore();
+    }
 
     if (fam === 'ice') {
       const r = Math.round((6 + f * 22) * scale);
@@ -2165,7 +2573,7 @@ export class Battlefield {
     const resolvedKind = kind || options.shieldKind || 'shield';
     const fam = resolvedKind === 'ward' || resolvedKind === 'veil' || resolvedKind === 'brace' || resolvedKind === 'guard'
       ? resolvedKind
-      : elementFamily(resolvedKind);
+      : vfxFamily(resolvedKind);
     const isGrand = Boolean(options.grand);
     const isLarge = Boolean(!isGrand && options.large);
     const scale = isGrand ? 5 : isLarge ? 2 : 1;

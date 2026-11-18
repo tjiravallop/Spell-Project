@@ -16,6 +16,7 @@ import {
   MAX_RELIC_SLOTS,
   REVISIT_REWARD_RATE,
   applyExpAndGold,
+  fallBackOnDefeat,
   fallBackToFloor4Sanctuary,
   fallBackToFloor9Sanctuary,
   fallBackToPost10Sanctuary,
@@ -473,6 +474,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       grand: Boolean(spell.grand),
       large: Boolean(spell.large),
       shellBlast: Boolean(spell.shellBlast),
+      visualModifiers: rawIds.filter(id => ['burn', 'freeze', 'pierce', 'seal', 'dispel', 'push', 'pull'].includes(id)),
     });
     const name = [
       WORDS[spell.form].label,
@@ -1043,36 +1045,11 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     delete state.blackhole;
     delete state.deathSpent;
     player.hp = 0;
-    const totalRooms = state.rooms.length;
-    const currentFloor = getFloorInfo(state.room, totalRooms).floor;
-    if (state.room >= FLOOR21_START_ROOM) {
-      fallBackToUpperSanctuary(state);
-      summary.fellToFloor = state.sanctuaryFloor;
-      events.push({ type: 'fall', targetFloor: state.sanctuaryFloor });
-    } else if (totalRooms >= 44 && currentFloor === 20) {
-      fallBackToFloor19Sanctuary(state);
-      summary.fellToFloor = 19;
-      events.push({ type: 'fall', targetFloor: 19 });
-    } else if (totalRooms >= 44 && ((currentFloor >= 15 && currentFloor <= 18) || (state.room >= FLOOR15_START_ROOM && state.room <= FLOOR18_BOSS_ROOM))) {
-      fallBackToFloor14Sanctuary(state);
-      summary.fellToFloor = 14;
-      events.push({ type: 'fall', targetFloor: 14 });
-    } else if (totalRooms >= 44 && ((currentFloor >= 11 && currentFloor <= 13) || (state.room >= FLOOR11_START_ROOM && state.room <= FLOOR13_BOSS_ROOM))) {
-      fallBackToPost10Sanctuary(state);
-      summary.fellToFloor = 'post10';
-      events.push({ type: 'fall', targetFloor: 'post10' });
-    } else if (totalRooms >= 22 && (currentFloor === 10 || state.room === FLOOR10_BOSS_ROOM)) {
-      fallBackToFloor9Sanctuary(state);
-      summary.fellToFloor = 9;
-      events.push({ type: 'fall', targetFloor: 9 });
-    } else if (
-      totalRooms > FLOOR5_START_ROOM &&
-      ((currentFloor >= 5 && currentFloor <= 8) || (state.room >= FLOOR5_START_ROOM && state.room <= FLOOR8_BOSS_ROOM))
-    ) {
-      fallBackToFloor4Sanctuary(state);
-      summary.fellToFloor4 = true;
-      summary.fellToFloor = 4;
-      events.push({ type: 'fall', targetFloor: 4 });
+    const fallback = fallBackOnDefeat(state);
+    if (fallback.phase === 'sanctuary') {
+      summary.fellToFloor = fallback.targetFloor;
+      if (fallback.targetFloor === 5 || fallback.targetFloor === 4) summary.fellToFloor4 = true;
+      events.push({ type: 'fall', targetFloor: fallback.targetFloor });
     } else {
       state.phase = 'lost';
     }
@@ -1088,78 +1065,42 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       makeRewards(state);
     } else {
       summary.roomRecovery = recoverAfterRoom(state);
-      if (completeUpperFloor(state)) {
-        summary.roomCleared = true;
-      } else if (state.rooms.length >= 44 && state.room === FLOOR20_BOSS_ROOM) {
-        player.relics ??= [];
-        if (!player.relics.includes('storm_pendulum_20')) {
-          player.relics.push('storm_pendulum_20');
-          const equippedNow = getEquippedRelics(player);
-          if (equippedNow.length < MAX_RELIC_SLOTS && !equippedNow.includes('storm_pendulum_20')) {
-            player.equippedRelics = [...equippedNow, 'storm_pendulum_20'];
+      const rel = state.room % 25;
+      const D = Math.floor(state.room / 25);
+      if (rel === 11) {
+        state.sanctuaryUnlocked = true;
+        state.sanctuaryFloor = D * 10 + 5;
+        state.sanctuaryRested = false;
+        state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
+        state.phase = 'sanctuary';
+      } else if (rel === 23) {
+        state.sanctuaryUnlocked = true;
+        state.sanctuaryFloor = `pre${(D + 1) * 10}`;
+        state.sanctuaryRested = false;
+        state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
+        state.phase = 'sanctuary';
+      } else if (rel === 24) {
+        const majorBossFloor = (D + 1) * 10;
+        if (majorBossFloor === 50) {
+          state.phase = 'won';
+        } else {
+          player.relics ??= [];
+          const relicId = majorBossFloor === 10 ? 'ember_core_10' : majorBossFloor === 20 ? 'storm_pendulum_20' : null;
+          if (relicId && !player.relics.includes(relicId)) {
+            player.relics.push(relicId);
+            const equippedNow = getEquippedRelics(player);
+            if (equippedNow.length < MAX_RELIC_SLOTS && !equippedNow.includes(relicId)) {
+              player.equippedRelics = [...equippedNow, relicId];
+            }
+            summary.relicDropped = relicId;
+            events.push({ type: 'relic', relicId });
           }
-          summary.relicDropped = 'storm_pendulum_20';
-          events.push({ type: 'relic', relicId: 'storm_pendulum_20' });
+          state.sanctuaryUnlocked = true;
+          state.sanctuaryFloor = `post${majorBossFloor}`;
+          state.sanctuaryRested = false;
+          state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
+          state.phase = 'sanctuary';
         }
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryPost10Unlocked = true;
-        state.sanctuary14Unlocked = true;
-        state.sanctuary19Unlocked = true;
-        state.sanctuaryPost20Unlocked = true;
-        state.sanctuaryFloor = 'post20';
-        state.sanctuaryRested = false;
-        state.phase = 'sanctuary';
-        unlockUpperTower(state);
-      } else if (state.rooms.length >= 44 && state.room === FLOOR18_BOSS_ROOM) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryPost10Unlocked = true;
-        state.sanctuary14Unlocked = true;
-        state.sanctuary19Unlocked = true;
-        state.sanctuaryFloor = 19;
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR20_BOSS_ROOM);
-        state.phase = 'sanctuary';
-      } else if (state.rooms.length >= 44 && state.room === FLOOR13_BOSS_ROOM) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryPost10Unlocked = true;
-        state.sanctuary14Unlocked = true;
-        state.sanctuaryFloor = 14;
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR15_START_ROOM);
-        state.phase = 'sanctuary';
-      } else if (state.rooms.length >= 22 && state.room === FLOOR10_BOSS_ROOM) {
-        player.relics ??= [];
-        if (!player.relics.includes('ember_core_10')) {
-          player.relics.push('ember_core_10');
-          const equippedNow = getEquippedRelics(player);
-          if (equippedNow.length < MAX_RELIC_SLOTS && !equippedNow.includes('ember_core_10')) {
-            player.equippedRelics = [...equippedNow, 'ember_core_10'];
-          }
-          summary.relicDropped = 'ember_core_10';
-          events.push({ type: 'relic', relicId: 'ember_core_10' });
-        }
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryPost10Unlocked = true;
-        state.sanctuaryFloor = 'post10';
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, state.rooms.length >= 44 ? FLOOR11_START_ROOM : FLOOR10_BOSS_ROOM));
-        state.phase = 'sanctuary';
-      } else if (state.room === FLOOR8_BOSS_ROOM || (state.rooms.length < 22 && state.room === state.rooms.length - 1)) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryFloor = 9;
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, FLOOR10_BOSS_ROOM));
-        state.phase = 'sanctuary';
-      } else if (state.room === FLOOR4_BOUNDARY_ROOM && revisit) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuaryFloor = 4;
-        state.sanctuaryRested = false;
-        state.phase = 'sanctuary';
       } else {
         state.room++;
         enterRoom(state);

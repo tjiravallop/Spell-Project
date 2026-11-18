@@ -115,92 +115,77 @@ export function renderRoomTrack(state, busy) {
     return `<div class="floor-cluster sanctuary-cluster ${currentSanctuaryFloor === floorKey ? 'active-floor' : ''}"><span class="floor-cluster-label">${clusterTitle} <small>(${clusterSub})</small></span><div class="floor-cluster-nodes"><button type="button" class="room-node sanctuary-node ${cls}" data-enter-sanctuary="${floorKey}" ${!unlocked || busy ? 'disabled' : ''} title="${title}" aria-label="${title}">${label}</button></div></div>`;
   };
 
-  const sanct4Cluster = renderSanctuaryCluster(
-    4, '🏕 ชั้นพัก 4', '🔒 ชั้น 4 (ผ่าน 1–3)', isSanctuaryUnlocked(state),
-    'เดินทางไปชั้นที่ 4: ชั้นพักจอมเวท & ร้านค้าเวทมนตร์ (แพ้ในชั้น 5–8 จะร่วงกลับมาพักที่นี่)',
-    '🔒 ชั้นที่ 4 (ชั้นพัก) · ต้องผ่านด่านชั้น 1–3 (ปราบบอสชั้น 3) ให้ครบก่อนจึงจะเข้าได้',
-    'ชั้น 4', 'ชั้นพัก',
-  );
-  const sanct9Cluster = state.rooms.length > 9
-    ? renderSanctuaryCluster(
-        9, '🏕 ชั้นพัก 9', '🔒 ชั้น 9 (ผ่าน 5–8)', isSanctuary9Unlocked(state),
-        'เดินทางไปชั้นที่ 9: ชั้นพัก & ร้านค้าเวทมนตร์ (จุดเตรียมตัวก่อนท้าทายบอสชั้น 10)',
-        '🔒 ชั้นที่ 9 (ชั้นพัก) · ต้องปราบบอสชั้น 8 (8-3) ให้สำเร็จก่อนจึงจะเข้าได้',
-        'ชั้น 9', 'ชั้นพัก',
-      )
-    : '';
-
-  let floor10Cluster = '';
-  let sanctPost10Cluster = '';
-  if (state.rooms.length >= 22) {
-    const f10Current = state.phase === 'battle' && state.room === FLOOR10_BOSS_ROOM;
-    const f10Cleared = cleared.includes(FLOOR10_BOSS_ROOM);
-    const f10Unlocked = FLOOR10_BOSS_ROOM <= highest || f10Cleared;
-    const f10Cls = f10Current ? 'current' : f10Cleared ? 'done' : f10Unlocked ? 'unlocked' : 'locked';
-    const f10Title = f10Cleared
-      ? 'บอสพิเศษชั้นที่ 10 · ผ่านแล้ว (คลิกเพื่อท้าทายซ้ำ: ทอง/EXP เหลือ 20%)'
-      : f10Current
-        ? 'ตำแหน่งปัจจุบัน: บอสพิเศษชั้นที่ 10 (ดรอปอาติแฟคชิ้นแรก)'
-        : f10Unlocked
-          ? 'บอสพิเศษชั้นที่ 10 · คลิกเพื่อท้าทาย (ดรอปอาติแฟคชิ้นแรก: แก่นเพลิงบรรพกาล)'
-          : '🔒 บอสพิเศษชั้นที่ 10 · ผ่านบอสชั้น 8 และเข้าชั้น 9 เพื่อปลดล็อก';
-    floor10Cluster = `<div class="floor-cluster ${activeFloorInfo?.floor === 10 ? 'active-floor' : ''}"><span class="floor-cluster-label">ชั้น 10 <small>(บอสพิเศษ)</small></span><div class="floor-cluster-nodes"><button type="button" class="room-node boss-node ${f10Cls}" data-revisit-room="${FLOOR10_BOSS_ROOM}" ${!f10Unlocked || busy ? 'disabled' : ''} ${f10Current ? 'aria-current="step"' : ''} title="${f10Title}" aria-label="${f10Title}"><span class="room-code">บอส 10★</span>${f10Cleared && !f10Current ? '<i class="room-check">✓</i>' : ''}</button></div></div>`;
-
-    sanctPost10Cluster = renderSanctuaryCluster(
-      'post10', '🏕 จุดพักหลังบอส 10', '🔒 จุดพัก (ปราบบอส 10)', isSanctuaryPost10Unlocked(state),
-      'เข้าสู่จุดพักพิเศษหลังพิชิตบอสชั้น 10 (แพ้ในชั้น 11–13 จะร่วงกลับมาพักที่นี่)',
-      '🔒 จุดพักหลังบอส 10 · ปราบบอสพิเศษชั้น 10 เพื่อเปิดจุดพักนี้',
-      'หลังบอส 10', 'จุดพักพิเศษ',
-    );
+  const zoneParts = [];
+  const totalZones = Math.ceil(state.rooms.length / 25);
+  for (let d = 0; d < totalZones; d++) {
+    const baseFloor = d * 10;
+    // 1-4
+    for (let f = 1; f <= 4; f++) {
+      const floorNum = baseFloor + f;
+      const startIdx = getFloorStartRoom(floorNum);
+      if (startIdx < state.rooms.length) zoneParts.push(renderFloorCluster(floorNum));
+    }
+    // Mid sanctuary: baseFloor + 5
+    const midSanct = baseFloor + 5;
+    const midBoundary = d * 25 + 11;
+    if (midBoundary < state.rooms.length) {
+      const unlocked = isSanctuaryFloorUnlocked(state, midSanct);
+      zoneParts.push(renderSanctuaryCluster(
+        midSanct,
+        `🏕 ชั้นพัก ${midSanct}`,
+        `🔒 ชั้น ${midSanct} (ผ่าน ${baseFloor + 1}–${baseFloor + 4})`,
+        unlocked,
+        `เดินทางไปชั้นที่ ${midSanct}: ชั้นพักจอมเวท & ร้านค้าเวทมนตร์ (แพ้ในชั้น ${baseFloor + 6}–${baseFloor + 9} จะร่วงกลับมาพักที่นี่)`,
+        `🔒 ชั้นที่ ${midSanct} (ชั้นพัก) · ต้องผ่านด่านชั้น ${baseFloor + 1}–${baseFloor + 4} ให้ครบก่อนจึงจะเข้าได้`,
+        `ชั้น ${midSanct}`,
+        'ชั้นพัก',
+      ));
+    }
+    // 6-9
+    for (let f = 6; f <= 9; f++) {
+      const floorNum = baseFloor + f;
+      const startIdx = getFloorStartRoom(floorNum);
+      if (startIdx < state.rooms.length) zoneParts.push(renderFloorCluster(floorNum));
+    }
+    // Pre-boss sanctuary: `pre${baseFloor + 10}`
+    const bossFloor = baseFloor + 10;
+    const preBossKey = `pre${bossFloor}`;
+    const preBoundary = d * 25 + 23;
+    if (preBoundary < state.rooms.length) {
+      const unlocked = isSanctuaryFloorUnlocked(state, preBossKey);
+      zoneParts.push(renderSanctuaryCluster(
+        preBossKey,
+        `🏕 จุดพักก่อนบอส ${bossFloor}`,
+        `🔒 พักก่อนบอส ${bossFloor}`,
+        unlocked,
+        `เดินทางไปจุดพักก่อนท้าทายบอสใหญ่ชั้น ${bossFloor} (แพ้บอสจะร่วงกลับมาพักที่นี่)`,
+        `🔒 จุดพักก่อนบอสใหญ่ชั้น ${bossFloor} · ต้องผ่านด่านชั้น ${baseFloor + 6}–${baseFloor + 9} ให้สำเร็จก่อน`,
+        `ก่อนบอส ${bossFloor}`,
+        'จุดพัก',
+      ));
+    }
+    // Major Boss Floor: bossFloor
+    const bossRoom = d * 25 + 24;
+    if (bossRoom < state.rooms.length) {
+      zoneParts.push(renderFloorCluster(bossFloor));
+    }
+    // Post-boss sanctuary: `post${bossFloor}`
+    if (bossRoom < state.rooms.length) {
+      const postBossKey = `post${bossFloor}`;
+      const unlocked = isSanctuaryFloorUnlocked(state, postBossKey);
+      zoneParts.push(renderSanctuaryCluster(
+        postBossKey,
+        `🏕 พักหลังบอส ${bossFloor}`,
+        `🔒 พักหลังบอส ${bossFloor}`,
+        unlocked,
+        `จุดพักพิเศษหลังพิชิตบอสใหญ่ชั้น ${bossFloor}`,
+        `🔒 จุดพักหลังบอส ${bossFloor} · ต้องพิชิตบอสใหญ่ชั้น ${bossFloor} เพื่อเปิดจุดพักนี้`,
+        `หลังบอส ${bossFloor}`,
+        'จุดพักพิเศษ',
+      ));
+    }
   }
-
-  let midUpperPart = '';
-  if (state.rooms.length >= 44) {
-    const floors11to13 = [11, 12, 13].map(renderFloorCluster).join('');
-    const sanct14Cluster = renderSanctuaryCluster(
-      14, '🏕 ชั้นพัก 14', '🔒 ชั้น 14 (ผ่าน 11–13)', isSanctuary14Unlocked(state),
-      'เดินทางไปชั้นที่ 14: ชั้นพักจอมเวท & ร้านค้าเวทมนตร์ (แพ้ในชั้น 15–18 จะร่วงกลับมาพักที่นี่)',
-      '🔒 ชั้นที่ 14 (ชั้นพัก) · ต้องปราบบอสชั้น 13 (13-3) ให้สำเร็จก่อนจึงจะเข้าได้',
-      'ชั้น 14', 'ชั้นพัก',
-    );
-    const floors15to18 = [15, 16, 17, 18].map(renderFloorCluster).join('');
-    const sanct19Cluster = renderSanctuaryCluster(
-      19, '🏕 ชั้นพัก 19', '🔒 ชั้น 19 (ผ่าน 15–18)', isSanctuary19Unlocked(state),
-      'เดินทางไปชั้นที่ 19: ชั้นพัก & ร้านค้าเวทมนตร์ (จุดเตรียมตัวก่อนท้าทายบอสพิเศษชั้น 20)',
-      '🔒 ชั้นที่ 19 (ชั้นพัก) · ต้องปราบบอสชั้น 18 (18-3) ให้สำเร็จก่อนจึงจะเข้าได้',
-      'ชั้น 19', 'ชั้นพัก',
-    );
-    const f20Current = state.phase === 'battle' && state.room === FLOOR20_BOSS_ROOM;
-    const f20Cleared = cleared.includes(FLOOR20_BOSS_ROOM);
-    const f20Unlocked = FLOOR20_BOSS_ROOM <= highest || f20Cleared;
-    const f20Cls = f20Current ? 'current' : f20Cleared ? 'done' : f20Unlocked ? 'unlocked' : 'locked';
-    const f20Title = f20Cleared
-      ? 'บอสพิเศษชั้นที่ 20 · ผ่านแล้ว (คลิกเพื่อท้าทายซ้ำ: ทอง/EXP เหลือ 20%)'
-      : f20Current
-        ? 'ตำแหน่งปัจจุบัน: บอสพิเศษชั้นที่ 20 (ดรอปอาติแฟคชิ้นที่ 2)'
-        : f20Unlocked
-          ? 'บอสพิเศษชั้นที่ 20 · คลิกเพื่อท้าทาย (ดรอปอาติแฟคชิ้นที่ 2: ลูกตุ้มสายฟ้าฟาด)'
-          : '🔒 บอสพิเศษชั้นที่ 20 · ผ่านบอสชั้น 18 และเข้าชั้น 19 เพื่อปลดล็อก';
-    const floor20Cluster = `<div class="floor-cluster ${activeFloorInfo?.floor === 20 ? 'active-floor' : ''}"><span class="floor-cluster-label">ชั้น 20 <small>(บอสพิเศษ)</small></span><div class="floor-cluster-nodes"><button type="button" class="room-node boss-node ${f20Cls}" data-revisit-room="${FLOOR20_BOSS_ROOM}" ${!f20Unlocked || busy ? 'disabled' : ''} ${f20Current ? 'aria-current="step"' : ''} title="${f20Title}" aria-label="${f20Title}"><span class="room-code">บอส 20★</span>${f20Cleared && !f20Current ? '<i class="room-check">✓</i>' : ''}</button></div></div>`;
-    const sanctPost20Cluster = renderSanctuaryCluster(
-      'post20', '🏕 จุดพักหลังบอส 20', '🔒 จุดพัก (ปราบบอส 20)', isSanctuaryPost20Unlocked(state),
-      'เข้าสู่จุดพักพิเศษหลังพิชิตบอสชั้น 20 (ฟังก์ชันครบเหมือนจุดพักทุกชั้น)',
-      '🔒 จุดพักหลังบอส 20 · ปราบบอสพิเศษชั้น 20 เพื่อเปิดจุดพักนี้',
-      'หลังบอส 20', 'จุดพักพิเศษ',
-    );
-    midUpperPart = `${floors11to13}${sanct14Cluster}${floors15to18}${sanct19Cluster}${floor20Cluster}${sanctPost20Cluster}`;
-  }
-
-  const lowerFloors = [1, 2, 3].map(renderFloorCluster).join('');
-  const upperFloors = state.rooms.length > 9 ? [5, 6, 7, 8].map(renderFloorCluster).join('') : '';
-  const annex = state.rooms.length > FLOOR21_START_ROOM ? Array.from({ length: state.rooms.length - FLOOR21_START_ROOM }, (_, i) => {
-    const floor = 21 + i;
-    const key = `post${floor}`;
-    const rest = upperCheckpoint(key) ? renderSanctuaryCluster(key, `🏕 พักหลังบอส ${floor}`, `🔒 พักหลังบอส ${floor}`,
-      cleared.includes(UPPER_RESTS[key]), `ไปจุดพักหลังบอสชั้น ${floor}`, `ผ่านชั้น ${floor} เพื่อปลดล็อก`, `หลังบอส ${floor}`, 'จุดพัก') : '';
-    return renderFloorCluster(floor) + rest;
-  }).join('') : '';
-  trackEl.innerHTML = `${lowerFloors}${sanct4Cluster}${upperFloors}${sanct9Cluster}${floor10Cluster}${sanctPost10Cluster}${midUpperPart}${annex}`;
+  trackEl.innerHTML = zoneParts.join('');
 }
 
 export function updateInventoryNavBadge(state) {
@@ -362,7 +347,8 @@ function intentIconHtml(action) {
 export function renderEnemies({ state, battlefield, targetId, busy }, forecast) {
   const xPositions = battlefield.positions();
   const positions = new Map(state.enemies.map((enemy, index) => [enemy.id, xPositions[index]]));
-  $('enemy-list').innerHTML = [...state.enemies].sort((a, b) => a.slot - b.slot).filter(enemy => enemy.hp > 0).map(enemy => {
+  const visibleEnemies = [...state.enemies].sort((a, b) => a.slot - b.slot).filter(enemy => enemy.hp > 0);
+  $('enemy-list').innerHTML = visibleEnemies.map(enemy => {
     const base = ENEMIES[enemy.kind];
     const trait = ENEMY_TRAITS[enemy.kind];
     const action = intent(enemy, state.turn, state.enemies, state.room);
@@ -403,8 +389,9 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
         : projectedAction.shortLabel && projectedAction.shortLabel !== action.shortLabel ? ` → ${projectedAction.shortLabel}`
           : action.type === 'attack' && projectedAction.type === 'attack' && projectedAction.amount !== action.amount ? ` → ${projectedAction.amount}` : '';
     const middleLane = Object.hasOwn(MIDDLE_ENEMIES, enemy.kind) ? ` data-middle-lane="${enemy.slot % 2}"` : '';
+    const crowdLane = state.room >= FLOOR21_START_ROOM && visibleEnemies.length >= 3 ? ` data-crowd-lane="${enemy.slot % 2}"` : '';
     const hpPct = `${Math.max(0, Math.min(100, enemy.hp / enemy.maxHp * 100))}%`;
-    return `<button type="button" id="target-${enemy.id}" class="enemy-card enemy-kind-${enemy.kind} ${targetId === enemy.id ? 'target' : ''}" style="--enemy-x:${positions.get(enemy.id) / 3.2}%;--enemy-y:${ENEMIES[enemy.kind]?.isBoss ? 42 : 56}%" data-target="${enemy.id}"${middleLane} aria-pressed="${targetId === enemy.id}" ${busy ? 'disabled' : ''} title="${escape(description)}" aria-label="${escape(description)}${escape(projectedLabel)} เกราะ ${enemy.armor} ม่าน ${enemy.ward}"><span class="enemy-intent intent-${intentClass}">${intentLabel}${projectedLabel}</span><span class="enemy-hp-text">${enemy.hp}/${enemy.maxHp}${predicted !== null && predicted !== enemy.hp ? ` <em>→ ${predicted}</em>` : ''}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${hpPct}"></i><i class="enemy-hp-fill" style="width:${hpPct}"></i></span><span class="enemy-info">${badges.join('')}</span></button>`;
+    return `<button type="button" id="target-${enemy.id}" class="enemy-card enemy-kind-${enemy.kind} ${targetId === enemy.id ? 'target' : ''}" style="--enemy-x:${positions.get(enemy.id) / 3.2}%;--enemy-y:${ENEMIES[enemy.kind]?.isBoss ? 42 : 56}%" data-target="${enemy.id}"${middleLane}${crowdLane} aria-pressed="${targetId === enemy.id}" ${busy ? 'disabled' : ''} title="${escape(description)}" aria-label="${escape(description)}${escape(projectedLabel)} เกราะ ${enemy.armor} ม่าน ${enemy.ward}"><span class="enemy-intent intent-${intentClass}">${intentLabel}${projectedLabel}</span><span class="enemy-hp-text">${enemy.hp}/${enemy.maxHp}${predicted !== null && predicted !== enemy.hp ? ` <em>→ ${predicted}</em>` : ''}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${hpPct}"></i><i class="enemy-hp-fill" style="width:${hpPct}"></i></span><span class="enemy-info">${badges.join('')}</span></button>`;
   }).join('');
 }
 

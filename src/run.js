@@ -1,4 +1,4 @@
-import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, ASCENDED_ELEMENTS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS } from './words.js';
+import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS } from './words.js';
 import { RIFT_ENEMIES, RIFT_TOWER, SPACED_FLOORS } from './upper-tower.js';
 import { MIDDLE_BATTLES, MIDDLE_ENEMIES } from './middle-tower.js';
 
@@ -362,7 +362,7 @@ export function nextExpForLevel(level = 1) {
 
 export function levelUpRewards(level) {
   const middleLevel = level > EARLY_LEVEL_CAP && level <= LATE_LEVEL_START;
-  return { hpGain: middleLevel ? 8 : 4, mpGain: level % 5 === 0 ? (middleLevel ? 4 : 2) : 0 };
+  return { hpGain: middleLevel ? 5 : level <= EARLY_LEVEL_CAP ? 3 : 2, mpGain: level % 5 === 0 ? (middleLevel ? 4 : 2) : 0 };
 }
 
 export function applyExpAndGold(player, expGain = 0, goldGain = 0) {
@@ -385,24 +385,49 @@ export function applyExpAndGold(player, expGain = 0, goldGain = 0) {
   return levelUps;
 }
 
-export const FLOOR4_BOUNDARY_ROOM = 8;
-export const FLOOR5_START_ROOM = 9;
-export const FLOOR8_BOSS_ROOM = 20;
-export const FLOOR10_BOSS_ROOM = 21;
-export const FLOOR11_START_ROOM = 22;
-export const FLOOR13_BOSS_ROOM = 30;
-export const FLOOR15_START_ROOM = 31;
-export const FLOOR18_BOSS_ROOM = 42;
-export const FLOOR20_BOSS_ROOM = 43;
-export const FLOOR21_START_ROOM = FLOOR20_BOSS_ROOM + 1;
-export const FLOOR25_BOSS_ROOM = FLOOR21_START_ROOM + 4;
-export const FLOOR30_BOSS_ROOM = FLOOR21_START_ROOM + 9;
-export const FLOOR31_START_ROOM = FLOOR30_BOSS_ROOM + 1;
-export const FLOOR50_BOSS_ROOM = FLOOR30_BOSS_ROOM + RIFT_TOWER.length;
+export const FLOOR4_BOUNDARY_ROOM = 11;
+export const FLOOR5_SANCTUARY = 5;
+export const FLOOR6_START_ROOM = 12;
+export const FLOOR9_BOUNDARY_ROOM = 23;
+export const FLOOR10_BOSS_ROOM = 24;
+export const FLOOR11_START_ROOM = 25;
+export const FLOOR14_BOUNDARY_ROOM = 36;
+export const FLOOR15_SANCTUARY = 15;
+export const FLOOR16_START_ROOM = 37;
+export const FLOOR19_BOUNDARY_ROOM = 48;
+export const FLOOR20_BOSS_ROOM = 49;
+export const FLOOR21_START_ROOM = 50;
+export const FLOOR24_BOUNDARY_ROOM = 61;
+export const FLOOR25_SANCTUARY = 25;
+export const FLOOR26_START_ROOM = 62;
+export const FLOOR29_BOUNDARY_ROOM = 73;
+export const FLOOR30_BOSS_ROOM = 74;
+export const FLOOR31_START_ROOM = 75;
+export const FLOOR34_BOUNDARY_ROOM = 86;
+export const FLOOR35_SANCTUARY = 35;
+export const FLOOR36_START_ROOM = 87;
+export const FLOOR39_BOUNDARY_ROOM = 98;
+export const FLOOR40_BOSS_ROOM = 99;
+export const FLOOR41_START_ROOM = 100;
+export const FLOOR44_BOUNDARY_ROOM = 111;
+export const FLOOR45_SANCTUARY = 45;
+export const FLOOR46_START_ROOM = 112;
+export const FLOOR49_BOUNDARY_ROOM = 123;
+export const FLOOR50_BOSS_ROOM = 124;
+export const TOTAL_TOWER_ROOMS = 125;
+
+// Aliases for legacy exports
+export const FLOOR5_START_ROOM = FLOOR6_START_ROOM;
+export const FLOOR8_BOSS_ROOM = FLOOR9_BOUNDARY_ROOM;
+export const FLOOR13_BOSS_ROOM = FLOOR14_BOUNDARY_ROOM;
+export const FLOOR15_START_ROOM = FLOOR16_START_ROOM;
+export const FLOOR18_BOSS_ROOM = FLOOR19_BOUNDARY_ROOM;
+export const FLOOR25_BOSS_ROOM = FLOOR24_BOUNDARY_ROOM;
+
 export const UPPER_RESTS = Object.freeze(Object.fromEntries(
-  [20, 25, 30, 35, 40, 45].map(floor => [`post${floor}`, FLOOR20_BOSS_ROOM + floor - 20]),
+  [20, 25, 30, 35, 40, 45].map(floor => [`post${floor}`, Math.floor((floor - 1) / 10) * 25 + 24]),
 ));
-const PULL_REWARD_ROOM = FLOOR31_START_ROOM + 1;
+const PULL_REWARD_ROOM = 76;
 const UPPER_TOWER = [
   [['aether_warden', 'ward_scribe']],
   [['rune_ram', 'void_imp']],
@@ -416,13 +441,10 @@ const UPPER_TOWER = [
   [['crown_archivist', 'rune_ram', 'ward_scribe']],
 ];
 export const UPPER_REWARD_WORDS = ['seal', 'dispel', 'brace'];
-const UPPER_CARD_ROOMS = [FLOOR21_START_ROOM + 1, FLOOR21_START_ROOM + 3, FLOOR25_BOSS_ROOM, FLOOR30_BOSS_ROOM];
-export const isUpperCacheRoom = room => room === PULL_REWARD_ROOM || room === FLOOR21_START_ROOM + 1 || room === FLOOR21_START_ROOM + 3;
+const UPPER_CARD_ROOMS = [51, 53, 61, 74];
+export const isUpperCacheRoom = room => room === PULL_REWARD_ROOM || room === 51 || room === 53;
 
 export function unlockUpperTower(state) {
-  if (state.rooms.length !== FLOOR21_START_ROOM) return;
-  const draw = { rng: seedNumber(`${state.seed}:upper-tower`) };
-  state.rooms.push(...UPPER_TOWER.map(variants => [...pick(draw, variants)]));
   state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR21_START_ROOM);
   if (state.phase === 'won' && state.room === FLOOR20_BOSS_ROOM) {
     state.phase = 'sanctuary';
@@ -437,125 +459,139 @@ export function upperCacheAvailable(state) {
 
 export function hasCardReward(state) {
   if (state.rewardedBossRooms?.includes(state.room) || isRoomRevisit(state)) return false;
-  if (state.room === FLOOR30_BOSS_ROOM) return floor30Rewards(state).length > 0 || getRewardPool(state).length > 0;
-  if (state.room === PULL_REWARD_ROOM && getCardUpgradeLevel(state, 'pull') < MAX_CARD_UPGRADE) return true;
-  if (upperCacheAvailable(state)) return true;
-  return (state.room >= FLOOR21_START_ROOM || isBossRoom(state))
-    && state.room !== FLOOR10_BOSS_ROOM && state.room !== FLOOR20_BOSS_ROOM && getRewardPool(state).length > 0;
+  const rel = state.room % 25;
+  if (rel === 24) return false;
+  return isBossRoom(state) && getRewardPool(state).length > 0;
 }
 
 export function cardRewardReplacesBounty(state) {
-  const { floor } = getFloorInfo(state.room, state.rooms.length);
-  // Floors 17 and 18 already awarded EXP on a standard climb before duplicate drafts.
-  return floor !== 17 && floor !== 18;
+  return true;
 }
 
 export function completeUpperFloor(state) {
   if (state.room === FLOOR30_BOSS_ROOM) {
-    if (floor30Rewards(state).length) {
-      makeRewards(state);
-      return true;
+    if ((state.rooms?.length ?? 0) < TOTAL_TOWER_ROOMS) {
+      state.rooms = buildTowerRooms(state.seed, state.tutorial);
     }
-    if (state.rooms.length === FLOOR31_START_ROOM) {
-      const draw = { rng: seedNumber(`${state.seed}:rift-tower`) };
-      state.rooms.push(...RIFT_TOWER.map(variants => [...pick(draw, variants)]));
-    }
+    state.phase = 'sanctuary';
+    state.sanctuaryFloor = 'post30';
+    state.sanctuaryRested = false;
+    state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR31_START_ROOM);
+    return true;
   }
   if (state.room === FLOOR50_BOSS_ROOM) {
     state.phase = 'won';
     return true;
   }
-  const checkpoint = Object.entries(UPPER_RESTS).find(([key, room]) => key !== 'post20' && room === state.room);
-  if (!checkpoint) return false;
-  state.phase = 'sanctuary';
-  state.sanctuaryFloor = checkpoint[0];
-  state.sanctuaryRested = false;
-  state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
-  return true;
+  return false;
 }
-export const TOWER_COMBAT_FLOORS = Object.freeze([1, 2, 3, 5, 6, 7, 8, 11, 12, 13, 15, 16, 17, 18]);
+export const TOWER_COMBAT_FLOORS = Object.freeze([
+  1, 2, 3, 4, 6, 7, 8, 9, 10,
+  11, 12, 13, 14, 16, 17, 18, 19, 20,
+  21, 22, 23, 24, 26, 27, 28, 29, 30,
+  31, 32, 33, 34, 36, 37, 38, 39, 40,
+  41, 42, 43, 44, 46, 47, 48, 49, 50,
+]);
 
 export function getFloorStartRoom(floorNum) {
-  if (floorNum >= 21 && floorNum <= 50) return FLOOR21_START_ROOM + floorNum - 21;
-  if (floorNum === 10) return FLOOR10_BOSS_ROOM;
-  if (floorNum === 20) return FLOOR20_BOSS_ROOM;
-  if (floorNum <= 3) return (floorNum - 1) * 3;
-  if (floorNum >= 5 && floorNum <= 8) return (floorNum - 5) * 3 + FLOOR5_START_ROOM;
-  if (floorNum >= 11 && floorNum <= 13) return (floorNum - 11) * 3 + FLOOR11_START_ROOM;
-  if (floorNum >= 15 && floorNum <= 18) return (floorNum - 15) * 3 + FLOOR15_START_ROOM;
+  const D = Math.floor((floorNum - 1) / 10);
+  const rem = ((floorNum - 1) % 10) + 1;
+  if (rem >= 1 && rem <= 4) {
+    return D * 25 + (rem - 1) * 3;
+  }
+  if (rem === 5) {
+    return D * 25 + 12;
+  }
+  if (rem >= 6 && rem <= 9) {
+    return D * 25 + 12 + (rem - 6) * 3;
+  }
+  if (rem === 10) {
+    return D * 25 + 24;
+  }
   return 0;
 }
 
-export function getFloorInfo(roomIndex = 0, totalRooms = 44) {
-  if (roomIndex >= FLOOR21_START_ROOM) {
-    const floor = 21 + roomIndex - FLOOR21_START_ROOM;
-    const isBoss = floor % 5 === 0;
-    const code = isBoss ? `${floor}★` : String(floor);
-    const roomRole = isBoss ? `ห้องบอสประจำชั้น ${floor}` : 'ห้องต่อสู้';
-    return { floor, sub: 1, subRoomCount: 0, perFloor: 1, code, displayName: isBoss ? `บอสชั้น ${floor}` : `ชั้น ${floor}`, roomRole, isBoss, title: `ชั้นที่ ${floor} · ${roomRole}` };
-  }
-  if (totalRooms >= 22 && roomIndex === FLOOR10_BOSS_ROOM) {
+export function getFloorInfo(roomIndex = 0, totalRooms = TOTAL_TOWER_ROOMS) {
+  if (totalRooms === 6) {
+    const perFloor = 2;
+    const floor = Math.floor(roomIndex / perFloor) + 1;
+    const sub = (roomIndex % perFloor) + 1;
+    const isBoss = sub === perFloor;
+    const code = `${floor}-${sub}`;
     return {
-      floor: 10,
-      sub: 1,
-      subRoomCount: 0,
-      perFloor: 1,
-      code: '10★',
-      displayName: 'บอสชั้น 10',
-      roomRole: 'ห้องบอสพิเศษประจำชั้น 10',
-      isBoss: true,
-      title: 'ชั้นที่ 10 · ห้องบอสพิเศษประจำชั้น 10 (10★)',
+      floor, sub, subRoomCount: 1, perFloor, code,
+      displayName: isBoss ? `บอสชั้น ${floor}` : `ห้องย่อย ${code}`,
+      roomRole: isBoss ? `ห้องบอสประจำชั้น ${floor}` : `ห้องย่อยที่ ${sub}/1`,
+      isBoss,
+      title: isBoss ? `ชั้นที่ ${floor} · ห้องบอสประจำชั้น ${floor} (${code})` : `ชั้นที่ ${floor} · ห้องย่อยที่ ${sub}/1 (${code})`,
     };
   }
-  if (totalRooms >= 44 && roomIndex === FLOOR20_BOSS_ROOM) {
+
+  const D = Math.floor(roomIndex / 25);
+  const rel = roomIndex % 25;
+
+  if (rel < 12) {
+    const floorOffset = Math.floor(rel / 3);
+    const sub = (rel % 3) + 1;
+    const floor = D * 10 + 1 + floorOffset;
+    const isBoss = sub === 3;
+    const code = `${floor}-${sub}`;
+    const displayName = isBoss ? `บอสชั้น ${floor}` : `ห้องย่อย ${code}`;
+    const roomRole = isBoss ? `ห้องบอสประจำชั้น ${floor}` : `ห้องย่อยที่ ${sub}/2`;
     return {
-      floor: 20,
-      sub: 1,
-      subRoomCount: 0,
-      perFloor: 1,
-      code: '20★',
-      displayName: 'บอสชั้น 20',
-      roomRole: 'ห้องบอสพิเศษประจำชั้น 20',
-      isBoss: true,
-      title: 'ชั้นที่ 20 · ห้องบอสพิเศษประจำชั้น 20 (20★)',
+      floor,
+      sub,
+      subRoomCount: 2,
+      perFloor: 3,
+      code,
+      displayName,
+      roomRole,
+      isBoss,
+      title: isBoss
+        ? `ชั้นที่ ${floor} · ห้องบอสประจำชั้น ${floor} (${code})`
+        : `ชั้นที่ ${floor} · ห้องย่อยที่ ${sub}/2 (${code})`,
     };
   }
-  const perFloor = totalRooms === 6 ? 2 : 3;
-  const subRoomCount = Math.max(1, perFloor - 1);
-  let floor;
-  let sub;
-  if (totalRooms === 6 || roomIndex < FLOOR5_START_ROOM) {
-    floor = Math.floor(roomIndex / perFloor) + 1;
-    sub = (roomIndex % perFloor) + 1;
-  } else if (roomIndex <= FLOOR8_BOSS_ROOM) {
-    const rel = roomIndex - FLOOR5_START_ROOM;
-    floor = Math.floor(rel / perFloor) + 5;
-    sub = (rel % perFloor) + 1;
-  } else if (roomIndex < FLOOR15_START_ROOM) {
-    const rel = roomIndex - FLOOR11_START_ROOM;
-    floor = Math.floor(rel / perFloor) + 11;
-    sub = (rel % perFloor) + 1;
-  } else {
-    const rel = roomIndex - FLOOR15_START_ROOM;
-    floor = Math.floor(rel / perFloor) + 15;
-    sub = (rel % perFloor) + 1;
+
+  if (rel < 24) {
+    const floorOffset = Math.floor((rel - 12) / 3);
+    const sub = ((rel - 12) % 3) + 1;
+    const floor = D * 10 + 6 + floorOffset;
+    const isBoss = sub === 3;
+    const code = `${floor}-${sub}`;
+    const displayName = isBoss ? `บอสชั้น ${floor}` : `ห้องย่อย ${code}`;
+    const roomRole = isBoss ? `ห้องบอสประจำชั้น ${floor}` : `ห้องย่อยที่ ${sub}/2`;
+    return {
+      floor,
+      sub,
+      subRoomCount: 2,
+      perFloor: 3,
+      code,
+      displayName,
+      roomRole,
+      isBoss,
+      title: isBoss
+        ? `ชั้นที่ ${floor} · ห้องบอสประจำชั้น ${floor} (${code})`
+        : `ชั้นที่ ${floor} · ห้องย่อยที่ ${sub}/2 (${code})`,
+    };
   }
-  const isBoss = sub === perFloor;
-  const code = `${floor}-${sub}`;
-  const displayName = isBoss ? `บอสชั้น ${floor}` : `ห้องย่อย ${code}`;
-  const roomRole = isBoss ? `ห้องบอสประจำชั้น ${floor}` : `ห้องย่อยที่ ${sub}/${subRoomCount}`;
+
+  // rel === 24: Major Boss
+  const floor = D * 10 + 10;
+  const isFinalBoss = floor === 50;
+  const code = `${floor}★`;
+  const displayName = isFinalBoss ? 'บอสใหญ่สุดชั้น 50' : `บอสพิเศษชั้น ${floor}`;
+  const roomRole = isFinalBoss ? 'ห้องบอสใหญ่สุดประจำหอคอย' : `ห้องบอสพิเศษประจำชั้น ${floor}`;
   return {
     floor,
-    sub,
-    subRoomCount,
-    perFloor,
+    sub: 1,
+    subRoomCount: 0,
+    perFloor: 1,
     code,
     displayName,
     roomRole,
-    isBoss,
-    title: isBoss
-      ? `ชั้นที่ ${floor} · ห้องบอสประจำชั้น ${floor} (${code})`
-      : `ชั้นที่ ${floor} · ห้องย่อยที่ ${sub}/${subRoomCount} (${code})`,
+    isBoss: true,
+    title: `ชั้นที่ ${floor} · ${roomRole} (${code})`,
   };
 }
 
@@ -719,7 +755,6 @@ export function enterRoom(state) {
   state.turn = 1;
   state.phase = 'battle';
   state.player.mana = state.player.maxMana;
-  if (MIDDLE_BATTLES[state.room] && !isRoomRevisit(state)) state.rooms[state.room] = middleBattle(state.seed, state.room);
   const blessings = state.player.blessings ?? [];
   if (blessings.includes('blessing_aegis')) {
     state.player.shield = { layers: [6], expires: 2, effect: null, triggered: false };
@@ -747,16 +782,183 @@ function middleBattle(seed, room) {
 }
 
 export function refreshMiddleTowerRooms(state) {
+  if (!state?.rooms) return;
+  const fresh = buildTowerRooms(state.seed, state.tutorial);
   for (let room = state.room + 1; room < Math.min(state.rooms.length, FLOOR20_BOSS_ROOM); room++) {
-    if (MIDDLE_BATTLES[room] && !isRoomRevisit(state, room)) state.rooms[room] = middleBattle(state.seed, room);
+    if (!isRoomRevisit(state, room)) state.rooms[room] = fresh[room];
   }
+}
+
+export function buildTowerRooms(seed, tutorial = false) {
+  const draw = { rng: seedNumber(seed) };
+  function p(options) {
+    return pick(draw, options);
+  }
+
+  return [
+    // ZONE 1: Floors 1-4 (rooms 0-11)
+    ['striker'],
+    ['swarm'],
+    ['elite'], // 1-3 boss
+    tutorial ? ['swarm', 'swarm', 'swarm'] : p([['swarm', 'swarm', 'swarm'], ['charger', 'swarm']]),
+    ['charger'],
+    ['sentinel'], // 2-3 boss
+    p([['support', 'armored', 'swarm'], ['warden', 'charger']]),
+    ['armored', 'swarm'],
+    ['boss'], // 3-3 boss
+    p([['armored', 'charger', 'swarm'], ['warden', 'support', 'swarm']]),
+    p([['charger', 'armored', 'warden'], ['charger', 'charger', 'support']]),
+    p([['warden', 'iron_warden'], ['sentinel', 'support']]), // 4-3 boss
+
+    // ZONE 1: Floors 6-9 (rooms 12-23)
+    ['ember_imp', 'swarm'],
+    p([['iron_warden', 'ember_imp'], ['warden', 'charger']]),
+    ['mirror_mage'], // 6-3 boss
+    ['iron_warden', 'ember_imp'],
+    p([['rune_golem', 'swarm'], ['support', 'iron_warden']]),
+    ['frost_lich'], // 7-3 boss
+    ['rune_golem', 'ember_imp'],
+    p([['iron_warden', 'rune_golem'], ['armored', 'support', 'ember_imp']]),
+    ['storm_titan'], // 8-3 boss
+    ['rune_golem', 'iron_warden'],
+    p([['rune_golem', 'ember_imp', 'support'], ['iron_warden', 'rune_golem', 'swarm']]),
+    ['arch_codex'], // 9-3 boss
+
+    // Floor 10★ Major Boss (room 24)
+    ['ember_overlord'],
+
+    // ZONE 2: Floors 11-14 (rooms 25-36)
+    ['void_imp', 'swarm'],
+    p([['void_imp', 'aether_warden'], ['ember_imp', 'void_imp']]),
+    ['prism_watcher'], // 11-3 boss
+    ['obsidian_golem', 'void_imp'],
+    p([['obsidian_golem', 'aether_warden'], ['chrono_sage', 'obsidian_golem']]),
+    ['astral_sentinel'], // 12-3 boss
+    ['chrono_sage', 'aether_warden'],
+    p([['chrono_sage', 'obsidian_golem', 'void_imp'], ['aether_warden', 'obsidian_golem']]),
+    ['elder_grimoire'], // 13-3 boss
+    ['void_imp', 'obsidian_golem', 'chrono_sage'],
+    p([['aether_warden', 'chrono_sage', 'obsidian_golem'], ['obsidian_golem', 'obsidian_golem']]),
+    ['eclipse_mage'], // 14-3 boss
+
+    // ZONE 2: Floors 16-19 (rooms 37-48)
+    ['ward_scribe', 'void_imp'],
+    p([['ward_scribe', 'obsidian_golem'], ['ward_keeper', 'void_imp']]),
+    ['glacial_sovereign'], // 16-3 boss
+    ['ward_keeper', 'rune_ram'],
+    p([['ward_keeper', 'rune_ram', 'ward_scribe'], ['rune_ram', 'obsidian_golem']]),
+    ['thunder_colossus'], // 17-3 boss
+    ['rune_ram', 'ward_scribe', 'ward_keeper'],
+    p([['rune_ram', 'obsidian_golem', 'ward_scribe'], ['ward_keeper', 'ward_keeper', 'rune_ram']]),
+    ['nexus_codex'], // 18-3 boss
+    ['seal_curator', 'ward_scribe'],
+    p([['seal_curator', 'ward_keeper'], ['seal_curator', 'rune_ram']]),
+    ['seal_curator', 'rune_ram'], // 19-3 boss
+
+    // Floor 20★ Major Boss (room 49)
+    ['tempest_archon'],
+
+    // ZONE 3: Floors 21-24 (rooms 50-61)
+    ['ward_scribe', 'aether_warden'],
+    p([['ward_keeper', 'void_imp'], ['ward_scribe', 'rune_ram']]),
+    ['seal_curator', 'ward_scribe'], // 21-3 boss
+    ['rune_ram', 'void_imp'],
+    p([['rune_ram', 'ward_keeper'], ['obsidian_golem', 'ward_scribe']]),
+    ['astral_sentinel', 'ward_keeper'], // 22-3 boss
+    ['ward_keeper', 'obsidian_golem'],
+    p([['chrono_sage', 'rune_ram'], ['ward_keeper', 'void_imp']]),
+    ['elder_grimoire', 'ward_scribe'], // 23-3 boss
+    ['rune_ram', 'void_imp', 'ward_scribe'],
+    p([['ward_keeper', 'rune_ram'], ['obsidian_golem', 'chrono_sage']]),
+    ['eclipse_mage', 'rune_ram'], // 24-3 boss
+
+    // ZONE 3: Floors 26-29 (rooms 62-73)
+    ['ward_keeper', 'rune_ram'],
+    p([['void_imp', 'ward_keeper', 'ward_scribe'], ['rune_ram', 'obsidian_golem']]),
+    ['glacial_sovereign', 'ward_scribe'], // 26-3 boss
+    ['rune_ram', 'void_imp', 'ward_scribe'],
+    p([['ward_keeper', 'rune_ram', 'ward_scribe'], ['obsidian_golem', 'rune_ram']]),
+    ['thunder_colossus', 'ward_keeper'], // 27-3 boss
+    ['void_imp', 'rune_ram', 'ward_keeper'],
+    p([['rune_ram', 'ward_keeper', 'obsidian_golem'], ['ward_scribe', 'rune_ram', 'void_imp']]),
+    ['nexus_codex', 'ward_scribe'], // 28-3 boss
+    ['ward_keeper', 'rune_ram', 'ward_scribe'],
+    p([['ward_keeper', 'obsidian_golem', 'ward_scribe'], ['rune_ram', 'ward_keeper', 'void_imp']]),
+    ['seal_curator', 'rune_ram', 'ward_scribe'], // 29-3 boss
+
+    // Floor 30★ Major Boss (room 74)
+    ['crown_archivist', 'rune_ram', 'ward_scribe'],
+
+    // ZONE 4: Floors 31-34 (rooms 75-86)
+    ['thread_archer', 'thread_archer'],
+    p([['thread_archer', 'lattice_guard'], ['thread_archer', 'ward_scribe']]),
+    ['gate_weaver'], // 31-3 boss
+    ['lattice_guard', 'thread_archer'],
+    p([['thread_archer', 'lattice_guard', 'thread_archer'], ['rift_runner', 'thread_archer']]),
+    ['gate_weaver', 'thread_archer'], // 32-3 boss
+    ['rift_runner', 'thread_archer'],
+    p([['rift_runner', 'ward_scribe'], ['lattice_guard', 'rift_runner']]),
+    ['mirror_regent'], // 33-3 boss
+    ['lattice_guard', 'rift_runner', 'thread_archer'],
+    p([['thread_archer', 'rift_runner', 'ward_scribe'], ['lattice_guard', 'thread_archer', 'lattice_guard']]),
+    ['mirror_regent', 'thread_archer'], // 34-3 boss
+
+    // ZONE 4: Floors 36-39 (rooms 87-98)
+    ['thread_archer', 'lattice_guard', 'thread_archer'],
+    p([['lattice_guard', 'ward_scribe', 'thread_archer'], ['rift_runner', 'lattice_guard']]),
+    ['gate_weaver', 'lattice_guard'], // 36-3 boss
+    ['rift_runner', 'lattice_guard', 'rift_runner'],
+    p([['lattice_guard', 'rift_runner', 'thread_archer'], ['thread_archer', 'ward_scribe', 'lattice_guard']]),
+    ['mirror_regent', 'rift_runner'], // 37-3 boss
+    ['thread_archer', 'ward_scribe', 'lattice_guard'],
+    p([['rift_runner', 'thread_archer', 'thread_archer'], ['lattice_guard', 'rift_runner', 'ward_scribe']]),
+    ['seam_warden'], // 38-3 boss
+    ['rift_runner', 'lattice_guard', 'ward_scribe'],
+    p([['lattice_guard', 'rift_runner', 'thread_archer'], ['thread_archer', 'lattice_guard', 'rift_runner']]),
+    ['seam_warden', 'thread_archer'], // 39-3 boss
+
+    // Floor 40★ Major Boss (room 99)
+    ['mirror_regent', 'ward_scribe', 'thread_archer'],
+
+    // ZONE 5: Floors 41-44 (rooms 100-111)
+    ['lattice_guard', 'thread_archer', 'lattice_guard'],
+    p([['rift_runner', 'thread_archer', 'lattice_guard'], ['thread_archer', 'lattice_guard', 'ward_scribe']]),
+    ['gate_weaver', 'rift_runner', 'thread_archer'], // 41-3 boss
+    ['rift_runner', 'ward_scribe', 'lattice_guard'],
+    p([['lattice_guard', 'rift_runner', 'thread_archer'], ['thread_archer', 'lattice_guard', 'thread_archer']]),
+    ['mirror_regent', 'lattice_guard', 'thread_archer'], // 42-3 boss
+    ['thread_archer', 'lattice_guard', 'thread_archer', 'rift_runner'],
+    p([['rift_runner', 'lattice_guard', 'ward_scribe'], ['lattice_guard', 'thread_archer', 'rift_runner']]),
+    ['seam_warden', 'rift_runner'], // 43-3 boss
+    ['lattice_guard', 'rift_runner', 'lattice_guard'],
+    p([['thread_archer', 'rift_runner', 'lattice_guard', 'thread_archer'], ['rift_runner', 'thread_archer', 'ward_scribe']]),
+    ['seam_warden', 'lattice_guard', 'thread_archer'], // 44-3 boss
+
+    // ZONE 5: Floors 46-49 (rooms 112-123)
+    ['rift_runner', 'thread_archer', 'lattice_guard', 'thread_archer'],
+    p([['lattice_guard', 'rift_runner', 'ward_scribe'], ['rift_runner', 'lattice_guard', 'thread_archer']]),
+    ['gate_weaver', 'seam_warden'], // 46-3 boss
+    ['lattice_guard', 'thread_archer', 'lattice_guard', 'ward_scribe'],
+    p([['rift_runner', 'lattice_guard', 'thread_archer'], ['lattice_guard', 'rift_runner', 'thread_archer', 'ward_scribe']]),
+    ['mirror_regent', 'seam_warden'], // 47-3 boss
+    ['thread_archer', 'rift_runner', 'lattice_guard', 'rift_runner'],
+    p([['lattice_guard', 'thread_archer', 'ward_scribe'], ['rift_runner', 'thread_archer', 'lattice_guard', 'ward_scribe']]),
+    ['seam_warden', 'lattice_guard', 'rift_runner'], // 48-3 boss
+    ['lattice_guard', 'rift_runner', 'thread_archer', 'ward_scribe'],
+    p([['rift_runner', 'lattice_guard', 'thread_archer', 'lattice_guard'], ['thread_archer', 'rift_runner', 'seam_warden']]),
+    ['seam_warden', 'mirror_regent', 'thread_archer'], // 49-3 boss
+
+    // Floor 50★ Final Boss (room 124)
+    ['loom_sovereign', 'rift_runner', 'ward_scribe', 'thread_archer'],
+  ];
 }
 
 export function createRun(seed = String(Date.now()), tutorial = false, collection = []) {
   const state = {
-    version: 2, rulesVersion: 3, seed: String(seed), rng: seedNumber(seed), tutorial,
+    version: 2, rulesVersion: 3, hpCurveVersion: 1, seed: String(seed), rng: seedNumber(seed), tutorial,
     room: 0, highestRoom: 0, clearedRooms: [], rewardedBossRooms: [],
-    sanctuaryRested: false, sanctuaryFloor: 4,
+    sanctuaryRested: false, sanctuaryFloor: 5,
+    sanctuaryUnlocked: false,
     sanctuary9Unlocked: false, sanctuaryPost10Unlocked: false,
     sanctuary14Unlocked: false, sanctuary19Unlocked: false, sanctuaryPost20Unlocked: false,
     purchasedShopItems: [],
@@ -769,57 +971,7 @@ export function createRun(seed = String(Date.now()), tutorial = false, collectio
     },
     stats: { casts: 0, damage: 0, blocked: 0, turns: 0, discovered: [] },
   };
-  function initialMiddleBattle(room) {
-    // Keep existing reward and forge rolls for the same seed.
-    if (MIDDLE_BATTLES[room].length > 1) random(state);
-    return middleBattle(state.seed, room);
-  }
-  state.rooms = [
-    ['striker'],
-    ['swarm'],
-    ['elite'],
-    tutorial ? ['swarm', 'swarm', 'swarm'] : pick(state, [['swarm', 'swarm', 'swarm'], ['charger', 'swarm']]),
-    ['charger'],
-    ['sentinel'],
-    pick(state, [['support', 'armored', 'swarm'], ['warden', 'charger']]),
-    ['armored', 'swarm'],
-    ['boss'],
-    ['ember_imp', 'swarm'],
-    pick(state, [['iron_warden', 'ember_imp'], ['warden', 'charger']]),
-    ['mirror_mage'],
-    ['iron_warden', 'ember_imp'],
-    pick(state, [['rune_golem', 'swarm'], ['support', 'iron_warden']]),
-    ['frost_lich'],
-    ['rune_golem', 'ember_imp'],
-    pick(state, [['iron_warden', 'rune_golem'], ['armored', 'support', 'ember_imp']]),
-    ['storm_titan'],
-    ['rune_golem', 'iron_warden'],
-    pick(state, [['rune_golem', 'ember_imp', 'support'], ['iron_warden', 'rune_golem', 'swarm']]),
-    ['arch_codex'],
-    ['ember_overlord'],
-    initialMiddleBattle(22),
-    initialMiddleBattle(23),
-    ['prism_watcher'],
-    initialMiddleBattle(25),
-    initialMiddleBattle(26),
-    ['astral_sentinel'],
-    initialMiddleBattle(28),
-    initialMiddleBattle(29),
-    ['elder_grimoire'],
-    initialMiddleBattle(31),
-    initialMiddleBattle(32),
-    ['eclipse_mage'],
-    initialMiddleBattle(34),
-    initialMiddleBattle(35),
-    ['glacial_sovereign'],
-    initialMiddleBattle(37),
-    initialMiddleBattle(38),
-    ['thunder_colossus'],
-    initialMiddleBattle(40),
-    initialMiddleBattle(41),
-    ['nexus_codex'],
-    ['tempest_archon'],
-  ];
+  state.rooms = buildTowerRooms(state.seed, tutorial);
   return enterRoom(state);
 }
 
@@ -829,7 +981,6 @@ export function ownsRewardWord(state, id) {
 
 export function getRewardPool(state) {
   return Object.keys(WORDS).filter(id => {
-    if (getCardUpgradeLevel(state, id) >= MAX_CARD_UPGRADE) return false;
     if (id === 'self' && !ownsRewardWord(state, 'heal')) return false;
     if (id === 'pull') return state.room >= PULL_REWARD_ROOM;
     if (UPPER_REWARD_WORDS.includes(id)) return state.room >= FLOOR25_BOSS_ROOM;
@@ -861,19 +1012,8 @@ function drawReward(state, pool) {
   return pick(state, high.length ? high : regular.length ? regular : pool);
 }
 
-export function makeRewards(state) {
-  const bossCards = state.room === FLOOR30_BOSS_ROOM ? floor30Rewards(state)
-    : state.room === PULL_REWARD_ROOM && getCardUpgradeLevel(state, 'pull') < MAX_CARD_UPGRADE ? ['pull'] : [];
-  if (bossCards.length) {
-    state.rewards = bossCards;
-    state.phase = 'reward';
-    return;
-  }
+export function fillRewardChoices(state) {
   const pool = getRewardPool(state);
-  state.rewards = [];
-  if (upperCacheAvailable(state)) {
-    state.rewards.push(...UPPER_REWARD_WORDS.filter(id => !state.learned.includes(id) && getCardUpgradeLevel(state, id) < MAX_CARD_UPGRADE));
-  } else if (state.room === roomsPerFloor(state) - 1 && pool.includes('beam')) state.rewards.push('beam');
   for (const id of state.rewards) {
     const index = pool.indexOf(id);
     if (index !== -1) pool.splice(index, 1);
@@ -883,33 +1023,12 @@ export function makeRewards(state) {
     state.rewards.push(word);
     pool.splice(pool.indexOf(word), 1);
   }
+}
+
+export function makeRewards(state) {
+  state.rewards = [];
+  fillRewardChoices(state);
   state.phase = 'reward';
-}
-
-function ascendedRewards(state) {
-  return Object.keys(ASCENDED_ELEMENTS).filter(id => !state.collection.includes(id));
-}
-
-function fusedRewards(state) {
-  const cards = Object.keys(FUSED_ELEMENTS).filter(id => !state.collection.includes(id));
-  if (cards.length <= 3) return cards;
-  return cards.filter((_, index) => index !== seedNumber(state.seed) % cards.length);
-}
-
-const FLOOR30_FIXED_REWARDS = ['storm', 'devastation', 'vayu'];
-
-function floor30Rewards(state) {
-  const hasFused = state.learned.some(id => Object.hasOwn(FUSED_ELEMENTS, id));
-  if (!hasFused && !state.learned.some(id => Object.hasOwn(ASCENDED_ELEMENTS, id))) {
-    const ascended = ascendedRewards(state);
-    if (ascended.length) return ascended;
-  }
-  if (!hasFused) {
-    const fused = fusedRewards(state);
-    if (fused.length) return fused;
-  }
-  const nextCard = FLOOR30_FIXED_REWARDS.find(id => !state.collection.includes(id));
-  return nextCard ? [nextCard] : [];
 }
 
 export function offerMissedElementReward(state) {
@@ -920,68 +1039,41 @@ export function offerMissedElementReward(state) {
 export function completeBossVictoryTransition(state) {
   state.clearedRooms ??= [];
   if (!state.clearedRooms.includes(state.room)) state.clearedRooms.push(state.room);
-  const totalRooms = state.rooms?.length ?? 44;
-  if (completeUpperFloor(state)) return state;
-  if (state.room === FLOOR4_BOUNDARY_ROOM) {
-    state.sanctuaryUnlocked = true;
-    state.sanctuaryFloor = 4;
-    state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(totalRooms - 1, FLOOR5_START_ROOM));
+  if (state.room >= (state.rooms?.length ?? 125) - 1) {
     state.phase = 'won';
     return state;
   }
-  if (totalRooms >= 44 && state.room === FLOOR20_BOSS_ROOM) {
+  const rel = state.room % 25;
+  const D = Math.floor(state.room / 25);
+
+  if (rel === 11) {
+    const rest = D * 10 + 5;
     state.sanctuaryUnlocked = true;
-    state.sanctuary9Unlocked = true;
-    state.sanctuaryPost10Unlocked = true;
-    state.sanctuary14Unlocked = true;
-    state.sanctuary19Unlocked = true;
-    state.sanctuaryPost20Unlocked = true;
-    state.sanctuaryFloor = 'post20';
+    state.sanctuaryFloor = rest;
     state.sanctuaryRested = false;
-    state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR20_BOSS_ROOM);
-    state.phase = 'sanctuary';
-    unlockUpperTower(state);
-    return state;
-  }
-  if (totalRooms >= 44 && state.room === FLOOR18_BOSS_ROOM) {
-    state.sanctuaryUnlocked = true;
-    state.sanctuary9Unlocked = true;
-    state.sanctuaryPost10Unlocked = true;
-    state.sanctuary14Unlocked = true;
-    state.sanctuary19Unlocked = true;
-    state.sanctuaryFloor = 19;
-    state.sanctuaryRested = false;
-    state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR20_BOSS_ROOM);
+    state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
     state.phase = 'sanctuary';
     return state;
   }
-  if (totalRooms >= 44 && state.room === FLOOR13_BOSS_ROOM) {
+  if (rel === 23) {
+    const rest = `pre${(D + 1) * 10}`;
     state.sanctuaryUnlocked = true;
-    state.sanctuary9Unlocked = true;
-    state.sanctuaryPost10Unlocked = true;
-    state.sanctuary14Unlocked = true;
-    state.sanctuaryFloor = 14;
+    state.sanctuaryFloor = rest;
     state.sanctuaryRested = false;
-    state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR15_START_ROOM);
+    state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
     state.phase = 'sanctuary';
     return state;
   }
-  if (totalRooms >= 22 && state.room === FLOOR10_BOSS_ROOM) {
+  if (rel === 24) {
+    const majorBossFloor = (D + 1) * 10;
+    if (majorBossFloor === 50) {
+      state.phase = 'won';
+      return state;
+    }
     state.sanctuaryUnlocked = true;
-    state.sanctuary9Unlocked = true;
-    state.sanctuaryPost10Unlocked = true;
-    state.sanctuaryFloor = 'post10';
+    state.sanctuaryFloor = `post${majorBossFloor}`;
     state.sanctuaryRested = false;
-    state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(totalRooms - 1, totalRooms >= 44 ? FLOOR11_START_ROOM : FLOOR10_BOSS_ROOM));
-    state.phase = 'sanctuary';
-    return state;
-  }
-  if (state.room === FLOOR8_BOSS_ROOM || (totalRooms < 22 && state.room === totalRooms - 1)) {
-    state.sanctuaryUnlocked = true;
-    state.sanctuary9Unlocked = true;
-    state.sanctuaryFloor = 9;
-    state.sanctuaryRested = false;
-    state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(totalRooms - 1, FLOOR10_BOSS_ROOM));
+    state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
     state.phase = 'sanctuary';
     return state;
   }
@@ -1016,10 +1108,6 @@ export function chooseReward(original, id) {
     if (state.player.words.length >= cap) break;
     if (!state.player.words.includes(candidate)) state.player.words.push(candidate);
   }
-  if (state.room >= FLOOR21_START_ROOM && !isBossRoom(state) && !isUpperCacheRoom(state.room)) {
-    state.room++;
-    return enterRoom(state);
-  }
   completeBossVictoryTransition(state);
   offerMissedElementReward(state);
   return state;
@@ -1027,97 +1115,103 @@ export function chooseReward(original, id) {
 
 export function isSanctuaryUnlocked(state) {
   if (!state || state.phase === 'lost') return false;
-  const totalRooms = state.rooms?.length ?? 44;
-  const boundaryBossRoom = totalRooms <= 9 ? totalRooms - 1 : FLOOR4_BOUNDARY_ROOM;
   const cleared = state.clearedRooms ?? [];
   return Boolean(
     state.sanctuaryUnlocked ||
     state.phase === 'won' ||
     state.phase === 'sanctuary' ||
-    cleared.includes(boundaryBossRoom) ||
-    cleared.includes(FLOOR8_BOSS_ROOM) ||
-    cleared.includes(totalRooms - 1),
+    cleared.includes(FLOOR4_BOUNDARY_ROOM) ||
+    state.room > FLOOR4_BOUNDARY_ROOM
   );
 }
 
-export function isSanctuary9Unlocked(state) {
+export function isSanctuaryPre10Unlocked(state) {
   if (!state || state.phase === 'lost') return false;
-  const totalRooms = state.rooms?.length ?? 44;
-  if (totalRooms < 21) return false;
   const cleared = state.clearedRooms ?? [];
   return Boolean(
-    state.sanctuary9Unlocked ||
-    state.sanctuaryPost10Unlocked ||
-    state.sanctuary14Unlocked ||
-    state.sanctuary19Unlocked ||
-    state.sanctuaryPost20Unlocked ||
-    (state.phase === 'sanctuary' && [9, 'post10', 14, 19, 'post20'].includes(state.sanctuaryFloor)) ||
-    cleared.includes(FLOOR8_BOSS_ROOM) ||
-    cleared.includes(FLOOR10_BOSS_ROOM) ||
-    cleared.includes(FLOOR13_BOSS_ROOM) ||
-    cleared.includes(FLOOR18_BOSS_ROOM) ||
-    cleared.includes(FLOOR20_BOSS_ROOM),
+    cleared.includes(FLOOR9_BOUNDARY_ROOM) ||
+    state.room >= FLOOR10_BOSS_ROOM ||
+    (state.phase === 'sanctuary' && state.sanctuaryFloor === 'pre10')
   );
 }
 
 export function isSanctuaryPost10Unlocked(state) {
   if (!state || state.phase === 'lost') return false;
-  const totalRooms = state.rooms?.length ?? 44;
-  if (totalRooms < 22) return false;
   const cleared = state.clearedRooms ?? [];
   return Boolean(
     state.sanctuaryPost10Unlocked ||
-    state.sanctuary14Unlocked ||
-    state.sanctuary19Unlocked ||
-    state.sanctuaryPost20Unlocked ||
-    (state.phase === 'sanctuary' && ['post10', 14, 19, 'post20'].includes(state.sanctuaryFloor)) ||
     cleared.includes(FLOOR10_BOSS_ROOM) ||
-    cleared.includes(FLOOR13_BOSS_ROOM) ||
-    cleared.includes(FLOOR18_BOSS_ROOM) ||
-    cleared.includes(FLOOR20_BOSS_ROOM),
+    state.room > FLOOR10_BOSS_ROOM ||
+    (state.phase === 'sanctuary' && state.sanctuaryFloor === 'post10')
   );
 }
 
-export function isSanctuary14Unlocked(state) {
+export function isSanctuary15Unlocked(state) {
   if (!state || state.phase === 'lost') return false;
-  const totalRooms = state.rooms?.length ?? 44;
-  if (totalRooms < 44) return false;
   const cleared = state.clearedRooms ?? [];
   return Boolean(
-    state.sanctuary14Unlocked ||
-    state.sanctuary19Unlocked ||
-    state.sanctuaryPost20Unlocked ||
-    (state.phase === 'sanctuary' && [14, 19, 'post20'].includes(state.sanctuaryFloor)) ||
-    cleared.includes(FLOOR13_BOSS_ROOM) ||
-    cleared.includes(FLOOR18_BOSS_ROOM) ||
-    cleared.includes(FLOOR20_BOSS_ROOM),
+    cleared.includes(FLOOR14_BOUNDARY_ROOM) ||
+    state.room > FLOOR14_BOUNDARY_ROOM ||
+    (state.phase === 'sanctuary' && state.sanctuaryFloor === 15)
   );
 }
 
-export function isSanctuary19Unlocked(state) {
+export function isSanctuaryPre20Unlocked(state) {
   if (!state || state.phase === 'lost') return false;
-  const totalRooms = state.rooms?.length ?? 44;
-  if (totalRooms < 44) return false;
   const cleared = state.clearedRooms ?? [];
   return Boolean(
-    state.sanctuary19Unlocked ||
-    state.sanctuaryPost20Unlocked ||
-    (state.phase === 'sanctuary' && [19, 'post20'].includes(state.sanctuaryFloor)) ||
-    cleared.includes(FLOOR18_BOSS_ROOM) ||
-    cleared.includes(FLOOR20_BOSS_ROOM),
+    cleared.includes(FLOOR19_BOUNDARY_ROOM) ||
+    state.room >= FLOOR20_BOSS_ROOM ||
+    (state.phase === 'sanctuary' && state.sanctuaryFloor === 'pre20')
   );
 }
 
 export function isSanctuaryPost20Unlocked(state) {
   if (!state || state.phase === 'lost') return false;
-  const totalRooms = state.rooms?.length ?? 44;
-  if (totalRooms < 44) return false;
   const cleared = state.clearedRooms ?? [];
   return Boolean(
     state.sanctuaryPost20Unlocked ||
-    (state.phase === 'sanctuary' && state.sanctuaryFloor === 'post20') ||
-    cleared.includes(FLOOR20_BOSS_ROOM),
+    cleared.includes(FLOOR20_BOSS_ROOM) ||
+    state.room > FLOOR20_BOSS_ROOM ||
+    (state.phase === 'sanctuary' && state.sanctuaryFloor === 'post20')
   );
+}
+
+// Aliases for legacy exports
+export const isSanctuary9Unlocked = isSanctuaryPre10Unlocked;
+export const isSanctuary14Unlocked = isSanctuary15Unlocked;
+export const isSanctuary19Unlocked = isSanctuaryPre20Unlocked;
+
+export function isSanctuaryFloorUnlocked(state, floorKey) {
+  if (!state || state.phase === 'lost') return false;
+  const cleared = new Set(state.clearedRooms ?? []);
+  if (floorKey === 4 || floorKey === 5) return isSanctuaryUnlocked(state);
+  if (floorKey === 9 || floorKey === 'pre10') return isSanctuaryPre10Unlocked(state);
+  if (floorKey === 'post10') return isSanctuaryPost10Unlocked(state);
+  if (floorKey === 14 || floorKey === 15) return isSanctuary15Unlocked(state);
+  if (floorKey === 19 || floorKey === 'pre20') return isSanctuaryPre20Unlocked(state);
+  if (floorKey === 'post20') return isSanctuaryPost20Unlocked(state);
+
+  if (typeof floorKey === 'number') {
+    const D = Math.floor((floorKey - 5) / 10);
+    const boundaryRoom = D * 25 + 11;
+    return cleared.has(boundaryRoom) || state.room > boundaryRoom || (state.phase === 'sanctuary' && state.sanctuaryFloor === floorKey);
+  }
+  if (typeof floorKey === 'string') {
+    if (floorKey.startsWith('pre')) {
+      const targetFloor = Number(floorKey.slice(3));
+      const D = Math.floor((targetFloor - 10) / 10);
+      const boundaryRoom = D * 25 + 23;
+      return cleared.has(boundaryRoom) || state.room >= (D * 25 + 24) || (state.phase === 'sanctuary' && state.sanctuaryFloor === floorKey);
+    }
+    if (floorKey.startsWith('post')) {
+      const targetFloor = Number(floorKey.slice(4));
+      const D = Math.floor((targetFloor - 10) / 10);
+      const bossRoom = D * 25 + 24;
+      return cleared.has(bossRoom) || state.room > bossRoom || (state.phase === 'sanctuary' && state.sanctuaryFloor === floorKey);
+    }
+  }
+  return false;
 }
 
 function resetPlayerForSanctuaryFallback(state) {
@@ -1138,98 +1232,90 @@ function resetPlayerForSanctuaryFallback(state) {
   });
 }
 
-export function fallBackToFloor4Sanctuary(state) {
-  state.phase = 'sanctuary';
-  state.sanctuaryUnlocked = true;
-  state.sanctuary9Unlocked = false;
-  state.sanctuaryPost10Unlocked = false;
-  state.sanctuary14Unlocked = false;
-  state.sanctuary19Unlocked = false;
-  state.sanctuaryPost20Unlocked = false;
-  state.sanctuaryFloor = 4;
-  state.sanctuaryRested = false;
-  state.clearedRooms = (state.clearedRooms ?? []).filter(r => r < FLOOR5_START_ROOM);
-  state.highestRoom = Math.min((state.rooms?.length ?? 44) - 1, FLOOR5_START_ROOM);
-  state.room = state.highestRoom;
-  resetPlayerForSanctuaryFallback(state);
-  return state;
-}
+export function fallBackOnDefeat(state) {
+  const room = state.room;
+  const D = Math.floor(room / 25);
+  const rel = room % 25;
 
-export function fallBackToFloor9Sanctuary(state) {
-  state.phase = 'sanctuary';
-  state.sanctuaryUnlocked = true;
-  state.sanctuary9Unlocked = true;
-  state.sanctuaryFloor = 9;
-  state.sanctuaryRested = false;
-  state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min((state.rooms?.length ?? 44) - 1, FLOOR10_BOSS_ROOM));
-  state.room = Math.min((state.rooms?.length ?? 44) - 1, FLOOR10_BOSS_ROOM);
-  resetPlayerForSanctuaryFallback(state);
-  return state;
-}
+  if (rel < 12) {
+    if (D === 0) {
+      state.phase = 'lost';
+      return { phase: 'lost' };
+    }
+    const rest = `post${D * 10}`;
+    const restartRoom = D * 25;
+    state.phase = 'sanctuary';
+    state.sanctuaryFloor = rest;
+    state.sanctuaryRested = false;
+    if (D === 1) {
+      state.sanctuary14Unlocked = false;
+      state.sanctuary19Unlocked = false;
+      state.sanctuaryPost20Unlocked = false;
+    }
+    state.clearedRooms = (state.clearedRooms ?? []).filter(r => r < restartRoom);
+    state.highestRoom = Math.min((state.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1, restartRoom);
+    state.room = state.highestRoom;
+    resetPlayerForSanctuaryFallback(state);
+    return { phase: 'sanctuary', targetFloor: rest };
+  }
 
-export function fallBackToPost10Sanctuary(state) {
-  state.phase = 'sanctuary';
-  state.sanctuaryUnlocked = true;
-  state.sanctuary9Unlocked = true;
-  state.sanctuaryPost10Unlocked = true;
-  state.sanctuary14Unlocked = false;
-  state.sanctuary19Unlocked = false;
-  state.sanctuaryPost20Unlocked = false;
-  state.sanctuaryFloor = 'post10';
-  state.sanctuaryRested = false;
-  state.clearedRooms = (state.clearedRooms ?? []).filter(r => r < FLOOR11_START_ROOM);
-  state.highestRoom = Math.min((state.rooms?.length ?? 44) - 1, FLOOR11_START_ROOM);
-  state.room = state.highestRoom;
-  resetPlayerForSanctuaryFallback(state);
-  return state;
-}
+  if (rel < 24) {
+    const rest = D * 10 + 5;
+    const restartRoom = D * 25 + 12;
+    state.phase = 'sanctuary';
+    state.sanctuaryFloor = rest;
+    state.sanctuaryRested = false;
+    if (D === 0) {
+      state.sanctuaryPre10Unlocked = false;
+      state.sanctuary9Unlocked = false;
+      state.sanctuaryPost10Unlocked = false;
+      state.sanctuary14Unlocked = false;
+      state.sanctuary19Unlocked = false;
+      state.sanctuaryPost20Unlocked = false;
+    } else if (D === 1) {
+      state.sanctuary19Unlocked = false;
+      state.sanctuaryPost20Unlocked = false;
+    }
+    state.clearedRooms = (state.clearedRooms ?? []).filter(r => r < restartRoom);
+    state.highestRoom = Math.min((state.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1, restartRoom);
+    state.room = state.highestRoom;
+    resetPlayerForSanctuaryFallback(state);
+    return { phase: 'sanctuary', targetFloor: rest };
+  }
 
-export function fallBackToFloor14Sanctuary(state) {
-  state.phase = 'sanctuary';
-  state.sanctuaryUnlocked = true;
-  state.sanctuary9Unlocked = true;
-  state.sanctuaryPost10Unlocked = true;
-  state.sanctuary14Unlocked = true;
-  state.sanctuary19Unlocked = false;
-  state.sanctuaryPost20Unlocked = false;
-  state.sanctuaryFloor = 14;
-  state.sanctuaryRested = false;
-  state.clearedRooms = (state.clearedRooms ?? []).filter(r => r < FLOOR15_START_ROOM);
-  state.highestRoom = Math.min((state.rooms?.length ?? 44) - 1, FLOOR15_START_ROOM);
-  state.room = state.highestRoom;
-  resetPlayerForSanctuaryFallback(state);
-  return state;
-}
-
-export function fallBackToFloor19Sanctuary(state) {
-  state.phase = 'sanctuary';
-  state.sanctuaryUnlocked = true;
-  state.sanctuary9Unlocked = true;
-  state.sanctuaryPost10Unlocked = true;
-  state.sanctuary14Unlocked = true;
-  state.sanctuary19Unlocked = true;
-  state.sanctuaryFloor = 19;
-  state.sanctuaryRested = false;
-  state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min((state.rooms?.length ?? 44) - 1, FLOOR20_BOSS_ROOM));
-  state.room = Math.min((state.rooms?.length ?? 44) - 1, FLOOR20_BOSS_ROOM);
-  resetPlayerForSanctuaryFallback(state);
-  return state;
-}
-
-export function fallBackToUpperSanctuary(state) {
-  const revisit = isRoomRevisit(state);
-  const [rest, checkpoint] = Object.entries(UPPER_RESTS).findLast(([, room]) => room < state.room && state.clearedRooms.includes(room))
-    ?? ['post20', FLOOR20_BOSS_ROOM];
+  const rest = `pre${(D + 1) * 10}`;
+  const bossRoom = D * 25 + 24;
   state.phase = 'sanctuary';
   state.sanctuaryFloor = rest;
   state.sanctuaryRested = false;
-  if (!revisit) {
-    state.clearedRooms = state.clearedRooms.filter(room => room <= checkpoint);
-    state.highestRoom = checkpoint + 1;
-  }
-  state.room = checkpoint;
+  state.highestRoom = Math.max(state.highestRoom ?? 0, bossRoom);
+  state.room = bossRoom;
   resetPlayerForSanctuaryFallback(state);
-  return state;
+  return { phase: 'sanctuary', targetFloor: rest };
+}
+
+export function fallBackToFloor4Sanctuary(state) {
+  return fallBackOnDefeat(Object.assign(state, { room: 12 }));
+}
+
+export function fallBackToFloor9Sanctuary(state) {
+  return fallBackOnDefeat(Object.assign(state, { room: 24 }));
+}
+
+export function fallBackToPost10Sanctuary(state) {
+  return fallBackOnDefeat(Object.assign(state, { room: 25 }));
+}
+
+export function fallBackToFloor14Sanctuary(state) {
+  return fallBackOnDefeat(Object.assign(state, { room: 37 }));
+}
+
+export function fallBackToFloor19Sanctuary(state) {
+  return fallBackOnDefeat(Object.assign(state, { room: 49 }));
+}
+
+export function fallBackToUpperSanctuary(state) {
+  return fallBackOnDefeat(state);
 }
 
 export function validateDeckWords(original, words) {
@@ -1254,57 +1340,56 @@ export function equipWords(original, words) {
   return enterRoom(state);
 }
 
+export function getSanctuaryNextRoom(state, sanctuaryFloor) {
+  if (sanctuaryFloor === undefined || sanctuaryFloor === null) {
+    sanctuaryFloor = state?.sanctuaryFloor ?? 5;
+  }
+  if (sanctuaryFloor === 4 || sanctuaryFloor === 5) return FLOOR6_START_ROOM;
+  if (sanctuaryFloor === 9 || sanctuaryFloor === 'pre10') return FLOOR10_BOSS_ROOM;
+  if (sanctuaryFloor === 'post10') return FLOOR11_START_ROOM;
+  if (sanctuaryFloor === 14 || sanctuaryFloor === 15) return FLOOR16_START_ROOM;
+  if (sanctuaryFloor === 19 || sanctuaryFloor === 'pre20') return FLOOR20_BOSS_ROOM;
+  if (sanctuaryFloor === 'post20') return FLOOR21_START_ROOM;
+
+  if (typeof sanctuaryFloor === 'number') {
+    const D = Math.floor((sanctuaryFloor - 5) / 10);
+    return Math.min((state?.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1, D * 25 + 12);
+  }
+  if (typeof sanctuaryFloor === 'string') {
+    if (sanctuaryFloor.startsWith('pre')) {
+      const target = Number(sanctuaryFloor.slice(3));
+      const D = Math.floor((target - 10) / 10);
+      return Math.min((state?.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1, D * 25 + 24);
+    }
+    if (sanctuaryFloor.startsWith('post')) {
+      const target = Number(sanctuaryFloor.slice(4));
+      const D = Math.floor((target - 10) / 10);
+      return Math.min((state?.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1, (D + 1) * 25);
+    }
+  }
+  return 0;
+}
+
 export function enterSanctuary(original, options = {}) {
   if (!original || original.phase === 'lost') throw new Error('ไม่สามารถเข้าชั้นพักได้ในขณะนี้');
   const rawOpt = options.floor;
-  const nearestUpper = Object.entries(UPPER_RESTS).findLast(([key, room]) =>
-    key !== 'post20' && room <= original.room && original.clearedRooms?.includes(room));
-  const requestedFloor = [...Object.keys(UPPER_RESTS), 'post10', 19, 14, 9, 4].includes(rawOpt)
-    ? rawOpt
-    : (nearestUpper
-      ? nearestUpper[0]
-      : isSanctuaryPost20Unlocked(original) && original.room >= FLOOR20_BOSS_ROOM
-      ? 'post20'
-      : isSanctuary19Unlocked(original) && original.room >= FLOOR18_BOSS_ROOM
-        ? 19
-        : isSanctuary14Unlocked(original) && original.room >= FLOOR13_BOSS_ROOM
-          ? 14
-          : isSanctuaryPost10Unlocked(original) && original.room >= FLOOR10_BOSS_ROOM
-            ? 'post10'
-            : isSanctuary9Unlocked(original) && original.room >= FLOOR8_BOSS_ROOM
-              ? 9
-              : 4);
+  const requestedFloor = rawOpt !== undefined ? rawOpt : (original.sanctuaryFloor ?? 5);
   if (!options.force) {
-    if (requestedFloor !== 'post20' && Object.hasOwn(UPPER_RESTS, requestedFloor)
-        && !original.clearedRooms?.includes(UPPER_RESTS[requestedFloor])) {
-      throw new Error(`ต้องผ่านบอสชั้น ${requestedFloor.slice(4)} เพื่อเปิดจุดพักนี้`);
+    if (requestedFloor === 'post10' && !isSanctuaryPost10Unlocked(original)) {
+      throw new Error('ต้องปราบบอสพิเศษชั้นที่ 10 ก่อนเพื่อเปิดชั้นพักนี้');
     }
     if (requestedFloor === 'post20' && !isSanctuaryPost20Unlocked(original)) {
-      throw new Error('ต้องปราบบอสพิเศษชั้นที่ 20 ให้สำเร็จก่อน จึงจะเข้าสู่จุดพักหลังบอสชั้น 20 ได้');
+      throw new Error('ต้องปราบบอสพิเศษชั้นที่ 20 ก่อนเพื่อเปิดชั้นพักนี้');
     }
-    if (requestedFloor === 19 && !isSanctuary19Unlocked(original)) {
-      throw new Error('ต้องผ่านด่านชั้น 15–18 (ปราบบอสชั้น 18) ให้ครบก่อน จึงจะเข้าสู่ชั้นที่ 19 (ชั้นพัก) ได้');
+    if (typeof requestedFloor === 'string' && requestedFloor.startsWith('post') && !isSanctuaryFloorUnlocked(original, requestedFloor)) {
+      throw new Error(`ต้องปราบบอสพิเศษชั้นที่ ${requestedFloor.slice(4)} ก่อนเพื่อเปิดชั้นพักนี้`);
     }
-    if (requestedFloor === 14 && !isSanctuary14Unlocked(original)) {
-      throw new Error('ต้องผ่านด่านชั้น 11–13 (ปราบบอสชั้น 13) ให้ครบก่อน จึงจะเข้าสู่ชั้นที่ 14 (ชั้นพัก) ได้');
-    }
-    if (requestedFloor === 'post10' && !isSanctuaryPost10Unlocked(original)) {
-      throw new Error('ต้องปราบบอสพิเศษชั้นที่ 10 ให้สำเร็จก่อน จึงจะเข้าสู่จุดพักหลังบอสชั้น 10 ได้');
-    }
-    if (requestedFloor === 9 && !isSanctuary9Unlocked(original)) {
-      throw new Error('ต้องผ่านด่านชั้น 5–8 (ปราบบอสชั้น 8) ให้ครบก่อน จึงจะเข้าสู่ชั้นที่ 9 (ชั้นพัก) ได้');
-    }
-    if (requestedFloor === 4 && !isSanctuaryUnlocked(original)) {
-      throw new Error('ต้องผ่านด่านชั้น 1–3 (ปราบบอสชั้น 3) ให้ครบก่อน จึงจะเข้าสู่ชั้นที่ 4 (ชั้นพัก) ได้');
+    if (!isSanctuaryFloorUnlocked(original, requestedFloor)) {
+      throw new Error(`ต้องผ่านด่านก่อนหน้าเพื่อปลดล็อกจุดพักนี้`);
     }
   }
   const state = structuredClone(original);
   state.sanctuaryUnlocked = true;
-  if ([9, 'post10', 14, 19, 'post20'].includes(requestedFloor)) state.sanctuary9Unlocked = true;
-  if (['post10', 14, 19, 'post20'].includes(requestedFloor)) state.sanctuaryPost10Unlocked = true;
-  if ([14, 19, 'post20'].includes(requestedFloor)) state.sanctuary14Unlocked = true;
-  if ([19, 'post20'].includes(requestedFloor)) state.sanctuary19Unlocked = true;
-  if (requestedFloor === 'post20') state.sanctuaryPost20Unlocked = true;
   state.sanctuaryFloor = requestedFloor;
   state.phase = 'sanctuary';
   state.sanctuaryRested = false;
@@ -1623,7 +1708,7 @@ export function revisitRoom(original, targetRoomIndex) {
   const cleared = original.clearedRooms ?? [];
   const highest = Math.max(original.highestRoom ?? 0, original.room);
   const canVisit = targetRoomIndex <= highest || cleared.includes(targetRoomIndex);
-  if (!canVisit || (targetRoomIndex >= FLOOR21_START_ROOM && !isSanctuaryPost20Unlocked(original))) {
+  if (!canVisit) {
     throw new Error('ต้องผ่านห้องก่อนหน้าเพื่อปลดล็อกเส้นทางนี้ก่อน');
   }
   const state = structuredClone(original);
@@ -1704,82 +1789,48 @@ export function useBattleItem(original, beltIndex) {
       if (dropsCard) {
         if (!isBossRoom(state) && !isUpperCacheRoom(state.room)) summary.roomRecovery = recoverAfterRoom(state);
         makeRewards(state);
-      } else if (completeUpperFloor(state)) {
-        summary.roomRecovery = recoverAfterRoom(state);
-      } else if (state.rooms.length >= 44 && state.room === FLOOR20_BOSS_ROOM) {
-        p.relics ??= [];
-        if (!p.relics.includes('storm_pendulum_20')) {
-          p.relics.push('storm_pendulum_20');
-          const equippedNow = getEquippedRelics(p);
-          if (equippedNow.length < MAX_RELIC_SLOTS && !equippedNow.includes('storm_pendulum_20')) {
-            p.equippedRelics = [...equippedNow, 'storm_pendulum_20'];
-          }
-          summary.relicDropped = 'storm_pendulum_20';
-          events.push({ type: 'relic', relicId: 'storm_pendulum_20' });
-        }
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryPost10Unlocked = true;
-        state.sanctuary14Unlocked = true;
-        state.sanctuary19Unlocked = true;
-        state.sanctuaryPost20Unlocked = true;
-        state.sanctuaryFloor = 'post20';
-        state.sanctuaryRested = false;
-        state.phase = 'sanctuary';
-        unlockUpperTower(state);
-      } else if (state.rooms.length >= 44 && state.room === FLOOR18_BOSS_ROOM) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryPost10Unlocked = true;
-        state.sanctuary14Unlocked = true;
-        state.sanctuary19Unlocked = true;
-        state.sanctuaryFloor = 19;
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR20_BOSS_ROOM);
-        state.phase = 'sanctuary';
-      } else if (state.rooms.length >= 44 && state.room === FLOOR13_BOSS_ROOM) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryPost10Unlocked = true;
-        state.sanctuary14Unlocked = true;
-        state.sanctuaryFloor = 14;
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR15_START_ROOM);
-        state.phase = 'sanctuary';
-      } else if (state.rooms.length >= 22 && state.room === FLOOR10_BOSS_ROOM) {
-        p.relics ??= [];
-        if (!p.relics.includes('ember_core_10')) {
-          p.relics.push('ember_core_10');
-          const equippedNow = getEquippedRelics(p);
-          if (equippedNow.length < MAX_RELIC_SLOTS && !equippedNow.includes('ember_core_10')) {
-            p.equippedRelics = [...equippedNow, 'ember_core_10'];
-          }
-          summary.relicDropped = 'ember_core_10';
-          events.push({ type: 'relic', relicId: 'ember_core_10' });
-        }
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryPost10Unlocked = true;
-        state.sanctuaryFloor = 'post10';
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, state.rooms.length >= 44 ? FLOOR11_START_ROOM : FLOOR10_BOSS_ROOM));
-        state.phase = 'sanctuary';
-      } else if (state.room === FLOOR8_BOSS_ROOM || (state.rooms.length < 22 && state.room === state.rooms.length - 1)) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuary9Unlocked = true;
-        state.sanctuaryFloor = 9;
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, FLOOR10_BOSS_ROOM));
-        state.phase = 'sanctuary';
-      } else if (state.room === FLOOR4_BOUNDARY_ROOM && revisit) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuaryFloor = 4;
-        state.sanctuaryRested = false;
-        state.phase = 'sanctuary';
       } else {
         summary.roomRecovery = recoverAfterRoom(state);
-        state.room++;
-        enterRoom(state);
+        const rel = state.room % 25;
+        const D = Math.floor(state.room / 25);
+        if (rel === 11) {
+          state.sanctuaryUnlocked = true;
+          state.sanctuaryFloor = D * 10 + 5;
+          state.sanctuaryRested = false;
+          state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
+          state.phase = 'sanctuary';
+        } else if (rel === 23) {
+          state.sanctuaryUnlocked = true;
+          state.sanctuaryFloor = `pre${(D + 1) * 10}`;
+          state.sanctuaryRested = false;
+          state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
+          state.phase = 'sanctuary';
+        } else if (rel === 24) {
+          const majorBossFloor = (D + 1) * 10;
+          if (majorBossFloor === 50) {
+            state.phase = 'won';
+          } else {
+            p.relics ??= [];
+            const relicId = majorBossFloor === 10 ? 'ember_core_10' : majorBossFloor === 20 ? 'storm_pendulum_20' : null;
+            if (relicId && !p.relics.includes(relicId)) {
+              p.relics.push(relicId);
+              const equippedNow = getEquippedRelics(p);
+              if (equippedNow.length < MAX_RELIC_SLOTS && !equippedNow.includes(relicId)) {
+                p.equippedRelics = [...equippedNow, relicId];
+              }
+              summary.relicDropped = relicId;
+              events.push({ type: 'relic', relicId });
+            }
+            state.sanctuaryUnlocked = true;
+            state.sanctuaryFloor = `post${majorBossFloor}`;
+            state.sanctuaryRested = false;
+            state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
+            state.phase = 'sanctuary';
+          }
+        } else {
+          state.room++;
+          enterRoom(state);
+        }
       }
     }
     effectText = `เปิดม้วนเพลิงกวาดล้าง · เผาศัตรูทุกตัวรวม ${totalDmg} ดาเมจ!`;

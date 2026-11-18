@@ -51,7 +51,7 @@ body[data-screen="battle"] .site-footer { display: none; }
 
 body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-inline: auto; }
 #battle-view {
-  --battlefield-row: minmax(220px, 1fr);
+  --battlefield-row: auto;
   display: grid;
   grid-template-rows: auto var(--battlefield-row) auto;
   min-height: calc(100dvh - 58px);
@@ -110,7 +110,10 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
   position: relative;
   isolation: isolate;
   min-height: 0;
-  margin: 0;
+  width: min(100%, 1000px, 75dvh);
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  padding: 0;
   border: 1px solid #43364e;
   border-radius: 0;
   overflow: hidden;
@@ -180,6 +183,12 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
   #enemy-list .enemy-card[data-middle-lane="0"] { top: 67%; }
   #enemy-list .enemy-card[data-middle-lane="1"] { top: calc(67% - 68px); }
 }
+#enemy-list .enemy-card[data-crowd-lane="0"] { top: 47%; }
+#enemy-list .enemy-card[data-crowd-lane="1"] { top: min(calc(47% + 72px), 96%); }
+@media (max-width: 700px) {
+  #enemy-list .enemy-card[data-crowd-lane="0"] { top: 65%; }
+  #enemy-list .enemy-card[data-crowd-lane="1"] { top: 96%; }
+}
 #enemy-list .enemy-intent {
   display: flex;
   align-items: center;
@@ -241,7 +250,7 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
 
 .combat-command {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(252px, 28%);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   padding: 0 14px 12px;
   background: linear-gradient(180deg, #17162b 0%, #10101e 100%);
@@ -250,7 +259,7 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
   border-radius: 0 0 10px 10px;
   box-shadow: 0 12px 30px rgba(4, 4, 14, .55);
 }
-#spell-desk { min-width: 0; margin: 0; padding: 0 14px 0 0; border: 0; background: transparent; }
+#spell-desk { min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
 #spell-desk .spell-slots {
   position: relative;
   z-index: 5;
@@ -259,7 +268,7 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
   gap: 9px;
   justify-content: center;
   width: fit-content;
-  margin: -26px auto 4px;
+  margin: 8px auto 4px;
   padding: 8px 10px;
   border: 1.5px solid #96724c;
   border-radius: 11px;
@@ -1369,12 +1378,12 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
-  margin: 0;
-  padding: 10px 0 4px 14px;
+  width: min(100%, 540px);
+  margin: 0 auto 8px;
+  padding: 4px 0;
   border: 0;
-  border-left: 1px solid #4c3d57;
   background: none;
 }
 .combat-command .forecast {
@@ -1568,13 +1577,13 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   .top-actions { gap: 3px; }
   body[data-screen="battle"] main { width: 100%; }
   #battle-view {
-    --battlefield-row: clamp(208px, 74vw, 350px);
+    --battlefield-row: auto;
     align-content: start;
     min-height: 0;
     height: auto;
     max-height: none;
   }
-  .battlefield-wrap { padding-bottom: 8px; }
+  .battlefield-wrap { width: 100%; padding: 0; }
   #battle-view .resource-bar { flex-wrap: nowrap; gap: 8px; padding: 5px 7px; }
   #battle-view .resource strong { font-size: 14px; }
   #battle-view .resource > span:nth-child(2), #battle-view .mana-pips, #battle-view .rpg-resource, #battle-view .turn-sep, #battle-view .turn-status { display: none; }
@@ -1582,7 +1591,7 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   .battle-room { font-size: 12px; }
   .combat-command { grid-template-columns: minmax(0,1fr); padding: 0 8px 6px; }
   #spell-desk { padding: 0; }
-  #spell-desk .spell-slots { grid-template-columns: repeat(4, minmax(64px, 76px)); gap: 6px; padding: 6px; margin-top: -10px; }
+  #spell-desk .spell-slots { grid-template-columns: repeat(4, minmax(64px, 76px)); gap: 6px; padding: 6px; margin-top: 8px; }
   #spell-desk .spell-slots.is-combo-linked .spell-slot.filled + .spell-slot.filled::before { left: -8px; width: 8px; }
   #spell-desk .spell-slot { height: 96px; border-radius: 8px; }
   #spell-desk .spell-slot .card-art-frame { width: 32px; height: 32px; }
@@ -1610,13 +1619,13 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 }
 
 @media (max-width: 700px) and (max-height: 730px) {
-  #battle-view { --battlefield-row: clamp(170px, 33dvh, 230px); }
+  #battle-view { --battlefield-row: auto; }
   #spell-desk .spell-slot { height: 88px; }
   #spell-desk :is(.word-item,.word-add) { min-height: 104px; }
 }
 
 @media (min-width: 480px) and (max-width: 700px) and (max-height: 540px) {
-  .combat-command { grid-template-columns: minmax(0, 1fr) 160px; gap: 8px; }
+  .combat-command { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   #spell-desk .spell-slots { grid-template-columns: repeat(4, minmax(56px, 64px)); }
   .combat-command .cast-actions { grid-template-columns: 1fr; }
 }

@@ -3,9 +3,29 @@ import assert from 'node:assert/strict';
 import { Battlefield, vfxScale } from '../src/render.js';
 import { parseSpell } from '../src/words.js';
 import { simulateTurn } from '../src/combat.js';
-import { createRun, createEnemy, prepareEnemies } from '../src/run.js';
-import { inferDeskElement, inferDeskPower, renderSlots } from '../src/ui/battle-render.js';
+import { createRun, createEnemy, prepareEnemies, FLOOR31_START_ROOM } from '../src/run.js';
+import { inferDeskElement, inferDeskPower, renderSlots, renderEnemies } from '../src/ui/battle-render.js';
 import { createBattleFxController } from '../src/ui/battle-fx.js';
+
+test('crowded upper-floor enemies use separate label lanes', () => {
+  const oldDocument = globalThis.document;
+  const list = { innerHTML: '' };
+  globalThis.document = { getElementById: id => id === 'enemy-list' ? list : null };
+  try {
+    const state = createRun('floor39-label-test', false);
+    state.room = FLOOR31_START_ROOM + 8;
+    state.enemies = ['rift_runner', 'lattice_guard', 'ward_scribe'].map(createEnemy);
+    prepareEnemies(state);
+    const battlefield = { positions: () => [126, 167, 208] };
+    renderEnemies({ state, battlefield, targetId: 'enemy-0', busy: false }, null);
+    assert.deepEqual([...list.innerHTML.matchAll(/data-crowd-lane="(\d)"/g)].map(match => match[1]), ['0', '1', '0']);
+    state.enemies.pop();
+    renderEnemies({ state, battlefield, targetId: 'enemy-0', busy: false }, null);
+    assert.doesNotMatch(list.innerHTML, /data-crowd-lane/);
+  } finally {
+    globalThis.document = oldDocument;
+  }
+});
 
 test('battlefield draws integrated sheets at their native pivot and falls back if unavailable', () => {
   const calls = [];
@@ -93,6 +113,125 @@ test('battlefield renders tailored pixel VFX across attack, barrier, and heal va
   } finally {
     Object.assign(globalThis, old);
   }
+});
+
+test('hybrid spell accents use distinct shapes and ignore ordinary elements', () => {
+  const calls = [];
+  const ctx = { fillStyle: '', globalAlpha: 1, save() {}, restore() {}, fillRect(...args) { calls.push([this.fillStyle, ...args]); } };
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = ctx;
+  const patterns = new Set();
+  for (const element of ['magma', 'mist', 'hail', 'thunderstorm']) {
+    calls.length = 0;
+    bf.drawHybridVfx(element, 120, 110, 0.4, 1, true);
+    assert.ok(calls.length > 0, `${element} should draw an accent`);
+    patterns.add(JSON.stringify(calls));
+  }
+  assert.equal(patterns.size, 4);
+  calls.length = 0;
+  bf.drawHybridVfx('fire', 120, 110, 0.4, 1, true);
+  assert.equal(calls.length, 0);
+});
+
+test('blast accents use both elements and distinguish detonations', () => {
+  const calls = [];
+  const ctx = { fillStyle: '', globalAlpha: 1, save() {}, restore() {}, fillRect(...args) { calls.push([this.fillStyle, ...args]); } };
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = ctx;
+  bf.drawBlastAccents(150, 126, 0.4, 1, ['fire', 'ice'], false, false);
+  assert.ok(calls.some(call => call[0] === '#ff7722'));
+  assert.ok(calls.some(call => call[0] === '#29d6ff'));
+  const ordinary = JSON.stringify(calls);
+  calls.length = 0;
+  bf.drawBlastAccents(150, 126, 0.4, 1, ['fire', 'ice'], false, true);
+  assert.notEqual(JSON.stringify(calls), ordinary);
+  calls.length = 0;
+  bf.drawNeutralStormVfx(150, 0.4, 1);
+  assert.ok(calls.length > 0);
+});
+
+test('shield accents preserve both elements and healing has its own sigil', () => {
+  const calls = [];
+  const ctx = { fillStyle: '', globalAlpha: 1, save() {}, restore() {}, fillRect(...args) { calls.push([this.fillStyle, ...args]); } };
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = ctx;
+  bf.drawShieldCastVfx(51, 119, 0.4, 1, ['fire', 'ice'], 'shield', 2);
+  assert.ok(calls.some(call => call[0] === '#ff7722'));
+  assert.ok(calls.some(call => call[0] === '#29d6ff'));
+  const shieldPattern = JSON.stringify(calls);
+  calls.length = 0;
+  bf.drawHealingSigil(51, 146, 0.4, 'heal', 1);
+  assert.ok(calls.length > 0);
+  assert.notEqual(JSON.stringify(calls), shieldPattern);
+});
+
+test('special spells have distinct visual accents', () => {
+  const calls = [];
+  const ctx = { fillStyle: '', globalAlpha: 1, save() {}, restore() {}, fillRect(...args) { calls.push([this.fillStyle, ...args]); } };
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = ctx;
+  const patterns = new Set();
+  for (const kind of ['blackhole', 'meteor', 'death', 'veil']) {
+    calls.length = 0;
+    bf.drawSpecialVfx(kind, 120, 110, 0.4, 1);
+    assert.ok(calls.length > 0, `${kind} should draw an accent`);
+    patterns.add(JSON.stringify(calls));
+  }
+  assert.equal(patterns.size, 4);
+  calls.length = 0;
+  bf.drawSpecialVfx('fire', 120, 110, 0.4, 1);
+  assert.equal(calls.length, 0);
+});
+
+test('basic elements have distinct pixel accents', () => {
+  const calls = [];
+  const ctx = { fillStyle: '', globalAlpha: 1, save() {}, restore() {}, fillRect(...args) { calls.push([this.fillStyle, ...args]); } };
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = ctx;
+  const patterns = new Set();
+  for (const element of ['fire', 'ice', 'lightning', 'earth', 'water', 'wind']) {
+    calls.length = 0;
+    bf.drawBasicElementVfx(element, 120, 110, 0.4, 1, true);
+    assert.ok(calls.length > 0, `${element} should draw an accent`);
+    patterns.add(JSON.stringify(calls));
+  }
+  assert.equal(patterns.size, 6);
+  calls.length = 0;
+  bf.drawBasicElementVfx('akki', 120, 110, 0.4, 1, true);
+  assert.equal(calls.length, 0);
+});
+
+test('second-tier elements have distinct pixel accents', () => {
+  const calls = [];
+  const ctx = { fillStyle: '', globalAlpha: 1, save() {}, restore() {}, fillRect(...args) { calls.push([this.fillStyle, ...args]); } };
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = ctx;
+  const patterns = new Set();
+  for (const element of ['akki', 'heman', 'asani', 'pathaphi', 'wari', 'vayu']) {
+    calls.length = 0;
+    bf.drawAscendedVfx(element, 120, 110, 0.4, 1, true);
+    assert.ok(calls.length > 0, `${element} should draw an accent`);
+    patterns.add(JSON.stringify(calls));
+  }
+  assert.equal(patterns.size, 6);
+  calls.length = 0;
+  bf.drawAscendedVfx('fire', 120, 110, 0.4, 1, true);
+  assert.equal(calls.length, 0);
+});
+
+test('spell modifier accents have distinct pixel patterns', () => {
+  const calls = [];
+  const ctx = { fillStyle: '', globalAlpha: 1, save() {}, restore() {}, fillRect(...args) { calls.push([this.fillStyle, ...args]); } };
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = ctx;
+  const patterns = new Set();
+  for (const modifier of ['burn', 'freeze', 'pierce', 'seal', 'dispel', 'push', 'pull']) {
+    calls.length = 0;
+    bf.drawModifierVfx(modifier, 120, 110, 0.4, false);
+    assert.ok(calls.length > 0, `${modifier} should draw an accent`);
+    patterns.add(JSON.stringify(calls));
+  }
+  assert.equal(patterns.size, 7);
 });
 
 test('inferDeskElement, inferDeskPower, and renderSlots reflect dominant placed element', () => {

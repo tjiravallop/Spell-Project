@@ -16,6 +16,10 @@
   <script type="module" src="./src/app.js"></script>
 </head>
 <body>
+  <div id="file-open-warning" hidden role="alert" style="padding:16px;background:#512d24;color:#fff;font:16px sans-serif;text-align:center;line-height:1.6">
+    เปิดเกมจากไฟล์โดยตรงไม่ได้ กรุณาดับเบิลคลิก <strong>OPEN_GAME.cmd</strong> ในโฟลเดอร์เกม หรือเปิด <a href="http://localhost:4173" style="color:#ffe19a">localhost:4173</a> เมื่อเซิร์ฟเวอร์ทำงานแล้ว
+  </div>
+  <script>if (location.protocol === 'file:') document.getElementById('file-open-warning').hidden = false;</script>
   <a class="skip-link" href="#main">ข้ามไปยังเกม</a>
   <header class="masthead">
     <button id="brand" class="brand" aria-label="คาถานอกตำรา กลับหน้าหลัก"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h7v2h4V4h7v15h-7v2h-4v-2H3zm3 3v9h4v2h1V8h-1V7zm7 1v10h1v-2h4V7h-4v1z"/></svg></span><span>คาถานอกตำรา<small>SPELL FOUNDRY</small></span></button>
@@ -69,6 +73,18 @@
       <section id="spell-desk" class="spell-desk" aria-label="โต๊ะประกอบคาถา">
         <div id="spell-slots" class="spell-slots" aria-label="ช่องคาถาสี่ช่อง"></div>
         <div class="edit-row"><span id="expression" class="expression"></span><div class="slot-actions"><button id="move-left" class="small-button" aria-label="ย้ายคำที่เลือกไปซ้าย">←</button><button id="move-right" class="small-button" aria-label="ย้ายคำที่เลือกไปขวา">→</button><button id="remove-word" class="small-button">ถอด</button><button id="clear-spell" class="small-button">ล้าง</button></div></div>
+      <div class="cast-dock">
+        <label id="second-target-label" class="second-target" hidden>เป้าหมายที่สอง <select id="second-target"></select></label>
+        <label id="blackhole-target-label" class="second-target" hidden>จุดเปิดหลุมดำ <select id="blackhole-target"></select></label>
+        <div id="forecast" class="forecast" role="status" aria-live="polite" aria-atomic="true"></div>
+        <p id="spell-feedback" class="spell-feedback" role="status"></p>
+        <div id="cast-fx-banner" class="cast-fx-banner" role="status" hidden></div>
+        <div id="animation-controls" class="animation-controls" hidden>
+          <span id="animation-status-text" class="animation-live-status" role="status">กำลังร่ายคาถา…</span>
+          <button id="skip-animation" class="secondary-button" type="button">ข้ามภาพ</button>
+        </div>
+        <div class="cast-actions"><button id="guard-button" class="secondary-button" title="ใช้ 0 มานา กันความเสียหาย 3">ตั้งรับ</button><button id="cast-button" class="primary-button" disabled><span id="cast-label">ร่ายคาถา</span> <span id="cast-cost"></span></button></div>
+      </div>
         <div class="word-bank-heading">
           <h2 id="hand-count">การ์ดในมือ</h2>
           <button id="combos-open" class="text-button" type="button">สูตรในมือทั้งหมด</button>
@@ -83,18 +99,7 @@
         <div id="word-bank" class="word-bank" aria-label="คลังคำ"></div>
         <p id="word-description" class="word-description" hidden></p>
       </section>
-      <div class="cast-dock">
-        <label id="second-target-label" class="second-target" hidden>เป้าหมายที่สอง <select id="second-target"></select></label>
-        <label id="blackhole-target-label" class="second-target" hidden>จุดเปิดหลุมดำ <select id="blackhole-target"></select></label>
-        <div id="forecast" class="forecast" role="status" aria-live="polite" aria-atomic="true"></div>
-        <p id="spell-feedback" class="spell-feedback" role="status"></p>
-        <div id="cast-fx-banner" class="cast-fx-banner" role="status" hidden></div>
-        <div id="animation-controls" class="animation-controls" hidden>
-          <span id="animation-status-text" class="animation-live-status" role="status">กำลังร่ายคาถา…</span>
-          <button id="skip-animation" class="secondary-button" type="button">ข้ามภาพ</button>
-        </div>
-        <div class="cast-actions"><button id="guard-button" class="secondary-button" title="ใช้ 0 มานา กันความเสียหาย 3">ตั้งรับ</button><button id="cast-button" class="primary-button" disabled><span id="cast-label">ร่ายคาถา</span> <span id="cast-cost"></span></button></div>
-      </div>
+
       </div>
     </section>
 

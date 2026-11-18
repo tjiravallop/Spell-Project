@@ -1,6 +1,6 @@
 import { ATTACK_FORMS, ELEMENTS, WORDS, START_WORDS, LARGE_SHIELD_HP, getSpellCatalog } from './words.js';
 import { RIFT_ENEMIES } from './upper-tower.js';
-import { ENEMIES, HAND_LIMIT, MAX_MANA, TURN_DRAW, SHOP_ITEMS, MAX_BELT_ITEMS, MAX_RELIC_SLOTS, MAX_CARD_UPGRADE, FLOOR21_START_ROOM, FLOOR30_BOSS_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS, openHand, isBossRoom, isSanctuaryPost20Unlocked, isUpperCacheRoom, unlockUpperTower, refreshMiddleTowerRooms, offerMissedElementReward } from './run.js';
+import { ENEMIES, HAND_LIMIT, MAX_MANA, TURN_DRAW, SHOP_ITEMS, MAX_BELT_ITEMS, MAX_RELIC_SLOTS, MAX_CARD_UPGRADE, FLOOR21_START_ROOM, FLOOR30_BOSS_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS, openHand, isBossRoom, isSanctuaryPost20Unlocked, isUpperCacheRoom, unlockUpperTower, refreshMiddleTowerRooms, offerMissedElementReward, fillRewardChoices } from './run.js';
 
 export const SAVE_KEY = 'spell-foundry.run.v2';
 export const BACKUP_KEY = 'spell-foundry.backup.v2';
@@ -18,13 +18,14 @@ export function validateRun(state) {
   const invalid = () => { throw new Error('ข้อมูลเซฟไม่ครบหรือมีค่าไม่ถูกต้อง'); };
   if (!object(state)) invalid();
   if (state.version !== 2 || ![2, 3].includes(state.rulesVersion)) throw new Error('เวอร์ชันเซฟหรือกฎเกมนี้ยังไม่รองรับ');
+  if (state.hpCurveVersion !== undefined && state.hpCurveVersion !== 1) invalid();
   if (typeof state.seed !== 'string' || state.seed.length > 200 || !integer(state.rng, 1, 4294967295) || typeof state.tutorial !== 'boolean') invalid();
   if (!integer(state.room, 0, FLOOR50_BOSS_ROOM) || !integer(state.turn, 1, 10000) || !phases.includes(state.phase)) invalid();
   if (state.magmaPuddles !== undefined && (state.phase !== 'battle' || !Array.isArray(state.magmaPuddles)
     || new Set(state.magmaPuddles).size !== state.magmaPuddles.length || state.magmaPuddles.some(slot => !integer(slot, 0, 4)))) invalid();
   if (state.blackhole !== undefined && (state.phase !== 'battle' || !object(state.blackhole)
     || !integer(state.blackhole.slot, 0, 4) || !integer(state.blackhole.power, 30, 30 + MAX_CARD_UPGRADE))) invalid();
-  if (!Array.isArray(state.rooms) || ![6, 9, 21, 22, FLOOR21_START_ROOM, FLOOR30_BOSS_ROOM + 1, FLOOR50_BOSS_ROOM + 1].includes(state.rooms.length) || state.room >= state.rooms.length || state.rooms.some(room => !Array.isArray(room) || room.length < 1 || room.length > 4 || room.some(kind => !Object.hasOwn(ENEMIES, kind)))) invalid();
+  if (!Array.isArray(state.rooms) || state.rooms.length < 1 || state.room >= state.rooms.length || state.rooms.some(room => !Array.isArray(room) || room.length < 1 || room.length > 4 || room.some(kind => !Object.hasOwn(ENEMIES, kind)))) invalid();
   const words = (list, min, max) => Array.isArray(list) && integer(list.length, min, max) && new Set(list).size === list.length && list.every(id => Object.hasOwn(WORDS, id));
   const maxUnlockableWords = Object.keys(WORDS).length - START_WORDS.length;
   if (!words(state.collection, 0, maxUnlockableWords) || state.collection.some(id => START_WORDS.includes(id))) invalid();
@@ -46,9 +47,11 @@ export function validateRun(state) {
   if (state.clearedRooms !== undefined && (!Array.isArray(state.clearedRooms) || state.clearedRooms.some(r => !integer(r, 0, state.rooms.length - 1)))) invalid();
   if (state.rewardedBossRooms !== undefined && (!Array.isArray(state.rewardedBossRooms) || state.rewardedBossRooms.some(r => !integer(r, 0, state.rooms.length - 1)))) invalid();
   if (state.highestRoom !== undefined && !integer(state.highestRoom, 0, state.rooms.length - 1)) invalid();
-  if (state.sanctuaryFloor !== undefined && ![4, 9, 'post10', 14, 19, ...Object.keys(UPPER_RESTS)].includes(state.sanctuaryFloor)) invalid();
-  if (state.sanctuaryFloor !== 'post20' && Object.hasOwn(UPPER_RESTS, state.sanctuaryFloor)
-      && !state.clearedRooms?.includes(UPPER_RESTS[state.sanctuaryFloor])) invalid();
+  if (state.sanctuaryFloor !== undefined) {
+    const valid = [4, 5, 9, 14, 15, 19, 25, 35, 45].includes(state.sanctuaryFloor)
+      || (typeof state.sanctuaryFloor === 'string' && (state.sanctuaryFloor.startsWith('pre') || state.sanctuaryFloor.startsWith('post')));
+    if (!valid) invalid();
+  }
   if (state.sanctuary9Unlocked !== undefined && typeof state.sanctuary9Unlocked !== 'boolean') invalid();
   if (state.sanctuaryPost10Unlocked !== undefined && typeof state.sanctuaryPost10Unlocked !== 'boolean') invalid();
   if (state.sanctuary14Unlocked !== undefined && typeof state.sanctuary14Unlocked !== 'boolean') invalid();
@@ -162,6 +165,18 @@ export function loadRun(storage) {
       hadData = true;
       try {
         const state = validateRun(JSON.parse(raw));
+        if (state.hpCurveVersion === undefined) {
+          const level = state.player.level;
+          const reduction = Math.max(0, Math.min(level, 25) - 1)
+            + Math.max(0, Math.min(level, 80) - 25) * 3
+            + Math.max(0, level - 80) * 2;
+          const oldMax = state.player.maxHp;
+          const newMax = Math.max(36, oldMax - reduction);
+          state.player.hp = Math.ceil(state.player.hp * newMax / oldMax);
+          state.player.maxHp = newMax;
+          state.hpCurveVersion = 1;
+        }
+        if (state.phase === 'reward' && state.rewards.length < 3) fillRewardChoices(state);
         for (const enemy of state.enemies) {
           if (enemy.maxHp !== previousRiftBossHp[enemy.kind]) continue;
           const maxHp = RIFT_ENEMIES[enemy.kind].hp;

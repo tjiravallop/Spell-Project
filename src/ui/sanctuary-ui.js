@@ -21,11 +21,8 @@ import {
   FLOOR15_START_ROOM,
   UPPER_RESTS,
   isSanctuaryUnlocked,
-  isSanctuary9Unlocked,
-  isSanctuaryPost10Unlocked,
-  isSanctuary14Unlocked,
-  isSanctuary19Unlocked,
-  isSanctuaryPost20Unlocked,
+  isSanctuaryFloorUnlocked,
+  getSanctuaryNextRoom,
   restAtSanctuary,
   updateSanctuaryLoadout,
   ENEMIES,
@@ -57,16 +54,16 @@ export function renderSanctuaryTravel(state) {
     floors.get(info.floor).push({ index, info, enemies });
   });
 
-  const rests = [
-    [4, 'จุดพักชั้น 4', isSanctuaryUnlocked(state)],
-    [9, 'จุดพักชั้น 9', isSanctuary9Unlocked(state)],
-    ['post10', 'จุดพักหลังบอส 10', isSanctuaryPost10Unlocked(state)],
-    [14, 'จุดพักชั้น 14', isSanctuary14Unlocked(state)],
-    [19, 'จุดพักชั้น 19', isSanctuary19Unlocked(state)],
-    ['post20', 'จุดพักหลังบอส 20', isSanctuaryPost20Unlocked(state)],
-    ...Object.entries(UPPER_RESTS).filter(([floor]) => floor !== 'post20').map(([floor, room]) =>
-      [floor, `จุดพักหลังบอส ${checkpointFloor(floor)}`, cleared.has(room)]),
-  ].filter(([floor, , unlocked]) => unlocked && floor !== (state.sanctuaryFloor ?? 4));
+  const allPossibleRests = [];
+  for (let d = 0; d < 5; d++) {
+    const mid = d * 10 + 5;
+    const boss = (d + 1) * 10;
+    allPossibleRests.push([mid, `จุดพักชั้น ${mid}`, isSanctuaryFloorUnlocked(state, mid)]);
+    allPossibleRests.push([`pre${boss}`, `จุดพักก่อนบอสใหญ่ ${boss}`, isSanctuaryFloorUnlocked(state, `pre${boss}`)]);
+    allPossibleRests.push([`post${boss}`, `จุดพักหลังบอสใหญ่ ${boss}`, isSanctuaryFloorUnlocked(state, `post${boss}`)]);
+  }
+  const currentSanctuary = state.sanctuaryFloor ?? 5;
+  const rests = allPossibleRests.filter(([floor, , unlocked]) => unlocked && floor !== currentSanctuary);
   const floorOptions = [...floors.keys()].reverse().map(floor =>
     `<option value="floor-${floor}">ชั้น ${floor}</option>`).join('');
   const restOptions = rests.map(([floor, label]) =>
@@ -113,10 +110,16 @@ export function renderSanctuary(ctx) {
   if (!equipped.length) ctx.setEquipped([...p.words]);
   ctx.syncRpgResourceBar();
 
-  const sanctuaryFloor = state.sanctuaryFloor ?? 4;
-  $('sanctuary-title').textContent = sanctuaryFloor === 'post10' || upperCheckpoint(sanctuaryFloor)
-    ? `ชั้นพัก · หลังบอส ${sanctuaryFloor.slice(4)}`
-    : `ชั้นพัก · ชั้น ${sanctuaryFloor}`;
+  const sanctuaryFloor = state.sanctuaryFloor ?? 5;
+  let floorTitle = `ชั้นพัก · ชั้น ${sanctuaryFloor}`;
+  if (typeof sanctuaryFloor === 'string') {
+    if (sanctuaryFloor.startsWith('pre')) {
+      floorTitle = `ชั้นพัก · ก่อนบอสใหญ่ ${sanctuaryFloor.slice(3)}`;
+    } else if (sanctuaryFloor.startsWith('post')) {
+      floorTitle = `ชั้นพัก · หลังบอสใหญ่ ${sanctuaryFloor.slice(4)}`;
+    }
+  }
+  $('sanctuary-title').textContent = floorTitle;
   const sanctStoryBox = $('sanctuary-story');
   const sanctStory = getSanctuaryStory(state, { recentRelicId: ctx.getRecentRelicDropId() });
   if (sanctStoryBox) {
@@ -149,16 +152,8 @@ export function renderSanctuary(ctx) {
   if (nextRoomBtn) {
     const cleared = state.clearedRooms ?? [];
     const highest = Math.min(state.rooms.length - 1, Math.max(state.highestRoom ?? 0, state.room));
-    const firstRoom = upperCheckpoint(sanctuaryFloor) ? UPPER_RESTS[sanctuaryFloor] + 1 : 0;
-    const nextUnclear = state.rooms.findIndex((_, i) => i >= firstRoom && i <= highest && !cleared.includes(i));
-    const defaultRestart = sanctuaryFloor === 4 && state.rooms.length > FLOOR5_START_ROOM
-      ? FLOOR5_START_ROOM
-      : sanctuaryFloor === 'post10' && state.rooms.length > FLOOR11_START_ROOM
-        ? FLOOR11_START_ROOM
-        : sanctuaryFloor === 14 && state.rooms.length > FLOOR15_START_ROOM
-          ? FLOOR15_START_ROOM
-          : highest;
-    const targetRoomIdx = nextUnclear >= 0 ? nextUnclear : defaultRestart;
+    const defaultRestart = getSanctuaryNextRoom(state, sanctuaryFloor);
+    const targetRoomIdx = Math.min(defaultRestart, highest);
     const fInfo = getFloorInfo(targetRoomIdx, state.rooms.length);
     const isRepeat = cleared.includes(targetRoomIdx);
     nextRoomBtn.dataset.revisitRoom = String(targetRoomIdx);

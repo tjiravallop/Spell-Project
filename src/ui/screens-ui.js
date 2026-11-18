@@ -1,4 +1,4 @@
-import { WORDS, START_WORDS, RARITIES, ASCENDED_ELEMENTS, FUSED_ELEMENTS } from '../words.js';
+import { WORDS, START_WORDS } from '../words.js';
 import {
   MAX_CARD_UPGRADE,
   FLOOR50_BOSS_ROOM,
@@ -17,15 +17,6 @@ export function renderRewards(state, reveal) {
   const fInfo = getFloorInfo(state.room, state.rooms.length);
   $('reward-subtitle').textContent = `ชนะบอสประจำชั้นที่ ${fInfo.floor} ครั้งแรก · เลือกการ์ดคำแบบสุ่ม 1 ใบ${fInfo.floor === 3 ? ' ก่อนเข้าสู่ชั้นที่ 4 (ชั้นพัก)' : fInfo.floor === 5 ? ' เพื่อเปิดผนึกเข้าสู่ด่าน 6–8' : fInfo.floor === 8 ? ' ก่อนเข้าสู่ชั้นที่ 9 (ชั้นพัก)' : fInfo.floor === 13 ? ' ก่อนเข้าสู่ชั้นที่ 14 (ชั้นพัก)' : fInfo.floor === 15 ? ' เพื่อเปิดผนึกเข้าสู่ด่าน 16–18' : fInfo.floor === 18 ? ' ก่อนเข้าสู่ชั้นที่ 19 (ชั้นพัก)' : ''}`;
   if (fInfo.floor >= 21) $('reward-subtitle').textContent = `ผ่านชั้น ${fInfo.floor} · เลือกการ์ดคำ 1 ใบ`;
-  if (fInfo.floor === 32 && state.rewards.includes('pull')) $('reward-subtitle').textContent = 'ผ่านชั้น 32 · รับการ์ดดึงและจัดชุดก่อนขึ้นชั้น 33';
-  if (fInfo.floor === 30 && state.rewards.every(id => Object.hasOwn(ASCENDED_ELEMENTS, id))) {
-    $('reward-subtitle').textContent = 'พิชิตบอสชั้น 30 · เลือกธาตุขั้นสอง 1 ใบ';
-  }
-  if (fInfo.floor === 30 && state.rewards.every(id => Object.hasOwn(FUSED_ELEMENTS, id))) {
-    $('reward-subtitle').textContent = 'พิชิตบอสชั้น 30 · เลือกธาตุผสมมหากาพย์ 1 ใบ';
-  }
-  const fixedReward = fInfo.floor === 30 && state.rewards.length === 1 && ['storm', 'devastation', 'vayu'].includes(state.rewards[0]) ? state.rewards[0] : null;
-  if (fixedReward) $('reward-subtitle').textContent = `พิชิตบอสชั้น 30 · รับการ์ด${WORDS[fixedReward].label}ระดับ${RARITIES[WORDS[fixedReward].rarity]}`;
   const storyBox = $('reward-story');
   const rewardStory = getBossRewardStory(state);
   if (storyBox) {

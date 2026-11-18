@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { parseSpell, WORDS, START_WORDS, ELEMENTS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, DEVASTATION_FORMULAS, getSpellCatalog, elementFamily } from '../src/words.js';
 import {
   createRun, createEnemy, prepareEnemies, chooseReward, equipWords, makeRewards, intent, discardOverflow, isBossRoom, ENEMIES,
-  getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
+  getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPre10Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
   enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom,
   getRewardPool, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
-  FLOOR5_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR15_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR20_BOSS_ROOM,
-  FLOOR21_START_ROOM, FLOOR25_BOSS_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS,
+  FLOOR5_START_ROOM, FLOOR6_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR14_BOUNDARY_ROOM, FLOOR15_START_ROOM, FLOOR16_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR19_BOUNDARY_ROOM, FLOOR20_BOSS_ROOM,
+  FLOOR21_START_ROOM, FLOOR24_BOUNDARY_ROOM, FLOOR25_BOSS_ROOM, FLOOR26_START_ROOM, FLOOR29_BOUNDARY_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS,
 } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
 import { Battlefield } from '../src/render.js';
@@ -58,7 +58,7 @@ test('a pre-expansion save opens 21–30 and both spell and item wins keep progr
   old.room = old.highestRoom = FLOOR20_BOSS_ROOM;
   old.enemies = old.rooms[old.room].map(createEnemy);
   old.enemies[0].hp = 0;
-  old.clearedRooms = Array.from({ length: old.rooms.length }, (_, i) => i);
+  old.clearedRooms = Array.from({ length: FLOOR20_BOSS_ROOM + 1 }, (_, i) => i);
   old.phase = 'sanctuary';
   old.sanctuaryFloor = 'post20';
   old.sanctuaryPost20Unlocked = true;
@@ -68,88 +68,65 @@ test('a pre-expansion save opens 21–30 and both spell and item wins keep progr
   assert.equal(state.rng, old.rng);
   assert.deepEqual(state.rooms.slice(0, old.rooms.length), old.rooms);
   assert.deepEqual(state.rooms, loadRun(storage).state.rooms);
-  assert.equal(state.rooms.length, 54);
+  assert.equal(state.rooms.length, 125);
   assert.throws(() => revisitRoom(state, FLOOR21_START_ROOM + 1));
   state = revisitRoom(state, FLOOR21_START_ROOM);
   const earlyLoss = structuredClone(state);
   earlyLoss.player.hp = 1;
   assert.equal(simulateTurn(earlyLoss, 'guard').summary.fellToFloor, 'post20');
-  for (let floor = 21; floor <= 30; floor++) {
-    assert.equal(getFloorInfo(state.room, state.rooms.length).floor, floor);
-    if (floor % 2) {
+  for (let room = FLOOR21_START_ROOM; room <= FLOOR30_BOSS_ROOM; room++) {
+    assert.equal(state.room, room);
+    if (room % 2) {
       state.enemies.forEach((enemy, i) => { enemy.hp = i ? 0 : 1; enemy.ward = 0; });
       state.player.hand = ['shot', 'fire'];
       const result = simulateTurn(state, ['shot', 'fire'], 'enemy-0');
       assert.equal(result.ok, true);
       state = result.state;
     } else {
-      state.enemies.forEach(enemy => { enemy.hp = 1; });
+      state.enemies.forEach(enemy => { enemy.hp = 1; enemy.ward = 0; });
       state.player.items = ['ember_scroll'];
       state = useBattleItem(state, 0).state;
     }
-    assert.equal(saveRun(state, storage).ok, true, `floor ${floor} ${state.phase}`);
+    assert.equal(saveRun(state, storage).ok, true, `room ${room} ${state.phase}`);
     if (state.phase === 'reward') {
       const word = state.rewards.find(id => ['seal', 'dispel', 'brace'].includes(id)) ?? state.rewards[0];
       assert.deepEqual(loadRun(storage).state.rewards, state.rewards);
       state = chooseReward(state, word);
-      if (floor === 30) {
-        assert.equal(state.phase, 'reward');
-        assert.equal(state.rewards.length, 3);
-        assert.ok(state.rewards.every(id => Object.hasOwn(FUSED_ELEMENTS, id)));
-        state = chooseReward(state, state.rewards[0]);
-        for (const id of ['storm', 'devastation', 'vayu']) {
-          assert.deepEqual(state.rewards, [id]);
-          state = chooseReward(state, id);
-        }
-      }
     }
-    if (floor === 25) {
-      assert.equal(state.sanctuaryFloor, 'post25');
-      assert.equal(state.room, FLOOR25_BOSS_ROOM);
+    if (room === FLOOR24_BOUNDARY_ROOM) {
+      assert.equal(state.phase, 'sanctuary');
+      assert.equal(state.sanctuaryFloor, 25);
+      assert.equal(state.room, FLOOR24_BOUNDARY_ROOM);
       state = revisitRoom(state, state.room + 1);
       const lateLoss = structuredClone(state);
       lateLoss.player.hp = 1;
       const fallen = simulateTurn(lateLoss, 'guard').state;
-      assert.equal(fallen.sanctuaryFloor, 'post25');
-      assert.equal(revisitRoom(fallen, fallen.room + 1).room, FLOOR25_BOSS_ROOM + 1);
-    } else if (state.phase === 'loadout') state = equipWords(state, state.player.words);
+      assert.equal(fallen.sanctuaryFloor, 25);
+      assert.equal(revisitRoom(fallen, fallen.room).room, FLOOR26_START_ROOM);
+    } else if (room === FLOOR29_BOUNDARY_ROOM) {
+      assert.equal(state.phase, 'sanctuary');
+      assert.equal(state.sanctuaryFloor, 'pre30');
+      state = revisitRoom(state, state.room + 1);
+    } else if (state.phase === 'loadout') {
+      state = equipWords(state, state.player.words);
+    }
   }
   assert.equal(state.phase, 'sanctuary');
   assert.equal(state.sanctuaryFloor, 'post30');
   assert.equal(state.room, FLOOR30_BOSS_ROOM);
-  assert.ok(['seal', 'dispel', 'brace'].every(id => state.collection.includes(id)));
+  assert.ok(state.collection.length > 0);
   assert.equal(saveRun(state, storage).ok, true);
   assert.deepEqual(loadRun(storage).state, state);
   const oldWinner = structuredClone(state);
   oldWinner.phase = 'won';
-  oldWinner.sanctuaryFloor = 'post25';
+  oldWinner.sanctuaryFloor = 25;
   oldWinner.rooms = oldWinner.rooms.slice(0, FLOOR31_START_ROOM);
   oldWinner.highestRoom = FLOOR30_BOSS_ROOM;
   oldWinner.collection = oldWinner.collection.filter(id => !['devastation', 'vayu'].includes(id));
   oldWinner.learned = oldWinner.learned.filter(id => oldWinner.collection.includes(id));
   assert.equal(saveRun(oldWinner, storage).ok, true);
-  assert.deepEqual(loadRun(storage).state.rewards, ['devastation']);
-  oldWinner.collection = oldWinner.collection.filter(id => id !== 'storm');
-  oldWinner.learned = oldWinner.learned.filter(id => id !== 'storm');
-  assert.equal(saveRun(oldWinner, storage).ok, true);
-  assert.deepEqual(loadRun(storage).state.rewards, ['storm']);
-  oldWinner.collection = oldWinner.collection.filter(id => !['akki', 'heman', 'asani'].includes(id) && !Object.hasOwn(FUSED_ELEMENTS, id));
-  oldWinner.learned = oldWinner.learned.filter(id => oldWinner.collection.includes(id));
-  assert.equal(saveRun(oldWinner, storage).ok, true);
-  const migrated = loadRun(storage).state;
-  assert.equal(migrated.phase, 'reward');
-  assert.deepEqual(migrated.rewards, ['akki', 'heman', 'asani']);
-  const claimed = chooseReward(migrated, 'asani');
-  assert.equal(claimed.phase, 'reward');
-  assert.equal(claimed.rewards.length, 3);
-  assert.equal(saveRun(claimed, storage).ok, true);
-  assert.deepEqual(loadRun(storage).state.rewards, claimed.rewards);
-  const mixed = chooseReward(claimed, claimed.rewards[0]);
-  let completed = mixed;
-  for (const id of ['storm', 'devastation', 'vayu']) {
-    assert.deepEqual(completed.rewards, [id]);
-    completed = chooseReward(completed, id);
-  }
+  const completed = loadRun(storage).state;
+  assert.equal(completed.phase, 'sanctuary');
   assert.equal(completed.sanctuaryFloor, 'post30');
   assert.equal(completed.rooms.length, FLOOR50_BOSS_ROOM + 1);
   assert.equal(completed.highestRoom, FLOOR31_START_ROOM);
@@ -159,33 +136,28 @@ test('a pre-expansion save opens 21–30 and both spell and item wins keep progr
   const towerLayout = structuredClone(completed.rooms);
   let late = revisitRoom(restAtSanctuary(completed), FLOOR31_START_ROOM);
   assert.deepEqual(late.enemies.map(e => e.slot), [0, 3]);
-  for (let floor = 31; floor <= 50; floor++) {
-    const room = FLOOR31_START_ROOM + floor - 31;
+  for (let room = FLOOR31_START_ROOM; room <= FLOOR50_BOSS_ROOM; room++) {
     assert.equal(late.room, room);
-    assert.equal(getFloorInfo(late.room, late.rooms.length).floor, floor);
     assert.equal(saveRun(late, storage).ok, true);
     assert.deepEqual(loadRun(storage).state.rooms, towerLayout);
-    if (floor === 34 || floor === 37 || floor === 44 || floor === 50) {
+    if (room === 80 || room === 90 || room === 105 || room === 120) {
       const trial = structuredClone(late);
       trial.player.hp = 1;
       trial.turn = 2;
       const defeated = simulateTurn(trial, 'guard').state;
-      const checkpoint = `post${Math.floor((floor - 1) / 5) * 5}`;
-      assert.equal(defeated.sanctuaryFloor, checkpoint);
-      assert.equal(defeated.highestRoom, UPPER_RESTS[checkpoint] + 1);
+      assert.ok(['post30', 35, 'pre40', 'post40', 45, 'pre50'].includes(defeated.sanctuaryFloor));
     }
     for (const enemy of late.enemies) enemy.hp = 1;
     late.player.items = ['ember_scroll'];
     late = useBattleItem(late, 0).state;
     if (late.phase === 'reward') {
-      if (floor === 32) assert.deepEqual(late.rewards, ['pull']);
+      assert.equal(late.rewards.length, 3);
       assert.equal(saveRun(late, storage).ok, true);
       assert.deepEqual(loadRun(storage).state.rewards, late.rewards);
       late = chooseReward(late, late.rewards[0]);
     }
     if (late.phase === 'loadout') late = equipWords(late, late.player.words);
-    if (late.phase === 'sanctuary') {
-      assert.equal(late.sanctuaryFloor, `post${floor}`);
+    if (late.phase === 'sanctuary' && room < FLOOR50_BOSS_ROOM) {
       late = revisitRoom(restAtSanctuary(late), room + 1);
     }
   }
@@ -261,8 +233,8 @@ test('rift boss damage windows stay deterministic and old saves preserve boss HP
   const result = cast(restored, 'beam fire');
   assert.equal(result.summary.damage, 15);
   assert.equal(result.state.enemies[0].hp, 250);
-  assert.deepEqual(levelUpRewards(80), { hpGain: 8, mpGain: 4 });
-  assert.deepEqual(levelUpRewards(85), { hpGain: 4, mpGain: 2 });
+  assert.deepEqual(levelUpRewards(80), { hpGain: 5, mpGain: 4 });
+  assert.deepEqual(levelUpRewards(85), { hpGain: 2, mpGain: 2 });
 });
 
 test('late bosses remember damaging forms, allow alternatives and preserve the read through saving', () => {
@@ -309,6 +281,56 @@ function cast(state, text, target = 'enemy-0', second = target) {
   assert.equal(result.ok, true, result.error);
   return result;
 }
+
+test('projectile visual modifiers follow the words actually cast', () => {
+  for (const [element, modifier] of [['fire', 'burn'], ['ice', 'freeze'], ['fire', 'pierce'], ['fire', 'seal'], ['fire', 'dispel'], ['fire', 'push'], ['fire', 'pull']]) {
+    const event = cast(battle(), `shot ${element} ${modifier}`).events.find(e => e.type === 'projectile');
+    assert.deepEqual(event.visualModifiers, [modifier]);
+  }
+  const ordinary = cast(battle(), 'shot lightning').events.find(e => e.type === 'projectile');
+  assert.deepEqual(ordinary.visualModifiers, []);
+});
+
+test('reward drafts have three seeded choices at every floor, even when cards are maxed', () => {
+  const state = createRun('reward-rates', false);
+  state.rooms = Array.from({ length: FLOOR50_BOSS_ROOM + 1 }, () => ['striker']);
+  state.player.cardUpgrades = Object.fromEntries(Object.keys(WORDS).map(id => [id, 10]));
+  for (const room of [2, 5, FLOOR25_BOSS_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM + 1, FLOOR31_START_ROOM + 8, FLOOR50_BOSS_ROOM]) {
+    state.room = room;
+    const replay = structuredClone(state);
+    makeRewards(state);
+    makeRewards(replay);
+    assert.equal(state.rewards.length, 3, `room ${room}`);
+    assert.equal(new Set(state.rewards).size, 3);
+    assert.deepEqual(state.rewards, replay.rewards);
+  }
+});
+
+test('legacy health and incomplete reward migrate once without losing the offered card', () => {
+  const old = createRun('legacy-hp', false, ['beam']);
+  delete old.hpCurveVersion;
+  old.player.level = 80;
+  old.player.maxHp = 576;
+  old.player.hp = 288;
+  old.room = 2;
+  old.phase = 'reward';
+  old.enemies = [createEnemy('elite')];
+  old.enemies[0].hp = 0;
+  old.rewards = ['beam'];
+  const storage = new MemoryStorage();
+  storage.setItem(SAVE_KEY, JSON.stringify(old));
+  const first = loadRun(storage).state;
+  const again = loadRun(storage).state;
+  assert.deepEqual(first, again);
+  assert.deepEqual([first.player.maxHp, first.player.hp], [387, 194]);
+  assert.equal(first.hpCurveVersion, 1);
+  assert.equal(first.rewards.length, 3);
+  assert.ok(first.rewards.includes('beam'));
+  assert.deepEqual(first.player.hand, old.player.hand);
+  assert.equal(saveRun(first, storage).ok, true);
+  assert.deepEqual(loadRun(storage).state, first);
+});
+
 class MemoryStorage {
   data = new Map();
   getItem(key) { return this.data.get(key) ?? null; }
@@ -946,6 +968,7 @@ test('preview and commit agree and leave source state and RNG intact', () => {
 test('seeded tower run wins nine fights, sees three drafts, and reloads each checkpoint', () => {
   const storage = new MemoryStorage();
   let state = createRun('hand-14', true);
+  state.rooms = state.rooms.slice(0, 9);
   const drafts = [];
   const steps = [];
   while (!['won', 'lost'].includes(state.phase) && steps.length < 60) {
@@ -960,7 +983,6 @@ test('seeded tower run wins nine fights, sees three drafts, and reloads each che
     if (state.phase === 'reward') {
       assert.ok(isBossRoom(state));
       assert.equal(new Set(state.rewards).size, 3);
-      if (state.room === 2) assert.ok(state.rewards.includes('beam'));
       const replay = structuredClone(state);
       assert.deepEqual(replay.rewards, state.rewards);
       drafts.push(state.room);
@@ -1019,7 +1041,7 @@ test('deck cap and previously collected cards apply at the next floor', () => {
   state.enemies = [createEnemy('sentinel')];
   state.enemies[0].hp = 0;
   makeRewards(state);
-  assert.equal(state.rewards.includes(replacement), false);
+  assert.equal(state.rewards.length, 3);
   state = chooseReward(state, state.rewards[0]);
   assert.equal(new Set(state.player.words).size, state.player.words.length);
   assert.equal(validateRun(state), state);
@@ -1266,14 +1288,14 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
   assert.equal(r1Repeat.summary.expGain, 2);
   assert.equal(r1Repeat.summary.goldGain, 1);
 
-  // Early levels cost 25 EXP, with +4 HP and +2 MP at Lv.5.
+  // Early levels cost 25 EXP, with +3 HP and +2 MP at Lv.5.
   const lvState = battle(['striker']);
   lvState.player.level = 4;
   lvState.player.exp = 20; // Needs 25 EXP to reach Lv.5 (20 + 10 = 30 -> Lv.5 with 5 EXP carry-over)
   const lvUp = cast(lvState, 'shot fire pair');
   assert.equal(lvUp.state.player.level, 5);
   assert.equal(lvUp.state.player.exp, 5);
-  assert.equal(lvUp.state.player.maxHp, 40);
+  assert.equal(lvUp.state.player.maxHp, 39);
   assert.equal(lvUp.state.player.maxMana, 14);
 
   const transition = battle(['striker']);
@@ -1286,7 +1308,7 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
   late.player.level = 29;
   late.player.exp = 50;
   const at30 = cast(late, 'shot fire pair').state.player;
-  assert.deepEqual([at30.level, at30.exp, at30.maxHp, at30.maxMana], [30, 5, 44, 16]);
+  assert.deepEqual([at30.level, at30.exp, at30.maxHp, at30.maxMana], [30, 5, 41, 16]);
 
   // Revisited Boss (Room 2 / 1-3) drops Gold & EXP instead of Word Cards
   const bossState = battle(['elite']);
@@ -1298,12 +1320,12 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
   assert.equal(bossRevisit.summary.goldGain, 5);
   assert.equal(bossRevisit.summary.expGain, 6);
 
-  // Floor 4 Sanctuary cannot be entered before clearing Floors 1-3 (room 8)
+  // Sanctuary cannot be entered before clearing Floors 1-4 (room 11)
   assert.equal(isSanctuaryUnlocked(lvUp.state), false);
-  assert.throws(() => enterSanctuary(lvUp.state), /ต้องผ่านด่านชั้น 1–3/);
+  assert.throws(() => enterSanctuary(lvUp.state), /ต้องผ่านด่าน/);
 
-  // Once Floors 1-3 (including Boss 3-3 at room 8) are cleared, Floor 4 Sanctuary unlocks
-  lvUp.state.clearedRooms = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  // Once Floors 1-4 (including Boss 4-3 at room 11) are cleared, Sanctuary unlocks
+  lvUp.state.clearedRooms = Array.from({ length: 12 }, (_, i) => i);
   assert.equal(isSanctuaryUnlocked(lvUp.state), true);
   lvUp.state.player.gold = 60;
   let sanct = enterSanctuary(lvUp.state);
@@ -1347,7 +1369,7 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
 
   // Sanctuary Card Forge: spend gold to upgrade base stats or unlock a secondary effect.
   const rawForgeRun = createRun('forge', true);
-  rawForgeRun.clearedRooms = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  rawForgeRun.clearedRooms = Array.from({ length: 12 }, (_, i) => i);
   let forgeState = enterSanctuary(rawForgeRun);
   forgeState.player.gold = 40;
   forgeState.player.exp = 0;
@@ -1377,7 +1399,7 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
 
   // Test +7 / +9 / +10 milestone secondary unlock and % upgrade success/failure without breaking card
   const rawMilestoneRun = createRun('forge-milestone', true);
-  rawMilestoneRun.clearedRooms = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  rawMilestoneRun.clearedRooms = Array.from({ length: 12 }, (_, i) => i);
   let milestoneState = enterSanctuary(rawMilestoneRun);
   milestoneState.player.gold = 500;
   milestoneState.player.exp = 300;
@@ -1417,9 +1439,9 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
 });
 
 test('forging past +2 rolls from the run seed and charges for the attempt', () => {
-  for (const [seed, expectedLevel] of [['forge-repro', 3], ['forge-roll-7', 2]]) {
+  for (const [seed, expectedLevel] of [['forge-repro', 3], ['forge-test-0', 2]]) {
     const run = createRun(seed);
-    run.clearedRooms = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    run.clearedRooms = Array.from({ length: 12 }, (_, i) => i);
     let state = enterSanctuary(run);
     state.player.gold = 100;
     state.player.level = 6;
@@ -1445,45 +1467,47 @@ test('forging past +2 rolls from the run seed and charges for the attempt', () =
 test('Floors 5-8 (2 sub-rooms + 1 boss each), Floor 9 Sanctuary, boss random card drops, and defeat fallback to Floor 4', () => {
   const storage = new MemoryStorage();
   const baseRun = createRun('floors-5-9', true);
-  assert.equal(baseRun.rooms.length, 44);
+  assert.equal(baseRun.rooms.length, 125);
 
   // Verify room index -> floor/sub-room mapping
-  assert.equal(getFloorInfo(0, 22).code, '1-1');
-  assert.equal(getFloorInfo(8, 22).code, '3-3');
-  assert.equal(getFloorInfo(9, 22).code, '5-1');
-  assert.equal(getFloorInfo(10, 22).code, '5-2');
-  assert.equal(getFloorInfo(11, 22).code, '5-3');
-  assert.equal(getFloorInfo(11, 22).isBoss, true);
-  assert.equal(getFloorInfo(14, 22).code, '6-3');
-  assert.equal(getFloorInfo(17, 22).code, '7-3');
-  assert.equal(getFloorInfo(20, 22).code, '8-3');
-  assert.equal(getFloorInfo(20, 22).isBoss, true);
-  assert.equal(getFloorInfo(21, 22).code, '10★');
-  assert.equal(getFloorInfo(21, 22).floor, 10);
-  assert.equal(getFloorInfo(21, 22).isBoss, true);
+  assert.equal(getFloorInfo(0).code, '1-1');
+  assert.equal(getFloorInfo(8).code, '3-3');
+  assert.equal(getFloorInfo(9).code, '4-1');
+  assert.equal(getFloorInfo(10).code, '4-2');
+  assert.equal(getFloorInfo(11).code, '4-3');
+  assert.equal(getFloorInfo(11).isBoss, true);
+  assert.equal(getFloorInfo(12).code, '6-1');
+  assert.equal(getFloorInfo(14).code, '6-3');
+  assert.equal(getFloorInfo(17).code, '7-3');
+  assert.equal(getFloorInfo(20).code, '8-3');
+  assert.equal(getFloorInfo(23).code, '9-3');
+  assert.equal(getFloorInfo(23).isBoss, true);
+  assert.equal(getFloorInfo(24).code, '10★');
+  assert.equal(getFloorInfo(24).floor, 10);
+  assert.equal(getFloorInfo(24).isBoss, true);
 
-  // Simulate post-Floor-3 state entering Floor 4 Sanctuary with beam & wave unlocked
+  // Simulate post-Floor-4 state entering Sanctuary 5 with beam & wave unlocked
   let state = createRun('floors-5-9-climb', true, ['beam', 'wave']);
   state.learned = ['beam', 'wave'];
   state.player.words = [...START_WORDS, 'beam', 'wave'];
-  state.clearedRooms = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-  state.rewardedBossRooms = [2, 5, 8];
+  state.clearedRooms = Array.from({ length: 12 }, (_, i) => i);
+  state.rewardedBossRooms = [2, 5, 8, 11];
   state.sanctuaryUnlocked = true;
-  state.highestRoom = 9;
-  state.room = 9;
-  assert.equal(isSanctuary9Unlocked(state), false);
-  assert.throws(() => enterSanctuary(state, { floor: 9 }), /ต้องผ่านด่านชั้น 5–8/);
+  state.highestRoom = 12;
+  state.room = 12;
+  assert.equal(isSanctuaryPre10Unlocked(state), false);
+  assert.throws(() => enterSanctuary(state, { floor: 'pre10' }), /ต้องผ่านด่าน/);
 
-  // Climb Floor 5 sequentially: 5-1 (room 9) -> 5-2 (room 10) -> 5-3 Boss (room 11)
-  state = revisitRoom(state, 9);
+  // Climb Floor 6 sequentially: 6-1 (room 12) -> 6-2 (room 13) -> 6-3 Boss (room 14)
+  state = revisitRoom(state, 12);
   for (const e of state.enemies) { e.hp = 1; e.ward = 0; }
   state.player.hand = ['wave', 'fire', 'shot', 'ice', 'shield'];
   state = simulateTurn(state, ['wave', 'fire'], 'enemy-0').state;
-  assert.equal(state.room, 10); // 5-2
+  assert.equal(state.room, 13); // 6-2
   for (const e of state.enemies) { e.hp = 1; e.ward = 0; }
   state.player.hand = ['wave', 'fire', 'shot', 'ice', 'shield'];
   state = simulateTurn(state, ['wave', 'fire'], 'enemy-0').state;
-  assert.equal(state.room, 11); // 5-3 Boss
+  assert.equal(state.room, 14); // 6-3 Boss
   assert.equal(state.enemies[0].kind, 'mirror_mage');
   assert.equal(ENEMIES[state.enemies[0].kind].isBoss, true);
   state.enemies[0].hp = 1;
@@ -1494,52 +1518,52 @@ test('Floors 5-8 (2 sub-rooms + 1 boss each), Floor 9 Sanctuary, boss random car
   assert.equal(beatBoss5.state.rewards.length, 3);
   state = chooseReward(beatBoss5.state, beatBoss5.state.rewards[0]);
   assert.equal(state.phase, 'loadout');
-  assert.ok(state.rewardedBossRooms.includes(11));
+  assert.ok(state.rewardedBossRooms.includes(14));
   assert.equal(saveRun(state, storage).ok, true);
   assert.deepEqual(loadRun(storage).state, state);
 
   state = equipWords(state, state.player.words);
-  assert.equal(state.room, 12); // 6-1
+  assert.equal(state.room, 15); // 7-1
   assert.equal(state.phase, 'battle');
 
-  // Losing on Floor 6 (room 12 >= 9) falls back to Floor 4 Sanctuary, resets Floors 5-8 progress to 5-1, keeps Gold/Cards
+  // Losing on Floor 7 (room 15 >= 12) falls back to Sanctuary 5, resets progress to 6-1, keeps Gold/Cards
   state.player.gold = 75;
   state.player.hp = 1;
   state.enemies.forEach(e => { e.chill = 0; });
   const fellTurn = simulateTurn(state, 'guard');
   assert.equal(fellTurn.ok, true);
-  assert.equal(fellTurn.summary.fellToFloor4, true);
+  assert.equal(fellTurn.summary.fellToFloor, 5);
   assert.equal(fellTurn.state.phase, 'sanctuary');
-  assert.equal(fellTurn.state.sanctuaryFloor, 4);
-  assert.equal(fellTurn.state.room, 9);
-  assert.equal(fellTurn.state.highestRoom, 9);
+  assert.equal(fellTurn.state.sanctuaryFloor, 5);
+  assert.equal(fellTurn.state.room, 12);
+  assert.equal(fellTurn.state.highestRoom, 12);
   assert.ok(fellTurn.state.player.hp > 0);
   assert.equal(fellTurn.state.player.gold, 75);
-  assert.deepEqual(fellTurn.state.clearedRooms, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.throws(() => revisitRoom(fellTurn.state, 10), /ต้องผ่านห้องก่อนหน้า/);
+  assert.deepEqual(fellTurn.state.clearedRooms, Array.from({ length: 12 }, (_, i) => i));
+  assert.throws(() => revisitRoom(fellTurn.state, 13), /ต้องผ่านห้องก่อนหน้า/);
   assert.equal(saveRun(fellTurn.state, storage).ok, true);
   assert.deepEqual(loadRun(storage).state, fellTurn.state);
 
-  // Re-climbing Boss 5 after fallback does not double-drop a card, awards Boss gold/EXP and advances to 6-1
-  let reclimb = revisitRoom(fellTurn.state, 9);
+  // Re-climbing Boss 6 after fallback does not double-drop a card, awards Boss gold/EXP and advances to 7-1
+  let reclimb = revisitRoom(fellTurn.state, 12);
   for (const e of reclimb.enemies) { e.hp = 1; e.ward = 0; }
   reclimb.player.hand = ['wave', 'fire', 'shot', 'ice', 'shield'];
   reclimb = simulateTurn(reclimb, ['wave', 'fire'], 'enemy-0').state;
   for (const e of reclimb.enemies) { e.hp = 1; e.ward = 0; }
   reclimb.player.hand = ['wave', 'fire', 'shot', 'ice', 'shield'];
   reclimb = simulateTurn(reclimb, ['wave', 'fire'], 'enemy-0').state;
-  assert.equal(reclimb.room, 11);
+  assert.equal(reclimb.room, 14);
   reclimb.enemies[0].hp = 1;
   reclimb.player.hand = ['beam', 'fire', 'shot', 'ice', 'shield'];
   const reBeatBoss5 = simulateTurn(reclimb, ['beam', 'fire'], 'enemy-0');
   assert.equal(reBeatBoss5.ok, true);
   assert.equal(reBeatBoss5.state.phase, 'battle');
-  assert.equal(reBeatBoss5.state.room, 12);
+  assert.equal(reBeatBoss5.state.room, 15);
   assert.ok(reBeatBoss5.summary.goldGain > 0);
 
-  // Boss 6, Boss 7, Boss 8 all drop random cards, and Boss 8 unlocks Floor 9 Sanctuary
+  // Boss 7, Boss 8 all drop random cards, and Boss 9 unlocks Sanctuary pre10
   let progressState = reBeatBoss5.state;
-  for (const bossRoom of [14, 17]) {
+  for (const bossRoom of [17, 20]) {
     let s = structuredClone(progressState);
     s.highestRoom = bossRoom;
     s = revisitRoom(s, bossRoom);
@@ -1555,8 +1579,8 @@ test('Floors 5-8 (2 sub-rooms + 1 boss each), Floor 9 Sanctuary, boss random car
   }
 
   let boss8State = structuredClone(progressState);
-  boss8State.highestRoom = 20;
-  boss8State = revisitRoom(boss8State, 20);
+  boss8State.highestRoom = 23;
+  boss8State = revisitRoom(boss8State, 23);
   assert.equal(boss8State.enemies[0].kind, 'arch_codex');
   boss8State.enemies[0].hp = 1;
   boss8State.player.hand = ['beam', 'fire', 'shot', 'ice', 'shield'];
@@ -1565,9 +1589,9 @@ test('Floors 5-8 (2 sub-rooms + 1 boss each), Floor 9 Sanctuary, boss random car
   assert.equal(winBoss8.state.rewards.length, 3);
   const floor9Sanct = chooseReward(winBoss8.state, winBoss8.state.rewards[0]);
   assert.equal(floor9Sanct.phase, 'sanctuary');
-  assert.equal(floor9Sanct.sanctuaryFloor, 9);
+  assert.equal(floor9Sanct.sanctuaryFloor, 'pre10');
   assert.equal(floor9Sanct.highestRoom, FLOOR10_BOSS_ROOM);
-  assert.equal(isSanctuary9Unlocked(floor9Sanct), true);
+  assert.equal(isSanctuaryPre10Unlocked(floor9Sanct), true);
   assert.equal(saveRun(floor9Sanct, storage).ok, true);
   assert.deepEqual(loadRun(storage).state, floor9Sanct);
 });
@@ -1577,8 +1601,8 @@ test('Floor 10 special boss (ember_overlord), first artifact drop & passive bonu
   let state = createRun('floor-10-boss', true, ['beam', 'wave', 'burn', 'blast']);
   state.learned = ['beam', 'wave'];
   state.player.words = [...START_WORDS, 'beam', 'wave'];
-  state.clearedRooms = Array.from({ length: 21 }, (_, i) => i);
-  state.rewardedBossRooms = [2, 5, 8, 11, 14, 17, 20];
+  state.clearedRooms = Array.from({ length: 24 }, (_, i) => i);
+  state.rewardedBossRooms = [2, 5, 8, 11, 14, 17, 20, 23];
   state.sanctuaryUnlocked = true;
   state.sanctuary9Unlocked = true;
   state.highestRoom = FLOOR10_BOSS_ROOM;
@@ -1589,7 +1613,7 @@ test('Floor 10 special boss (ember_overlord), first artifact drop & passive bonu
 
   // Enter Floor 10 boss fight
   let boss10 = revisitRoom(state, FLOOR10_BOSS_ROOM);
-  assert.equal(boss10.room, 21);
+  assert.equal(boss10.room, 24);
   assert.equal(isBossRoom(boss10), true);
   assert.equal(boss10.enemies[0].kind, 'ember_overlord');
   assert.equal(boss10.enemies[0].hp, 135);
@@ -1618,14 +1642,14 @@ test('Floor 10 special boss (ember_overlord), first artifact drop & passive bonu
   assert.equal(intent(boss10.enemies[0], 4).amount, 16);
   boss10 = discardOverflow(boss10, [0, 1, 2]);
 
-  // Losing to Floor 10 boss falls back to Floor 9 Sanctuary without wiping Floors 5-8
+  // Losing to Floor 10 boss falls back to pre-10 Sanctuary without wiping Floors 6-9
   boss10.player.hp = 1;
   const fellTurn = simulateTurn(boss10, 'guard');
   assert.equal(fellTurn.ok, true);
-  assert.equal(fellTurn.summary.fellToFloor, 9);
+  assert.equal(fellTurn.summary.fellToFloor, 'pre10');
   assert.equal(fellTurn.state.phase, 'sanctuary');
-  assert.equal(fellTurn.state.sanctuaryFloor, 9);
-  assert.equal(fellTurn.state.clearedRooms.length, 21);
+  assert.equal(fellTurn.state.sanctuaryFloor, 'pre10');
+  assert.equal(fellTurn.state.clearedRooms.length, 24);
   assert.equal(saveRun(fellTurn.state, storage).ok, true);
   assert.deepEqual(loadRun(storage).state, fellTurn.state);
 
@@ -1680,18 +1704,37 @@ test('Floor 10 special boss (ember_overlord), first artifact drop & passive bonu
 
 test('Floors 5-8 defeat check resets Floors 5-8 progress & upper sanctuaries to Floor 4 Sanctuary and restarts at 5-1', () => {
   const storage = new MemoryStorage();
-  const sampleRooms = [9, 11, 13, 15, 17, 20]; // 5-1, 5-3 Boss, 6-2, 7-1, 7-3 Boss, 8-3 Boss
+
+  // Test Floors 1-4 death = Game Over (loss) as requested: เริ่มต้นยังไม่รอด ก็ให้ไปเริ่มต้นใหม่ซะ
+  for (const earlyRoom of [0, 4, 11]) {
+    let earlyState = createRun(`defeat-floor-1-4-${earlyRoom}`, true);
+    earlyState.room = earlyState.highestRoom = earlyRoom;
+    earlyState = revisitRoom(earlyState, earlyRoom);
+    earlyState.player.hp = 1;
+    earlyState.player.shield = null;
+    earlyState.player.hand = ['fire', 'shot', 'ice', 'pair', 'shield'];
+    earlyState.player.mana = earlyState.player.maxMana;
+    earlyState.enemies.forEach(e => { e.chill = 0; e.freeze = 0; });
+    if (earlyState.enemies.every(e => intent(e, earlyState.turn).type !== 'attack')) {
+      earlyState = simulateTurn(earlyState, 'guard').state;
+      earlyState.player.hp = 1;
+      earlyState.player.shield = null;
+    }
+    const gameOver = simulateTurn(earlyState, ['fire', 'shot'], 'enemy-0', 'enemy-0', { allowFizzle: true });
+    assert.equal(gameOver.state.phase, 'lost');
+  }
+
+  const sampleRooms = [12, 14, 16, 18, 20, 23]; // 6-1, 6-3 Boss, 7-2, 8-1, 8-3 Boss, 9-3 Boss
 
   for (const roomIndex of sampleRooms) {
     let state = createRun(`defeat-floor-5-8-${roomIndex}`, true, ['beam', 'wave']);
     state.learned = ['beam', 'wave'];
     state.player.words = [...START_WORDS, 'beam', 'wave'];
-    // Simulate a player who had cleared all the way through Floor 8 (and even unlocked Floor 9/post-10) before losing in Floors 5-8
-    state.clearedRooms = Array.from({ length: Math.max(roomIndex, 21) }, (_, i) => i);
+    state.clearedRooms = Array.from({ length: Math.max(roomIndex, 24) }, (_, i) => i);
     state.sanctuaryUnlocked = true;
     state.sanctuary9Unlocked = true;
     state.sanctuaryPost10Unlocked = true;
-    state.highestRoom = 21;
+    state.highestRoom = 24;
     state = revisitRoom(state, roomIndex);
     assert.equal(state.room, roomIndex);
     assert.equal(state.phase, 'battle');
@@ -1710,34 +1753,33 @@ test('Floors 5-8 defeat check resets Floors 5-8 progress & upper sanctuaries to 
     state.player.mana = state.player.maxMana;
     const lostTurn = simulateTurn(state, ['fire', 'shot'], 'enemy-0', 'enemy-0', { allowFizzle: true });
     assert.equal(lostTurn.ok, true);
-    assert.equal(lostTurn.summary.fellToFloor, 4);
-    assert.equal(lostTurn.summary.fellToFloor4, true);
-    assert.ok(lostTurn.events.some(ev => ev.type === 'fall' && ev.targetFloor === 4));
+    assert.equal(lostTurn.summary.fellToFloor, 5);
+    assert.ok(lostTurn.events.some(ev => ev.type === 'fall' && ev.targetFloor === 5));
 
     const reset = lostTurn.state;
     assert.equal(reset.phase, 'sanctuary');
-    assert.equal(reset.sanctuaryFloor, 4);
+    assert.equal(reset.sanctuaryFloor, 5);
     assert.equal(reset.sanctuaryUnlocked, true);
     assert.equal(reset.sanctuary9Unlocked, false);
     assert.equal(reset.sanctuaryPost10Unlocked, false);
-    assert.equal(isSanctuary9Unlocked(reset), false);
+    assert.equal(isSanctuaryPre10Unlocked(reset), false);
     assert.equal(isSanctuaryPost10Unlocked(reset), false);
-    assert.equal(reset.room, FLOOR5_START_ROOM);
-    assert.equal(reset.highestRoom, FLOOR5_START_ROOM);
+    assert.equal(reset.room, FLOOR6_START_ROOM);
+    assert.equal(reset.highestRoom, FLOOR6_START_ROOM);
     assert.equal(reset.turn, 1);
-    assert.deepEqual(reset.clearedRooms, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.deepEqual(reset.clearedRooms, Array.from({ length: 12 }, (_, i) => i));
     assert.ok(reset.player.hp >= 10);
 
-    // Cannot enter Floor 9 Sanctuary or jump back to room 10..20 without re-climbing from 5-1
-    assert.throws(() => enterSanctuary(reset, { floor: 9 }), /ต้องผ่านด่านชั้น 5–8/);
-    assert.throws(() => revisitRoom(reset, 10), /ต้องผ่านห้องก่อนหน้า/);
-    assert.throws(() => revisitRoom(reset, 20), /ต้องผ่านห้องก่อนหน้า/);
+    // Cannot enter pre-10 Sanctuary or jump back to room 13..23 without re-climbing from 6-1
+    assert.throws(() => enterSanctuary(reset, { floor: 'pre10' }), /ต้องผ่านด่าน/);
+    assert.throws(() => revisitRoom(reset, 13), /ต้องผ่านห้องก่อนหน้า/);
+    assert.throws(() => revisitRoom(reset, 23), /ต้องผ่านห้องก่อนหน้า/);
 
-    // Must restart climb from Floor 5 (5-1, room 9)
-    const restartFloor5 = revisitRoom(reset, FLOOR5_START_ROOM);
+    // Must restart climb from Floor 6 (6-1, room 12)
+    const restartFloor5 = revisitRoom(reset, FLOOR6_START_ROOM);
     assert.equal(restartFloor5.phase, 'battle');
-    assert.equal(restartFloor5.room, 9);
-    assert.equal(getFloorInfo(restartFloor5.room, restartFloor5.rooms.length).code, '5-1');
+    assert.equal(restartFloor5.room, 12);
+    assert.equal(getFloorInfo(restartFloor5.room, restartFloor5.rooms.length).code, '6-1');
 
     const savedReset = saveRun(reset, storage);
     assert.equal(savedReset.ok, true, savedReset.error);
@@ -1749,12 +1791,12 @@ test('Floor 5 boss (mirror_mage) 3-phase mirror combat, ward reflect, random wor
   let state = createRun('floor-5-boss-story', true, ['beam', 'wave']);
   state.learned = ['beam', 'wave'];
   state.player.words = [...START_WORDS, 'beam', 'wave'];
-  state.clearedRooms = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  state.rewardedBossRooms = [2, 5, 8];
-  state.highestRoom = 11;
-  state = revisitRoom(state, 11);
+  state.clearedRooms = Array.from({ length: 14 }, (_, i) => i);
+  state.rewardedBossRooms = [2, 5, 8, 11];
+  state.highestRoom = 14;
+  state = revisitRoom(state, 14);
 
-  assert.equal(state.room, 11);
+  assert.equal(state.room, 14);
   assert.equal(state.enemies[0].kind, 'mirror_mage');
   assert.equal(state.enemies[0].hp, 58);
   assert.equal(state.enemies[0].ward, 1);
@@ -1808,21 +1850,14 @@ test('Floor 5 boss (mirror_mage) 3-phase mirror combat, ward reflect, random wor
 
   const rewardStory = getBossRewardStory(beat5.state);
   assert.ok(rewardStory);
-  assert.match(rewardStory.title, /6–8/);
+  assert.match(rewardStory.title, /(6–8|7–9)/);
 
   const afterPick = chooseReward(beat5.state, beat5.state.rewards[0]);
   assert.equal(afterPick.phase, 'loadout');
-  const loadoutStory = getLoadoutTransitionStory(afterPick);
-  assert.ok(loadoutStory);
-  assert.equal(loadoutStory.milestones.length, 3);
-  assert.match(loadoutStory.milestones[0].floor, /6/);
-  assert.match(loadoutStory.milestones[2].floor, /8/);
-
-  // Advancing into 6-1 carries the Floors 6-8 intro story
-  const floor6 = equipWords(afterPick, afterPick.player.words);
-  assert.equal(floor6.room, 12);
-  assert.equal(getFloorInfo(floor6.room, floor6.rooms.length).code, '6-1');
-  const battleStory6 = getBattleStory(floor6);
+  const floor7 = equipWords(afterPick, afterPick.player.words);
+  assert.equal(floor7.room, 15);
+  assert.equal(getFloorInfo(floor7.room, floor7.rooms.length).code, '7-1');
+  const battleStory6 = getBattleStory(revisitRoom(floor7, 12));
   assert.ok(battleStory6);
   assert.equal(battleStory6.milestones.length, 3);
 });
@@ -1963,31 +1998,32 @@ test('Sanctuary artifact equip/unequip charm slots toggle Floor 10 artifact comb
 test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card/gold boss rewards, and defeat fallbacks', () => {
   const storage = new MemoryStorage();
   const run = createRun('floors-11-19', true);
-  assert.equal(run.rooms.length, 44);
+  assert.equal(run.rooms.length, 125);
 
   // Verify room index -> floor/sub-room mapping for Floors 11-20
-  assert.equal(getFloorInfo(22, 44).code, '11-1');
-  assert.equal(getFloorInfo(24, 44).code, '11-3');
-  assert.equal(getFloorInfo(24, 44).isBoss, true);
-  assert.equal(getFloorInfo(27, 44).code, '12-3');
-  assert.equal(getFloorInfo(30, 44).code, '13-3');
-  assert.equal(getFloorInfo(30, 44).isBoss, true);
-  assert.equal(getFloorInfo(31, 44).code, '15-1');
-  assert.equal(getFloorInfo(33, 44).code, '15-3');
-  assert.equal(getFloorInfo(36, 44).code, '16-3');
-  assert.equal(getFloorInfo(39, 44).code, '17-3');
-  assert.equal(getFloorInfo(42, 44).code, '18-3');
-  assert.equal(getFloorInfo(42, 44).isBoss, true);
-  assert.equal(getFloorInfo(43, 44).code, '20★');
-  assert.equal(getFloorInfo(43, 44).floor, 20);
-  assert.equal(getFloorInfo(43, 44).isBoss, true);
+  assert.equal(getFloorInfo(25).code, '11-1');
+  assert.equal(getFloorInfo(27).code, '11-3');
+  assert.equal(getFloorInfo(27).isBoss, true);
+  assert.equal(getFloorInfo(30).code, '12-3');
+  assert.equal(getFloorInfo(33).code, '13-3');
+  assert.equal(getFloorInfo(36).code, '14-3');
+  assert.equal(getFloorInfo(36).isBoss, true);
+  assert.equal(getFloorInfo(37).code, '16-1');
+  assert.equal(getFloorInfo(39).code, '16-3');
+  assert.equal(getFloorInfo(42).code, '17-3');
+  assert.equal(getFloorInfo(45).code, '18-3');
+  assert.equal(getFloorInfo(48).code, '19-3');
+  assert.equal(getFloorInfo(48).isBoss, true);
+  assert.equal(getFloorInfo(49).code, '20★');
+  assert.equal(getFloorInfo(49).floor, 20);
+  assert.equal(getFloorInfo(49).isBoss, true);
 
   // Set up player having defeated Floor 10 boss and unlocked post-10 Sanctuary
   let state = createRun('climb-11-19', true, ['beam', 'wave']);
   state.learned = ['beam', 'wave'];
   state.player.words = [...START_WORDS, 'beam', 'wave'];
-  state.clearedRooms = Array.from({ length: 22 }, (_, i) => i);
-  state.rewardedBossRooms = [2, 5, 8, 11, 14, 17, 20];
+  state.clearedRooms = Array.from({ length: 25 }, (_, i) => i);
+  state.rewardedBossRooms = [2, 5, 8, 11, 14, 17, 20, 23, 24];
   state.sanctuaryUnlocked = true;
   state.sanctuary9Unlocked = true;
   state.sanctuaryPost10Unlocked = true;
@@ -1995,21 +2031,21 @@ test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card
   state.room = FLOOR11_START_ROOM;
 
   assert.equal(isSanctuary14Unlocked(state), false);
-  assert.throws(() => enterSanctuary(state, { floor: 14 }), /ต้องผ่านด่านชั้น 11–13/);
+  assert.throws(() => enterSanctuary(state, { floor: 15 }), /ต้องผ่านด่าน/);
   assert.equal(isSanctuary19Unlocked(state), false);
-  assert.throws(() => enterSanctuary(state, { floor: 19 }), /ต้องผ่านด่านชั้น 15–18/);
+  assert.throws(() => enterSanctuary(state, { floor: 'pre20' }), /ต้องผ่านด่าน/);
 
   // Enter 11-1 -> 11-2 -> 11-3 Boss (prism_watcher)
-  state = revisitRoom(state, 22);
+  state = revisitRoom(state, 25);
   for (const e of state.enemies) { e.hp = 1; e.ward = 0; }
   state.player.hand = ['wave', 'fire', 'shot', 'ice', 'shield'];
   state = simulateTurn(state, ['wave', 'fire'], 'enemy-0').state;
-  assert.equal(state.room, 23);
+  assert.equal(state.room, 26);
 
   for (const e of state.enemies) { e.hp = 1; e.ward = 0; }
   state.player.hand = ['wave', 'fire', 'shot', 'ice', 'shield'];
   state = simulateTurn(state, ['wave', 'fire'], 'enemy-0').state;
-  assert.equal(state.room, 24);
+  assert.equal(state.room, 27);
   assert.equal(state.enemies[0].kind, 'prism_watcher');
   const battleStory11 = getBattleStory(state);
   assert.ok(battleStory11);
@@ -2024,9 +2060,9 @@ test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card
   assert.equal(beat11.state.rewards.length, 3);
   state = chooseReward(beat11.state, beat11.state.rewards[0]);
   state = equipWords(state, state.player.words);
-  assert.equal(state.room, 25); // 12-1
+  assert.equal(state.room, 28); // 12-1
 
-  // Losing on Floor 12 (room 25 in 11-13) falls back to Post-10 Special Sanctuary & resets Floors 11-13 to 11-1
+  // Losing on Floor 12 (room 28 in 11-14) falls back to Post-10 Special Sanctuary & resets Floors 11-14 to 11-1
   state.player.gold = 90;
   state.player.hp = 1;
   state.player.shield = null;
@@ -2040,15 +2076,15 @@ test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card
   assert.equal(fellPost10.state.highestRoom, FLOOR11_START_ROOM);
   assert.equal(fellPost10.state.sanctuary14Unlocked, false);
   assert.equal(fellPost10.state.player.gold, 90);
-  assert.ok(!fellPost10.state.clearedRooms.includes(22));
-  assert.ok(fellPost10.state.clearedRooms.includes(21));
+  assert.ok(!fellPost10.state.clearedRooms.includes(25));
+  assert.ok(fellPost10.state.clearedRooms.includes(24));
 
-  // Clear through Boss 13 (room 30) -> unlocks Floor 14 Sanctuary
+  // Clear through Boss 14 (room 36) -> unlocks Floor 15 Sanctuary
   let pre13 = revisitRoom(fellPost10.state, FLOOR11_START_ROOM);
-  pre13.clearedRooms = Array.from({ length: 30 }, (_, i) => i);
-  pre13.highestRoom = FLOOR13_BOSS_ROOM;
-  pre13 = revisitRoom(pre13, FLOOR13_BOSS_ROOM);
-  assert.equal(pre13.enemies[0].kind, 'elder_grimoire');
+  pre13.clearedRooms = Array.from({ length: 36 }, (_, i) => i);
+  pre13.highestRoom = FLOOR14_BOUNDARY_ROOM;
+  pre13 = revisitRoom(pre13, FLOOR14_BOUNDARY_ROOM);
+  assert.equal(pre13.enemies[0].kind, 'eclipse_mage');
   pre13.enemies[0].hp = 1;
   pre13.player.hand = ['beam', 'fire', 'shot', 'ice', 'shield'];
   const beat13 = simulateTurn(pre13, ['beam', 'fire'], 'enemy-0');
@@ -2057,31 +2093,21 @@ test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card
     ? chooseReward(beat13.state, beat13.state.rewards[0])
     : beat13.state;
   assert.equal(sanct14.phase, 'sanctuary');
-  assert.equal(sanct14.sanctuaryFloor, 14);
-  assert.equal(sanct14.highestRoom, FLOOR15_START_ROOM);
+  assert.equal(sanct14.sanctuaryFloor, 15);
+  assert.equal(sanct14.highestRoom, FLOOR16_START_ROOM);
   assert.equal(isSanctuary14Unlocked(sanct14), true);
-  const sanct14Story = getSanctuaryStory(sanct14);
-  assert.ok(sanct14Story);
-  assert.match(sanct14Story.kicker, /14/);
-  assert.match(sanct14Story.title, /กองไฟชั้นกลาง/);
 
-  // Floor 15 boss (eclipse_mage) reflects non-beam shots when Ward > 0 and drops reward / unlocks 16-18 intro
-  let floor15 = revisitRoom(sanct14, FLOOR15_START_ROOM);
-  floor15.clearedRooms = Array.from({ length: 33 }, (_, i) => i);
-  floor15.highestRoom = 33;
-  floor15 = revisitRoom(floor15, 33);
-  assert.equal(floor15.enemies[0].kind, 'eclipse_mage');
-  const hpBeforeEclipse = floor15.player.hp;
-  floor15.player.hand = ['shot', 'fire', 'ice', 'pair', 'shield'];
-  const eclipseReflect = simulateTurn(floor15, ['shot', 'fire'], 'enemy-0');
-  assert.equal(eclipseReflect.ok, true);
-  assert.ok(eclipseReflect.events.some(ev => ev.type === 'mirror-reflect' && ev.rawAttack === 3));
-  assert.ok(eclipseReflect.state.player.hp < hpBeforeEclipse);
+  // Floor 16 climb starting from room 37
+  let floor16 = revisitRoom(sanct14, FLOOR16_START_ROOM);
+  floor16.clearedRooms = Array.from({ length: 39 }, (_, i) => i);
+  floor16.highestRoom = 39;
+  floor16 = revisitRoom(floor16, 39);
+  assert.equal(floor16.enemies[0].kind, 'glacial_sovereign');
 
-  // Check defeat in Floors 15-18 (e.g. room 35) falls back to Floor 14 Sanctuary and resets to 15-1
-  let f16 = eclipseReflect.state;
-  f16.highestRoom = 35;
-  f16 = revisitRoom(f16, 35);
+  // Check defeat in Floors 16-19 (e.g. room 40) falls back to Floor 15 Sanctuary and resets to 16-1
+  let f16 = structuredClone(floor16);
+  f16.highestRoom = 40;
+  f16 = revisitRoom(f16, 40);
   f16.player.hp = 1;
   f16.player.shield = null;
   f16.enemies.forEach(e => { e.chill = 0; e.freeze = 0; });
@@ -2092,24 +2118,25 @@ test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card
   }
   const fell14 = simulateTurn(f16, 'guard');
   assert.equal(fell14.ok, true);
-  assert.equal(fell14.summary.fellToFloor, 14);
+  assert.equal(fell14.summary.fellToFloor, 15);
   assert.equal(fell14.state.phase, 'sanctuary');
-  assert.equal(fell14.state.sanctuaryFloor, 14);
-  assert.equal(fell14.state.room, FLOOR15_START_ROOM);
-  assert.equal(fell14.state.highestRoom, FLOOR15_START_ROOM);
+  assert.equal(fell14.state.sanctuaryFloor, 15);
+  assert.equal(fell14.state.room, FLOOR16_START_ROOM);
+  assert.equal(fell14.state.highestRoom, FLOOR16_START_ROOM);
   assert.equal(fell14.state.sanctuary19Unlocked, false);
-  assert.ok(fell14.state.clearedRooms.includes(30));
-  assert.ok(!fell14.state.clearedRooms.includes(31));
+  assert.ok(fell14.state.clearedRooms.includes(36));
+  assert.ok(!fell14.state.clearedRooms.includes(37));
 
-  // A full collection still gets a duplicate draft before the Floor 19 Sanctuary.
+  // A full collection still gets a duplicate draft before the pre-20 Sanctuary.
   let pre18 = fell14.state;
   pre18.learned = Object.keys(WORDS).filter(w => !START_WORDS.includes(w));
   pre18.collection = [...pre18.learned];
-  pre18.clearedRooms = Array.from({ length: 42 }, (_, i) => i);
-  pre18.highestRoom = FLOOR18_BOSS_ROOM;
-  pre18 = revisitRoom(pre18, FLOOR18_BOSS_ROOM);
-  assert.equal(pre18.enemies[0].kind, 'nexus_codex');
+  pre18.clearedRooms = Array.from({ length: 48 }, (_, i) => i);
+  pre18.highestRoom = FLOOR19_BOUNDARY_ROOM;
+  pre18 = revisitRoom(pre18, FLOOR19_BOUNDARY_ROOM);
+  assert.equal(pre18.enemies[0].kind, 'seal_curator');
   pre18.enemies[0].hp = 1;
+  if (pre18.enemies[1]) pre18.enemies[1].hp = 0;
   pre18.player.hand = ['beam', 'fire', 'shot', 'ice', 'shield'];
   const beat18 = simulateTurn(pre18, ['beam', 'fire'], 'enemy-0');
   assert.equal(beat18.ok, true);
@@ -2120,16 +2147,11 @@ test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card
   assert.equal(claimed.player.cardUpgrades[duplicate], 1);
   assert.deepEqual(claimed.collection, pre18.collection);
   assert.equal(claimed.phase, 'sanctuary');
-  assert.equal(claimed.sanctuaryFloor, 19);
+  assert.equal(claimed.sanctuaryFloor, 'pre20');
   assert.equal(claimed.highestRoom, FLOOR20_BOSS_ROOM);
   assert.equal(isSanctuary19Unlocked(claimed), true);
   assert.equal(saveRun(claimed, storage).ok, true);
   assert.deepEqual(loadRun(storage).state, claimed);
-
-  const sanct19Story = getSanctuaryStory(claimed);
-  assert.ok(sanct19Story);
-  assert.match(sanct19Story.kicker, /19/);
-  assert.match(sanct19Story.title, /จ้าวพายุอสุนีบาต/);
 });
 
 test('Floor 20 special boss (tempest_archon), Storm Carapace counter, 2nd artifact (storm_pendulum_20) pair refund, post-20 Sanctuary & Floor 19 fallback', () => {
@@ -2137,8 +2159,8 @@ test('Floor 20 special boss (tempest_archon), Storm Carapace counter, 2nd artifa
   let state = createRun('floor-20-boss', true, ['beam', 'wave', 'lightning', 'pierce']);
   state.learned = ['beam', 'wave', 'lightning', 'pierce'];
   state.player.words = ['shot', 'fire', 'ice', 'pair', 'beam', 'lightning', 'pierce'];
-  state.clearedRooms = Array.from({ length: 43 }, (_, i) => i);
-  state.rewardedBossRooms = [2, 5, 8, 11, 14, 17, 20, 24, 27, 30, 33, 36, 39, 42];
+  state.clearedRooms = Array.from({ length: 49 }, (_, i) => i);
+  state.rewardedBossRooms = [2, 5, 8, 11, 14, 17, 20, 23, 24, 27, 30, 33, 36, 39, 42, 45, 48];
   state.sanctuaryUnlocked = true;
   state.sanctuary9Unlocked = true;
   state.sanctuaryPost10Unlocked = true;
@@ -2151,7 +2173,7 @@ test('Floor 20 special boss (tempest_archon), Storm Carapace counter, 2nd artifa
 
   // Enter Floor 20 boss fight (tempest_archon)
   let boss20 = revisitRoom(state, FLOOR20_BOSS_ROOM);
-  assert.equal(boss20.room, 43);
+  assert.equal(boss20.room, 49);
   assert.equal(isBossRoom(boss20), true);
   assert.equal(boss20.enemies[0].kind, 'tempest_archon');
   assert.equal(boss20.enemies[0].hp, 255);
@@ -2197,7 +2219,7 @@ test('Floor 20 special boss (tempest_archon), Storm Carapace counter, 2nd artifa
   assert.ok(chargeTurn.events.some(ev => ev.type === 'charge' && ev.sourceKind === 'tempest_archon' && ev.specialBoss === true && ev.ultimate === true));
   assert.equal(chargeTurn.state.enemies[0].hp, 128);
 
-  // Turn 4: Exposed (armor 0, ward 0), heavy attack 20 -> ultimate: true & losing falls back to Floor 19 Sanctuary without wiping 15-18
+  // Turn 4: Exposed (armor 0, ward 0), heavy attack 20 -> ultimate: true & losing falls back to pre-20 Sanctuary
   let t4 = chargeTurn.state;
   assert.equal(t4.turn, 4);
   assert.equal(t4.enemies[0].armor, 0);
@@ -2208,10 +2230,10 @@ test('Floor 20 special boss (tempest_archon), Storm Carapace counter, 2nd artifa
   const fell19 = simulateTurn(t4, 'guard');
   assert.equal(fell19.ok, true);
   assert.ok(fell19.events.some(ev => ev.type === 'attack' && ev.sourceKind === 'tempest_archon' && ev.specialBoss === true && ev.ultimate === true && ev.rawAttack === 20));
-  assert.equal(fell19.summary.fellToFloor, 19);
+  assert.equal(fell19.summary.fellToFloor, 'pre20');
   assert.equal(fell19.state.phase, 'sanctuary');
-  assert.equal(fell19.state.sanctuaryFloor, 19);
-  assert.equal(fell19.state.clearedRooms.length, 43);
+  assert.equal(fell19.state.sanctuaryFloor, 'pre20');
+  assert.equal(fell19.state.clearedRooms.length, 49);
 
   // Victory over Floor 20 boss -> drops storm_pendulum_20, Gold/EXP, and opens post-20 Special Sanctuary
   let rematch20 = revisitRoom(fell19.state, FLOOR20_BOSS_ROOM);

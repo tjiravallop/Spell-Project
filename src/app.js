@@ -544,6 +544,8 @@ function renderBattle() {
     blackholeSelect.disabled = busy;
   } else if (targetId?.startsWith('slot-')) {
     targetId = selectable.find(enemy => `slot-${enemy.slot}` === targetId)?.id ?? selectable[0]?.id ?? null;
+  } else if (!selectable.some(enemy => enemy.id === targetId)) {
+    targetId = selectable[0]?.id ?? null;
   }
   if (!selectable.some(enemy => enemy.id === secondTargetId)) secondTargetId = null;
   $('second-target-label').hidden = !knownSpell || !parsed.ok || parsed.spell.shots !== 2;
