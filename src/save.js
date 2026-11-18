@@ -179,6 +179,7 @@ export function loadRun(storage) {
         }
         if (state.phase === 'reward' && state.rewards.length < 3) fillRewardChoices(state);
         for (const enemy of state.enemies) {
+          enemy.affinity ??= ENEMIES[enemy.kind]?.affinity ?? null;
           if (enemy.maxHp !== previousRiftBossHp[enemy.kind]) continue;
           const maxHp = RIFT_ENEMIES[enemy.kind].hp;
           enemy.hp = Math.ceil(enemy.hp * maxHp / enemy.maxHp);

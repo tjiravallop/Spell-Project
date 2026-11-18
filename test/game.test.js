@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSpell, WORDS, RARITIES, START_WORDS, ELEMENTS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, DEVASTATION_FORMULAS, getSpellCatalog, elementFamily } from '../src/words.js';
+import { parseSpell, WORDS, RARITIES, START_WORDS, ELEMENTS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, FUSION_COMPONENTS, ELEMENT_WEAKNESS, ELEMENT_VULNERABILITY, getWeaknessReaction, getElementComponents, DEVASTATION_FORMULAS, getSpellCatalog, elementFamily } from '../src/words.js';
 import {
   createRun, createEnemy, prepareEnemies, chooseReward, equipWords, makeRewards, intent, discardOverflow, isBossRoom, ENEMIES,
   getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPre10Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
@@ -2834,6 +2834,86 @@ test('Tier 1-3 rarities and all 15 Tier 3 dual-element fusions work with distinc
   assert.equal(magRes.state.enemies[0].slot, 1); // pulled from 0 towards 2 -> 1
   assert.equal(magRes.state.enemies[2].slot, 3); // pulled from 4 towards 2 -> 3
 });
+
+test('elemental weakness and resistance system applies +25% weakness bonus and -20% resistance across all elements and fusions', () => {
+  // 1. Weakness cycle mapping
+  assert.equal(ELEMENT_VULNERABILITY.ice, 'fire');
+  assert.equal(ELEMENT_VULNERABILITY.wind, 'ice');
+  assert.equal(ELEMENT_VULNERABILITY.earth, 'wind');
+  assert.equal(ELEMENT_VULNERABILITY.lightning, 'earth');
+  assert.equal(ELEMENT_VULNERABILITY.water, 'lightning');
+  assert.equal(ELEMENT_VULNERABILITY.fire, 'water');
+
+  // 2. Component extraction for Tier 1, 2, and 3
+  assert.deepEqual(getElementComponents('fire'), ['fire']);
+  assert.deepEqual(getElementComponents('akki'), ['fire']);
+  assert.deepEqual(getElementComponents('magma'), ['earth', 'fire']);
+  assert.deepEqual(getElementComponents(['water', 'fire']), ['water', 'fire']);
+
+  // 3. Weakness reactions
+  assert.equal(getWeaknessReaction('fire', 'ice').isWeak, true);
+  assert.equal(getWeaknessReaction('fire', 'ice').multiplier, 1.25);
+  assert.equal(getWeaknessReaction('ice', 'ice').isResist, true);
+  assert.equal(getWeaknessReaction('ice', 'ice').multiplier, 0.8);
+  assert.equal(getWeaknessReaction('earth', 'ice').isWeak, false);
+  assert.equal(getWeaknessReaction('earth', 'ice').isResist, false);
+
+  // 4. Combat damage on elemental enemies
+  // frost_lich (hp 64, armor 2, affinity: ice)
+  const iceFight = battle(['frost_lich']);
+  iceFight.enemies[0].ward = 0; // Clear ward for unblocked damage test
+  const fireCast = cast(iceFight, 'shot fire'); // 10 power - 2 armor = 8 base -> +25% = 10 dmg
+  const fireDmgEvent = fireCast.events.find(e => e.type === 'damage');
+  assert.equal(fireDmgEvent.weakness, true);
+  assert.equal(fireDmgEvent.weakBonus, 2);
+  assert.equal(fireDmgEvent.amount, 10);
+  assert.ok(fireCast.summary.sequence.some(s => s.includes('⚡ โจมตีเข้าจุดอ่อน!')));
+
+  // Resisted attack: ice vs ice
+  const iceCast = cast(iceFight, 'shot ice'); // 6 power - 2 armor = 4 base -> -20% = 3 dmg
+  const iceDmgEvent = iceCast.events.find(e => e.type === 'damage');
+  assert.equal(iceDmgEvent.resisted, true);
+  assert.equal(iceDmgEvent.resistLoss, 1);
+  assert.equal(iceDmgEvent.amount, 3);
+  assert.ok(iceCast.summary.sequence.some(s => s.includes('🛡 ลิชเหมันต์ ต้านทาน')));
+
+  // 5. Tier 2 ascended elements
+  // akki (fire) vs frost_lich (ice): 20 power - 2 armor = 18 base -> +25% = 23 dmg
+  const akkiCast = cast(iceFight, 'shot akki');
+  assert.equal(akkiCast.events.find(e => e.type === 'damage').amount, 23);
+
+  // 6. Tier 3 dual-element fusions trigger weakness if EITHER element counters the affinity
+  // magma (earth + fire) vs frost_lich (ice) -> fire counters ice!
+  // 22 power - 2 armor = 20 base -> +25% = 25 dmg
+  const magmaVsIce = cast(iceFight, 'shot magma');
+  assert.equal(magmaVsIce.events.find(e => e.type === 'damage').amount, 25);
+  assert.equal(magmaVsIce.events.find(e => e.type === 'damage').weakness, true);
+
+  // magma (earth + fire) vs storm_titan (lightning) -> earth counters lightning!
+  // storm_titan (hp 76, armor 3, affinity: lightning)
+  // 22 power - 3 armor = 19 base -> +25% = 24 dmg
+  const stormFight = battle(['storm_titan']);
+  const magmaVsLightning = cast(stormFight, 'shot magma');
+  assert.equal(magmaVsLightning.events.find(e => e.type === 'damage').amount, 24);
+  assert.equal(magmaVsLightning.events.find(e => e.type === 'damage').weakness, true);
+
+  // monsoon (water + wind) vs ember_imp (fire) -> water counters fire!
+  // ember_imp (hp 22, armor 0, affinity: fire)
+  // 18 power - 0 armor = 18 base -> +25% = 23 dmg (kills imp)
+  const impFight = battle(['ember_imp']);
+  const monsoonVsFire = cast(impFight, 'shot monsoon');
+  assert.equal(monsoonVsFire.events.find(e => e.type === 'damage').amount, 23);
+  assert.equal(monsoonVsFire.events.find(e => e.type === 'damage').weakness, true);
+
+  // 7. Forecast parity: simulateTurn preview gives exact same result as actual combat
+  const forecastState = structuredClone(iceFight);
+  forecastState.player.hand = ['shot', 'fire'];
+  const preview = simulateTurn(forecastState, ['shot', 'fire'], 'enemy-0');
+  assert.equal(preview.ok, true);
+  assert.equal(preview.summary.damage, 10);
+  assert.equal(preview.summary.enemyHp['enemy-0'], 64 - 10);
+});
+
 
 
 

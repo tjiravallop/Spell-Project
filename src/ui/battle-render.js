@@ -1,4 +1,4 @@
-import { WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS } from '../words.js';
+import { WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, ELEMENT_VULNERABILITY, ELEMENT_LABELS, ELEMENT_GLYPHS } from '../words.js';
 import {
   HAND_LIMIT,
   MAX_BELT_ITEMS,
@@ -357,6 +357,11 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const status = forecast?.ok ? forecast.summary.enemyStatus[enemy.id] : enemy;
     const projectedAction = after === null ? action : forecast.summary.enemyActions?.[enemy.id] ?? { type: 'dead' };
     const badges = [];
+    const enemyAffinity = enemy.affinity ?? base.affinity ?? null;
+    if (enemyAffinity && ELEMENT_VULNERABILITY[enemyAffinity]) {
+      const weakElem = ELEMENT_VULNERABILITY[enemyAffinity];
+      badges.push(`<span class="enemy-badge badge-affinity affinity-${enemyAffinity}" title="ธาตุ ${ELEMENT_LABELS[enemyAffinity]} · แพ้ทาง ${ELEMENT_LABELS[weakElem]} (+25% ดาเมจ) · ต้านทาน ${ELEMENT_LABELS[enemyAffinity]} (−20% ดาเมจ)">${ELEMENT_GLYPHS[enemyAffinity]} ${ELEMENT_LABELS[enemyAffinity]} (แพ้ ${ELEMENT_LABELS[weakElem]})</span>`);
+    }
     // Show slot number from Floor 11+ so slot-targeted intents (ฮีล #N, ม่าน #N, เข้าช่อง N) are legible at a glance
     if (state.room >= FLOOR11_START_ROOM) badges.push(`<span class="enemy-badge">#${enemy.slot + 1}</span>`);
     if (enemy.armor > 0) badges.push(`<span class="enemy-badge badge-armor" title="เกราะหักดาเมจทุกครั้งที่โดนโจมตี (สายฟ้าข้ามเกราะได้ 2)">🛡 เกราะ ${enemy.armor}</span>`);

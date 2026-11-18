@@ -295,7 +295,8 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           changeAnimatedEnemyHp(event.target, -(event.actual ?? event.amount));
           triggerEnemyCardFx(event.target, 'enemy-hit-shake');
           const elemCls = event.element ? `elem-${elementFamily(event.element)}` : '';
-          spawnEnemyPop(event.target, `-${event.amount}${event.killed ? ' ✦' : ''}`, 'damage', `${elemCls}${event.killed ? ' pop-killed' : ''}`.trim());
+          const weakTag = event.weakness ? ' ⚡จุดอ่อน' : event.resisted ? ' 🛡ต้านทาน' : '';
+          spawnEnemyPop(event.target, `-${event.amount}${event.killed ? ' ✦' : ''}${weakTag}`, 'damage', `${elemCls}${event.weakness ? ' pop-weakness' : ''}${event.killed ? ' pop-killed' : ''}`.trim());
         } else {
           triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
           spawnEnemyPop(event.target, 'เกราะ 0', 'target');

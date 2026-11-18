@@ -346,6 +346,13 @@ body.reduced-motion .turn-label{animation:none!important}
 .enemy-badge.badge-freeze{background:#142c38;border-color:#539ab5;color:#ccf2ff}
 .enemy-badge.badge-burn{background:#2e1a15;border-color:#8a4936;color:#ffb89e}
 .enemy-badge.badge-push{background:#202418;border-color:#5c6943;color:#d6e3b5}
+.enemy-badge.badge-affinity{font-weight:700;letter-spacing:0.2px}
+.enemy-badge.affinity-fire{background:#2a1410;border-color:#8c3824;color:#ff9e80}
+.enemy-badge.affinity-ice{background:#0e1e2b;border-color:#2a6a8c;color:#9ce3ff}
+.enemy-badge.affinity-wind{background:#12241b;border-color:#387854;color:#a3f0be}
+.enemy-badge.affinity-earth{background:#241d13;border-color:#7a5a30;color:#ffd89e}
+.enemy-badge.affinity-lightning{background:#26220e;border-color:#8a7c20;color:#fff176}
+.enemy-badge.affinity-water{background:#0e1a2b;border-color:#285a8c;color:#80c6ff}
 .enemy-intent.intent-heavy{color:#ffb0a8;font-weight:700}
 .enemy-intent.intent-charge{color:var(--gold);font-weight:600}
 .enemy-intent.intent-heal{color:#9ee0a4}
@@ -416,6 +423,7 @@ body.reduced-motion .turn-label{animation:none!important}
 .enemy-floating-pop.pop-damage.elem-water,.enemy-floating-pop.pop-damage.elem-wari{background:#102b3ef2;border-color:#44d0ff;color:#d6f6ff}
 .enemy-floating-pop.pop-damage.elem-wind,.enemy-floating-pop.pop-damage.elem-vayu{background:#12332bf2;border-color:#86e3b6;color:#d6ffec}
 .enemy-floating-pop.pop-damage.pop-killed{border-color:var(--gold);box-shadow:0 0 14px #dab87a88,0 4px 12px #000c;color:#fff2bd}
+.enemy-floating-pop.pop-damage.pop-weakness{border-color:#ffe53b;box-shadow:0 0 16px #ffeb3b88,0 4px 12px #000c;color:#fffde7;transform:translateX(-50%) scale(1.12)}
 .enemy-floating-pop.pop-ward{background:#261a38f2;border:1.5px solid var(--violet);color:#e5d4ff}
 .enemy-floating-pop.pop-target{background:#2b2414f2;border:1.5px solid var(--gold);color:#ffe7b3}
 .enemy-floating-pop.pop-heal{background:#162e1bf2;border:1.5px solid #6cb874;color:#c8f5cc}

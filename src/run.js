@@ -12,26 +12,26 @@ export const ENEMIES = Object.freeze({
   elite: { name: 'ผู้เฝ้าชั้นหนึ่ง', hp: 29, armor: 0, ward: 1, attack: 4, color: '#b6a0cf', exp: 30, gold: 25, isBoss: true },
   sentinel: { name: 'ผู้พิทักษ์หอเหล็ก', hp: 34, armor: 2, ward: 0, attack: 7, color: '#c39570', exp: 40, gold: 35, isBoss: true },
   boss: { name: 'ตำราต้องห้าม', hp: 43, armor: 0, ward: 0, attack: 4, color: '#dab87a', exp: 55, gold: 45, isBoss: true },
-  ember_imp: { name: 'อิมพ์เพลิง', hp: 22, armor: 0, ward: 0, attack: 5, color: '#e29d83', exp: 18, gold: 15, isBoss: false },
-  iron_warden: { name: 'ผู้พิทักษ์ม่านเหล็ก', hp: 24, armor: 2, ward: 1, attack: 4, color: '#907ba6', exp: 22, gold: 18, isBoss: false },
-  rune_golem: { name: 'โกเลมรูน', hp: 30, armor: 2, ward: 0, attack: 9, color: '#e4b659', exp: 26, gold: 21, isBoss: false },
-  mirror_mage: { name: 'จอมเวทกระจกเงา', hp: 58, armor: 1, ward: 1, attack: 6, color: '#bca5d2', exp: 68, gold: 58, isBoss: true },
-  frost_lich: { name: 'ลิชเหมันต์', hp: 64, armor: 2, ward: 1, attack: 5, color: '#8bb7a0', exp: 78, gold: 66, isBoss: true },
-  storm_titan: { name: 'ไททันอัสนี', hp: 76, armor: 3, ward: 0, attack: 11, color: '#f5db87', exp: 92, gold: 78, isBoss: true },
+  ember_imp: { name: 'อิมพ์เพลิง', hp: 22, armor: 0, ward: 0, attack: 5, color: '#e29d83', exp: 18, gold: 15, isBoss: false, affinity: 'fire' },
+  iron_warden: { name: 'ผู้พิทักษ์ม่านเหล็ก', hp: 24, armor: 2, ward: 1, attack: 4, color: '#907ba6', exp: 22, gold: 18, isBoss: false, affinity: 'earth' },
+  rune_golem: { name: 'โกเลมรูน', hp: 30, armor: 2, ward: 0, attack: 9, color: '#e4b659', exp: 26, gold: 21, isBoss: false, affinity: 'earth' },
+  mirror_mage: { name: 'จอมเวทกระจกเงา', hp: 58, armor: 1, ward: 1, attack: 6, color: '#bca5d2', exp: 68, gold: 58, isBoss: true, affinity: 'ice' },
+  frost_lich: { name: 'ลิชเหมันต์', hp: 64, armor: 2, ward: 1, attack: 5, color: '#8bb7a0', exp: 78, gold: 66, isBoss: true, affinity: 'ice' },
+  storm_titan: { name: 'ไททันอัสนี', hp: 76, armor: 3, ward: 0, attack: 11, color: '#f5db87', exp: 92, gold: 78, isBoss: true, affinity: 'lightning' },
   arch_codex: { name: 'อาร์คโคเด็กซ์ต้องห้าม', hp: 92, armor: 2, ward: 1, attack: 6, color: '#f5db87', exp: 115, gold: 95, isBoss: true },
-  ember_overlord: { name: 'จ้าวอัคคีบรรพกาล', hp: 135, armor: 3, ward: 1, attack: 8, color: '#ffad42', exp: 180, gold: 150, isBoss: true },
+  ember_overlord: { name: 'จ้าวอัคคีบรรพกาล', hp: 135, armor: 3, ward: 1, attack: 8, color: '#ffad42', exp: 180, gold: 150, isBoss: true, affinity: 'fire' },
   void_imp: { name: 'อิมพ์สุญญากาศ', hp: 34, armor: 1, ward: 0, attack: 7, color: '#bca5d2', exp: 32, gold: 26, isBoss: false },
-  aether_warden: { name: 'ผู้คุมม่านอาคม', hp: 38, armor: 2, ward: 1, attack: 6, color: '#907ba6', exp: 36, gold: 30, isBoss: false },
-  obsidian_golem: { name: 'โกเลมศิลานิล', hp: 46, armor: 3, ward: 0, attack: 12, color: '#718063', exp: 42, gold: 35, isBoss: false },
-  chrono_sage: { name: 'นักปราชญ์กาลเวลา', hp: 30, armor: 1, ward: 1, attack: 6, color: '#83b5ad', exp: 38, gold: 32, isBoss: false },
-  prism_watcher: { name: 'ผู้เฝ้าปริซึมชั้นสูง', hp: 105, armor: 2, ward: 1, attack: 8, color: '#b6a0cf', exp: 125, gold: 105, isBoss: true },
-  astral_sentinel: { name: 'ผู้พิทักษ์หอดารา', hp: 118, armor: 4, ward: 0, attack: 14, color: '#e4b659', exp: 140, gold: 115, isBoss: true },
-  elder_grimoire: { name: 'คัมภีร์ปฐมกาลต้องห้าม', hp: 132, armor: 2, ward: 1, attack: 8, color: '#dab87a', exp: 165, gold: 135, isBoss: true },
-  eclipse_mage: { name: 'จอมเวทจันทรคราส', hp: 148, armor: 2, ward: 1, attack: 9, color: '#bca5d2', exp: 185, gold: 150, isBoss: true },
-  glacial_sovereign: { name: 'ราชันเหมันตนิรันดร์', hp: 162, armor: 3, ward: 1, attack: 9, color: '#8bb7a0', exp: 205, gold: 165, isBoss: true },
-  thunder_colossus: { name: 'ยักษ์อัสนีบรรพกาล', hp: 178, armor: 4, ward: 0, attack: 16, color: '#f5db87', exp: 225, gold: 185, isBoss: true },
+  aether_warden: { name: 'ผู้คุมม่านอาคม', hp: 38, armor: 2, ward: 1, attack: 6, color: '#907ba6', exp: 36, gold: 30, isBoss: false, affinity: 'wind' },
+  obsidian_golem: { name: 'โกเลมศิลานิล', hp: 46, armor: 3, ward: 0, attack: 12, color: '#718063', exp: 42, gold: 35, isBoss: false, affinity: 'earth' },
+  chrono_sage: { name: 'นักปราชญ์กาลเวลา', hp: 30, armor: 1, ward: 1, attack: 6, color: '#83b5ad', exp: 38, gold: 32, isBoss: false, affinity: 'wind' },
+  prism_watcher: { name: 'ผู้เฝ้าปริซึมชั้นสูง', hp: 105, armor: 2, ward: 1, attack: 8, color: '#b6a0cf', exp: 125, gold: 105, isBoss: true, affinity: 'water' },
+  astral_sentinel: { name: 'ผู้พิทักษ์หอดารา', hp: 118, armor: 4, ward: 0, attack: 14, color: '#e4b659', exp: 140, gold: 115, isBoss: true, affinity: 'lightning' },
+  elder_grimoire: { name: 'คัมภีร์ปฐมกาลต้องห้าม', hp: 132, armor: 2, ward: 1, attack: 8, color: '#dab87a', exp: 165, gold: 135, isBoss: true, affinity: 'earth' },
+  eclipse_mage: { name: 'จอมเวทจันทรคราส', hp: 148, armor: 2, ward: 1, attack: 9, color: '#bca5d2', exp: 185, gold: 150, isBoss: true, affinity: 'fire' },
+  glacial_sovereign: { name: 'ราชันเหมันตนิรันดร์', hp: 162, armor: 3, ward: 1, attack: 9, color: '#8bb7a0', exp: 205, gold: 165, isBoss: true, affinity: 'ice' },
+  thunder_colossus: { name: 'ยักษ์อัสนีบรรพกาล', hp: 178, armor: 4, ward: 0, attack: 16, color: '#f5db87', exp: 225, gold: 185, isBoss: true, affinity: 'lightning' },
   nexus_codex: { name: 'เน็กซัสโคเด็กซ์ต้องห้าม', hp: 196, armor: 3, ward: 1, attack: 10, color: '#f5db87', exp: 250, gold: 210, isBoss: true },
-  tempest_archon: { name: 'จ้าวพายุอสุนีบาต', hp: 255, armor: 4, ward: 1, attack: 11, color: '#ffe53b', exp: 360, gold: 300, isBoss: true },
+  tempest_archon: { name: 'จ้าวพายุอสุนีบาต', hp: 255, armor: 4, ward: 1, attack: 11, color: '#ffe53b', exp: 360, gold: 300, isBoss: true, affinity: 'lightning' },
   ward_scribe: { name: 'อาลักษณ์ทอม่าน', hp: 32, armor: 1, ward: 0, attack: 5, color: '#bc8ae8', exp: 44, gold: 37, sprite: 'chrono_sage' },
   ward_keeper: { name: 'ผู้พิทักษ์ตราคุ้มกัน', hp: 42, armor: 2, ward: 0, attack: 7, color: '#d0a8ff', exp: 55, gold: 43, sprite: 'aether_warden' },
   rune_ram: { name: 'โกเลมระฆังรูน', hp: 52, armor: 2, ward: 0, attack: 6, color: '#ffc58c', exp: 64, gold: 50, sprite: 'rune_golem' },
@@ -653,7 +653,7 @@ export function discardOverflow(original, indices) {
 
 export function createEnemy(kind, index = 0) {
   const base = ENEMIES[kind];
-  return { id: `enemy-${index}`, kind, slot: index, hp: base.hp, maxHp: base.hp, armor: base.armor, ward: base.ward, chill: 0, freeze: 0, burn: 0, burnTurn: 0 };
+  return { id: `enemy-${index}`, kind, slot: index, hp: base.hp, maxHp: base.hp, armor: base.armor, ward: base.ward, affinity: base.affinity ?? null, chill: 0, freeze: 0, burn: 0, burnTurn: 0 };
 }
 
 export function prepareEnemies(state) {

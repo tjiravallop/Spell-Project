@@ -5,11 +5,11 @@ const moth = 'scroll_moth';
 const hound = 'chain_hound';
 
 export const MIDDLE_ENEMIES = {
-  [ray]: { name: 'กระเบนหมึก', hp: 33, armor: 0, ward: 0, attack: 6, exp: 34, gold: 27, color: '#bca5d2' },
-  [crab]: { name: 'ปูเกราะปริซึม', hp: 42, armor: 5, ward: 0, attack: 5, exp: 43, gold: 35, color: '#8bb7a0' },
-  [light]: { name: 'โคมวิญญาณ', hp: 31, armor: 1, ward: 0, attack: 6, exp: 38, gold: 32, color: '#f5db87' },
-  [moth]: { name: 'ผีเสื้อคัมภีร์', hp: 28, armor: 0, ward: 0, attack: 6, exp: 34, gold: 29, color: '#efd19a' },
-  [hound]: { name: 'สุนัขโซ่อาคม', hp: 39, armor: 2, ward: 0, attack: 7, exp: 39, gold: 34, color: '#e29d83' },
+  [ray]: { name: 'กระเบนหมึก', hp: 33, armor: 0, ward: 0, attack: 6, exp: 34, gold: 27, color: '#bca5d2', affinity: 'water' },
+  [crab]: { name: 'ปูเกราะปริซึม', hp: 42, armor: 5, ward: 0, attack: 5, exp: 43, gold: 35, color: '#8bb7a0', affinity: 'water' },
+  [light]: { name: 'โคมวิญญาณ', hp: 31, armor: 1, ward: 0, attack: 6, exp: 38, gold: 32, color: '#f5db87', affinity: 'fire' },
+  [moth]: { name: 'ผีเสื้อคัมภีร์', hp: 28, armor: 0, ward: 0, attack: 6, exp: 34, gold: 29, color: '#efd19a', affinity: 'wind' },
+  [hound]: { name: 'สุนัขโซ่อาคม', hp: 39, armor: 2, ward: 0, attack: 7, exp: 39, gold: 34, color: '#e29d83', affinity: 'earth' },
 };
 
 // Two rooms per floor, followed by the existing boss. Floors 14 and 19 are rests.

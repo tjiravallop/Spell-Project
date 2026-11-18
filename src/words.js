@@ -79,6 +79,101 @@ export const FUSED_ELEMENTS = Object.freeze({
   scald: 'fire',
   frostvolt: 'lightning',
 });
+
+export const FUSION_COMPONENTS = Object.freeze({
+  magma: ['earth', 'fire'],
+  mudmire: ['earth', 'water'],
+  dust: ['earth', 'wind'],
+  permafrost: ['earth', 'ice'],
+  magnet: ['earth', 'lightning'],
+  mist: ['water', 'fire'],
+  hail: ['water', 'ice'],
+  monsoon: ['water', 'wind'],
+  shockstream: ['water', 'lightning'],
+  thunderstorm: ['wind', 'lightning'],
+  heatwave: ['wind', 'fire'],
+  chillgale: ['wind', 'ice'],
+  plasma: ['fire', 'lightning'],
+  scald: ['fire', 'ice'],
+  frostvolt: ['ice', 'lightning'],
+});
+
+export const ELEMENT_ADVANTAGE = Object.freeze({
+  fire: 'ice',
+  ice: 'wind',
+  wind: 'earth',
+  earth: 'lightning',
+  lightning: 'water',
+  water: 'fire',
+});
+
+export const ELEMENT_VULNERABILITY = Object.freeze({
+  ice: 'fire',
+  wind: 'ice',
+  earth: 'wind',
+  lightning: 'earth',
+  water: 'lightning',
+  fire: 'water',
+});
+
+export const ELEMENT_WEAKNESS = ELEMENT_VULNERABILITY;
+
+export const ELEMENT_LABELS = Object.freeze({
+  fire: 'ไฟ',
+  ice: 'น้ำแข็ง',
+  wind: 'ลม',
+  earth: 'ดิน',
+  lightning: 'สายฟ้า',
+  water: 'น้ำ',
+});
+
+export const ELEMENT_GLYPHS = Object.freeze({
+  fire: '♨',
+  ice: '❄',
+  wind: '≋',
+  earth: '◆',
+  lightning: 'ϟ',
+  water: '≈',
+});
+
+export function getElementComponents(element) {
+  if (!element) return [];
+  if (Array.isArray(element)) return [...new Set(element.flatMap(getElementComponents))];
+  if (FUSION_COMPONENTS[element]) return FUSION_COMPONENTS[element];
+  if (SECOND_TIER_ELEMENTS[element]) return [SECOND_TIER_ELEMENTS[element]];
+  if (['fire', 'ice', 'wind', 'earth', 'lightning', 'water'].includes(element)) return [element];
+  return [];
+}
+
+export function getWeaknessReaction(element, targetAffinity) {
+  if (!targetAffinity || !ELEMENT_VULNERABILITY[targetAffinity]) {
+    return { isWeak: false, isResist: false, multiplier: 1, triggerElement: null };
+  }
+  const components = getElementComponents(element);
+  if (!components.length) {
+    return { isWeak: false, isResist: false, multiplier: 1, triggerElement: null };
+  }
+  const weaknessElement = ELEMENT_VULNERABILITY[targetAffinity];
+  const isWeak = components.includes(weaknessElement);
+  if (isWeak) {
+    return {
+      isWeak: true,
+      isResist: false,
+      multiplier: 1.25,
+      triggerElement: weaknessElement,
+    };
+  }
+  const isResist = components.includes(targetAffinity);
+  if (isResist) {
+    return {
+      isWeak: false,
+      isResist: true,
+      multiplier: 0.8,
+      triggerElement: targetAffinity,
+    };
+  }
+  return { isWeak: false, isResist: false, multiplier: 1, triggerElement: null };
+}
 export const elementFamily = id => SECOND_TIER_ELEMENTS[id] ?? FUSED_ELEMENTS[id] ?? id;
 export function fireShieldLayers(shield, element) {
   if (!shield) return [];

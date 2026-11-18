@@ -1,4 +1,4 @@
-import { ATTACK_FORMS, WORDS, elementFamily, fireShieldLayers, parseSpell } from './words.js';
+import { ATTACK_FORMS, WORDS, elementFamily, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS } from './words.js';
 import { RIFT_SPELL_BONUS, RIFT_EXPOSED_BONUS, isRiftBossExposed } from './upper-tower.js';
 import {
   ENEMIES,
@@ -249,8 +249,25 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const exposedBonus = isRiftBossExposed(enemy.kind, turn) ? RIFT_EXPOSED_BONUS : 0;
     const afterArmor = Math.max(0, Math.ceil(empowered + empowered * exposedBonus / 100) - Math.max(0, enemy.armor - pierce));
     const reduction = attackForm && attackForm === enemy.readForm && !exposedBonus ? ENEMIES[enemy.kind].repeatReduction ?? 0 : 0;
-    const amount = Math.ceil(afterArmor * (100 - reduction) / 100);
-    if (amount > 0 && attackForm && ENEMIES[enemy.kind].repeatReduction) {
+    const baseDmg = Math.ceil(afterArmor * (100 - reduction) / 100);
+
+    const enemyAffinity = enemy.affinity ?? ENEMIES[enemy.kind]?.affinity ?? null;
+    const reaction = getWeaknessReaction(element, enemyAffinity);
+    let amount = baseDmg;
+    let weakBonus = 0;
+    let resistLoss = 0;
+
+    if (baseDmg > 0 && reaction.isWeak) {
+      weakBonus = Math.ceil(baseDmg * 0.25);
+      amount = baseDmg + weakBonus;
+      summary.sequence.push(`⚡ โจมตีเข้าจุดอ่อน! ${ENEMIES[enemy.kind]?.name ?? enemy.kind} แพ้ทาง ${ELEMENT_LABELS[reaction.triggerElement]} (+${weakBonus} ดาเมจ)`);
+    } else if (baseDmg > 0 && reaction.isResist) {
+      amount = Math.max(1, Math.floor(baseDmg * 0.8));
+      resistLoss = baseDmg - amount;
+      summary.sequence.push(`🛡 ${ENEMIES[enemy.kind]?.name ?? enemy.kind} ต้านทาน ${ELEMENT_LABELS[reaction.triggerElement]} (−${resistLoss} ดาเมจ)`);
+    }
+
+    if (amount > 0 && attackForm && ENEMIES[enemy.kind]?.repeatReduction) {
       if (reduction && !formsHit.has(enemy.id)) summary.sequence.push(`${ENEMIES[enemy.kind].name} อ่านทาง${WORDS[attackForm].label} · ลดดาเมจ ${reduction}%`);
       formsHit.set(enemy.id, attackForm);
     }
@@ -258,7 +275,18 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     enemy.hp -= actual;
     summary.damage += actual;
     const killed = enemy.hp === 0;
-    const event = { type: 'damage', target: enemy.id, amount, actual, element, killed, ...spellVfxFlags, ...(reduction && { reduction }) };
+    const event = {
+      type: 'damage',
+      target: enemy.id,
+      amount,
+      actual,
+      element,
+      killed,
+      ...spellVfxFlags,
+      ...(reduction && { reduction }),
+      ...(reaction.isWeak && { weakness: true, weakBonus, triggerElement: reaction.triggerElement }),
+      ...(reaction.isResist && { resisted: true, resistLoss, triggerElement: reaction.triggerElement }),
+    };
     events.push(event);
     if (killed) {
       const hpBefore = player.hp;
@@ -314,7 +342,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   function hit(enemy, strength, pierce, elements) {
     const families = elements.map(elementFamily);
     const conductivity = families.includes('lightning') && (enemy.wetUntil >= turn || families.includes('water')) ? 2 : 0;
-    damage(enemy, strength + conductivity, elements[0] ?? spell.form, pierce, spell.form);
+    damage(enemy, strength + conductivity, elements.length > 1 ? elements : (elements[0] ?? spell.form), pierce, spell.form);
     const earthGain = elements.includes('permafrost') ? 6
       : elements.includes('pathaphi') ? 4
       : elements.includes('earth') ? 2 : 0;

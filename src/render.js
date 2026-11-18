@@ -23,7 +23,11 @@ const combatSpriteSheets = {
 };
 
 export const fizzleLabel = cost => `คาถาสลาย · เสีย ${cost} มานา`;
-export const damageLabel = event => event.amount > 0 ? `−${event.actual ?? event.amount} HP` : 'เกราะกันหมด';
+export const damageLabel = event => {
+  if (event.amount <= 0) return 'เกราะกันหมด';
+  const tag = event.weakness ? ' (จุดอ่อน!)' : event.resisted ? ' (ต้านทาน)' : '';
+  return `−${event.actual ?? event.amount} HP${tag}`;
+};
 export const wardLabel = remaining => remaining > 0 ? 'ติดม่าน · −1 ชั้น' : 'ติดม่าน · ม่านแตก';
 
 function drawCombatSprite(ctx, sheet, progress, x, y, scale) {
