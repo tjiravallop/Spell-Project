@@ -2732,6 +2732,22 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
     assert.ok(atkDesc.length > 0, id);
     assert.ok(shdDesc.length > 0, id);
   }
+  for (const sfx of ['place', 'remove', 'cast', 'discover', 'ward', 'hit', 'weakness', 'resisted', 'wall-slam', 'win', 'lose', 'invalid']) {
+    assert.doesNotThrow(() => audio.play(sfx));
+  }
+  for (const combatEv of [
+    { type: 'damage', amount: 10, weakness: true },
+    { type: 'damage', amount: 8, resisted: true },
+    { type: 'damage', amount: 15, killed: true },
+    { type: 'blast', devastation: true },
+    { type: 'wall-slam' },
+    { type: 'chain-lightning' },
+    { type: 'magma-puddle' },
+    { type: 'magma-erupt' },
+    { type: 'attack', specialBoss: true, ultimate: true, sourceKind: 'tempest_archon' },
+  ]) {
+    assert.doesNotThrow(() => audio.combat(combatEv));
+  }
 });
 
 test('Tier 1-3 rarities and all 15 Tier 3 dual-element fusions work with distinct combat effects', () => {
