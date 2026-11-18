@@ -1606,7 +1606,13 @@ export class Battlefield {
   }
 
   drawHybridVfx(element, x, y, progress, scale, impact) {
-    if (!['magma', 'mist', 'hail', 'thunderstorm'].includes(element)) return;
+    const hybrids = [
+      'magma', 'mist', 'hail', 'thunderstorm',
+      'mudmire', 'dust', 'permafrost', 'magnet',
+      'monsoon', 'shockstream', 'heatwave', 'chillgale',
+      'plasma', 'scald', 'frostvolt',
+    ];
+    if (!hybrids.includes(element)) return;
     const g = this.ctx;
     const s = Math.min(2.5, Math.max(1, scale));
     const t = Math.max(0, Math.min(1, progress));
@@ -1629,8 +1635,49 @@ export class Battlefield {
         this.pixelDiamond(px, py, Math.max(2, Math.round(2 * s)), '#b7e9ff', '#f5fdff');
         g.fillStyle = '#518bcf';
         g.fillRect(px - Math.round(s), py - Math.round(5 * s), Math.max(1, Math.round(s)), Math.round(3 * s));
-      } else {
+      } else if (element === 'thunderstorm') {
         this.pixelBolt(px - Math.round(3 * s), py - Math.round(4 * s), px + Math.round(3 * s), py + Math.round(4 * s), i + t * 4, '#abef79', '#fcffee', 1);
+      } else if (element === 'mudmire') {
+        const rad = Math.max(2, Math.round((i % 2 ? 2 : 3) * s));
+        this.pixelCircle(px, py, rad, '#8b6c42', true);
+        g.fillStyle = '#c2a677';
+        g.fillRect(px - 1, py - rad + 1, Math.max(1, Math.round(s)), Math.max(1, Math.round(s)));
+      } else if (element === 'dust') {
+        const len = Math.round((3 + (i % 2) * 3) * s);
+        g.fillStyle = i % 2 ? '#e2d8c3' : '#b8a98a';
+        g.fillRect(px - len, py, len * 2, Math.max(1, Math.round(s)));
+        g.fillStyle = '#6b5e43';
+        g.fillRect(px - Math.round(s), py - Math.round(s), Math.max(1, Math.round(s)), Math.round(s));
+      } else if (element === 'permafrost') {
+        this.pixelDiamond(px, py, Math.max(2, Math.round(2.5 * s)), '#6fb2d2', '#b5e1f7');
+        g.fillStyle = '#315674';
+        g.fillRect(px - Math.round(s), py - Math.round(s), Math.max(1, Math.round(s * 1.5)), Math.max(1, Math.round(s * 1.5)));
+      } else if (element === 'magnet') {
+        const magCol = i % 2 === 0 ? '#e65c7b' : '#9bb8ff';
+        this.pixelBolt(px - Math.round(4 * s), py, px + Math.round(4 * s), py, i + t * 4, magCol, '#fff0f0', 1);
+      } else if (element === 'monsoon') {
+        this.pixelEllipse(px, py, Math.round(5 * s), Math.max(1, Math.round(2 * s)), i % 2 ? '#88f3ff' : '#3cbcd0', false);
+        g.fillStyle = '#1d5a73';
+        g.fillRect(px - Math.round(s), py, Math.max(1, Math.round(2 * s)), 1);
+      } else if (element === 'shockstream') {
+        this.pixelCircle(px, py, Math.max(2, Math.round(2 * s)), '#4dd2ff', true);
+        this.pixelBolt(px - Math.round(2 * s), py - Math.round(2 * s), px + Math.round(2 * s), py + Math.round(2 * s), i + t * 5, '#bfeaff', '#ffffff', 1);
+      } else if (element === 'heatwave') {
+        this.pixelDiamond(px, py - Math.round(t * 7 * s), Math.max(1, Math.round(2 * s)), '#ff6e30', '#ffb566');
+        g.fillStyle = '#962015';
+        g.fillRect(px - Math.round(s), py, Math.round(2 * s), Math.max(1, Math.round(s)));
+      } else if (element === 'chillgale') {
+        this.pixelEllipse(px, py, Math.round(4 * s), Math.max(1, Math.round(s)), '#8cd5e8', false);
+        this.pixelDiamond(px, py, Math.max(1, Math.round(1.5 * s)), '#c8f2ff', '#ffffff');
+      } else if (element === 'plasma') {
+        this.pixelDiamond(px, py, Math.max(2, Math.round(3 * s)), '#e040fb', '#ffffff');
+        this.pixelCircle(px, py, Math.max(1, Math.round(s)), '#ff80ab', false);
+      } else if (element === 'scald') {
+        this.pixelCircle(px, py, Math.max(2, Math.round(2.5 * s)), '#ff7052', false);
+        this.pixelDiamond(px, py - Math.round(t * 5 * s), Math.max(1, Math.round(s)), '#ffc0a8', '#ffffff');
+      } else if (element === 'frostvolt') {
+        this.pixelDiamond(px, py, Math.max(2, Math.round(2 * s)), '#c4b5fd', '#ffffff');
+        this.pixelBolt(px, py, px + Math.round((i % 2 ? 3 : -3) * s), py - Math.round(4 * s), i + t * 5, '#a78bfa', '#ffffff', 1);
       }
     }
     g.restore();

@@ -138,12 +138,12 @@
 /* Word Element & Role Colors */
 .word-shot,.word-beam,.word-wave,.word-push{color:var(--text)}
 .word-pair,.word-blast{color:var(--violet)}
-.word-fire,.word-akki,.word-magma,.word-burn,.word-large,.word-grand{color:var(--fire)}
-.word-ice,.word-heman,.word-mist,.word-hail,.word-freeze{color:var(--ice)}
-.word-lightning,.word-asani,.word-thunderstorm{color:#f5db87}
-.word-earth,.word-pathaphi{color:#e0a84d}
-.word-water,.word-wari{color:#5fd1ff}
-.word-wind,.word-vayu{color:#8ee8bf}
+.word-fire,.word-akki,.word-magma,.word-heatwave,.word-plasma,.word-scald,.word-burn,.word-large,.word-grand{color:var(--fire)}
+.word-ice,.word-heman,.word-mist,.word-hail,.word-permafrost,.word-chillgale,.word-freeze{color:var(--ice)}
+.word-lightning,.word-asani,.word-thunderstorm,.word-magnet,.word-shockstream,.word-frostvolt{color:#f5db87}
+.word-earth,.word-pathaphi,.word-mudmire{color:#e0a84d}
+.word-water,.word-wari,.word-monsoon{color:#5fd1ff}
+.word-wind,.word-vayu,.word-dust{color:#8ee8bf}
 .word-shield,.word-heal,.word-self{color:var(--accent)}
 .word-pierce{color:var(--gold)}
 

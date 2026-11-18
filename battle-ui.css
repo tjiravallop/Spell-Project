@@ -1276,18 +1276,27 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 }
 
 #spell-desk .rarity-common { --rarity: #a88f76; }
+#spell-desk .rarity-special { --rarity: #d2abff; }
+#spell-desk .rarity-epic { --rarity: #ffab76; }
+#spell-desk .rarity-legendary { --rarity: #f7d472; }
+
+#spell-desk .rarity-epic .playing-card-inner {
+  border-color: rgba(255, 171, 118, .55);
+  box-shadow: inset 1px 1px 0 rgba(255, 220, 180, .2), 0 0 10px rgba(255, 120, 50, .18), inset 0 0 12px rgba(0, 0, 0, .45);
+}
+#spell-desk .rarity-special .playing-card-inner {
+  border-color: rgba(210, 171, 255, .55);
+  box-shadow: inset 1px 1px 0 rgba(235, 210, 255, .2), 0 0 8px rgba(180, 120, 255, .15), inset 0 0 12px rgba(0, 0, 0, .45);
+}
 #spell-desk .word-shot .card-emblem { color: #e6b8ff; }
 #spell-desk .word-beam .card-emblem { color: #f6d48a; }
 #spell-desk .word-wave .card-emblem { color: #8be0ff; }
-#spell-desk .word-fire .card-emblem,
-#spell-desk .word-burn .card-emblem,
-#spell-desk .word-grand .card-emblem { color: #ffad70; }
-#spell-desk .word-ice .card-emblem,
-#spell-desk .word-freeze .card-emblem { color: #a9e1ff; }
-#spell-desk .word-lightning .card-emblem { color: #ffe37a; }
-#spell-desk :is(.word-earth,.word-pathaphi) .card-emblem { color: #ebc078; }
-#spell-desk :is(.word-water,.word-wari) .card-emblem { color: #6ed8ff; }
-#spell-desk :is(.word-wind,.word-vayu) .card-emblem { color: #9cf0c6; }
+#spell-desk :is(.word-fire,.word-akki,.word-magma,.word-heatwave,.word-plasma,.word-scald,.word-burn,.word-grand) .card-emblem { color: #ffad70; }
+#spell-desk :is(.word-ice,.word-heman,.word-mist,.word-hail,.word-permafrost,.word-chillgale,.word-freeze) .card-emblem { color: #a9e1ff; }
+#spell-desk :is(.word-lightning,.word-asani,.word-thunderstorm,.word-magnet,.word-shockstream,.word-frostvolt) .card-emblem { color: #ffe37a; }
+#spell-desk :is(.word-earth,.word-pathaphi,.word-mudmire) .card-emblem { color: #ebc078; }
+#spell-desk :is(.word-water,.word-wari,.word-monsoon) .card-emblem { color: #6ed8ff; }
+#spell-desk :is(.word-wind,.word-vayu,.word-dust) .card-emblem { color: #9cf0c6; }
 #spell-desk .word-pair .card-emblem,
 #spell-desk .word-blast .card-emblem { color: #deb2ff; }
 #spell-desk .word-shield .card-emblem { color: #9ec4ff; }
@@ -1317,11 +1326,11 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 }
 #spell-desk .role-form { --role-bar: #d8a8ff; --role-bar-glow: rgba(216, 168, 255, .42); }
 #spell-desk .role-element { --role-bar: #ffad70; --role-bar-glow: rgba(255, 173, 112, .45); }
-#spell-desk .role-element:is(.word-ice,.word-heman,.word-mist,.word-hail) { --role-bar: #8de2ff; --role-bar-glow: rgba(141, 226, 255, .45); }
-#spell-desk .role-element:is(.word-lightning,.word-asani,.word-thunderstorm) { --role-bar: #ffe37a; --role-bar-glow: rgba(255, 227, 122, .45); }
-#spell-desk .role-element:is(.word-earth,.word-pathaphi) { --role-bar: #e0a84d; --role-bar-glow: rgba(224, 168, 77, .45); }
-#spell-desk .role-element:is(.word-water,.word-wari) { --role-bar: #44d0ff; --role-bar-glow: rgba(68, 208, 255, .45); }
-#spell-desk .role-element:is(.word-wind,.word-vayu) { --role-bar: #8de8c6; --role-bar-glow: rgba(141, 232, 198, .42); }
+#spell-desk .role-element:is(.word-ice,.word-heman,.word-mist,.word-hail,.word-permafrost,.word-chillgale) { --role-bar: #8de2ff; --role-bar-glow: rgba(141, 226, 255, .45); }
+#spell-desk .role-element:is(.word-lightning,.word-asani,.word-thunderstorm,.word-magnet,.word-shockstream,.word-frostvolt) { --role-bar: #ffe37a; --role-bar-glow: rgba(255, 227, 122, .45); }
+#spell-desk .role-element:is(.word-earth,.word-pathaphi,.word-mudmire) { --role-bar: #e0a84d; --role-bar-glow: rgba(224, 168, 77, .45); }
+#spell-desk .role-element:is(.word-water,.word-wari,.word-monsoon) { --role-bar: #44d0ff; --role-bar-glow: rgba(68, 208, 255, .45); }
+#spell-desk .role-element:is(.word-wind,.word-vayu,.word-dust) { --role-bar: #8de8c6; --role-bar-glow: rgba(141, 232, 198, .42); }
 #spell-desk .role-mod { --role-bar: #cfa0f4; --role-bar-glow: rgba(207, 160, 244, .38); }
 #spell-desk .role-defense { --role-bar: #74d9ff; --role-bar-glow: rgba(116, 217, 255, .42); }
 #spell-desk .role-support { --role-bar: #8ef0b4; --role-bar-glow: rgba(142, 240, 180, .42); }

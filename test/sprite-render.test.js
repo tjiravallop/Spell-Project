@@ -121,13 +121,19 @@ test('hybrid spell accents use distinct shapes and ignore ordinary elements', ()
   const bf = Object.create(Battlefield.prototype);
   bf.ctx = ctx;
   const patterns = new Set();
-  for (const element of ['magma', 'mist', 'hail', 'thunderstorm']) {
+  const all15Hybrids = [
+    'magma', 'mist', 'hail', 'thunderstorm',
+    'mudmire', 'dust', 'permafrost', 'magnet',
+    'monsoon', 'shockstream', 'heatwave', 'chillgale',
+    'plasma', 'scald', 'frostvolt',
+  ];
+  for (const element of all15Hybrids) {
     calls.length = 0;
     bf.drawHybridVfx(element, 120, 110, 0.4, 1, true);
     assert.ok(calls.length > 0, `${element} should draw an accent`);
     patterns.add(JSON.stringify(calls));
   }
-  assert.equal(patterns.size, 4);
+  assert.equal(patterns.size, 15);
   calls.length = 0;
   bf.drawHybridVfx('fire', 120, 110, 0.4, 1, true);
   assert.equal(calls.length, 0);
