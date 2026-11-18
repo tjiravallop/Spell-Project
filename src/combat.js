@@ -262,12 +262,12 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
 
   function applyEarthArmorShred(enemy, amount) {
     if (enemy.hp <= 0 || amount <= 0) return;
-    const prev = enemy.earthArmorUntil >= turn ? (enemy.earthArmorShred ?? 1) : 0;
-    if (amount > prev) {
-      enemy.armor = Math.max(0, enemy.armor - (amount - prev));
-      enemy.earthArmorShred = amount;
+    const actual = Math.min(enemy.armor, amount);
+    enemy.armor = Math.max(0, enemy.armor - amount);
+    enemy.permanentArmorShred = (enemy.permanentArmorShred ?? 0) + amount;
+    if (actual > 0) {
+      summary.sequence.push(`ทุบทำลายเกราะ ${enemy.slot + 1} ถาวร −${actual} (เหลือเกราะ ${enemy.armor})`);
     }
-    enemy.earthArmorUntil = turn + 1;
   }
 
   function applyMoisture(enemy, elements) {
@@ -300,9 +300,14 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       block += earthGain;
       events.push({ type: 'shield', amount: earthGain, secondary: true, element: elements.includes('pathaphi') ? 'pathaphi' : 'earth' });
     }
+    if (elements.includes('water') && !summary.waterHealed) {
+      summary.waterHealed = true;
+      heal(2, false, 'water');
+      summary.sequence.push('ละอองวารีฟื้นฟู +2 HP');
+    }
     if (enemy.hp <= 0) return;
     const frozen = elements.some(id => id === 'ice' || id === 'heman' || id === 'wari');
-    if (frozen) enemy.chill += 2;
+    if (frozen) enemy.chill += elements.includes('ice') ? 4 : 2;
     if (elements.includes('heman')) enemy.lastingChill = true;
     if (elements.includes('akki')) enemy.healCutUntil = turn + 1;
     if (elements.includes('pathaphi')) applyEarthArmorShred(enemy, 2);
@@ -334,7 +339,16 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
 
   function pushEnemy(enemy, direction = 1) {
     const slot = enemy.slot + direction;
-    if (enemy.hp <= 0 || slot < 0 || slot > 4 || live().some(other => other.slot === slot)) return;
+    if (enemy.hp <= 0) return;
+    if (slot < 0 || slot > 4 || live().some(other => other.slot === slot)) {
+      const isWind = (spell?.elements ?? []).some(id => elementFamily(id) === 'wind') || direction === 1;
+      if (isWind) {
+        damage(enemy, 3, 'wind', 0, spell.form);
+        summary.sequence.push(`ลมกระแทกชน +3 ดาเมจ`);
+        events.push({ type: 'wall-slam', target: enemy.id, amount: 3 });
+      }
+      return;
+    }
     enemy.slot = slot;
     events.push({ type: 'push', target: enemy.id, slot, ...(direction < 0 ? { pulled: true } : {}) });
   }
@@ -925,7 +939,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           const counterBurn = Math.ceil((3 + (hasEmberCore ? 1 : 0) + Math.floor(shieldRank / 2) + Math.floor(elemRank / 2)) * riftCounterScale);
           const counterDmg = Math.ceil((5 + Math.floor(shieldRank / 2) + elemRank) * riftCounterScale);
           if (effect === 'fire') newBurn.set(enemy.id, (newBurn.get(enemy.id) ?? 0) + counterBurn);
-          if (effect === 'ice') enemy.chill += 2;
+          if (effect === 'ice') enemy.chill += 4;
+          if (effect === 'water') heal(2, false, 'water');
           if (effect === 'lightning') damage(enemy, counterDmg + wetBonus, 'lightning', 2);
           if (effect === 'earth') {
             applyEarthArmorShred(enemy, 1);

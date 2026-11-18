@@ -542,7 +542,7 @@ test('beam pair, wave pair and blast, storm pierce, and grand work across attack
   const blast = cast(state, 'wave ice blast', target);
   assert.equal(blast.summary.cost, 7);
   assert.deepEqual(hp(blast), [48, 46, 46, 46, 48]);
-  assert.equal(blast.summary.enemyStatus[target].chill, 4);
+  assert.equal(blast.summary.enemyStatus[target].chill, 8);
   for (const enemy of state.enemies) enemy.armor = 3;
   assert.deepEqual(hp(cast(state, 'storm fire pierce', target)), [52, 45, 38, 45, 52]);
   for (const enemy of state.enemies) enemy.armor = 0;
@@ -629,7 +629,7 @@ test('large and grand defenses keep their timing, upgrades, and save behavior', 
   const largeShield = cast(state, 'shield ice large');
   assert.equal(largeShield.state.player.shield.layers[0], 6);
   assert.equal(largeShield.state.player.shield.effect, 'ice');
-  assert.equal(largeShield.state.enemies[0].chill, 2);
+  assert.equal(largeShield.state.enemies[0].chill, 4);
   const mixed = cast(state, 'shield large heal');
   assert.equal(mixed.state.player.hp, 16);
   assert.equal(mixed.state.player.shield.layers[0], 6);
@@ -837,7 +837,7 @@ test('direct blast formulas use a fixed center, apply elemental effects and resp
   const fused = cast(state, 'blast fire ice', 'enemy-1');
   assert.equal(fused.summary.cost, 7);
   assert.equal(fused.summary.enemyHp['enemy-1'], 42);
-  assert.equal(fused.summary.enemyStatus['enemy-1'].chill, 2);
+  assert.equal(fused.summary.enemyStatus['enemy-1'].chill, 4);
   assert.equal(fused.summary.enemyStatus['enemy-0'].ward, 1);
   assert.equal(fused.events.some(event => event.type === 'projectile'), false);
   assert.deepEqual(fused.events.find(event => event.type === 'blast').elements, ['fire', 'ice']);
@@ -878,7 +878,7 @@ test('fusion is commutative, averages damage, carries ice and pierces for the wh
   assert.deepEqual(first.summary, reversed.summary);
   assert.equal(first.summary.cost, 5);
   assert.equal(first.summary.damage, 5);
-  assert.equal(first.summary.incoming, 1);
+  assert.equal(first.summary.incoming, 0);
   assert.equal(first.events.filter(e => e.type === 'projectile').length, 1);
   assert.equal(cast(state, 'shot fire pair fire').summary.damage, 12);
   assert.equal(cast(state, 'shot fire pair lightning').summary.damage, 8);
@@ -894,12 +894,12 @@ test('piercing applies to explosions, and fractional damage rounds up before arm
 test('frost stacks and remains after skipped attacks or charge actions', () => {
   const state = battle(['charger']);
   const pair = cast(state, 'shot ice pair').state;
-  assert.equal(pair.enemies[0].chill, 4);
-  assert.equal(intent(pair.enemies[0], 2).amount, 3);
+  assert.equal(pair.enemies[0].chill, 8);
+  assert.equal(intent(pair.enemies[0], 2).amount, 0);
   const frozen = cast(state, 'shot ice freeze').state;
   const skipped = cast(frozen, 'guard');
   assert.equal(skipped.events.some(event => event.type === 'frozen'), true);
-  assert.equal(skipped.state.enemies[0].chill, 2);
+  assert.equal(skipped.state.enemies[0].chill, 4);
 });
 
 test('burn ticks before the next enemy action and a new application waits another turn', () => {
@@ -1202,7 +1202,7 @@ test('large shots work with all elements and pair doubles the volley and cost', 
     assert.equal(pair.summary.cost, 10);
     assert.deepEqual(pair.events.filter(event => event.type === 'projectile').map(event => event.target), ['enemy-0', 'enemy-1']);
     assert.equal(pair.summary.damage, damage * 2);
-    if (element === 'ice') assert.equal(pair.summary.enemyStatus['enemy-1'].chill, 2);
+    if (element === 'ice') assert.equal(pair.summary.enemyStatus['enemy-1'].chill, 4);
   }
 });
 
@@ -1257,7 +1257,7 @@ test('fused shield triggers both elements and split shield waits for the next la
   const fused = cast(state, 'shield fire pair ice').state;
   assert.deepEqual(fused.player.shield.layers, [3]);
   assert.equal(fused.enemies[0].burn, 3);
-  assert.equal(fused.enemies[0].chill, 2);
+  assert.equal(fused.enemies[0].chill, 4);
   const split = cast(state, 'shield fire ice pair').state;
   assert.deepEqual(split.player.shield.layers, [3, 6]);
   assert.equal(split.enemies[0].burn, 3);
@@ -2448,8 +2448,8 @@ test('shot blast variants and grand shield pair parse, register in catalog, and 
   // shot blast fire ice: dual element projectile (avg 8) + chill 2 + blast (5) => 13 center / 5 neighbors, all chilled
   const dualShell = cast(state, 'shot blast fire ice', 'enemy-1');
   assert.deepEqual(hp(dualShell), [47, 39, 47]);
-  assert.equal(dualShell.summary.enemyStatus['enemy-0'].chill, 2);
-  assert.equal(dualShell.summary.enemyStatus['enemy-1'].chill, 4);
+  assert.equal(dualShell.summary.enemyStatus['enemy-0'].chill, 4);
+  assert.equal(dualShell.summary.enemyStatus['enemy-1'].chill, 8);
 
   // shot blast pair & shot blast fire pair hit two selected targets
   const pairedShell = cast(state, 'shot blast fire pair', 'enemy-0', 'enemy-2');
@@ -2608,12 +2608,12 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   const catalog = getSpellCatalog();
   const storage = new MemoryStorage();
 
-  // Balance & family parity: Tier-1 = 2 MP, Tier-2 = 5 MP (2x damage), Tier-3 = 7 MP
-  for (const [t1, t2, dmg1] of [['earth', 'pathaphi', 8], ['water', 'wari', 7], ['wind', 'vayu', 7]]) {
+  // Balance & family parity: Tier-1 = 2 MP, Tier-2 = 5 MP, Tier-3 = 7 MP
+  for (const [t1, t2, dmg1, dmg2] of [['earth', 'pathaphi', 7, 16], ['water', 'wari', 6, 14], ['wind', 'vayu', 7, 14]]) {
     assert.equal(WORDS[t1].cost, 2);
     assert.equal(WORDS[t1].damage, dmg1);
     assert.equal(WORDS[t2].cost, 5);
-    assert.equal(WORDS[t2].damage, dmg1 * 2);
+    assert.equal(WORDS[t2].damage, dmg2);
     assert.equal(WORDS[t2].rarity, 'special');
     assert.equal(SECOND_TIER_ELEMENTS[t2], t1);
     assert.equal(elementFamily(t2), t1);
@@ -2638,7 +2638,7 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   const latePool = getRewardPool(lateRun);
   for (const id of ['pathaphi', 'wari', 'vayu']) assert.equal(latePool.includes(id), true);
 
-  // Earth: 8 dmg - armor(2) = 6 dmg, grants +2 block (reduces rune_ram 6 -> 4), shreds 1 armor until turn + 1 & persists in save
+  // Earth: 7 dmg - armor(2) = 5 dmg, grants +2 block (reduces rune_ram 6 -> 4), permanently shreds 1 armor & persists in save
   const earthState = battle(['rune_ram']); // hp 52, armor 2, attacks on turn 1 for 6
   earthState.player.maxHp = earthState.player.hp = 50;
   earthState.collection.push('earth', 'pathaphi');
@@ -2646,19 +2646,16 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   earthState.player.words = [...START_WORDS, 'earth', 'pathaphi'];
   earthState.player.hand = ['shot', 'earth', 'pathaphi'];
   const earthHit = cast(earthState, 'shot earth');
-  assert.equal(earthHit.summary.damage, 6);
+  assert.equal(earthHit.summary.damage, 5);
   assert.equal(earthHit.summary.blocked, 2);
   assert.equal(earthHit.summary.incoming, 4);
   assert.equal(earthHit.state.enemies[0].armor, 1);
-  assert.equal(earthHit.state.enemies[0].earthArmorUntil, 2);
-  assert.equal(earthHit.state.enemies[0].earthArmorShred, 1);
   assert.equal(saveRun(earthHit.state, storage).ok, true);
   const loadedEarth = loadRun(storage).state;
   assert.equal(loadedEarth.enemies[0].armor, 1);
-  // Expiry at end of turn 2 restores base armor = 2 on turn 3
+  // Permanent armor destruction persists across turns
   const afterTurn2 = cast(loadedEarth, 'guard');
-  assert.equal(afterTurn2.state.enemies[0].armor, 2);
-  assert.equal(afterTurn2.state.enemies[0].earthArmorUntil, undefined);
+  assert.equal(afterTurn2.state.enemies[0].armor, 1);
 
   // Pathaphi: 16 dmg - armor(2) = 14 dmg, grants +4 block (reduces rune_ram 6 -> 2), shreds 2 armor (2 -> 0)
   const pathaHit = cast(earthState, 'shot pathaphi');
@@ -2675,21 +2672,25 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   assert.equal(pathaShield.summary.damage, 5); // armor drops 2->0 first, then 5 quake - 0 armor = 5
   assert.equal(pathaShield.state.enemies[0].armor, 0);
 
-  // Water conductivity with Lightning & Hail freeze, plus Wari neighbor wet splash + chill
+  // Water conductivity with Lightning & Hail freeze, plus player +2 HP recovery
   const wetComboState = battle(['striker', 'striker']); // hp 16, armor 0
+  wetComboState.player.maxHp = 50;
+  wetComboState.player.hp = 40;
   const waterFirst = cast(wetComboState, 'shot water', 'enemy-0');
-  assert.equal(waterFirst.summary.damage, 7);
+  assert.equal(waterFirst.summary.damage, 6);
   assert.equal(waterFirst.state.enemies[0].wetUntil, 2);
+  assert.equal(waterFirst.summary.healed, 2);
+  assert.equal(waterFirst.state.player.hp, 36); // 40 + 2 healed - 6 striker attack = 36
   waterFirst.state.player.mana = 12;
   const lightningFollow = cast(waterFirst.state, 'shot lightning', 'enemy-0');
-  // 8 base + 2 wet conductivity = 10 dmg on wet target (exceeds 16 - 7 = 9, so kills enemy-0!)
+  // 8 base + 2 wet conductivity = 10 dmg on wet target (exceeds 16 - 6 = 10, so kills enemy-0!)
   assert.equal(lightningFollow.events.find(ev => ev.type === 'damage').amount, 10);
   assert.equal(lightningFollow.summary.enemyHp['enemy-0'], 0);
 
-  // Dual fusion: shot water pair lightning => avg(7, 8)=7.5 + 2 conductivity = 9.5 -> ceil 10 dmg, wets target
+  // Dual fusion: shot water pair lightning => avg(6, 8)=7 + 2 conductivity = 9 dmg, wets target
   const fusedShock = cast(battle(['rune_ram']), 'shot water pair lightning');
   assert.equal(fusedShock.summary.cost, 5);
-  assert.equal(fusedShock.summary.damage, 10);
+  assert.equal(fusedShock.summary.damage, 9);
   assert.equal(fusedShock.state.enemies[0].wetUntil, 2);
 
   // Water -> Hail freezes cleanly (use void_imp so target survives hail impact and has normal attack intent)

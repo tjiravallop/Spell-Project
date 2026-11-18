@@ -720,7 +720,8 @@ export function prepareEnemies(state) {
       enemy.armor = phase === 1 ? 4 : phase === 2 ? 5 : phase === 3 ? 3 : 0;
     }
     if (enemy.magmaArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
-    if (enemy.earthArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - (enemy.earthArmorShred ?? 1));
+    if (enemy.permanentArmorShred) enemy.armor = Math.max(0, enemy.armor - enemy.permanentArmorShred);
+    else if (enemy.earthArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - (enemy.earthArmorShred ?? 1));
     if (enemy.wardGrant) {
       if (enemy.hp > 0) enemy.ward = Math.min(3, enemy.ward + enemy.wardGrant);
       delete enemy.wardGrant;
