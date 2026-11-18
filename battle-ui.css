@@ -1579,11 +1579,13 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 }
 
 @media (max-width: 700px) {
-  .masthead { padding-inline: 9px; gap: 4px; }
+  .masthead { min-height: 42px; padding: 4px 8px; gap: 4px; }
   .brand { font-size: 12px; line-height: 1.2; }
   .brand-mark { display: none; }
   .brand small { letter-spacing: .09em; white-space: nowrap; }
   .top-actions { gap: 3px; }
+  .top-actions .icon-button { width: 36px; height: 36px; min-height: 36px; }
+  .top-actions .icon-button .icon { width: 16px; height: 16px; }
   body[data-screen="battle"] main { width: 100%; }
   #battle-view {
     --battlefield-row: auto;
@@ -1592,38 +1594,61 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
     height: auto;
     max-height: none;
   }
-  .battlefield-wrap { width: 100%; padding: 0; }
-  #battle-view .resource-bar { flex-wrap: nowrap; gap: 8px; padding: 5px 7px; }
-  #battle-view .resource strong { font-size: 14px; }
+  .battlefield-wrap {
+    width: min(100%, calc(28dvh * 16 / 9), 320px);
+    aspect-ratio: 16 / 9;
+    margin: 0 auto;
+    padding: 0;
+  }
+  #battle-view .resource-bar { flex-wrap: nowrap; gap: 8px; padding: 3px 6px; font-size: 11.5px; }
+  #battle-view .resource strong { font-size: 12.5px; }
   #battle-view .resource > span:nth-child(2), #battle-view .mana-pips, #battle-view .rpg-resource, #battle-view .turn-sep, #battle-view .turn-status { display: none; }
-  #battle-view .turn-num { font-size: 12px; }
-  .battle-room { font-size: 12px; }
-  .combat-command { grid-template-columns: minmax(0,1fr); padding: 0 8px 6px; }
+  #battle-view .turn-num { font-size: 11px; }
+  .battle-room { font-size: 11px; }
+  .combat-command { grid-template-columns: minmax(0,1fr); padding: 0 4px 2px; }
   #spell-desk { padding: 0; }
-  #spell-desk .spell-slots { grid-template-columns: repeat(4, minmax(64px, 76px)); gap: 6px; padding: 6px; margin-top: 8px; }
-  #spell-desk .spell-slots.is-combo-linked .spell-slot.filled + .spell-slot.filled::before { left: -8px; width: 8px; }
-  #spell-desk .spell-slot { height: 96px; border-radius: 8px; }
-  #spell-desk .spell-slot .card-art-frame { width: 32px; height: 32px; }
-  #spell-desk .spell-slot .card-emblem .icon { width: 18px; height: 18px; }
-  #spell-desk .spell-slot .card-title { font-size: 12px; }
-  #spell-desk .slot-actions button { min-height: 40px; min-width: 38px; }
+  #spell-desk .spell-slots { grid-template-columns: repeat(4, minmax(56px, 70px)); gap: 4px; padding: 3px 4px; margin-top: 3px; }
+  #spell-desk .spell-slots.is-combo-linked .spell-slot.filled + .spell-slot.filled::before { left: -6px; width: 6px; }
+  #spell-desk .spell-slot { height: 76px; border-radius: 6px; }
+  #spell-desk .spell-slot .card-art-frame { width: 24px; height: 24px; }
+  #spell-desk .spell-slot .card-emblem .icon { width: 14px; height: 14px; }
+  #spell-desk .spell-slot .card-title { font-size: 10.5px; }
+  #spell-desk .slot-remove { width: 16px; height: 16px; min-width: 16px; min-height: 16px; font-size: 10px; top: -4px; right: -4px; }
+  #spell-desk .slot-number { font-size: 8.5px; }
+  #spell-desk .slot-empty-emblem { width: 20px; height: 20px; font-size: 11px; }
+  #spell-desk .slot-empty-text { font-size: 8.5px; }
+  #spell-desk .slot-socket-frame { padding: 3px; }
+  #spell-desk .edit-row { min-height: 22px; margin: 0; gap: 4px; }
+  #spell-desk .expression { font-size: 11px; }
+  #spell-desk .slot-actions button { min-height: 24px; min-width: 28px; font-size: 10.5px; padding: 2px 4px; }
   #spell-desk .slot-actions:not(:has(button:enabled)) { display: none; }
-  #spell-desk .word-bank { justify-content: start; gap: 8px; padding: 12px 10px 8px; }
-  #spell-desk .word-item { width: 80px; min-height: 114px; }
-  #spell-desk .word-add { min-height: 114px; }
-  #spell-desk .card-art-frame { width: 38px; height: 38px; }
-  #spell-desk .card-emblem .icon { width: 20px; height: 20px; }
+  #spell-desk .word-bank-heading { padding: 1px 0 0; margin: 1px 0 0; }
+  #spell-desk .word-bank-heading h2 { font-size: 10.5px; }
+  #combos-open { min-height: 22px; font-size: 10.5px; padding: 0 2px; }
+  #spell-desk .word-bank { justify-content: start; gap: 5px; padding: 5px 6px 3px; border-radius: 6px; }
+  #spell-desk .word-item { width: 68px; min-height: 92px; }
+  #spell-desk .word-add { min-height: 92px; padding: 2px; }
+  #spell-desk .card-art-frame { width: 28px; height: 28px; }
+  #spell-desk .card-emblem .icon { width: 15px; height: 15px; }
+  #spell-desk .card-title { font-size: 11px; }
+  #spell-desk .rarity-badge { font-size: 8px; }
   #spell-desk .card-corner-bottom { display: none; }
-  .known-formulas-bar { margin: 3px 0 4px; padding: 4px 6px; gap: 4px; }
+  .known-formulas-bar { margin: 1px 0 2px; padding: 2px 5px; gap: 2px; }
+  .known-formulas-label { font-size: 10px; gap: 3px; }
+  .known-formulas-count { height: 15px; min-width: 15px; font-size: 9.5px; }
   .known-formulas-empty.is-hint { display: none; }
-  .known-shortcuts .known-chip { min-height: 44px; padding: 4px 8px; font-size: 12px; gap: 5px; }
-  .combat-command .cast-dock { padding: 6px 0 2px; gap: 6px; border: 0; }
-  .combat-command .forecast { max-width: none; padding: 7px 9px; font-size: 12.5px; }
+  .known-shortcuts { gap: 3px; }
+  .known-shortcuts .known-chip { min-height: 30px; padding: 2px 5px; font-size: 10.5px; gap: 3px; }
+  .known-chip-badge { font-size: 8.5px; padding: 0 3px; }
+  .known-chip-cat { font-size: 8.5px; padding: 0 3px; }
+  .combat-command .cast-dock { padding: 2px 0 1px; gap: 3px; border: 0; }
+  .combat-command .forecast { max-width: none; padding: 4px 7px; font-size: 11px; }
   .combat-command .forecast details { margin-top: 1px; }
-  .combat-command .cast-actions { grid-template-columns: minmax(88px, .7fr) minmax(0, 1.3fr); }
-  .game-sheet { inset: auto 0 0; width: 100%; max-height: min(46dvh, calc(100dvh - 70px)); padding: 8px 10px max(10px, env(safe-area-inset-bottom)); border-radius: 12px 12px 0 0; }
+  .combat-command .cast-actions { grid-template-columns: minmax(72px, .65fr) minmax(0, 1.35fr); gap: 5px; }
+  .combat-command .cast-actions :is(.primary-button, .secondary-button) { min-height: 38px; font-size: 13px; }
+  .game-sheet { position: fixed; inset: auto 0 0; width: 100%; max-height: min(52dvh, calc(100dvh - 65px)); padding: 8px 10px max(10px, env(safe-area-inset-bottom)); border-radius: 12px 12px 0 0; z-index: 40; }
   .game-sheet::before { content: ''; align-self: center; width: 32px; height: 3px; background: #9a87a2; border-radius: 2px; }
-  .discard-sheet { max-height: calc(100dvh - 65px); }
+  .discard-sheet { max-height: calc(100dvh - 55px); }
   #sanctuary-rest-panel { grid-template-columns: minmax(0,1fr); }
 }
 

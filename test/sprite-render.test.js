@@ -4,7 +4,7 @@ import { Battlefield, vfxScale } from '../src/render.js';
 import { parseSpell } from '../src/words.js';
 import { simulateTurn } from '../src/combat.js';
 import { createRun, createEnemy, prepareEnemies, FLOOR31_START_ROOM } from '../src/run.js';
-import { inferDeskElement, inferDeskPower, renderSlots, renderEnemies, renderRoomTrack } from '../src/ui/battle-render.js';
+import { inferDeskElement, inferDeskPower, renderSlots, renderEnemies, renderRoomTrack, renderWordBank } from '../src/ui/battle-render.js';
 import { createBattleFxController } from '../src/ui/battle-fx.js';
 import { cardFilterControls, applyCardFilters, bindCardFilters } from '../src/ui/card-filters.js';
 
@@ -582,5 +582,43 @@ test('card filter controls filter forge and inventory cards by search, role, rar
     assert.equal(empty.hidden, true);
   } finally {
     globalThis.document = oldDoc;
+  }
+});
+
+test('renderWordBank renders button-based discard cards and alert banner during overflow', () => {
+  const elements = {
+    'hand-count': { textContent: '' },
+    'discard-panel': { open: false, showModal() { this.open = true; }, close() { this.open = false; }, setAttribute() {}, removeAttribute() {} },
+    'word-bank': { hidden: false, scrollLeft: 0, innerHTML: '' },
+    'enemy-list': { inert: false },
+    'discard-title': { textContent: '' },
+    'discard-cards': { innerHTML: '' },
+    'confirm-discard': { disabled: false, textContent: '' },
+    'discard-alert': { hidden: true },
+    'discard-alert-text': { textContent: '' },
+    'reopen-discard-btn': { textContent: '' },
+    'battle-tools': { close() {} },
+  };
+  const oldDocument = globalThis.document;
+  globalThis.document = { getElementById: id => elements[id] ?? null };
+  try {
+    const state = createRun('wb-test', false);
+    state.player.hand = Array(11).fill('fire');
+    renderWordBank({ state, words: [], busy: false });
+    assert.equal(elements['word-bank'].hidden, true);
+    assert.equal(elements['discard-alert'].hidden, false);
+    assert.match(elements['discard-alert-text'].textContent, /ไพ่ในมือเกิน 1 ใบ/);
+    assert.match(elements['discard-cards'].innerHTML, /<button type="button" class="discard-card/);
+    assert.match(elements['discard-cards'].innerHTML, /data-discard-index="0"/);
+    assert.equal(elements['discard-panel'].open, true);
+    assert.match(elements['confirm-discard'].textContent, /เลือกทิ้งอีก 1 ใบ/);
+
+    state.player.hand = Array(10).fill('fire');
+    renderWordBank({ state, words: [], busy: false });
+    assert.equal(elements['word-bank'].hidden, false);
+    assert.equal(elements['discard-alert'].hidden, true);
+    assert.equal(elements['discard-panel'].open, false);
+  } finally {
+    globalThis.document = oldDocument;
   }
 });

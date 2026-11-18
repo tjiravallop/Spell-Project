@@ -690,13 +690,27 @@ export function renderWordBank({ state, words, busy }) {
   const scrollLeft = bank.scrollLeft;
   $('word-bank').hidden = overflow > 0;
   $('enemy-list').inert = overflow > 0;
+  const alertEl = $('discard-alert');
+  if (alertEl) {
+    alertEl.hidden = overflow <= 0;
+    if (overflow > 0) {
+      const alertText = $('discard-alert-text');
+      if (alertText) alertText.textContent = `ไพ่ในมือเกิน ${overflow} ใบ (${hand.length}/${HAND_LIMIT}) · ต้องเลือกทิ้งก่อนเล่นต่อ`;
+      const reopenBtn = $('reopen-discard-btn');
+      if (reopenBtn) reopenBtn.textContent = `แตะเพื่อเลือกทิ้งไพ่ (${overflow} ใบ)`;
+    }
+  }
   $('discard-title').textContent = `มือเกิน ${overflow} ใบ · เลือกทิ้ง ${overflow === 1 ? '1–2' : overflow} ใบ`;
   $('discard-cards').innerHTML = overflow > 0 ? hand.map((id, index) => {
     const word = WORDS[id];
     const meta = cardMeta(id);
-    return `<label class="discard-card playing-card word-${id} ${rarityClass(word)} ${meta.roleClass}"><input type="checkbox" value="${index}">${playingCardFace(state, id, { headerRight: '<span class="discard-check-mark">ทิ้ง</span>' })}</label>`;
+    return `<button type="button" class="discard-card playing-card word-${id} ${rarityClass(word)} ${meta.roleClass}" data-discard-index="${index}" aria-pressed="false">${playingCardFace(state, id, { headerRight: '<span class="discard-check-mark"><span class="check-box-text">เลือกทิ้ง</span></span>' })}</button>`;
   }).join('') : '';
-  $('confirm-discard').disabled = true;
+  const confirmBtn = $('confirm-discard');
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = overflow > 0 ? `เลือกทิ้งอีก ${overflow} ใบ` : 'ยืนยันทิ้งการ์ด';
+  }
   const totalTypes = ordered.length;
   const mid = (totalTypes - 1) / 2;
   bank.innerHTML = ordered.map((id, idx) => {
@@ -719,10 +733,17 @@ export function renderWordBank({ state, words, busy }) {
     return `<div class="word-item playing-card word-${id} ${rarityClass(word)} ${meta.roleClass} ${count > 1 ? 'has-stack' : ''} ${available <= 0 ? 'depleted' : ''} ${inUse > 0 && available > 0 ? 'partially-used' : ''}" data-copies="${Math.min(4, Math.max(1, available))}" data-total-copies="${count}" style="--fan-angle:${fanAngle}deg;--fan-lift:${fanLift}px">${stackSheets}<button id="word-${id}" class="word-add" data-word="${id}" data-drag-word="${id}" ${busy || overflow > 0 ? 'disabled' : ''}>${playingCardFace(state, id, { headerRight: countBadge })}</button><button class="drag-handle" data-drag-word="${id}" tabindex="-1" aria-label="ลากคำ ${word.label}" ${busy || overflow > 0 ? 'disabled' : ''}></button></div>`;
   }).join('');
   bank.scrollLeft = scrollLeft;
-  if (!busy && overflow > 0 && !discard.open) {
-    $('battle-tools').close();
-    discard.showModal();
-  } else if (overflow <= 0) discard.close();
+  if (!busy && overflow > 0) {
+    try {
+      $('battle-tools').close();
+      if (!discard.open) discard.showModal();
+    } catch {
+      discard.setAttribute('open', '');
+    }
+  } else if (overflow <= 0) {
+    try { discard.close(); } catch {}
+    discard.removeAttribute('open');
+  }
 }
 
 export function renderForecast({ state, words, busy }, parsed, forecast, knownSpell = false) {

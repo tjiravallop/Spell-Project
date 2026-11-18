@@ -630,7 +630,18 @@ function describeWord() {
 }
 
 function addWord(id, index = selectedSlot) {
-  if (busy || state.player.hand.length > HAND_LIMIT) return;
+  if (busy) return;
+  if (state.player.hand.length > HAND_LIMIT) {
+    const excess = state.player.hand.length - HAND_LIMIT;
+    toast(`⚠️ ไพ่ในมือเกิน ${excess} ใบ (${state.player.hand.length}/${HAND_LIMIT}) · ต้องเลือกทิ้งก่อนเล่นต่อ`);
+    try {
+      $('battle-tools').close();
+      if (!$('discard-panel').open) $('discard-panel').showModal();
+    } catch {
+      $('discard-panel').setAttribute('open', '');
+    }
+    return;
+  }
   const at = index === null ? words.length : Math.min(index, words.length);
   const replacing = words.length >= 4 && at < words.length && words[at] === id;
   if (!replacing && words.filter(word => word === id).length >= state.player.hand.filter(card => card === id).length) {
@@ -919,7 +930,7 @@ function finishTurn() {
   renderLog();
   render();
   if (state.phase === 'battle') {
-    if (state.player.hand.length > HAND_LIMIT) $('discard-cards').querySelector('input')?.focus();
+    if (state.player.hand.length > HAND_LIMIT) { selectedDiscardIndices.clear(); $('discard-cards').querySelector('button')?.focus(); updateDiscardUI(); }
     else focusAfterRender($('cast-button').disabled ? 'guard-button' : 'cast-button');
   }
 }
@@ -1035,19 +1046,75 @@ $('climb-button').addEventListener('click', () => {
 });
 $('cast-button').addEventListener('click', () => commit());
 $('discard-panel').addEventListener('cancel', event => event.preventDefault());
-$('discard-cards').addEventListener('change', () => {
-  const inputs = [...$('discard-cards').querySelectorAll('input')];
-  const count = inputs.filter(input => input.checked).length;
+$('reopen-discard-btn')?.addEventListener('click', () => {
+  try {
+    $('battle-tools').close();
+    if (!$('discard-panel').open) $('discard-panel').showModal();
+  } catch {
+    $('discard-panel').setAttribute('open', '');
+  }
+});
+const selectedDiscardIndices = new Set();
+
+function updateDiscardUI() {
+  if (!state?.player) return;
   const excess = state.player.hand.length - HAND_LIMIT;
   const limit = Math.max(2, excess);
-  for (const input of inputs) input.disabled = count >= limit && !input.checked;
-  $('confirm-discard').disabled = count < excess || count > limit;
+  const cards = $('discard-cards')?.querySelectorAll('[data-discard-index]') ?? [];
+  for (const card of cards) {
+    const idx = Number(card.dataset.discardIndex);
+    const isSelected = selectedDiscardIndices.has(idx);
+    const isMaxReached = selectedDiscardIndices.size >= limit;
+    card.classList.toggle('is-checked', isSelected);
+    card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    card.classList.toggle('is-disabled', !isSelected && isMaxReached);
+    const text = card.querySelector('.check-box-text');
+    if (text) text.textContent = isSelected ? '✓ ทิ้งใบนี้' : 'เลือกทิ้ง';
+  }
+  const confirmBtn = $('confirm-discard');
+  if (confirmBtn) {
+    const count = selectedDiscardIndices.size;
+    confirmBtn.disabled = count < excess || count > limit;
+    confirmBtn.textContent = count >= excess
+      ? `ยืนยันทิ้ง ${count} ใบ`
+      : `เลือกทิ้งอีก ${excess - count} ใบ`;
+  }
+}
+
+$('discard-cards').addEventListener('click', event => {
+  const card = event.target.closest('[data-discard-index]');
+  if (!card || card.disabled) return;
+  const index = Number(card.dataset.discardIndex);
+  if (!Number.isInteger(index)) return;
+  const excess = state.player.hand.length - HAND_LIMIT;
+  const limit = Math.max(2, excess);
+  if (selectedDiscardIndices.has(index)) {
+    selectedDiscardIndices.delete(index);
+    audio.play('remove');
+  } else {
+    if (selectedDiscardIndices.size >= limit) {
+      toast(`เลือกทิ้งได้สูงสุด ${limit} ใบ`);
+      return;
+    }
+    selectedDiscardIndices.add(index);
+    audio.play('place');
+  }
+  updateDiscardUI();
 });
+
 $('confirm-discard').addEventListener('click', () => {
-  const indices = [...$('discard-cards').querySelectorAll(':checked')].map(input => Number(input.value));
+  const indices = [...selectedDiscardIndices].sort((a, b) => a - b);
   try {
     state = discardOverflow(state, indices);
-    persist(); renderBattle(); focusAfterRender('guard-button');
+    selectedDiscardIndices.clear();
+    persist();
+    if (state.player.hand.length <= HAND_LIMIT) {
+      try { $('discard-panel').close(); } catch {}
+      $('discard-panel').removeAttribute('open');
+    }
+    renderBattle();
+    focusAfterRender('guard-button');
+    toast(`ทิ้งไพ่ส่วนเกิน ${indices.length} ใบเรียบร้อยแล้ว`);
   } catch (error) { toast(error.message); }
 });
 $('guard-button').addEventListener('click', () => commit(true));
