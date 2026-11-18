@@ -65,9 +65,20 @@ export const WORD_BASE_COST = Object.freeze({
   wari: 5,
   vayu: WORDS.vayu.cost,
   magma: 7,
+  mudmire: 7,
+  dust: 7,
+  permafrost: 7,
+  magnet: 7,
   mist: 7,
   hail: 7,
+  monsoon: 7,
+  shockstream: 7,
   thunderstorm: 7,
+  heatwave: 7,
+  chillgale: 7,
+  plasma: 7,
+  scald: 7,
+  frostvolt: 7,
   pair: 2,
   blast: 2,
   devastation: WORDS.devastation.cost,
@@ -282,11 +293,20 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       enemy.wetUntil = turn + 1;
       enemy.obscured = true;
     }
+    if (elements.includes('mudmire')) {
+      enemy.wetUntil = turn + 1;
+      enemy.chill += 3;
+    }
     if (elements.includes('water')) enemy.wetUntil = turn + 1;
     if (elements.includes('wari')) {
       enemy.wetUntil = turn + 1;
       for (const candidate of live()) {
         if (Math.abs(candidate.slot - enemy.slot) === 1) candidate.wetUntil = turn + 1;
+      }
+    }
+    if (elements.includes('monsoon')) {
+      for (const candidate of live()) {
+        candidate.wetUntil = turn + 1;
       }
     }
   }
@@ -295,24 +315,61 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const families = elements.map(elementFamily);
     const conductivity = families.includes('lightning') && (enemy.wetUntil >= turn || families.includes('water')) ? 2 : 0;
     damage(enemy, strength + conductivity, elements[0] ?? spell.form, pierce, spell.form);
-    const earthGain = elements.includes('pathaphi') ? 4 : elements.includes('earth') ? 2 : 0;
+    const earthGain = elements.includes('permafrost') ? 6
+      : elements.includes('pathaphi') ? 4
+      : elements.includes('earth') ? 2 : 0;
     if (earthGain > 0) {
       block += earthGain;
-      events.push({ type: 'shield', amount: earthGain, secondary: true, element: elements.includes('pathaphi') ? 'pathaphi' : 'earth' });
+      events.push({
+        type: 'shield',
+        amount: earthGain,
+        secondary: true,
+        element: elements.includes('permafrost') ? 'permafrost' : elements.includes('pathaphi') ? 'pathaphi' : 'earth',
+      });
     }
-    if (elements.includes('water') && !summary.waterHealed) {
+    if (elements.includes('monsoon') && !summary.monsoonHealed) {
+      summary.monsoonHealed = true;
+      heal(4, false, 'water');
+      summary.sequence.push('คลื่นมรสุมฟื้นฟู +4 HP');
+    }
+    if (elements.includes('wari') && !summary.wariHealed) {
+      summary.wariHealed = true;
+      heal(4, false, 'water');
+      summary.sequence.push('คลื่นวารีฟื้นฟู +4 HP');
+    } else if (elements.includes('water') && !summary.waterHealed) {
       summary.waterHealed = true;
       heal(2, false, 'water');
       summary.sequence.push('ละอองวารีฟื้นฟู +2 HP');
     }
     if (enemy.hp <= 0) return;
-    const frozen = elements.some(id => id === 'ice' || id === 'heman' || id === 'wari');
-    if (frozen) enemy.chill += elements.includes('ice') ? 4 : 2;
-    if (elements.includes('heman')) enemy.lastingChill = true;
+    const frozen = elements.some(id => ['ice', 'heman', 'wari', 'chillgale', 'frostvolt'].includes(id));
+    if (frozen) enemy.chill += (elements.includes('ice') || elements.includes('heman') || elements.includes('chillgale') || elements.includes('frostvolt')) ? 4 : 2;
+    if (elements.includes('heman') || elements.includes('chillgale')) enemy.lastingChill = true;
     if (elements.includes('akki')) enemy.healCutUntil = turn + 1;
-    if (elements.includes('pathaphi')) applyEarthArmorShred(enemy, 2);
-    else if (elements.includes('earth')) applyEarthArmorShred(enemy, 1);
+    if (elements.includes('permafrost') || elements.includes('scald') || elements.includes('pathaphi')) {
+      applyEarthArmorShred(enemy, 2);
+    } else if (elements.includes('earth') || elements.includes('dust')) {
+      applyEarthArmorShred(enemy, 1);
+    }
     applyMoisture(enemy, elements);
+    if (elements.includes('heatwave')) {
+      newBurn.set(enemy.id, (newBurn.get(enemy.id) ?? 0) + 4);
+      events.push({ type: 'status', status: 'burn', target: enemy.id });
+      for (const candidate of live()) {
+        if (Math.abs(candidate.slot - enemy.slot) === 1) {
+          newBurn.set(candidate.id, (newBurn.get(candidate.id) ?? 0) + 4);
+          events.push({ type: 'status', status: 'burn', target: candidate.id });
+        }
+      }
+    }
+    if (elements.includes('shockstream')) {
+      for (const target of live()) {
+        if (target.id !== enemy.id && target.wetUntil >= turn) {
+          damage(target, 10, 'shockstream', 2, spell.form);
+          summary.sequence.push(`กระแสช็อตแล่นผ่านน้ำใส่ช่อง ${target.slot + 1} 10 ดาเมจ`);
+        }
+      }
+    }
     if (spell.freeze) {
       enemy.freeze += spell.freeze;
       events.push({ type: 'status', status: 'freeze', target: enemy.id });
@@ -334,6 +391,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (sweep) sweep.chained = true;
     events.push({ type: 'chain-lightning', source: enemy.id, target: neighbor.id, element, ...spellVfxFlags });
     damage(neighbor, strength / 2 + (neighbor.wetUntil >= turn ? 2 : 0), element, pierce, attackForm);
+    if (element === 'frostvolt') {
+      neighbor.chill += 4;
+      events.push({ type: 'status', status: 'chill', target: neighbor.id });
+    }
     summary.sequence.push(`${WORDS[element].label}ชิ่งไปช่อง ${neighbor.slot + 1}`);
   }
 
@@ -343,9 +404,11 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (slot < 0 || slot > 4 || live().some(other => other.slot === slot)) {
       const isWind = (spell?.elements ?? []).some(id => elementFamily(id) === 'wind') || direction === 1;
       if (isWind) {
-        damage(enemy, 3, 'wind', 0, spell.form);
-        summary.sequence.push(`ลมกระแทกชน +3 ดาเมจ`);
-        events.push({ type: 'wall-slam', target: enemy.id, amount: 3 });
+        const isBoostedSlam = (spell?.elements ?? []).some(id => ['vayu', 'dust', 'heatwave', 'chillgale'].includes(id));
+        const slamDmg = isBoostedSlam ? 6 : 3;
+        damage(enemy, slamDmg, 'wind', 0, spell.form);
+        summary.sequence.push(`ลมกระแทกชน +${slamDmg} ดาเมจ`);
+        events.push({ type: 'wall-slam', target: enemy.id, amount: slamDmg });
       }
       return;
     }
@@ -448,16 +511,28 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const strength = (base + formUpgradeBonus + auxUpgradeBonus) * spell.multiplier * targetScale;
     const pierce = (spell.pierce ?? 0)
       + pierceUpgradeBonus
-      + (families.includes('lightning') ? 2 : 0)
+      + (families.includes('lightning') || elements.some(id => ['plasma', 'shockstream', 'frostvolt', 'magnet', 'thunderstorm'].includes(id)) ? 2 : 0)
       + (blessings.includes('blessing_thunder') ? 1 : 0);
     return { strength, pierce };
   }
 
   function elementAfterHit(enemy, elements, strength, pierce, sweep, slot) {
     if (elements.includes('magma')) leaveMagma(slot);
-    const gust = elements.includes('wind') || elements.includes('vayu') || elements.includes('thunderstorm');
+    const gust = elements.some(id => ['wind', 'vayu', 'thunderstorm', 'dust', 'heatwave', 'chillgale'].includes(id));
     if (gust) pushEnemy(enemy);
-    if (elements.includes('thunderstorm')) chainLightning(enemy, strength, pierce, sweep, 'thunderstorm', spell.form);
+    if (elements.includes('monsoon')) {
+      for (const target of live()) {
+        if (target.id !== enemy.id) pushEnemy(target);
+      }
+    }
+    if (elements.includes('magnet')) {
+      for (const neighbor of live()) {
+        if (neighbor.slot < enemy.slot) pushEnemy(neighbor, 1);
+        else if (neighbor.slot > enemy.slot) pushEnemy(neighbor, -1);
+      }
+    }
+    if (elements.includes('frostvolt')) chainLightning(enemy, strength, pierce, sweep, 'frostvolt', spell.form);
+    else if (elements.includes('thunderstorm')) chainLightning(enemy, strength, pierce, sweep, 'thunderstorm', spell.form);
     else if (elements.includes('asani')) chainLightning(enemy, strength, pierce, sweep, 'asani', spell.form);
     return gust;
   }
@@ -896,7 +971,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const action = intent(enemy, turn, enemies, state.room);
     summary.enemyActions[enemy.id] = action;
     if (action.type === 'attack') {
-      enemy.chill = enemy.lastingChill ? 2 : 0;
+      enemy.chill = enemy.lastingChill ? 4 : 0;
       delete enemy.lastingChill;
       delete enemy.obscured;
       const { actual, absorbed, beforeShield, remaining, broken, effects, shield } = applyIncomingToPlayer(action.amount, true);

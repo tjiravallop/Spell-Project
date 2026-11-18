@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSpell, WORDS, START_WORDS, ELEMENTS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, DEVASTATION_FORMULAS, getSpellCatalog, elementFamily } from '../src/words.js';
+import { parseSpell, WORDS, RARITIES, START_WORDS, ELEMENTS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, DEVASTATION_FORMULAS, getSpellCatalog, elementFamily } from '../src/words.js';
 import {
   createRun, createEnemy, prepareEnemies, chooseReward, equipWords, makeRewards, intent, discardOverflow, isBossRoom, ENEMIES,
   getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPre10Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
@@ -38,12 +38,12 @@ test('second-tier elements halve healing, preserve chill, and chain to one neigh
   assert.equal(first.events.find(e => e.type === 'heal').amount, 3);
   const coldTarget = battle(['rune_ram']);
   const frozen = cast(coldTarget, 'shot heman');
-  assert.equal(frozen.events.find(e => e.type === 'attack').rawAttack, 4);
-  assert.equal(frozen.state.enemies[0].chill, 2);
+  assert.equal(frozen.events.find(e => e.type === 'attack').rawAttack, 2);
+  assert.equal(frozen.state.enemies[0].chill, 4);
   const charge = cast(frozen.state, 'guard');
-  assert.equal(charge.state.enemies[0].chill, 2);
+  assert.equal(charge.state.enemies[0].chill, 4);
   const heavy = cast(charge.state, 'guard');
-  assert.equal(heavy.events.find(e => e.type === 'attack').rawAttack, 13);
+  assert.equal(heavy.events.find(e => e.type === 'attack').rawAttack, 11);
   assert.equal(heavy.state.enemies[0].chill, 0);
   const chainTarget = battle(['striker', 'rune_ram', 'striker']);
   const shock = cast(chainTarget, 'shot asani', 'enemy-1');
@@ -2609,7 +2609,7 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   const storage = new MemoryStorage();
 
   // Balance & family parity: Tier-1 = 2 MP, Tier-2 = 5 MP, Tier-3 = 7 MP
-  for (const [t1, t2, dmg1, dmg2] of [['earth', 'pathaphi', 7, 16], ['water', 'wari', 6, 14], ['wind', 'vayu', 7, 14]]) {
+  for (const [t1, t2, dmg1, dmg2] of [['earth', 'pathaphi', 7, 14], ['water', 'wari', 6, 12], ['wind', 'vayu', 7, 14]]) {
     assert.equal(WORDS[t1].cost, 2);
     assert.equal(WORDS[t1].damage, dmg1);
     assert.equal(WORDS[t2].cost, 5);
@@ -2657,9 +2657,9 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   const afterTurn2 = cast(loadedEarth, 'guard');
   assert.equal(afterTurn2.state.enemies[0].armor, 1);
 
-  // Pathaphi: 16 dmg - armor(2) = 14 dmg, grants +4 block (reduces rune_ram 6 -> 2), shreds 2 armor (2 -> 0)
+  // Pathaphi: 14 dmg - armor(2) = 12 dmg, grants +4 block (reduces rune_ram 6 -> 2), shreds 2 armor (2 -> 0)
   const pathaHit = cast(earthState, 'shot pathaphi');
-  assert.equal(pathaHit.summary.damage, 14);
+  assert.equal(pathaHit.summary.damage, 12);
   assert.equal(pathaHit.summary.blocked, 4);
   assert.equal(pathaHit.summary.incoming, 2);
   assert.equal(pathaHit.state.enemies[0].armor, 0);
@@ -2702,9 +2702,12 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   const wetHail = cast(wetTarget.state, 'shot hail', 'enemy-0');
   assert.equal(wetHail.summary.enemyActions['enemy-0'].type, 'frozen');
 
-  // Wari: 14 dmg, chill +2 (reduces striker 3 -> 1), wets main target AND adjacent enemy
-  const wariRes = cast(battle(['striker', 'striker', 'striker']), 'shot wari', 'enemy-1');
-  assert.equal(wariRes.summary.damage, 14);
+  // Wari: 12 dmg, heals 4 HP, chill +2 (reduces striker 3 -> 1), wets main target AND adjacent enemy
+  const wariState = battle(['striker', 'striker', 'striker']);
+  wariState.player.hp = 30;
+  const wariRes = cast(wariState, 'shot wari', 'enemy-1');
+  assert.equal(wariRes.summary.damage, 12);
+  assert.equal(wariRes.summary.healed, 4);
   assert.equal(wariRes.state.enemies[0].wetUntil, 2);
   assert.equal(wariRes.state.enemies[1].wetUntil, 2);
   assert.equal(wariRes.state.enemies[2].wetUntil, 2);
@@ -2729,6 +2732,107 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
     assert.ok(atkDesc.length > 0, id);
     assert.ok(shdDesc.length > 0, id);
   }
+});
+
+test('Tier 1-3 rarities and all 15 Tier 3 dual-element fusions work with distinct combat effects', () => {
+  assert.equal(RARITIES.common, 'ธรรมดา');
+  assert.equal(RARITIES.special, 'พิเศษ');
+  assert.equal(RARITIES.epic, 'มหากาพย์');
+
+  // Hail rename check
+  assert.equal(WORDS.hail.label, 'หิมะ');
+
+  // Tier 1 cards = ธรรมดา (common)
+  const tier1 = ['fire', 'ice', 'lightning', 'earth', 'water', 'wind'];
+  for (const id of tier1) {
+    const r = WORDS[id].rarity ?? 'common';
+    assert.equal(r, 'common', `${id} should be common`);
+    assert.equal(RARITIES[r], 'ธรรมดา');
+  }
+
+  // Tier 2 cards = พิเศษ (special)
+  const tier2 = ['akki', 'heman', 'asani', 'pathaphi', 'wari', 'vayu'];
+  for (const id of tier2) {
+    assert.equal(WORDS[id].rarity, 'special', `${id} should be special`);
+    assert.equal(RARITIES[WORDS[id].rarity], 'พิเศษ');
+  }
+
+  // Tier 3 cards = 15 dual-element fusions, all มหากาพย์ (epic)
+  assert.equal(Object.keys(FUSED_ELEMENTS).length, 15);
+  for (const id of Object.keys(FUSED_ELEMENTS)) {
+    assert.equal(WORDS[id].rarity, 'epic', `${id} should be epic`);
+    assert.equal(RARITIES[WORDS[id].rarity], 'มหากาพย์');
+    assert.equal(WORDS[id].cost, 7, `${id} should cost 7`);
+  }
+
+  // 1. Mudmire (บึงโคลน): Power 18, wets target, chill 3
+  const mudRes = cast(battle(['rune_ram']), 'shot mudmire');
+  assert.equal(mudRes.state.enemies[0].wetUntil, 2);
+  assert.equal(mudRes.summary.damage, 16);
+  assert.equal(mudRes.events.find(ev => ev.type === 'attack').rawAttack, 3); // 6 attack - 3 chill = 3
+
+  // 2. Dust (ธุลี): Power 18, shreds 1 armor, pushes (wall slam 6)
+  const dustRes = cast(battle(['rune_ram']), 'shot dust');
+  assert.equal(dustRes.summary.damage, 16); // 18 - 2 armor = 16
+  assert.equal(dustRes.state.enemies[0].armor, 1); // 2 - 1 = 1 armor left
+  assert.equal(dustRes.state.enemies[0].permanentArmorShred, 1);
+
+  // 3. Permafrost (เยือกศิลา): Power 18, shreds 2 armor, gives player +6 shield
+  const permaRes = cast(battle(['rune_ram']), 'shot permafrost');
+  assert.equal(permaRes.state.enemies[0].armor, 0);
+  assert.equal(permaRes.state.enemies[0].permanentArmorShred, 2);
+  assert.equal(permaRes.events.find(ev => ev.type === 'shield' && ev.element === 'permafrost').amount, 6);
+  assert.equal(permaRes.summary.blocked, 6);
+
+  // 4. Monsoon (มรสุม): Power 18, pushes all enemies, wets all, heals player +4
+  const monState = battle(['striker', 'striker']);
+  for (const e of monState.enemies) e.hp = 50;
+  monState.player.hp = 30;
+  const monRes = cast(monState, 'shot monsoon', 'enemy-0');
+  assert.equal(monRes.summary.healed, 4);
+  assert.equal(monRes.state.enemies[0].wetUntil, 2);
+  assert.equal(monRes.state.enemies[1].wetUntil, 2);
+
+  // 5. Shockstream (กระแสช็อต): 18 dmg + 2 pierce, shocks all other wet enemies for 10 pierce dmg
+  const shockState = battle(['striker', 'striker']);
+  for (const e of shockState.enemies) e.hp = 50;
+  shockState.enemies[1].wetUntil = 2; // enemy-1 is wet
+  const shockRes = cast(shockState, 'shot shockstream', 'enemy-0');
+  assert.equal(shockRes.summary.damage, 28); // 18 main + 10 wet shock on enemy-1
+
+  // 6. Heatwave (ระอุ): 22 dmg, push 1, burns target 4 and adjacent 4. Blocked slot deals +6 slam dmg
+  const heatState = battle(['striker', 'striker']);
+  for (const e of heatState.enemies) e.hp = 50;
+  const heatRes = cast(heatState, 'shot heatwave', 'enemy-0');
+  assert.equal(heatRes.summary.damage, 28); // 22 hit + 6 wall slam
+  assert.equal(heatRes.state.enemies[0].burn, 4);
+  assert.equal(heatRes.state.enemies[1].burn, 4);
+
+  // 7. Plasma (พลาสมา): 24 dmg + 2 pierce
+  const plasRes = cast(battle(['rune_ram']), 'shot plasma');
+  assert.equal(plasRes.summary.damage, 24); // 24 dmg, ignores 2 armor with pierce 2
+
+  // 8. Scald (ไอเดือด): 20 dmg, shreds 2 armor
+  const scaldRes = cast(battle(['rune_ram']), 'shot scald');
+  assert.equal(scaldRes.state.enemies[0].armor, 0);
+  assert.equal(scaldRes.state.enemies[0].permanentArmorShred, 2);
+
+  // 9. Frostvolt (ผลึกช็อต): 20 dmg + 2 pierce, chains to neighbor with chill 4
+  const voltState = battle(['striker', 'striker']);
+  for (const e of voltState.enemies) e.hp = 50;
+  const voltRes = cast(voltState, 'shot frostvolt', 'enemy-0');
+  assert.equal(voltRes.summary.damage, 30); // 20 main + 10 chain
+  assert.equal(voltRes.events.find(ev => ev.type === 'attack' && ev.source === 'enemy-1').rawAttack, 0); // 3 attack - 4 chill = 0
+
+  // 10. Magnet (แม่เหล็ก): pulls neighbors towards target
+  const magState = battle(['striker', 'striker', 'striker']);
+  for (const e of magState.enemies) e.hp = 50;
+  magState.enemies[0].slot = 0;
+  magState.enemies[1].slot = 2;
+  magState.enemies[2].slot = 4;
+  const magRes = cast(magState, 'shot magnet', 'enemy-1');
+  assert.equal(magRes.state.enemies[0].slot, 1); // pulled from 0 towards 2 -> 1
+  assert.equal(magRes.state.enemies[2].slot, 3); // pulled from 4 towards 2 -> 3
 });
 
 
