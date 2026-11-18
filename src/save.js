@@ -1,6 +1,6 @@
 import { ATTACK_FORMS, ELEMENTS, WORDS, START_WORDS, LARGE_SHIELD_HP, getSpellCatalog } from './words.js';
 import { RIFT_ENEMIES } from './upper-tower.js';
-import { ENEMIES, HAND_LIMIT, MAX_MANA, TURN_DRAW, SHOP_ITEMS, MAX_BELT_ITEMS, MAX_RELIC_SLOTS, MAX_CARD_UPGRADE, FLOOR21_START_ROOM, FLOOR30_BOSS_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS, openHand, isBossRoom, isSanctuaryPost20Unlocked, isUpperCacheRoom, unlockUpperTower, refreshMiddleTowerRooms, offerMissedElementReward, fillRewardChoices } from './run.js';
+import { ENEMIES, HAND_LIMIT, MAX_MANA, TURN_DRAW, SHOP_ITEMS, MAX_BELT_ITEMS, MAX_RELIC_SLOTS, MAX_CARD_UPGRADE, FLOOR21_START_ROOM, FLOOR30_BOSS_ROOM, FLOOR40_BOSS_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS, openHand, isBossRoom, isSanctuaryPost20Unlocked, isUpperCacheRoom, unlockUpperTower, refreshMiddleTowerRooms, offerMissedElementReward, fillRewardChoices, grantBossRelic } from './run.js';
 
 export const SAVE_KEY = 'spell-foundry.run.v2';
 export const BACKUP_KEY = 'spell-foundry.backup.v2';
@@ -10,8 +10,8 @@ export const DEFAULT_SETTINGS = { music: 0.35, sfx: 0.65, ui: 0.45, reducedMotio
 const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
 const phases = ['battle', 'reward', 'loadout', 'sanctuary', 'won', 'lost'];
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-// Shield upgrades add twice their level, and large, pair and vitality add their own bonuses.
-const maxShieldLayerHp = LARGE_SHIELD_HP + 4 * MAX_CARD_UPGRADE + 2 + 6;
+// Shield upgrades add twice their level, and veil/grand/rift/worldloom add their own bonuses.
+const maxShieldLayerHp = 300;
 const previousRiftBossHp = { gate_weaver: 190, mirror_regent: 235, seam_warden: 270, loom_sovereign: 330 };
 
 export function validateRun(state) {
@@ -178,8 +178,13 @@ export function loadRun(storage) {
           state.hpCurveVersion = 1;
         }
         if (state.phase === 'reward' && state.rewards.length < 3) fillRewardChoices(state);
+        for (const [room, floor] of [[FLOOR30_BOSS_ROOM, 30], [FLOOR40_BOSS_ROOM, 40], [FLOOR50_BOSS_ROOM, 50]]) {
+          if (state.clearedRooms.includes(room) || (room === FLOOR50_BOSS_ROOM && state.room === room && state.phase === 'won')) {
+            grantBossRelic(state.player, floor);
+          }
+        }
         for (const enemy of state.enemies) {
-          enemy.affinity ??= ENEMIES[enemy.kind]?.affinity ?? null;
+          enemy.affinity = ENEMIES[enemy.kind]?.affinity ?? null;
           if (enemy.maxHp !== previousRiftBossHp[enemy.kind]) continue;
           const maxHp = RIFT_ENEMIES[enemy.kind].hp;
           enemy.hp = Math.ceil(enemy.hp * maxHp / enemy.maxHp);

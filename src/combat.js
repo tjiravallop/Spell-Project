@@ -1,4 +1,4 @@
-import { ATTACK_FORMS, WORDS, elementFamily, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS } from './words.js';
+import { ATTACK_FORMS, WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS } from './words.js';
 import { RIFT_SPELL_BONUS, RIFT_EXPOSED_BONUS, isRiftBossExposed } from './upper-tower.js';
 import {
   ENEMIES,
@@ -12,8 +12,9 @@ import {
   FLOOR18_BOSS_ROOM,
   FLOOR20_BOSS_ROOM,
   FLOOR21_START_ROOM,
+  FLOOR30_BOSS_ROOM,
   FLOOR31_START_ROOM,
-  MAX_RELIC_SLOTS,
+  FLOOR40_BOSS_ROOM,
   REVISIT_REWARD_RATE,
   applyExpAndGold,
   fallBackOnDefeat,
@@ -25,6 +26,7 @@ import {
   fallBackToUpperSanctuary,
   getCardSecondaryEffect,
   getEquippedRelics,
+  grantBossRelic,
   getFloorInfo,
   hasCardSecondaryUpgrade,
   hasCardReward,
@@ -175,6 +177,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const equippedRelics = getEquippedRelics(player);
   const hasEmberCore = equippedRelics.includes('ember_core_10');
   const hasStormPendulum = equippedRelics.includes('storm_pendulum_20');
+  const hasCrown = equippedRelics.includes('forbidden_crown_30');
+  const hasMirrorPrism = equippedRelics.includes('mirror_prism_40');
+  const hasWorldloom = equippedRelics.includes('worldloom_50');
   const inRift = state.room >= FLOOR31_START_ROOM;
 
   // Calculate card upgrade bonuses from the words placed in this spell phrase
@@ -219,7 +224,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const live = () => enemies.filter(enemy => enemy.hp > 0).sort((a, b) => a.slot - b.slot);
   const enemyById = id => enemies.find(enemy => enemy.id === id);
   const newBurn = new Map();
-  let block = (guard ? 3 : 0) + secondaryShieldBonus;
+  let block = (guard ? 3 + (hasWorldloom ? 3 : 0) : 0) + secondaryShieldBonus;
   player.mana -= cost;
 
   function awardEnemyBounty(enemy) {
@@ -249,7 +254,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const exposedBonus = isRiftBossExposed(enemy.kind, turn) ? RIFT_EXPOSED_BONUS : 0;
     const afterArmor = Math.max(0, Math.ceil(empowered + empowered * exposedBonus / 100) - Math.max(0, enemy.armor - pierce));
     const reduction = attackForm && attackForm === enemy.readForm && !exposedBonus ? ENEMIES[enemy.kind].repeatReduction ?? 0 : 0;
-    const baseDmg = Math.ceil(afterArmor * (100 - reduction) / 100);
+    const guardedByAllies = state.room === FLOOR30_BOSS_ROOM && enemy.kind === 'crown_archivist'
+      && live().some(ally => ally.id !== enemy.id);
+    const baseDmg = Math.ceil(afterArmor * (100 - reduction) / 100 * (guardedByAllies ? 0.75 : 1));
+    if (guardedByAllies && afterArmor > 0) summary.sequence.push('ตราประสานลดดาเมจบอส 25% เพราะยังมีลูกสมุน');
 
     const enemyAffinity = enemy.affinity ?? ENEMIES[enemy.kind]?.affinity ?? null;
     const reaction = getWeaknessReaction(element, enemyAffinity);
@@ -406,7 +414,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const burnAmount = spell.burn
         + burnUpgradeBonus
         + (blessings.includes('blessing_ember') && elements.some(id => elementFamily(id) === 'fire') ? 1 : 0)
-        + (hasEmberCore && elements.some(id => elementFamily(id) === 'fire') ? 1 : 0);
+        + (hasEmberCore && elements.some(id => getElementComponents(id).includes('fire')) ? 1 : 0);
       newBurn.set(enemy.id, (newBurn.get(enemy.id) ?? 0) + burnAmount);
       events.push({ type: 'status', status: 'burn', target: enemy.id });
     }
@@ -533,12 +541,13 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const blessingBonus = (family === 'fire' && blessings.includes('blessing_ember') ? 2 : 0)
         + (family === 'ice' && blessings.includes('blessing_frost') ? 2 : 0)
         + (family === 'lightning' && blessings.includes('blessing_thunder') ? 2 : 0);
-      const relicBonus = family === 'fire' && hasEmberCore ? 2 : 0;
+      const relicBonus = hasEmberCore && getElementComponents(id).includes('fire') ? 2 : 0;
       return sum + WORDS[id].damage + elemUpgrade + blessingBonus + relicBonus;
     }, 0) / elements.length : (spell.shellDamage ?? WORDS[spell.form].damage);
     const strength = (base + formUpgradeBonus + auxUpgradeBonus) * spell.multiplier * targetScale;
     const pierce = (spell.pierce ?? 0)
       + pierceUpgradeBonus
+      + (hasMirrorPrism && spell.form === 'beam' ? 3 : 0)
       + (families.includes('lightning') || elements.some(id => ['plasma', 'shockstream', 'frostvolt', 'magnet', 'thunderstorm'].includes(id)) ? 2 : 0)
       + (blessings.includes('blessing_thunder') ? 1 : 0);
     return { strength, pierce };
@@ -600,8 +609,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     ].filter(Boolean).join(' ');
     summary.sequence.push(`${name} → ${enemy.slot + 1}${blocked ? ' (ติดม่าน)' : ''}`);
     if (blocked) {
-      if (enemy.kind === 'mirror_mage' || enemy.kind === 'eclipse_mage') {
-        const reflectAmt = enemy.kind === 'eclipse_mage' ? 3 : 2;
+      if (enemy.kind === 'mirror_mage' || enemy.kind === 'eclipse_mage'
+        || (enemy.kind === 'mirror_regent' && state.room === FLOOR40_BOSS_ROOM)) {
+        const reflectAmt = enemy.kind === 'mirror_regent' ? 4 : enemy.kind === 'eclipse_mage' ? 3 : 2;
         const reflected = applyIncomingToPlayer(reflectAmt, false);
         events.push({
           type: 'mirror-reflect',
@@ -808,7 +818,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   } else if (spell.form === 'shield') {
     const baseLayerCap = (spell.layerHp ?? 6) + shieldUpgradeBonus;
     const riftDefenseBonus = inRift ? Math.ceil(baseLayerCap * RIFT_SPELL_BONUS / 100) + Math.floor((player.maxHp ?? 36) * 0.025) : 0;
-    const layerCap = baseLayerCap + riftDefenseBonus;
+    const layerCap = baseLayerCap + riftDefenseBonus + (hasWorldloom ? 3 : 0);
     player.shield = {
       layers: Array(spell.layers).fill(layerCap),
       expires: turn + 1,
@@ -956,8 +966,18 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       player.mana += manaRefund;
       summary.manaRefunded = manaRefund;
       summary.manaAfterCast = player.mana;
-      events.push({ type: 'mana-refund', amount: manaRefund });
+      events.push({ type: 'mana-refund', amount: manaRefund, relicId: 'storm_pendulum_20' });
       summary.sequence.push(`ลูกตุ้มสายฟ้าคืน +${manaRefund} มานา`);
+    }
+  }
+  if (!guard && !fizzled && hasCrown && rawIds.length === 4) {
+    const manaRefund = Math.min(player.maxMana - player.mana, 2);
+    if (manaRefund > 0) {
+      player.mana += manaRefund;
+      summary.manaRefunded = (summary.manaRefunded ?? 0) + manaRefund;
+      summary.manaAfterCast = player.mana;
+      events.push({ type: 'mana-refund', amount: manaRefund, relicId: 'forbidden_crown_30' });
+      summary.sequence.push(`มงกุฎอักษรคืน +${manaRefund} มานา`);
     }
   }
 
@@ -1199,20 +1219,14 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         state.phase = 'sanctuary';
       } else if (rel === 24) {
         const majorBossFloor = (D + 1) * 10;
+        const relicId = grantBossRelic(player, majorBossFloor);
+        if (relicId) {
+          summary.relicDropped = relicId;
+          events.push({ type: 'relic', relicId });
+        }
         if (majorBossFloor === 50) {
           state.phase = 'won';
         } else {
-          player.relics ??= [];
-          const relicId = majorBossFloor === 10 ? 'ember_core_10' : majorBossFloor === 20 ? 'storm_pendulum_20' : null;
-          if (relicId && !player.relics.includes(relicId)) {
-            player.relics.push(relicId);
-            const equippedNow = getEquippedRelics(player);
-            if (equippedNow.length < MAX_RELIC_SLOTS && !equippedNow.includes(relicId)) {
-              player.equippedRelics = [...equippedNow, relicId];
-            }
-            summary.relicDropped = relicId;
-            events.push({ type: 'relic', relicId });
-          }
           state.sanctuaryUnlocked = true;
           state.sanctuaryFloor = `post${majorBossFloor}`;
           state.sanctuaryRested = false;
@@ -1233,7 +1247,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
     if (spell?.shieldRenewal && player.shield) {
       const layer = player.shield.layers[0];
-      const renewal = Math.min(spell.shieldRenewal, spell.layerHp + shieldUpgradeBonus - layer);
+      const renewal = Math.max(0, Math.min(spell.shieldRenewal, spell.layerHp + shieldUpgradeBonus + (hasWorldloom ? 3 : 0) - layer));
       if (renewal > 0) {
         player.shield.layers[0] += renewal;
         events.push({ type: 'shield', ...protection(), amount: player.shield.layers[0], restored: renewal, grand: Boolean(spell.grand), large: Boolean(spell.large), shieldKind: spell.effect ?? 'shield' });

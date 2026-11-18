@@ -4,8 +4,22 @@ import { Battlefield, vfxScale } from '../src/render.js';
 import { parseSpell } from '../src/words.js';
 import { simulateTurn } from '../src/combat.js';
 import { createRun, createEnemy, prepareEnemies, FLOOR31_START_ROOM } from '../src/run.js';
-import { inferDeskElement, inferDeskPower, renderSlots, renderEnemies } from '../src/ui/battle-render.js';
+import { inferDeskElement, inferDeskPower, renderSlots, renderEnemies, renderRoomTrack } from '../src/ui/battle-render.js';
 import { createBattleFxController } from '../src/ui/battle-fx.js';
+import { cardFilterControls, applyCardFilters, bindCardFilters } from '../src/ui/card-filters.js';
+
+test('room track renders the current tower and its sanctuary checkpoints', () => {
+  const oldDocument = globalThis.document;
+  const track = { innerHTML: '' };
+  globalThis.document = { getElementById: id => id === 'room-track' ? track : null };
+  try {
+    renderRoomTrack(createRun('room-track-test', false), false);
+    assert.match(track.innerHTML, /data-enter-sanctuary/);
+    assert.match(track.innerHTML, /data-revisit-room/);
+  } finally {
+    globalThis.document = oldDocument;
+  }
+});
 
 test('crowded upper-floor enemies use separate label lanes', () => {
   const oldDocument = globalThis.document;
@@ -154,6 +168,20 @@ test('blast accents use both elements and distinguish detonations', () => {
   calls.length = 0;
   bf.drawNeutralStormVfx(150, 0.4, 1);
   assert.ok(calls.length > 0);
+});
+
+test('hybrid accents appear in blast and shield casts for each distinct element', () => {
+  const ctx = { fillStyle: '', globalAlpha: 1, save() {}, restore() {}, fillRect() {} };
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = ctx;
+  const accents = [];
+  bf.drawHybridVfx = (...args) => accents.push(args);
+  bf.drawBlastAccents(150, 126, 0.4, 1, ['magma', 'frostvolt', 'magma']);
+  assert.deepEqual(accents.map(args => args[0]), ['magma', 'frostvolt']);
+  assert.ok(accents.every(args => args[5] === true));
+  accents.length = 0;
+  bf.drawShieldCastVfx(51, 119, 0.4, 1, ['magma', 'frostvolt', 'magma'], 'shield', 2);
+  assert.deepEqual(accents.map(args => args[0]), ['magma', 'frostvolt']);
 });
 
 test('shield accents preserve both elements and healing has its own sigil', () => {
@@ -482,3 +510,77 @@ test('CSS impact overlay separates is-compact (1x), is-boosted, is-large (2x), a
 });
 
 
+test('new upper-tower middleSprites render distinct pixel silhouettes without throwing', () => {
+  const kinds = ['gate_weaver', 'mirror_regent', 'seam_warden', 'loom_sovereign', 'rift_runner', 'lattice_guard', 'thread_archer', 'ward_scribe'];
+  const signatures = new Set();
+  for (const kind of kinds) {
+    const rects = [];
+    const bf = Object.create(Battlefield.prototype);
+    bf.ctx = {
+      fillStyle: '',
+      fillRect(x, y, w, h) {
+        assert.ok(typeof this.fillStyle === 'string' && this.fillStyle.startsWith('#'), `${kind} invalid fillStyle: ${this.fillStyle}`);
+        rects.push(`${x},${y},${w},${h},${this.fillStyle}`);
+      },
+    };
+    bf.settings = { reducedMotion: false };
+    bf.spriteArt = {};
+    bf.sprite(kind, 160, 148, 1, 'idle');
+    assert.ok(rects.length >= 10, `${kind} should draw full pixel silhouette`);
+    signatures.add(rects.join('|'));
+  }
+  assert.equal(signatures.size, kinds.length);
+});
+
+test('card filter controls filter forge and inventory cards by search, role, rarity, and status', () => {
+  const html = cardFilterControls('forge');
+  assert.match(html, /data-card-filter="search"/);
+  assert.match(html, /data-card-filter="role"/);
+  assert.match(html, /data-card-filter="rarity"/);
+  assert.match(html, /data-card-filter="status"/);
+  assert.match(html, /data-card-filter-reset/);
+
+  const state = createRun('filter-test', false);
+  state.player.cardUpgrades = { fire: 10, ice: 3 };
+  const cards = ['shot', 'fire', 'ice', 'magma'].map(id => ({ dataset: { filterCard: id }, hidden: false }));
+  const count = { textContent: '' };
+  const empty = { hidden: true };
+  const controls = [
+    { dataset: { cardFilter: 'search' }, value: '' },
+    { dataset: { cardFilter: 'role' }, value: '' },
+    { dataset: { cardFilter: 'rarity' }, value: '' },
+    { dataset: { cardFilter: 'status' }, value: '' },
+  ];
+  const panel = {
+    dataset: { cardFilterPanel: 'forge' },
+    querySelectorAll: selector => selector === '[data-filter-card]' ? cards : selector === '[data-card-filter]' ? controls : [],
+    querySelector: selector => selector === '[data-card-filter-count]' ? count : selector === '[data-card-filter-empty]' ? empty : null,
+  };
+  const listeners = new Map();
+  const oldDoc = globalThis.document;
+  globalThis.document = { addEventListener: (type, fn) => listeners.set(type, fn) };
+  try {
+    bindCardFilters(() => state);
+    applyCardFilters(panel, state);
+    assert.equal(count.textContent, 'แสดง 4 จาก 4 ใบ');
+    assert.equal(empty.hidden, true);
+
+    const dispatchInput = (control, value) => {
+      control.value = value;
+      listeners.get('input')({ target: { closest: sel => sel === '[data-card-filter]' ? { ...control, closest: s => s === '[data-card-filter-panel]' ? panel : null } : null } });
+    };
+    dispatchInput(controls[3], 'max');
+    assert.deepEqual(cards.filter(c => !c.hidden).map(c => c.dataset.filterCard), ['fire']);
+    assert.equal(count.textContent, 'แสดง 1 จาก 4 ใบ');
+
+    dispatchInput(controls[0], 'ไม่มีการ์ดนี้');
+    assert.equal(count.textContent, 'แสดง 0 จาก 4 ใบ');
+    assert.equal(empty.hidden, false);
+
+    listeners.get('click')({ target: { closest: sel => sel === '[data-card-filter-reset]' ? { closest: s => s === '[data-card-filter-panel]' ? panel : null } : null } });
+    assert.equal(count.textContent, 'แสดง 4 จาก 4 ใบ');
+    assert.equal(empty.hidden, true);
+  } finally {
+    globalThis.document = oldDoc;
+  }
+});

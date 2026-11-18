@@ -8,7 +8,7 @@ export function formatTurnLogCard(entry, index, fallbackEnemies = []) {
   const names = id => id === 'player' ? 'คุณ' : ENEMIES[enemyList.find(enemy => enemy.id === id)?.kind]?.name || 'เป้าหมาย';
   const isLatest = index === 0;
   const actionHtml = entry.actionType === 'guard'
-    ? `<span class="log-action-title action-guard">ตั้งรับพื้นฐาน <small>(0 มานา · เกราะชั่วคราว +3)</small></span>`
+    ? `<span class="log-action-title action-guard">ตั้งรับพื้นฐาน <small>(0 มานา · เกราะชั่วคราว +${entry.shieldCreated ?? 3})</small></span>`
     : entry.actionType === 'fizzle'
       ? `<span class="log-action-title action-fizzle">ร่ายผิดสูตร “${escape(entry.expression)}” <small>(เสีย ${entry.cost} มานาฟรี)</small></span>`
       : `<span class="log-action-title action-cast">ร่ายคาถา “${escape(entry.expression)}” <small>(ใช้ ${entry.cost} มานา)</small></span>`;
@@ -78,12 +78,12 @@ export function formatTurnLogCard(entry, index, fallbackEnemies = []) {
       return `<li class="log-ev ${event.amount > 0 ? 'ev-taken' : 'ev-shield'}"><span class="ev-tag ${event.amount > 0 ? 'tag-taken' : 'tag-shield'}">เกราะอสุนี</span><span>พายุสายฟ้าของ <strong class="hl-target">${escape(names(event.source))}</strong> ช็อตกลับ · <strong class="hl-shield">ป้องกันได้ ${event.absorbed}</strong> · ${event.amount > 0 ? `โดนช็อต <strong class="hl-taken">−${event.amount} HP</strong>` : '<strong class="hl-shield">โล่รับไว้ได้ 0 HP</strong>'}</span></li>`;
     }
     if (event.type === 'mana-refund') {
-      return `<li class="log-ev ev-heal"><span class="ev-tag tag-heal">เครื่องราง</span><span>⚡ ลูกตุ้มสายฟ้าฟาด คืนมานาให้คุณ <strong class="hl-heal">+${event.amount} MP</strong></span></li>`;
+      const relic = RELIC_DRAFT_CATALOG.find(r => r.id === event.relicId);
+      return `<li class="log-ev ev-heal"><span class="ev-tag tag-heal">คืนมานา</span><span>${escape(relic?.name ?? 'คาถา')} คืนมานาให้คุณ <strong class="hl-heal">+${event.amount} MP</strong></span></li>`;
     }
     if (event.type === 'relic') {
       const dropped = RELIC_DRAFT_CATALOG.find(r => r.id === event.relicId);
-      const orderLabel = dropped?.dropFloor === 20 ? 'ชิ้นที่ 2' : 'ชิ้นแรก';
-      return `<li class="log-ev ev-heal"><span class="ev-tag tag-heal">อาติแฟค</span><span>ได้รับอาติแฟค${orderLabel} <strong class="hl-heal">${dropped?.icon ?? '🔥'} ${escape(dropped?.name ?? 'แก่นเพลิงบรรพกาล')}</strong> และเปิดทางเข้าสู่จุดพักพิเศษ!</span></li>`;
+      return `<li class="log-ev ev-heal"><span class="ev-tag tag-heal">อาติแฟค</span><span>ได้รับอาติแฟคชั้น ${dropped?.dropFloor ?? '?'} <strong class="hl-heal">${dropped?.icon ?? '✦'} ${escape(dropped?.name ?? 'เครื่องราง')}</strong></span></li>`;
     }
     if (event.type === 'heal') {
       return `<li class="log-ev ev-heal"><span class="ev-tag tag-heal">ฟื้นฟู</span><span>${escape(names(event.source))} ฟื้นพลังชีวิต <strong class="hl-heal">+${event.amount} HP</strong> ให้ ${escape(names(event.target))}</span></li>`;

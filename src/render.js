@@ -1,4 +1,4 @@
-import { ENEMIES, FLOOR21_START_ROOM } from './run.js';
+import { ENEMIES, FLOOR21_START_ROOM, RELIC_DRAFT_CATALOG } from './run.js';
 import { elementFamily } from './words.js';
 import { middleSprites } from './middle-sprites.js';
 import { loadSpriteArt, spriteFrame } from './sprite-art.js';
@@ -390,7 +390,7 @@ export class Battlefield {
     const g = this.ctx;
     const boss = LARGE_BOSS_KINDS.has(kind);
     const originalKind = kind;
-    kind = ENEMIES[kind]?.sprite ?? kind;
+    kind = Object.hasOwn(middleSprites, kind) ? kind : (ENEMIES[kind]?.sprite ?? kind);
     const scale = boss ? 2 : 1;
     const bob = this.settings.reducedMotion ? 0 : [0, -1, 0, 1][frame % 4];
     const baseY = baseline - (boss ? 64 : 32) + bob;
@@ -1193,7 +1193,8 @@ export class Battlefield {
 
       if (event.type === 'relic') {
         this.drawHealVfx(51, 134, fraction, now);
-        const relicPopup = event.relicId === 'storm_pendulum_20' ? '⚡ ดรอปอาติแฟคชิ้นที่ 2!' : '🔥 ดรอปอาติแฟคชิ้นแรก!';
+        const relic = RELIC_DRAFT_CATALOG.find(item => item.id === event.relicId);
+        const relicPopup = relic ? `${relic.icon} อาติแฟคชั้น ${relic.dropFloor}!` : '✦ ได้รับอาติแฟค!';
         this.drawFloatingPopup(160, 74 - Math.round(fraction * 12), relicPopup, C[31], C[16]);
       }
 
@@ -1392,6 +1393,7 @@ export class Battlefield {
       }
     }
     g.restore();
+    for (const element of new Set(colors)) this.drawHybridVfx(element, x, y, t, s, true);
   }
 
   drawShieldCastVfx(x, y, progress, scale, elements, kind, layers) {
@@ -1421,6 +1423,7 @@ export class Battlefield {
     }
     if (layers > 1) this.pixelEllipse(x, 146, Math.round((14 + t * 10) * s), 4, C[31], false);
     g.restore();
+    for (const element of new Set(elements)) this.drawHybridVfx(element, x, y, t, s, true);
   }
 
   drawHealingSigil(x, baseline, progress, kind, scale) {

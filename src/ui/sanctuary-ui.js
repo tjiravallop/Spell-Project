@@ -30,6 +30,7 @@ import {
 import { icon } from '../icons.js';
 import { getSanctuaryStory } from '../story.js';
 import { MASTER_FORMULAS } from '../combos.js';
+import { cardFilterControls, applyCardFilters } from './card-filters.js';
 import {
   $,
   escape,
@@ -198,7 +199,12 @@ export function renderSanctuary(ctx) {
     if (!availableItems.length) {
       shopList.innerHTML = `<div class="shop-empty-notice">สินค้าในร้านถูกซื้อครบหมดแล้ว</div>`;
     } else {
-      shopList.innerHTML = availableItems.map(item => {
+      const groups = [
+        { label: 'ฟื้นฟู HP และมานา', items: availableItems.filter(item => item.hpRestore || item.manaRestore) },
+        { label: 'เครื่องมือในสนาม', items: availableItems.filter(item => !item.hpRestore && !item.manaRestore && !item.vaultOnly) },
+        { label: 'วัตถุดิบตีบวก', items: availableItems.filter(item => item.vaultOnly) },
+      ];
+      const card = item => {
         const canAfford = p.gold >= item.cost;
         const hasSpace = (!item.vaultOnly && p.items.length < MAX_BELT_ITEMS) || p.stash.length < MAX_STASH_ITEMS;
         const disabled = !hasSpace || !canAfford;
@@ -211,7 +217,9 @@ export function renderSanctuary(ctx) {
             ? `ทองไม่พอ (${item.cost} ทอง)`
             : `ซื้อไอเทม · 💰 ${item.cost} ทอง`;
         return `<article class="shop-item-card ${item.oneTime ? 'is-one-time' : ''} ${disabled ? 'is-disabled' : 'is-selectable'}" data-shop-item="${item.id}" ${disabled ? '' : `data-buy-item="${item.id}"`}><div class="shop-item-head"><span class="shop-item-icon">${item.icon}</span><div class="shop-item-title"><strong>${escape(item.name)}</strong><span class="shop-item-badge">${escape(item.badge)}</span></div><div class="shop-item-price-group"><span class="shop-item-price">💰 ${item.cost}</span>${stockTag}</div></div><p class="shop-item-desc">${escape(item.description)}</p><button type="button" class="secondary-button shop-buy-btn" data-buy-item="${item.id}" ${disabled ? 'disabled' : ''}>${btnLabel}</button></article>`;
-      }).join('');
+      };
+      shopList.innerHTML = groups.filter(group => group.items.length)
+        .map(group => `<h3 class="shop-group-heading">${group.label}</h3>${group.items.map(card).join('')}`).join('');
     }
   }
 
@@ -225,6 +233,8 @@ export function renderSanctuary(ctx) {
   const ownedCards = [...new Set([...START_WORDS, ...(state.collection ?? []), ...(p.words ?? [])])];
   const upgradeListEl = $('sanctuary-upgrade-list');
   if (upgradeListEl) {
+    const filterControls = $('sanctuary-card-filters');
+    if (filterControls && !filterControls.firstElementChild) filterControls.innerHTML = cardFilterControls('forge');
     const hasStone = (p.stash ?? []).includes('smithing_stone') || (p.items ?? []).includes('smithing_stone');
     upgradeListEl.innerHTML = ownedCards.map(id => {
       const word = WORDS[id];
@@ -257,8 +267,9 @@ export function renderSanctuary(ctx) {
         ? `🌟 ปลดล็อกเอฟเฟกต์รอง ${secInfo.tierTag} แล้ว (${secInfo.badge})${lv < 10 ? ` · ตีบวกถึง +${nextMilestone} เพื่อยกระดับขั้นถัดไป!` : ' · ระดับสูงสุด!'}`
         : `🔒 เอฟเฟกต์รองจะปลดล็อกอัตโนมัติเมื่อตีบวกถึง +7 (+9 / +10 แรงขึ้น): ${secInfo.badge}`;
 
-      return `<article class="forge-card word-${id} ${rarityClass(word)} ${lv > 0 || secUnlocked ? 'is-upgraded' : ''}" data-forge-card="${id}"><div class="forge-card-head"><div class="forge-card-title"><span class="forge-card-icon">${icon(id)}</span><div><strong>${escape(word.label)}${lv > 0 ? ` +${lv}` : ''}</strong><small class="forge-deck-tag ${inActiveDeck ? 'active' : ''}">${inActiveDeck ? '✓ พกในสำรับ' : 'ในคลังสะสม'}</small></div></div><div class="forge-badges"><span class="forge-lv-pill ${lv > 0 ? 'has-lv' : ''}">+${lv}/${MAX_CARD_UPGRADE}</span>${chancePill}${secUnlocked ? `<span class="forge-sec-pill unlocked">ขั้น ${secTier}: ${escape(secInfo.badge)}</span>` : `<span class="forge-sec-pill locked">ปลดล็อกที่ +7: ${escape(secInfo.badge)}</span>`}</div></div><p class="forge-stat-desc">⚡ ${escape(currentStatDesc)}</p><p class="forge-sec-desc">${escape(milestoneStatusText)} — ${escape(secInfo.description)}</p><div class="forge-actions"><button type="button" class="secondary-button forge-btn forge-stat-btn" data-upgrade-card="${id}" data-upgrade-mode="stat" ${!canStatUpgrade ? 'disabled' : ''}>${nextStatBtnLabel}</button></div></article>`;
+      return `<article class="forge-card word-${id} ${rarityClass(word)} ${lv > 0 || secUnlocked ? 'is-upgraded' : ''}" data-forge-card="${id}" data-filter-card="${id}"><div class="forge-card-head"><div class="forge-card-title"><span class="forge-card-icon">${icon(id)}</span><div><strong>${escape(word.label)}${lv > 0 ? ` +${lv}` : ''}</strong><small class="forge-deck-tag ${inActiveDeck ? 'active' : ''}">${inActiveDeck ? '✓ พกในสำรับ' : 'ในคลังสะสม'}</small></div></div><div class="forge-badges"><span class="forge-lv-pill ${lv > 0 ? 'has-lv' : ''}">+${lv}/${MAX_CARD_UPGRADE}</span>${chancePill}${secUnlocked ? `<span class="forge-sec-pill unlocked">ขั้น ${secTier}: ${escape(secInfo.badge)}</span>` : `<span class="forge-sec-pill locked">ปลดล็อกที่ +7: ${escape(secInfo.badge)}</span>`}</div></div><p class="forge-stat-desc">⚡ ${escape(currentStatDesc)}</p><p class="forge-sec-desc">${escape(milestoneStatusText)} — ${escape(secInfo.description)}</p><div class="forge-actions"><button type="button" class="secondary-button forge-btn forge-stat-btn" data-upgrade-card="${id}" data-upgrade-mode="stat" ${!canStatUpgrade ? 'disabled' : ''}>${nextStatBtnLabel}</button></div></article>`;
     }).join('');
+    applyCardFilters($('sanctuary-upgrade-panel'), state);
   }
   const wordsEl = $('sanctuary-words');
   if (wordsEl) {
@@ -286,7 +297,7 @@ export function renderSanctuary(ctx) {
       const relicId = equippedRelics[slotIdx];
       const relic = relicId ? RELIC_DRAFT_CATALOG.find(r => r.id === relicId) : null;
       if (!relic) {
-        return `<article class="charm-slot empty" data-charm-slot="${slotIdx}"><div class="charm-slot-top"><span class="charm-slot-num">ช่องเครื่องรางที่ ${slotIdx + 1}</span><span class="charm-slot-state">ว่าง</span></div><div class="charm-slot-empty-copy"><strong>ยังไม่ได้สวมใส่เครื่องราง</strong><span>${ownedRelics.some(id => !equippedRelics.includes(id)) ? 'กด “สวมใส่เครื่องราง” จากคลังด้านล่าง' : 'ดรอปจากบอสพิเศษชั้น 10 / 20 / 30'}</span></div></article>`;
+        return `<article class="charm-slot empty" data-charm-slot="${slotIdx}"><div class="charm-slot-top"><span class="charm-slot-num">ช่องเครื่องรางที่ ${slotIdx + 1}</span><span class="charm-slot-state">ว่าง</span></div><div class="charm-slot-empty-copy"><strong>ยังไม่ได้สวมใส่เครื่องราง</strong><span>${ownedRelics.some(id => !equippedRelics.includes(id)) ? 'กด “สวมใส่เครื่องราง” จากคลังด้านล่าง' : 'ดรอปจากบอสหลักชั้น 10 / 20 / 30 / 40 / 50'}</span></div></article>`;
       }
       return `<article class="charm-slot filled" data-charm-slot="${slotIdx}" data-equipped-relic="${relic.id}">${sparkMarkup}<div class="charm-slot-top"><span class="charm-slot-num">ช่องเครื่องรางที่ ${slotIdx + 1}</span><span class="charm-slot-state">✦ ทำงานอยู่</span></div><div class="charm-slot-main"><span class="charm-icon-pedestal"><span class="charm-rune-halo" aria-hidden="true"></span><span class="relic-draft-icon">${relic.icon}</span></span><div><strong>${escape(relic.name)}</strong><p>${escape(relic.summary)}</p></div></div><button type="button" class="secondary-button relic-action-btn" data-unequip-relic="${relic.id}">ถอดเครื่องราง</button></article>`;
     }).join('');

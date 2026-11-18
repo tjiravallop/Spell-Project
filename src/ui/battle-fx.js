@@ -483,14 +483,14 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         break;
       case 'mana-refund':
         pulsePlayerHud('shield');
-        status.textContent = `⚡ ลูกตุ้มสายฟ้าฟาด · คืนมานา +${event.amount}`;
+        status.textContent = `${RELIC_DRAFT_CATALOG.find(r => r.id === event.relicId)?.name ?? 'คาถา'} · คืนมานา +${event.amount}`;
         break;
       case 'relic': {
         audio.play('discover');
         const dropped = RELIC_DRAFT_CATALOG.find(r => r.id === event.relicId);
         status.textContent = dropped
           ? `${dropped.icon} ดรอปอาติแฟค: ${dropped.name}!`
-          : '🔥 ดรอปอาติแฟคชิ้นแรก: แก่นเพลิงบรรพกาล!';
+          : '✦ ได้รับอาติแฟค!';
         break;
       }
       case 'charge': {

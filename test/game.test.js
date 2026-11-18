@@ -7,7 +7,7 @@ import {
   enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom,
   getRewardPool, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
   FLOOR5_START_ROOM, FLOOR6_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR14_BOUNDARY_ROOM, FLOOR15_START_ROOM, FLOOR16_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR19_BOUNDARY_ROOM, FLOOR20_BOSS_ROOM,
-  FLOOR21_START_ROOM, FLOOR24_BOUNDARY_ROOM, FLOOR25_BOSS_ROOM, FLOOR26_START_ROOM, FLOOR29_BOUNDARY_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS,
+  FLOOR21_START_ROOM, FLOOR24_BOUNDARY_ROOM, FLOOR25_BOSS_ROOM, FLOOR26_START_ROOM, FLOOR29_BOUNDARY_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR40_BOSS_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS,
 } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
 import { Battlefield } from '../src/render.js';
@@ -272,6 +272,11 @@ function battle(kinds = ['striker']) {
   prepareEnemies(state);
   return state;
 }
+function neutralArmored(count = 1) {
+  const state = battle(Array(count).fill('arch_codex'));
+  for (const enemy of state.enemies) enemy.ward = 0;
+  return state;
+}
 function cast(state, text, target = 'enemy-0', second = target) {
   const input = text === 'guard' ? text : text.split(' ');
   const prepared = state.player.words.length > 7
@@ -281,6 +286,163 @@ function cast(state, text, target = 'enemy-0', second = target) {
   assert.equal(result.ok, true, result.error);
   return result;
 }
+
+test('expanded shop consumables restore, control enemies and draw without consuming a turn', () => {
+  const state = createRun('shop-consumables', false);
+  state.player.hp = 20;
+  state.player.mana = 5;
+  state.player.items = ['balanced_tonic', 'frost_dust', 'draw_pages'];
+  const saved = new MemoryStorage();
+  assert.equal(saveRun(state, saved).ok, true);
+  const loaded = loadRun(saved).state;
+  const tonic = useBattleItem(loaded, 0).state;
+  assert.equal(tonic.player.hp, 28);
+  assert.equal(tonic.player.mana, 8);
+  assert.equal(tonic.turn, loaded.turn);
+  const frost = useBattleItem(tonic, 0).state;
+  assert.equal(frost.enemies[0].chill, 4);
+  assert.equal(intent(frost.enemies[0], frost.turn, frost.enemies, frost.room).amount, 0);
+  const drawA = useBattleItem(frost, 0).state;
+  const drawB = useBattleItem(frost, 0).state;
+  assert.deepEqual(drawA.player.hand, drawB.player.hand);
+  assert.equal(drawA.player.hand.length, frost.player.hand.length + 2);
+  assert.equal(drawA.turn, frost.turn);
+  assert.equal(saveRun(drawA, saved).ok, true);
+  assert.deepEqual(loadRun(saved).state.player.hand, drawA.player.hand);
+});
+
+test('new consumables reject no-effect use and work from the stash', () => {
+  let state = createRun('shop-items-stash', false);
+  state.player.items = ['veil_eraser'];
+  assert.throws(() => useBattleItem(state, 0), /ไม่มีม่าน/);
+  assert.deepEqual(state.player.items, ['veil_eraser']);
+  state.enemies[0].ward = 1;
+  state = useBattleItem(state, 0).state;
+  assert.equal(state.enemies[0].ward, 0);
+  state.player.stash = ['silence_scroll'];
+  const sealed = useInventoryItem(state, 'stash', 0).state;
+  assert.equal(sealed.enemies[0].sealed, true);
+  assert.deepEqual(sealed.player.stash, []);
+  sealed.player.items = ['draw_pages'];
+  sealed.player.hand = Array(10).fill(sealed.player.words[0]);
+  assert.throws(() => useBattleItem(sealed, 0), /มือเต็ม/);
+  assert.deepEqual(sealed.player.items, ['draw_pages']);
+  sealed.phase = 'sanctuary';
+  sealed.player.hp = 10;
+  sealed.player.stash = ['greater_healing'];
+  assert.equal(useInventoryItem(sealed, 'stash', 0).state.player.hp, 34);
+});
+
+test('major bosses award their artifacts through spells and items without duplicates', () => {
+  for (const [room, id] of [[FLOOR30_BOSS_ROOM, 'forbidden_crown_30'], [FLOOR40_BOSS_ROOM, 'mirror_prism_40'], [FLOOR50_BOSS_ROOM, 'worldloom_50']]) {
+    const state = battle(['striker']);
+    state.room = room;
+    state.enemies[0].hp = 1;
+    const result = cast(state, 'shot fire');
+    assert.equal(result.summary.relicDropped, id);
+    assert.ok(result.state.player.relics.includes(id));
+    assert.equal(result.state.phase, room === FLOOR50_BOSS_ROOM ? 'won' : 'sanctuary');
+    const itemState = structuredClone(state);
+    itemState.player.items = ['ember_scroll'];
+    const itemResult = useBattleItem(itemState, 0);
+    assert.equal(itemResult.summary.relicDropped, id);
+    const owned = structuredClone(state);
+    owned.player.relics = [id];
+    assert.equal(cast(owned, 'shot fire').summary.relicDropped, undefined);
+  }
+});
+
+test('new artifact effects apply only when equipped and stack with existing refunds', () => {
+  const state = battle(['rune_ram']);
+  state.player.maxMana = state.player.mana = 30;
+  state.player.relics = ['forbidden_crown_30', 'storm_pendulum_20', 'mirror_prism_40', 'worldloom_50'];
+  state.player.equippedRelics = ['forbidden_crown_30', 'storm_pendulum_20', 'mirror_prism_40'];
+  const spell = cast(state, 'shot fire pair blast');
+  assert.equal(spell.summary.manaRefunded, 3);
+  assert.deepEqual(spell.events.filter(e => e.type === 'mana-refund').map(e => e.relicId), ['storm_pendulum_20', 'forbidden_crown_30']);
+  const prism = cast(state, 'beam fire').summary.damage;
+  state.player.equippedRelics = [];
+  assert.ok(prism > cast(state, 'beam fire').summary.damage);
+  state.player.equippedRelics = ['worldloom_50'];
+  assert.equal(cast(state, 'guard').events.find(e => e.type === 'shield' && e.shieldKind === 'guard').amount, 6);
+  assert.equal(cast(state, 'shield').events.find(e => e.type === 'shield' && !e.secondary).amount, 9);
+});
+
+test('old cleared-floor saves recover earned artifacts without replacing equipped choices', () => {
+  const state = createRun('legacy-relics', false);
+  state.clearedRooms = [FLOOR30_BOSS_ROOM, FLOOR40_BOSS_ROOM];
+  state.player.relics = ['ember_core_10', 'storm_pendulum_20'];
+  state.player.equippedRelics = ['storm_pendulum_20'];
+  const storage = new MemoryStorage();
+  assert.equal(saveRun(state, storage).ok, true);
+  const loaded = loadRun(storage).state;
+  assert.ok(loaded.player.relics.includes('forbidden_crown_30'));
+  assert.ok(loaded.player.relics.includes('mirror_prism_40'));
+  assert.deepEqual(loaded.player.equippedRelics, ['storm_pendulum_20', 'forbidden_crown_30', 'mirror_prism_40']);
+});
+
+test('major bosses use their floor-specific mechanics and react to surviving allies', () => {
+  const crown = battle(['crown_archivist', 'rune_ram']);
+  crown.room = FLOOR30_BOSS_ROOM;
+  const shielded = cast(crown, 'beam fire');
+  const alone = structuredClone(crown);
+  alone.enemies[1].hp = 0;
+  const exposed = cast(alone, 'beam fire');
+  assert.ok(shielded.summary.damage < exposed.summary.damage);
+  assert.equal(shielded.summary.enemyActions['enemy-0'].type, 'ward-grant');
+
+  const mirror = battle(['mirror_regent']);
+  mirror.room = FLOOR40_BOSS_ROOM;
+  const reflected = cast(mirror, 'shot fire');
+  assert.equal(reflected.events.find(e => e.type === 'mirror-reflect').rawAttack, 4);
+  assert.equal(cast(mirror, 'beam fire').events.some(e => e.type === 'mirror-reflect'), false);
+  assert.equal(cast(mirror, 'shot fire dispel').events.some(e => e.type === 'mirror-reflect'), false);
+
+  const loom = battle(['loom_sovereign', 'rift_runner', 'ward_scribe']);
+  loom.room = FLOOR50_BOSS_ROOM;
+  loom.turn = 2;
+  const together = intent(loom.enemies[0], 2, loom.enemies, loom.room);
+  loom.enemies[1].hp = 0;
+  const fewer = intent(loom.enemies[0], 2, loom.enemies, loom.room);
+  assert.equal(together.amount - fewer.amount, 3);
+  assert.equal(cast(loom, 'guard').summary.enemyActions['enemy-0'].amount, fewer.amount);
+});
+
+test('reworked enemies telegraph and execute their distinct actions', () => {
+  const ember = battle(['ember_imp']);
+  ember.turn = 2;
+  assert.equal(intent(ember.enemies[0], 2, ember.enemies).type, 'charge');
+  const charged = cast(ember, 'guard');
+  assert.equal(charged.summary.enemyActions['enemy-0'].type, 'charge');
+  assert.equal(cast(charged.state, 'guard').events.find(e => e.type === 'attack').rawAttack, 9);
+
+  const voidFight = battle(['striker', 'void_imp']);
+  voidFight.enemies[0].hp = 0;
+  assert.equal(intent(voidFight.enemies[1], 1, voidFight.enemies).type, 'advance');
+  const advanced = cast(voidFight, 'guard');
+  assert.equal(advanced.state.enemies[1].slot, 0);
+  assert.equal(intent(advanced.state.enemies[1], 2, advanced.state.enemies).amount, 10);
+
+  const guardFight = battle(['iron_warden', 'striker']);
+  const wardIntent = intent(guardFight.enemies[0], 1, guardFight.enemies);
+  assert.equal(wardIntent.type, 'ward-grant');
+  assert.equal(wardIntent.target, 'enemy-1');
+  const warded = cast(guardFight, 'guard');
+  assert.equal(warded.summary.enemyActions['enemy-0'].target, wardIntent.target);
+  assert.equal(warded.state.enemies[1].ward, 1);
+  guardFight.enemies[0].sealed = true;
+  assert.equal(intent(guardFight.enemies[0], 1, guardFight.enemies).type, 'sealed');
+
+  const swapFight = battle(['aether_warden', 'striker', 'swarm']);
+  swapFight.turn = 2;
+  const swapIntent = intent(swapFight.enemies[0], 2, swapFight.enemies);
+  assert.equal(swapIntent.target, 'enemy-2');
+  const swapped = cast(swapFight, 'guard');
+  assert.equal(swapped.state.enemies[0].slot, 2);
+  assert.equal(swapped.state.enemies[2].slot, 0);
+  swapFight.enemies[1].hp = swapFight.enemies[2].hp = 0;
+  assert.equal(intent(swapFight.enemies[0], 2, swapFight.enemies).type, 'attack');
+});
 
 test('projectile visual modifiers follow the words actually cast', () => {
   for (const [element, modifier] of [['fire', 'burn'], ['ice', 'freeze'], ['fire', 'pierce'], ['fire', 'seal'], ['fire', 'dispel'], ['fire', 'push'], ['fire', 'pull']]) {
@@ -721,7 +883,7 @@ test('epic hybrid cards use the existing elemental slots and each has its own ef
   const obscured = cast(charging, 'shot mist');
   assert.equal(intent(plain.state.enemies[0], 2).amount - intent(obscured.state.enemies[0], 2).amount, 4);
 
-  const storm = battle(['rune_ram', 'rune_ram']);
+  const storm = neutralArmored(2);
   storm.enemies[1].slot = 2;
   const thunder = cast(storm, 'shot thunderstorm');
   assert.equal(thunder.summary.enemyStatus['enemy-0'].slot, 1);
@@ -735,7 +897,7 @@ test('epic hybrid cards use the existing elemental slots and each has its own ef
 });
 
 test('magma survives saving, erupts on its slot, and weakens armor for the next cast', () => {
-  const state = battle(['rune_ram', 'rune_ram']);
+  const state = battle(['sentinel', 'sentinel']);
   state.player.maxHp = state.player.hp = 100;
   state.collection.push('magma');
   state.learned.push('magma');
@@ -1272,7 +1434,7 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
   assert.equal(getFloorInfo(2, 9).code, '1-3');
   assert.equal(getFloorInfo(2, 9).isBoss, true);
   assert.equal(getFloorInfo(8, 9).code, '3-3');
-  assert.deepEqual(RELIC_DRAFT_CATALOG.map(r => r.dropFloor), [10, 20, 30]);
+  assert.deepEqual(RELIC_DRAFT_CATALOG.map(r => r.dropFloor), [10, 20, 30, 40, 50]);
 
   let state = createRun('rpg-test', true);
   // First clear of Room 0 (1-1: striker -> 10 EXP, 8 Gold)
@@ -1715,7 +1877,7 @@ test('Floors 5-8 defeat check resets Floors 5-8 progress & upper sanctuaries to 
     earlyState.player.hand = ['fire', 'shot', 'ice', 'pair', 'shield'];
     earlyState.player.mana = earlyState.player.maxMana;
     earlyState.enemies.forEach(e => { e.chill = 0; e.freeze = 0; });
-    if (earlyState.enemies.every(e => intent(e, earlyState.turn).type !== 'attack')) {
+    if (earlyState.enemies.every(e => intent(e, earlyState.turn, earlyState.enemies, earlyState.room).type !== 'attack')) {
       earlyState = simulateTurn(earlyState, 'guard').state;
       earlyState.player.hp = 1;
       earlyState.player.shield = null;
@@ -1743,7 +1905,7 @@ test('Floors 5-8 defeat check resets Floors 5-8 progress & upper sanctuaries to 
     state.player.shield = null;
     state.enemies.forEach(e => { e.chill = 0; e.freeze = 0; });
     // Advance turn if all enemies are charging/healing on turn 1
-    if (state.enemies.every(e => intent(e, state.turn).type !== 'attack')) {
+    if (state.enemies.every(e => intent(e, state.turn, state.enemies, state.room).type !== 'attack')) {
       state = simulateTurn(state, 'guard').state;
       state.player.hp = 1;
       state.player.shield = null;
@@ -2638,8 +2800,9 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   const latePool = getRewardPool(lateRun);
   for (const id of ['pathaphi', 'wari', 'vayu']) assert.equal(latePool.includes(id), true);
 
-  // Earth: 7 dmg - armor(2) = 5 dmg, grants +2 block (reduces rune_ram 6 -> 4), permanently shreds 1 armor & persists in save
-  const earthState = battle(['rune_ram']); // hp 52, armor 2, attacks on turn 1 for 6
+  // Earth: 7 dmg - armor(2) = 5 dmg, grants +2 block (reduces sentinel attack 7 -> 5), permanently shreds 1 armor & persists in save
+  const earthState = battle(['sentinel']); // neutral, constant armor 2, attacks on turn 2 for 7
+  earthState.turn = 2;
   earthState.player.maxHp = earthState.player.hp = 50;
   earthState.collection.push('earth', 'pathaphi');
   earthState.learned.push('earth', 'pathaphi');
@@ -2648,7 +2811,7 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   const earthHit = cast(earthState, 'shot earth');
   assert.equal(earthHit.summary.damage, 5);
   assert.equal(earthHit.summary.blocked, 2);
-  assert.equal(earthHit.summary.incoming, 4);
+  assert.equal(earthHit.summary.incoming, 5);
   assert.equal(earthHit.state.enemies[0].armor, 1);
   assert.equal(saveRun(earthHit.state, storage).ok, true);
   const loadedEarth = loadRun(storage).state;
@@ -2661,14 +2824,14 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   const pathaHit = cast(earthState, 'shot pathaphi');
   assert.equal(pathaHit.summary.damage, 12);
   assert.equal(pathaHit.summary.blocked, 4);
-  assert.equal(pathaHit.summary.incoming, 2);
+  assert.equal(pathaHit.summary.incoming, 3);
   assert.equal(pathaHit.state.enemies[0].armor, 0);
 
   // Shield Earth & Shield Pathaphi counter-shred attacker armor and deal earth damage
-  const earthShield = cast(battle(['rune_ram']), 'shield earth');
+  const earthShield = cast(neutralArmored(1), 'shield earth');
   assert.equal(earthShield.summary.damage, 2); // armor drops 2->1 first, then 3 tremor - 1 armor = 2
   assert.equal(earthShield.state.enemies[0].armor, 1);
-  const pathaShield = cast(battle(['rune_ram']), 'shield pathaphi');
+  const pathaShield = cast(neutralArmored(1), 'shield pathaphi');
   assert.equal(pathaShield.summary.damage, 5); // armor drops 2->0 first, then 5 quake - 0 armor = 5
   assert.equal(pathaShield.state.enemies[0].armor, 0);
 
@@ -2688,7 +2851,7 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   assert.equal(lightningFollow.summary.enemyHp['enemy-0'], 0);
 
   // Dual fusion: shot water pair lightning => avg(6, 8)=7 + 2 conductivity = 9 dmg, wets target
-  const fusedShock = cast(battle(['rune_ram']), 'shot water pair lightning');
+  const fusedShock = cast(neutralArmored(1), 'shot water pair lightning');
   assert.equal(fusedShock.summary.cost, 5);
   assert.equal(fusedShock.summary.damage, 9);
   assert.equal(fusedShock.state.enemies[0].wetUntil, 2);
@@ -2715,13 +2878,13 @@ test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance
   assert.equal(wariRes.events.find(ev => ev.type === 'attack' && ev.source === 'enemy-1').rawAttack, 1);
 
   // Wind & Vayu push behavior (Tier-2 deals 2x Tier-1 damage)
-  const windHit = cast(battle(['rune_ram']), 'shot wind');
+  const windHit = cast(neutralArmored(1), 'shot wind');
   assert.equal(windHit.summary.damage, 5); // 7 - 2 armor
   assert.equal(windHit.state.enemies[0].slot, 1);
-  const vayuHit = cast(battle(['rune_ram']), 'shot vayu');
+  const vayuHit = cast(neutralArmored(1), 'shot vayu');
   assert.equal(vayuHit.summary.damage, 12); // 14 - 2 armor
   assert.equal(vayuHit.state.enemies[0].slot, 1);
-  assert.equal(cast(battle(['rune_ram']), 'shield wind').state.enemies[0].slot, 1);
+  assert.equal(cast(neutralArmored(1), 'shield wind').state.enemies[0].slot, 1);
 
   // Audio playback & formula descriptions cover all ELEMENTS without throwing
   const audio = new GameAudio({ music: 0, sfx: 0, ui: 0 });
@@ -2782,13 +2945,13 @@ test('Tier 1-3 rarities and all 15 Tier 3 dual-element fusions work with distinc
   }
 
   // 1. Mudmire (บึงโคลน): Power 18, wets target, chill 3
-  const mudRes = cast(battle(['rune_ram']), 'shot mudmire');
+  const mudRes = cast(neutralArmored(1), 'shot mudmire');
   assert.equal(mudRes.state.enemies[0].wetUntil, 2);
   assert.equal(mudRes.summary.damage, 16);
   assert.equal(mudRes.events.find(ev => ev.type === 'attack').rawAttack, 3); // 6 attack - 3 chill = 3
 
   // 2. Dust (ธุลี): Power 18, shreds 1 armor, pushes (wall slam 6)
-  const dustRes = cast(battle(['rune_ram']), 'shot dust');
+  const dustRes = cast(neutralArmored(1), 'shot dust');
   assert.equal(dustRes.summary.damage, 16); // 18 - 2 armor = 16
   assert.equal(dustRes.state.enemies[0].armor, 1); // 2 - 1 = 1 armor left
   assert.equal(dustRes.state.enemies[0].permanentArmorShred, 1);
@@ -2871,8 +3034,8 @@ test('elemental weakness and resistance system applies +25% weakness bonus and -
   assert.equal(getWeaknessReaction('fire', 'ice').multiplier, 1.25);
   assert.equal(getWeaknessReaction('ice', 'ice').isResist, true);
   assert.equal(getWeaknessReaction('ice', 'ice').multiplier, 0.8);
-  assert.equal(getWeaknessReaction('earth', 'ice').isWeak, false);
-  assert.equal(getWeaknessReaction('earth', 'ice').isResist, false);
+  assert.equal(getWeaknessReaction('wind', 'ice').isWeak, false);
+  assert.equal(getWeaknessReaction('wind', 'ice').isResist, false);
 
   // 4. Combat damage on elemental enemies
   // frost_lich (hp 64, armor 2, affinity: ice)
@@ -2928,6 +3091,47 @@ test('elemental weakness and resistance system applies +25% weakness bonus and -
   assert.equal(preview.ok, true);
   assert.equal(preview.summary.damage, 10);
   assert.equal(preview.summary.enemyHp['enemy-0'], 64 - 10);
+});
+
+test('each affinity has a second weakness and fused weakness takes precedence over resistance', () => {
+  for (const [affinity, weakness] of Object.entries({ fire: 'ice', ice: 'earth', wind: 'lightning', earth: 'water', lightning: 'water', water: 'ice' })) {
+    const reaction = getWeaknessReaction(weakness, affinity);
+    assert.equal(reaction.isWeak, true, `${weakness} should counter ${affinity}`);
+    assert.equal(reaction.multiplier, 1.25);
+    assert.equal(reaction.triggerElement, weakness);
+  }
+  const mixed = getWeaknessReaction('permafrost', 'ice');
+  assert.equal(mixed.isWeak, true);
+  assert.equal(mixed.isResist, false);
+  assert.equal(mixed.multiplier, 1.25);
+});
+
+test('worldloom_50 rift shield survives save validation and ember_core_10 boosts hybrid fire', () => {
+  const state = battle(['loom_sovereign']);
+  state.room = FLOOR50_BOSS_ROOM;
+  state.rooms[FLOOR50_BOSS_ROOM] = ['loom_sovereign'];
+  state.collection = ['veil', 'grand', 'magma'];
+  state.learned = ['veil', 'grand', 'magma'];
+  state.player.words = [...START_WORDS, 'veil', 'grand'];
+  state.player.maxHp = state.player.hp = 400;
+  state.player.maxMana = state.player.mana = 60;
+  state.player.cardUpgrades = { veil: 10, grand: 10 };
+  state.player.relics = ['worldloom_50', 'ember_core_10'];
+  state.player.equippedRelics = ['worldloom_50', 'ember_core_10'];
+  state.player.hand = ['grand', 'veil'];
+  const shielded = simulateTurn(state, ['grand', 'veil'], 'enemy-0');
+  assert.equal(shielded.ok, true);
+  assert.ok(shielded.state.player.shield.layers[0] > 57);
+  const storage = new MemoryStorage();
+  assert.equal(saveRun(shielded.state, storage).ok, true);
+  assert.equal(loadRun(storage).state.player.shield.layers[0], shielded.state.player.shield.layers[0]);
+
+  const hybridBase = neutralArmored(1);
+  const noRelic = cast(hybridBase, 'shot magma').summary.damage;
+  hybridBase.player.relics = ['ember_core_10'];
+  hybridBase.player.equippedRelics = ['ember_core_10'];
+  const withEmberCore = cast(hybridBase, 'shot magma').summary.damage;
+  assert.equal(withEmberCore, noRelic + 2);
 });
 
 

@@ -91,6 +91,7 @@ import { renderRewards, renderLoadout, renderResult } from './ui/screens-ui.js';
 import { renderSanctuary as renderSanctuaryView, bindSanctuaryEvents } from './ui/sanctuary-ui.js';
 import { createModalsController } from './ui/modals-ui.js';
 import { initDragDrop } from './ui/drag-drop.js';
+import { bindCardFilters } from './ui/card-filters.js';
 
 const settings = loadSettings();
 let hasStoredSettings = false;
@@ -107,6 +108,7 @@ homeArt.set(homeState, null);
 
 let loaded = loadRun();
 let state = null;
+bindCardFilters(() => state);
 let screen = 'home';
 let words = [];
 let selectedSlot = null;
@@ -472,9 +474,10 @@ function renderBattle() {
   modals.updateGuideButtonBadge();
   const floorInfo = getFloorInfo(state.room, state.rooms.length);
   const revisit = isRoomRevisit(state, state.room);
-  const isSpecialFloorBoss = floorInfo.floor === 10 || floorInfo.floor === 20;
-  const specialArtifactName = floorInfo.floor === 20 ? 'ลูกตุ้มสายฟ้าฟาด' : 'แก่นเพลิงบรรพกาล';
-  const specialArtifactOrder = floorInfo.floor === 20 ? 'ชิ้นที่ 2' : 'ชิ้นแรก';
+  const floorArtifact = floorInfo.isBoss ? RELIC_DRAFT_CATALOG.find(relic => relic.dropFloor === floorInfo.floor) : null;
+  const isSpecialFloorBoss = Boolean(floorArtifact);
+  const specialArtifactName = floorArtifact?.name ?? '';
+  const specialArtifactOrder = `ชิ้นที่ ${floorInfo.floor / 10}`;
   const roomTypeLabel = floorInfo.floor >= 21 ? floorInfo.roomRole : isSpecialFloorBoss
     ? `ห้องบอสพิเศษประจำชั้น ${floorInfo.floor}`
     : floorInfo.isBoss
@@ -489,7 +492,7 @@ function renderBattle() {
       : isBossRoom(state)
         ? `ปราบบอสประจำชั้น ${floorInfo.floor} เพื่อเลือกการ์ดคำใหม่${floorInfo.floor === 3 ? ' และเปิดทางสู่ชั้นที่ 4 (ชั้นพัก)' : floorInfo.floor === 8 ? ' และเปิดทางสู่ชั้นที่ 9 (ชั้นพัก)' : floorInfo.floor === 13 ? ' และเปิดทางสู่ชั้นที่ 14 (ชั้นพัก)' : floorInfo.floor === 18 ? ' และเปิดทางสู่ชั้นที่ 19 (ชั้นพัก)' : ' และขึ้นสู่ชั้นถัดไป'}`
         : `กำจัดมอนสเตอร์ใน${roomTypeLabel} เพื่อรับทอง + EXP (ผ่านครบ 2 ห้องย่อยจะพบบอสประจำชั้น ${floorInfo.floor})`;
-  if (floorInfo.floor >= 21 && !revisit) {
+  if (floorInfo.floor >= 21 && !revisit && !isSpecialFloorBoss) {
     $('room-subtitle').textContent = hasCardReward(state) ? 'ชนะศึกเพื่อเลือกการ์ดคำ' : 'ชนะศึกเพื่อรับทองและ EXP';
   }
   renderRoomTrack(state, busy);
@@ -515,7 +518,7 @@ function renderBattle() {
           ? `ห้องบอสประจำชั้น: ปราบครั้งแรกดรอปการ์ดคำ · ฟื้นมานา +3/เทิร์น${climbWarn}`
           : `ห้องย่อย ${floorInfo.sub}/2: มอนย่อยดรอปทอง + EXP 100% · ฟื้นมานา +3/เทิร์น${climbWarn}`;
     if (floorInfo.floor >= 21) {
-      $('stage-bounty-note').textContent = `${revisit ? 'เล่นซ้ำ · ทอง/EXP 20%' : 'ฟื้นมานา +3/เทิร์น'}${floorInfo.floor >= 31 ? ` · ดาเมจเวท +${RIFT_SPELL_BONUS}%` : ''} · ถ้าแพ้ กลับจุดพักหลังบอส ${Math.floor((floorInfo.floor - 1) / 5) * 5}`;
+      $('stage-bounty-note').textContent = `${revisit ? 'เล่นซ้ำ · ทอง/EXP 20%' : isSpecialFloorBoss ? `ชนะรับอาติแฟค “${specialArtifactName}”` : 'ฟื้นมานา +3/เทิร์น'}${floorInfo.floor >= 31 ? ` · ดาเมจเวท +${RIFT_SPELL_BONUS}%` : ''} · ถ้าแพ้ กลับจุดพักหลังบอส ${Math.floor((floorInfo.floor - 1) / 5) * 5}`;
     }
   }
   $('seed-label').textContent = `SEED ${state.seed}`;
@@ -571,6 +574,7 @@ function renderBattle() {
   $('remove-word').disabled = busy || selectedSlot === null || selectedSlot >= words.length;
   $('clear-spell').disabled = busy || !words.length;
   $('guard-button').disabled = busy || p.hand.length > HAND_LIMIT;
+  $('guard-button').title = `ใช้ 0 มานา กันความเสียหาย ${getEquippedRelics(p).includes('worldloom_50') ? 6 : 3}`;
   for (const id of ['map-open', 'log-open', 'guide-open', 'inventory-open', 'combos-open']) $(id).disabled = busy;
   $('settings-open').disabled = busy;
   $('animation-controls').hidden = !busy;
@@ -725,12 +729,13 @@ function commit(guard = false) {
       }
     }
   } else {
+    const guardAmount = result.events.find(event => event.type === 'shield' && event.shieldKind === 'guard')?.amount ?? 3;
     setCastFx({
       type: 'success',
       isGuard: true,
       badge: '🛡 ตั้งรับพื้นฐาน',
-      title: 'ตั้งการ์ดป้องกัน (+3 เกราะชั่วคราว)',
-      detail: 'ลดความเสียหายที่ได้รับในเทิร์นนี้ลง 3 หน่วย',
+      title: `ตั้งการ์ดป้องกัน (+${guardAmount} เกราะชั่วคราว)`,
+      detail: `ลดความเสียหายที่ได้รับในเทิร์นนี้ลง ${guardAmount} หน่วย`,
     });
   }
   const shieldCreated = result.events
@@ -899,8 +904,7 @@ function finishTurn() {
     audio.play('win');
     words = [];
     const dropped = RELIC_DRAFT_CATALOG.find(r => r.id === result.summary.relicDropped);
-    const orderLabel = dropped?.dropFloor === 20 ? 'ชิ้นที่ 2' : 'ชิ้นแรก';
-    toast(`${dropped?.icon ?? '🔥'} ปราบบอสชั้น ${dropped?.dropFloor ?? 10} สำเร็จ! ได้รับอาติแฟค${orderLabel} “${dropped?.name ?? 'แก่นเพลิงบรรพกาล'}” (${dropped?.summary ?? ''}) และเข้าสู่จุดพักพิเศษแล้ว!`);
+    toast(`${dropped?.icon ?? '✦'} ปราบบอสชั้น ${dropped?.dropFloor} สำเร็จ! ได้รับอาติแฟค “${dropped?.name}” (${dropped?.summary})${state.phase === 'won' ? ' · กลับจุดพักเพื่อจัดเครื่องราง' : ' · เข้าสู่จุดพักแล้ว'}`);
   } else if (['reward', 'sanctuary', 'won'].includes(state.phase)) {
     setCastFx(null);
     audio.play('win');
@@ -1106,7 +1110,8 @@ document.addEventListener('click', event => {
       state = res.state;
       if (state.phase === 'battle') {
         words = words.filter(id => state.player.hand.includes(id));
-        pulsePlayerHud(res.item.id === 'aegis_shard' ? 'shield' : 'heal');
+        if (res.item.hpRestore) pulsePlayerHud('heal');
+        else if (res.item.manaRestore || res.item.id === 'aegis_shard') pulsePlayerHud('shield');
         if (res.item.id === 'ember_scroll') battleFx.pulseBattleCanvasImpact();
         if (!state.enemies.some(e => e.id === targetId && e.hp > 0)) {
           targetId = state.enemies.find(e => e.hp > 0)?.id ?? null;
@@ -1288,7 +1293,8 @@ document.addEventListener('click', event => {
       if (res.summary?.relicDropped) recentRelicDropId = res.summary.relicDropped;
       state = res.state;
       words = words.filter(id => state.player.hand.includes(id));
-      pulsePlayerHud(res.item.id === 'aegis_shard' ? 'shield' : 'heal');
+      if (res.item.hpRestore) pulsePlayerHud('heal');
+      else if (res.item.manaRestore || res.item.id === 'aegis_shard') pulsePlayerHud('shield');
       if (res.item.id === 'ember_scroll') battleFx.pulseBattleCanvasImpact();
       if (!state.enemies.some(e => e.id === targetId && e.hp > 0)) {
         targetId = state.enemies.find(e => e.hp > 0)?.id ?? null;
@@ -1298,7 +1304,7 @@ document.addEventListener('click', event => {
         ? RELIC_DRAFT_CATALOG.find(r => r.id === res.summary.relicDropped)
         : null;
       toast(droppedRelic
-        ? `${droppedRelic.icon} ปราบบอสชั้น ${droppedRelic.dropFloor} สำเร็จ! ได้รับอาติแฟค${droppedRelic.dropFloor === 20 ? 'ชิ้นที่ 2' : 'ชิ้นแรก'} “${droppedRelic.name}” และเข้าสู่จุดพักพิเศษแล้ว!`
+        ? `${droppedRelic.icon} ปราบบอสชั้น ${droppedRelic.dropFloor} สำเร็จ! ได้รับอาติแฟค “${droppedRelic.name}”${state.phase === 'won' ? ' · กลับจุดพักเพื่อจัดเครื่องราง' : ' · เข้าสู่จุดพักแล้ว'}`
         : `${res.item.icon} ${res.effectText}`);
       render();
     } catch (error) { toast(error.message); }

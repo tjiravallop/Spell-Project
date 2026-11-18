@@ -118,6 +118,10 @@ export const ELEMENT_VULNERABILITY = Object.freeze({
 
 export const ELEMENT_WEAKNESS = ELEMENT_VULNERABILITY;
 
+export const ELEMENT_SECONDARY_VULNERABILITY = Object.freeze({
+  fire: 'ice', ice: 'earth', wind: 'lightning', earth: 'water', lightning: 'water', water: 'ice',
+});
+
 export const ELEMENT_LABELS = Object.freeze({
   fire: 'ไฟ',
   ice: 'น้ำแข็ง',
@@ -153,8 +157,9 @@ export function getWeaknessReaction(element, targetAffinity) {
   if (!components.length) {
     return { isWeak: false, isResist: false, multiplier: 1, triggerElement: null };
   }
-  const weaknessElement = ELEMENT_VULNERABILITY[targetAffinity];
-  const isWeak = components.includes(weaknessElement);
+  const weaknessElement = [ELEMENT_VULNERABILITY[targetAffinity], ELEMENT_SECONDARY_VULNERABILITY[targetAffinity]]
+    .find(weakness => components.includes(weakness));
+  const isWeak = Boolean(weaknessElement);
   if (isWeak) {
     return {
       isWeak: true,

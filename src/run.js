@@ -21,20 +21,20 @@ export const ENEMIES = Object.freeze({
   arch_codex: { name: 'อาร์คโคเด็กซ์ต้องห้าม', hp: 92, armor: 2, ward: 1, attack: 6, color: '#f5db87', exp: 115, gold: 95, isBoss: true },
   ember_overlord: { name: 'จ้าวอัคคีบรรพกาล', hp: 135, armor: 3, ward: 1, attack: 8, color: '#ffad42', exp: 180, gold: 150, isBoss: true, affinity: 'fire' },
   void_imp: { name: 'อิมพ์สุญญากาศ', hp: 34, armor: 1, ward: 0, attack: 7, color: '#bca5d2', exp: 32, gold: 26, isBoss: false },
-  aether_warden: { name: 'ผู้คุมม่านอาคม', hp: 38, armor: 2, ward: 1, attack: 6, color: '#907ba6', exp: 36, gold: 30, isBoss: false, affinity: 'wind' },
+  aether_warden: { name: 'ผู้คุมม่านอาคม', hp: 38, armor: 2, ward: 1, attack: 6, color: '#907ba6', exp: 36, gold: 30, isBoss: false, affinity: 'wind', swapTurn: 2 },
   obsidian_golem: { name: 'โกเลมศิลานิล', hp: 46, armor: 3, ward: 0, attack: 12, color: '#718063', exp: 42, gold: 35, isBoss: false, affinity: 'earth' },
-  chrono_sage: { name: 'นักปราชญ์กาลเวลา', hp: 30, armor: 1, ward: 1, attack: 6, color: '#83b5ad', exp: 38, gold: 32, isBoss: false, affinity: 'wind' },
+  chrono_sage: { name: 'นักปราชญ์กาลเวลา', hp: 30, armor: 1, ward: 1, attack: 6, color: '#83b5ad', exp: 38, gold: 32, isBoss: false },
   prism_watcher: { name: 'ผู้เฝ้าปริซึมชั้นสูง', hp: 105, armor: 2, ward: 1, attack: 8, color: '#b6a0cf', exp: 125, gold: 105, isBoss: true, affinity: 'water' },
   astral_sentinel: { name: 'ผู้พิทักษ์หอดารา', hp: 118, armor: 4, ward: 0, attack: 14, color: '#e4b659', exp: 140, gold: 115, isBoss: true, affinity: 'lightning' },
   elder_grimoire: { name: 'คัมภีร์ปฐมกาลต้องห้าม', hp: 132, armor: 2, ward: 1, attack: 8, color: '#dab87a', exp: 165, gold: 135, isBoss: true, affinity: 'earth' },
-  eclipse_mage: { name: 'จอมเวทจันทรคราส', hp: 148, armor: 2, ward: 1, attack: 9, color: '#bca5d2', exp: 185, gold: 150, isBoss: true, affinity: 'fire' },
+  eclipse_mage: { name: 'จอมเวทจันทรคราส', hp: 148, armor: 2, ward: 1, attack: 9, color: '#bca5d2', exp: 185, gold: 150, isBoss: true },
   glacial_sovereign: { name: 'ราชันเหมันตนิรันดร์', hp: 162, armor: 3, ward: 1, attack: 9, color: '#8bb7a0', exp: 205, gold: 165, isBoss: true, affinity: 'ice' },
   thunder_colossus: { name: 'ยักษ์อัสนีบรรพกาล', hp: 178, armor: 4, ward: 0, attack: 16, color: '#f5db87', exp: 225, gold: 185, isBoss: true, affinity: 'lightning' },
   nexus_codex: { name: 'เน็กซัสโคเด็กซ์ต้องห้าม', hp: 196, armor: 3, ward: 1, attack: 10, color: '#f5db87', exp: 250, gold: 210, isBoss: true },
   tempest_archon: { name: 'จ้าวพายุอสุนีบาต', hp: 255, armor: 4, ward: 1, attack: 11, color: '#ffe53b', exp: 360, gold: 300, isBoss: true, affinity: 'lightning' },
   ward_scribe: { name: 'อาลักษณ์ทอม่าน', hp: 32, armor: 1, ward: 0, attack: 5, color: '#bc8ae8', exp: 44, gold: 37, sprite: 'chrono_sage' },
-  ward_keeper: { name: 'ผู้พิทักษ์ตราคุ้มกัน', hp: 42, armor: 2, ward: 0, attack: 7, color: '#d0a8ff', exp: 55, gold: 43, sprite: 'aether_warden' },
-  rune_ram: { name: 'โกเลมระฆังรูน', hp: 52, armor: 2, ward: 0, attack: 6, color: '#ffc58c', exp: 64, gold: 50, sprite: 'rune_golem' },
+  ward_keeper: { name: 'ผู้พิทักษ์ตราคุ้มกัน', hp: 42, armor: 2, ward: 0, attack: 7, color: '#d0a8ff', exp: 55, gold: 43, sprite: 'aether_warden', affinity: 'earth' },
+  rune_ram: { name: 'โกเลมระฆังรูน', hp: 52, armor: 2, ward: 0, attack: 6, color: '#ffc58c', exp: 64, gold: 50, sprite: 'rune_golem', affinity: 'earth' },
   seal_curator: { name: 'ผู้เฝ้าตราประสาน', hp: 175, armor: 2, ward: 2, attack: 11, color: '#d0a8ff', exp: 200, gold: 165, isBoss: true, sprite: 'eclipse_mage' },
   crown_archivist: { name: 'เจ้าแห่งหอจารึก', hp: 235, armor: 3, ward: 2, attack: 13, color: '#ffd18e', exp: 260, gold: 215, isBoss: true, sprite: 'nexus_codex' },
   ...RIFT_ENEMIES,
@@ -60,8 +60,9 @@ export const SHOP_ITEMS = Object.freeze({
     icon: '🧪',
     cost: 18,
     oneTime: false,
+    manaRestore: 4,
     badge: '+4 MP ทันที',
-    description: 'ดื่มในเทิร์นต่อสู้เพื่อฟื้นฟู +4 มานาทันทีโดยไม่เสียเทิร์น',
+    description: 'ฟื้นมานาสูงสุด 4 ใช้ในกระเป๋าหรือการต่อสู้โดยไม่เสียเทิร์น',
   },
   healing_draught: {
     id: 'healing_draught',
@@ -69,6 +70,7 @@ export const SHOP_ITEMS = Object.freeze({
     icon: '❤️',
     cost: 16,
     oneTime: false,
+    hpRestore: 12,
     badge: '+12 HP ทันที',
     description: 'ฟื้นฟูพลังชีวิต +12 HP ทันทีระหว่างการต่อสู้ หรือกดใช้ในคลังไอเทม',
   },
@@ -108,6 +110,41 @@ export const SHOP_ITEMS = Object.freeze({
     oneTime: true,
     badge: 'ไฟกวาด 6 ดาเมจ · จำกัด 1 ชิ้น',
     description: 'ปล่อยคลื่นเพลิงเผาไหม้ศัตรูทุกตัว 6 ดาเมจทันทีโดยไม่เสียเทิร์น (จำกัดการซื้อ 1 ครั้ง)',
+  },
+  greater_healing: {
+    id: 'greater_healing', name: 'น้ำยาสมานแผลเข้มข้น', icon: '💖', cost: 30, oneTime: false,
+    hpRestore: 24, badge: '+24 HP ทันที',
+    description: 'ฟื้น HP สูงสุด 24 ใช้ในกระเป๋าหรือการต่อสู้โดยไม่เสียเทิร์น',
+  },
+  greater_mana: {
+    id: 'greater_mana', name: 'ขวดมานาเข้มข้น', icon: '🔷', cost: 32, oneTime: false,
+    manaRestore: 8, badge: '+8 MP ทันที',
+    description: 'ฟื้นมานาสูงสุด 8 ใช้ในกระเป๋าหรือการต่อสู้โดยไม่เสียเทิร์น',
+  },
+  balanced_tonic: {
+    id: 'balanced_tonic', name: 'ยาเสริมกำลัง', icon: '🍵', cost: 24, oneTime: false,
+    hpRestore: 8, manaRestore: 3, badge: '+8 HP · +3 MP',
+    description: 'ฟื้น HP สูงสุด 8 และมานาสูงสุด 3 ใช้ในกระเป๋าหรือการต่อสู้โดยไม่เสียเทิร์น',
+  },
+  frost_dust: {
+    id: 'frost_dust', name: 'ผงหมอกเย็น', icon: '❄️', cost: 24, oneTime: false,
+    badge: 'ศัตรูทุกตัวหนาว 4',
+    description: 'ลดแรงโจมตีครั้งถัดไปของศัตรูทุกตัว 4 หน่วย ใช้ผ่านม่านโดยไม่เสียเทิร์น',
+  },
+  veil_eraser: {
+    id: 'veil_eraser', name: 'ผงสลายม่าน', icon: '✨', cost: 28, oneTime: false,
+    badge: 'สลายม่านศัตรูทั้งหมด',
+    description: 'ลบม่านที่มีอยู่ของศัตรูทุกตัวทันที โดยไม่สร้างดาเมจหรือเสียเทิร์น',
+  },
+  silence_scroll: {
+    id: 'silence_scroll', name: 'ม้วนผนึกอาคม', icon: '📜', cost: 28, oneTime: false,
+    badge: 'ผนึกท่าสนับสนุน',
+    description: 'ผนึกศัตรูทุกตัวผ่านม่าน ให้ข้ามท่าสนับสนุนหรือสลับตำแหน่งครั้งถัดไป โดยไม่เสียเทิร์น',
+  },
+  draw_pages: {
+    id: 'draw_pages', name: 'หน้าตำราเรียกคำ', icon: '📖', cost: 22, oneTime: false,
+    badge: 'จั่วเพิ่มสูงสุด 2 ใบ',
+    description: 'จั่วจากชุดคำที่พกเพิ่มสูงสุด 2 ใบโดยไม่เกิน 10 ใบในมือ ใช้ได้ในศึกโดยไม่เสียเทิร์น',
   },
 });
 
@@ -299,8 +336,18 @@ export const RELIC_DRAFT_CATALOG = Object.freeze([
     name: 'มงกุฎอักษรต้องห้าม',
     dropFloor: 30,
     icon: '👑',
-    summary: 'ช่องประกอบคาถาคำที่ 4 ไม่คิดค่ามานาเพิ่ม และศัตรูคลั่งช้าลง 1 เทิร์น',
-    status: 'ดราฟรอเปิดใช้งาน (ดรอปจากบอสชั้น 30)',
+    summary: 'ร่ายคาถา 4 คำสำเร็จ คืนมานา 2 หลังร่าย',
+    status: 'ดรอปจากบอสหลักชั้น 30',
+  },
+  {
+    id: 'mirror_prism_40', name: 'ปริซึมกระจกจันทรา', dropFloor: 40, icon: '💎',
+    summary: 'คาถาลำแสงข้ามเกราะเพิ่ม 3 หน่วย',
+    status: 'ดรอปจากบอสหลักชั้น 40',
+  },
+  {
+    id: 'worldloom_50', name: 'แกนกี่ทอโลก', dropFloor: 50, icon: '🧵',
+    summary: 'ตั้งรับพื้นฐานกันเพิ่ม 3 และโล่เวทแต่ละชั้นเพิ่ม 3',
+    status: 'ดรอปจากบอสหลักชั้น 50',
   },
 ]);
 
@@ -314,6 +361,16 @@ export function getEquippedRelics(player) {
   return owned
     .filter((id, idx, arr) => arr.indexOf(id) === idx)
     .slice(0, MAX_RELIC_SLOTS);
+}
+
+export function grantBossRelic(player, floor) {
+  const relic = RELIC_DRAFT_CATALOG.find(entry => entry.dropFloor === floor);
+  if (!relic || (player.relics ?? []).includes(relic.id)) return null;
+  const equipped = getEquippedRelics(player);
+  player.relics ??= [];
+  player.relics.push(relic.id);
+  if (equipped.length < MAX_RELIC_SLOTS) player.equippedRelics = [...equipped, relic.id];
+  return relic.id;
 }
 
 export function equipRelic(original, relicId) {
@@ -1521,19 +1578,15 @@ export function useInventoryItem(original, source = 'belt', index = 0) {
   }
   const state = structuredClone(original);
   const targetList = source === 'stash' ? (state.player.stash ??= []) : (state.player.items ??= []);
-  if (itemId === 'healing_draught') {
-    if (state.player.hp >= state.player.maxHp) throw new Error('พลังชีวิตเต็มอยู่แล้ว');
-    const before = state.player.hp;
+  if (item.hpRestore || item.manaRestore) {
+    const hp = Math.min(item.hpRestore ?? 0, state.player.maxHp - state.player.hp);
+    const mana = Math.min(item.manaRestore ?? 0, state.player.maxMana - state.player.mana);
+    if (!hp && !mana) throw new Error('พลังชีวิตและมานาที่ไอเทมนี้ฟื้นได้เต็มอยู่แล้ว');
     targetList.splice(index, 1);
-    state.player.hp = Math.min(state.player.maxHp, state.player.hp + 12);
-    return { ok: true, state, item, effectText: `ดื่มน้ำยาสมานแผล · ฟื้นพลังชีวิต +${state.player.hp - before} HP (${state.player.hp}/${state.player.maxHp})` };
-  }
-  if (itemId === 'mana_vial') {
-    if (state.player.mana >= state.player.maxMana) throw new Error('มานาเต็มอยู่แล้ว');
-    const before = state.player.mana;
-    targetList.splice(index, 1);
-    state.player.mana = Math.min(state.player.maxMana, state.player.mana + 4);
-    return { ok: true, state, item, effectText: `ดื่มขวดมานาสกัด · ฟื้นมานา +${state.player.mana - before} (${state.player.mana}/${state.player.maxMana})` };
+    state.player.hp += hp;
+    state.player.mana += mana;
+    const gains = [hp ? `HP +${hp}` : '', mana ? `MP +${mana}` : ''].filter(Boolean).join(' · ');
+    return { ok: true, state, item, effectText: `ใช้${item.name} · ${gains}` };
   }
   throw new Error('ไอเทมชิ้นนี้ต้องกดใช้ระหว่างอยู่ในฉากต่อสู้เท่านั้น');
 }
@@ -1739,14 +1792,34 @@ export function useBattleItem(original, beltIndex) {
   const events = [];
   const summary = { roomRecovery: 0 };
 
-  if (itemId === 'mana_vial') {
-    const before = p.mana;
-    p.mana = Math.min(p.maxMana, p.mana + 4);
-    effectText = `ดื่มขวดมานาสกัด · ฟื้นมานา +${p.mana - before} (${p.mana}/${p.maxMana})`;
-  } else if (itemId === 'healing_draught') {
-    const before = p.hp;
-    p.hp = Math.min(p.maxHp, p.hp + 12);
-    effectText = `ดื่มน้ำยาสมานแผล · ฟื้นพลังชีวิต +${p.hp - before} HP (${p.hp}/${p.maxHp})`;
+  if (item.hpRestore || item.manaRestore) {
+    const hp = Math.min(item.hpRestore ?? 0, p.maxHp - p.hp);
+    const mana = Math.min(item.manaRestore ?? 0, p.maxMana - p.mana);
+    if (!hp && !mana) throw new Error('พลังชีวิตและมานาที่ไอเทมนี้ฟื้นได้เต็มอยู่แล้ว');
+    p.hp += hp;
+    p.mana += mana;
+    effectText = `ใช้${item.name} · ${[hp ? `HP +${hp}` : '', mana ? `MP +${mana}` : ''].filter(Boolean).join(' · ')}`;
+  } else if (itemId === 'frost_dust') {
+    for (const enemy of state.enemies.filter(e => e.hp > 0)) enemy.chill += 4;
+    effectText = 'โปรยผงหมอกเย็น · ศัตรูทุกตัวหนาว 4';
+  } else if (itemId === 'veil_eraser') {
+    const total = state.enemies.reduce((sum, enemy) => sum + (enemy.hp > 0 ? enemy.ward : 0), 0);
+    if (!total) throw new Error('ศัตรูไม่มีม่านให้สลาย');
+    for (const enemy of state.enemies) if (enemy.hp > 0) enemy.ward = 0;
+    effectText = `โปรยผงสลายม่าน · สลายม่านรวม ${total} ชั้น`;
+  } else if (itemId === 'silence_scroll') {
+    const targets = state.enemies.filter(enemy => enemy.hp > 0 && !enemy.sealed);
+    if (!targets.length) throw new Error('ศัตรูทุกตัวถูกผนึกอยู่แล้ว');
+    for (const enemy of targets) enemy.sealed = true;
+    effectText = `เปิดม้วนผนึกอาคม · ผนึกศัตรู ${targets.length} ตัว`;
+  } else if (itemId === 'draw_pages') {
+    const amount = Math.min(2, Math.max(0, HAND_LIMIT - p.hand.length));
+    if (!amount) throw new Error('มือเต็มแล้ว ต้องมีที่ว่างก่อนจั่ว');
+    const deck = state.deathSpent ? p.words.filter(id => id !== 'death') : p.words;
+    const draw = { rng: state.handRng };
+    for (let i = 0; i < amount; i++) p.hand.push(pick(draw, deck));
+    state.handRng = draw.rng;
+    effectText = `เปิดหน้าตำราเรียกคำ · จั่วเพิ่ม ${amount} ใบ`;
   } else if (itemId === 'aegis_shard') {
     if (p.shield && Array.isArray(p.shield.layers) && p.shield.layers.length < 2) {
       p.shield.layers.push(6);
@@ -1808,20 +1881,14 @@ export function useBattleItem(original, beltIndex) {
           state.phase = 'sanctuary';
         } else if (rel === 24) {
           const majorBossFloor = (D + 1) * 10;
+          const relicId = grantBossRelic(p, majorBossFloor);
+          if (relicId) {
+            summary.relicDropped = relicId;
+            events.push({ type: 'relic', relicId });
+          }
           if (majorBossFloor === 50) {
             state.phase = 'won';
           } else {
-            p.relics ??= [];
-            const relicId = majorBossFloor === 10 ? 'ember_core_10' : majorBossFloor === 20 ? 'storm_pendulum_20' : null;
-            if (relicId && !p.relics.includes(relicId)) {
-              p.relics.push(relicId);
-              const equippedNow = getEquippedRelics(p);
-              if (equippedNow.length < MAX_RELIC_SLOTS && !equippedNow.includes(relicId)) {
-                p.equippedRelics = [...equippedNow, relicId];
-              }
-              summary.relicDropped = relicId;
-              events.push({ type: 'relic', relicId });
-            }
             state.sanctuaryUnlocked = true;
             state.sanctuaryFloor = `post${majorBossFloor}`;
             state.sanctuaryRested = false;
@@ -1858,12 +1925,12 @@ export function intent(enemy, turn, enemies = [], room = 0) {
   if (enemy.kind === 'prism_crab' && cycle === 1) {
     return { type: 'charge', amount: 0, shortLabel: 'ปิดกระดอง', label: 'เทิร์นหน้ากระดองเปิด เกราะเหลือ 1 ก่อนโจมตีด้วยก้ามหนัก' };
   }
-  if (enemy.kind === 'chain_hound' && turn % 2 === 1 && enemy.slot > 0
+  if (['chain_hound', 'void_imp'].includes(enemy.kind) && turn % 2 === 1 && enemy.slot > 0
     && !enemies.some(other => other.hp > 0 && other.slot === enemy.slot - 1)) {
     return { type: 'advance', amount: 0, slot: enemy.slot - 1, shortLabel: `เข้าช่อง ${enemy.slot}`, label: `ไล่ประชิดไปช่อง ${enemy.slot} · โจมตีแรงขึ้นเมื่ออยู่ช่อง 1` };
   }
   const healingLight = enemy.kind === 'lantern_wisp' && turn % 2 === 1;
-  const wardingMoth = enemy.kind === 'scroll_moth' && cycle === 1;
+  const wardingMoth = ['scroll_moth', 'iron_warden'].includes(enemy.kind) && cycle === 1;
   if (healingLight || wardingMoth) {
     const allies = enemies.filter(other => other.id !== enemy.id && other.hp > 0);
     const target = healingLight
@@ -1887,7 +1954,7 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     if (profile.heavy) return { type: 'recover', amount: 0, shortLabel: 'เสียจังหวะ', label: 'ไม่มีลูกสมุนให้สลับ · พักโจมตีรอบนี้' };
   }
   const boss = enemy.kind === 'seal_curator' || enemy.kind === 'crown_archivist';
-  const bossBloodied = boss && enemy.hp <= enemy.maxHp / 2;
+  const bossBloodied = boss && (enemy.hp <= enemy.maxHp / 2 || (enemy.kind === 'crown_archivist' && room === FLOOR30_BOSS_ROOM));
   if (enemy.kind === 'ward_scribe' || enemy.kind === 'ward_keeper' || (bossBloodied && cycle === 1)) {
     const allies = enemies.filter(other => other.hp > 0 && other.id !== enemy.id);
     const target = allies.reduce((best, other) => !best || other.hp * best.maxHp < best.hp * other.maxHp
@@ -1908,6 +1975,10 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `เตรียมโจมตีหนัก ${next} เทิร์นถัดไป` };
   }
   if (boss && cycle === 0) return { type: 'recover', amount: 0, label: 'เปิดช่อง · เกราะ 0 และพักโจมตี' };
+  if (enemy.kind === 'ember_imp' && cycle === 2) {
+    const next = Math.max(0, 9 + enemyClimaxBonus(turn + 1, room) - enemy.chill - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `รวบเพลิงเตรียมโจมตี ${next} เทิร์นถัดไป` };
+  }
   if (['charger', 'sentinel', 'rune_golem', 'storm_titan', 'obsidian_golem', 'astral_sentinel', 'thunder_colossus'].includes(enemy.kind) && turn % 2 === 1) {
     return { type: 'charge', amount: 0, label: `เตรียมโจมตี ${ENEMIES[enemy.kind].attack}` };
   }
@@ -1921,6 +1992,8 @@ export function intent(enemy, turn, enemies = [], room = 0) {
   if (enemy.kind === 'chrono_sage' && turn % 2 === 1) return { type: 'heal', amount: 5, label: 'ฟื้น HP พวกเดียวกัน 5' };
   if (enemy.freeze > 0) return { type: 'frozen', amount: 0, label: 'แช่แข็ง · ข้ามการโจมตี' };
   let base = ENEMIES[enemy.kind].attack;
+  if (enemy.kind === 'ember_imp' && cycle === 0) base = 9;
+  if (enemy.kind === 'void_imp' && enemy.slot === 0) base += 3;
   if (enemy.kind === 'ink_ray' && cycle === 0) base = 12;
   if (enemy.kind === 'prism_crab' && cycle === 2) base = 13;
   if (enemy.kind === 'chain_hound' && enemy.slot === 0) base += 3;
@@ -1953,6 +2026,9 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     if (turn % 4 === 0) base = 20;
     else if (turn % 4 === 2) base = 14;
   }
+  const loomAllies = enemy.kind === 'loom_sovereign' && room === FLOOR50_BOSS_ROOM && cycle === 2
+    ? enemies.filter(other => other.hp > 0 && other.id !== enemy.id).length : 0;
+  base += loomAllies * 3;
   const amount = Math.max(0, base + enemyClimaxBonus(turn, room) - enemy.chill - (enemy.obscured ? 4 : 0));
-  return { type: 'attack', amount, label: `โจมตี ${amount}` };
+  return { type: 'attack', amount, label: `โจมตี ${amount}${loomAllies ? ` · ลูกสมุน ${loomAllies} ตัวเสริม ${loomAllies * 3}` : ''}` };
 }

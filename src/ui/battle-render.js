@@ -1,4 +1,4 @@
-import { WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, ELEMENT_VULNERABILITY, ELEMENT_LABELS, ELEMENT_GLYPHS } from '../words.js';
+import { WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, ELEMENT_VULNERABILITY, ELEMENT_SECONDARY_VULNERABILITY, ELEMENT_LABELS, ELEMENT_GLYPHS } from '../words.js';
 import {
   HAND_LIMIT,
   MAX_BELT_ITEMS,
@@ -8,12 +8,16 @@ import {
   FLOOR11_START_ROOM,
   FLOOR20_BOSS_ROOM,
   FLOOR21_START_ROOM,
+  FLOOR30_BOSS_ROOM,
   FLOOR31_START_ROOM,
+  FLOOR40_BOSS_ROOM,
+  FLOOR50_BOSS_ROOM,
   UPPER_RESTS,
   firstClimaxTurn,
   enemyClimaxBonus,
   getFloorInfo,
   getFloorStartRoom,
+  isSanctuaryFloorUnlocked,
   isSanctuaryUnlocked,
   isSanctuary9Unlocked,
   isSanctuaryPost10Unlocked,
@@ -360,7 +364,8 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const enemyAffinity = enemy.affinity ?? base.affinity ?? null;
     if (enemyAffinity && ELEMENT_VULNERABILITY[enemyAffinity]) {
       const weakElem = ELEMENT_VULNERABILITY[enemyAffinity];
-      badges.push(`<span class="enemy-badge badge-affinity affinity-${enemyAffinity}" title="ธาตุ ${ELEMENT_LABELS[enemyAffinity]} · แพ้ทาง ${ELEMENT_LABELS[weakElem]} (+25% ดาเมจ) · ต้านทาน ${ELEMENT_LABELS[enemyAffinity]} (−20% ดาเมจ)">${ELEMENT_GLYPHS[enemyAffinity]} ${ELEMENT_LABELS[enemyAffinity]} (แพ้ ${ELEMENT_LABELS[weakElem]})</span>`);
+      const weakNames = [weakElem, ELEMENT_SECONDARY_VULNERABILITY[enemyAffinity]].map(id => ELEMENT_LABELS[id]).join(' / ');
+      badges.push(`<span class="enemy-badge badge-affinity affinity-${enemyAffinity}" title="ธาตุ ${ELEMENT_LABELS[enemyAffinity]} · แพ้ทาง ${weakNames} (+25% ดาเมจ) · ต้านทาน ${ELEMENT_LABELS[enemyAffinity]} (−20% ดาเมจ)">${ELEMENT_GLYPHS[enemyAffinity]} ${ELEMENT_LABELS[enemyAffinity]} (แพ้ ${weakNames})</span>`);
     }
     // Show slot number from Floor 11+ so slot-targeted intents (ฮีล #N, ม่าน #N, เข้าช่อง N) are legible at a glance
     if (state.room >= FLOOR11_START_ROOM) badges.push(`<span class="enemy-badge">#${enemy.slot + 1}</span>`);
@@ -371,6 +376,18 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const readLabel = enemy.readForm ? WORDS[enemy.readForm].label : '';
     const readHint = base.repeatReduction ? `จำรูปเวทที่ทำดาเมจล่าสุด · ร่ายรูปเดิมซ้ำลดดาเมจ ${base.repeatReduction}% · เทิร์นเปิดช่องร่ายซ้ำได้เต็มแรง` : '';
     if (readHint) badges.push(`<span class="enemy-badge badge-ward" title="${readHint}">${readLabel ? `จำ ${readLabel}${exposedHint ? '' : ` −${base.repeatReduction}%`}` : 'อ่านทางเวท'}</span>`);
+    let bossHint = '';
+    if (state.room === FLOOR30_BOSS_ROOM && enemy.kind === 'crown_archivist') {
+      const guarded = state.enemies.some(ally => ally.id !== enemy.id && ally.hp > 0);
+      bossHint = guarded ? 'ตราคุ้มกัน · ลูกสมุนที่ยังอยู่ลดดาเมจบอส 25% · กำจัดลูกสมุนเพื่อทำลายการคุ้มกัน' : 'ตราคุ้มกันสลาย · ไม่มีลูกสมุนเหลือ';
+      badges.push(`<span class="enemy-badge badge-armor" title="${bossHint}">${guarded ? 'ลูกสมุนคุ้มกัน −25%' : 'ตราสลาย'}</span>`);
+    } else if (state.room === FLOOR40_BOSS_ROOM && enemy.kind === 'mirror_regent') {
+      bossHint = 'ม่านกระจกสะท้อน 4 ดาเมจเมื่อกันกระสุน · ใช้ลำแสงทะลุหรือสลายม่านก่อนยิง';
+      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">ม่านสะท้อน 4</span>`);
+    } else if (state.room === FLOOR50_BOSS_ROOM && enemy.kind === 'loom_sovereign') {
+      bossHint = 'ท่าหนักทุกสามเทิร์นเพิ่ม 3 ดาเมจต่อลูกสมุนที่ยังอยู่ · กำจัดลูกสมุนเพื่อลดแรงโจมตี';
+      badges.push(`<span class="enemy-badge badge-push" title="${bossHint}">ท่าหนัก +3/ลูกสมุน</span>`);
+    }
     if (status.chill > 0) badges.push(`<span class="enemy-badge badge-chill">❄ หนาว −${status.chill}</span>`);
     if (status.freeze > 0) badges.push(`<span class="enemy-badge badge-freeze">🧊 แช่แข็ง ${status.freeze}</span>`);
     if (status.burn > 0) badges.push(`<span class="enemy-badge badge-burn">🔥 เผา ${status.burn}</span>`);
@@ -386,7 +403,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const intentClass = action.type === 'attack' && action.amount >= 6 ? 'heavy' : action.type;
     const baseIntentLabel = action.shortLabel ?? (action.type === 'attack' ? `${icon('sword')} ${action.amount}` : action.type === 'heal' ? `${icon('heal')} ${action.amount}` : action.type === 'charge' ? 'ชาร์จ' : action.type === 'sealed' ? 'ติดผนึก' : action.type === 'recover' ? 'เปิดช่อง' : 'แช่แข็ง');
     const intentLabel = String(baseIntentLabel).includes('<svg') ? baseIntentLabel : `${intentIconHtml(action)} ${baseIntentLabel}`;
-    const description = [base.name, `ช่อง ${enemy.slot + 1}`, `HP ${enemy.hp}/${enemy.maxHp}`, action.label, exposedHint, readLabel && `รูปเวทที่จำ ${readLabel}`, readHint, trait?.passive(state.turn), trait?.counter].filter(Boolean).join(' · ');
+    const description = [base.name, `ช่อง ${enemy.slot + 1}`, `HP ${enemy.hp}/${enemy.maxHp}`, action.label, exposedHint, readLabel && `รูปเวทที่จำ ${readLabel}`, readHint, bossHint, trait?.passive(state.turn), trait?.counter].filter(Boolean).join(' · ');
     const predicted = finalHp ?? after;
     const projectedLabel = projectedAction.type === 'dead' ? ' → 0'
       : projectedAction.type === 'sealed' && action.type !== 'sealed' ? ' → ผนึก'

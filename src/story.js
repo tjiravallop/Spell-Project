@@ -184,6 +184,9 @@ export function getBattleStory(state) {
   const totalRooms = state.rooms?.length ?? 44;
   if (totalRooms < 21) return null;
   const { floor, isBoss } = getFloorInfo(state.room, totalRooms);
+  if (isBoss && floor === 30) return { id: 'major-boss-30', kicker: 'บอสชั้น 30', title: 'ตราคุ้มกันแห่งหอจารึก', body: 'ลูกสมุนที่ยังอยู่ลดดาเมจที่บอสได้รับ 25% และบอสอาจมอบม่านให้พวกเดียวกันในบทแรก', hint: 'จัดการลูกสมุนเพื่อสลายการคุ้มกัน หรือใช้ผนึกหยุดการมอบม่าน', milestones: [] };
+  if (isBoss && floor === 40) return { id: 'major-boss-40', kicker: 'บอสชั้น 40', title: 'กระจกสะท้อนคำร่าย', body: 'เมื่อม่านกระจกกันกระสุน บอสจะสะท้อน 4 ดาเมจกลับมาในแต่ละครั้ง', hint: 'ใช้ลำแสงทะลุม่าน หรือสลายม่านก่อนยิง', milestones: [] };
+  if (isBoss && floor === 50) return { id: 'major-boss-50', kicker: 'บอสชั้น 50', title: 'เส้นด้ายแห่งราชัน', body: 'ท่าโจมตีหนักเพิ่ม 3 ดาเมจต่อลูกสมุนที่ยังอยู่ บอสยังจำรูปเวทล่าสุดและลดดาเมจจากรูปเดิม', hint: 'ตัดลูกสมุนเพื่อลดแรงโจมตี สลับรูปเวท หรือโจมตีตอนบอสเปิดช่อง', milestones: [] };
   if (state.room === 22) return { id: 'middle-menagerie', kicker: 'ชั้น 11', title: 'สัตว์หลุดจากคัมภีร์', body: 'กระเบนหมึกรวบปีกก่อนพุ่ง ผีเสื้อคัมภีร์ถักม่านให้เพื่อน แม้ทั้งคู่บินได้เหมือนกัน แต่ต้องหยุดคนละจังหวะ', milestones: [] };
   if (floor === 31) return { id: 'rift-entry', kicker: 'ชั้น 31', title: 'รอยแยกระหว่างช่อง', body: 'นักยิงด้ายเวทโจมตีแรงขึ้นเมื่อยืนไกล ดึงเข้ามาใกล้หรือใช้เวทที่กวาดถึงช่องด้านหลัง', milestones: [] };
   if (floor === 33) return { id: 'rift-swap', kicker: 'ชั้น 33', title: 'แนวศัตรูเริ่มเคลื่อน', body: 'ผู้สลับรอยแยกบอกว่าจะสลับกับใครล่วงหน้า จัดตำแหน่งด้วยผลักหรือดึง หรือใช้ผนึกเพื่อหยุดการสลับรอบนั้น', milestones: [] };

@@ -27,6 +27,7 @@ import { icon } from '../icons.js';
 import { MASTER_FORMULAS, canFormPhraseInHand, describeFormulaEffect } from '../combos.js';
 import { $, escape, rarityBadge } from './dom.js';
 import { renderItemBelt, renderRoomTrack } from './battle-render.js';
+import { cardFilterControls, applyCardFilters } from './card-filters.js';
 
 const GRIMOIRE_PAGE_SIZE = 24;
 
@@ -167,7 +168,7 @@ export function createModalsController(ctx) {
       const canUseItemNow = item => {
         if (!item || item.vaultOnly) return false;
         if (state.phase === 'battle') return true;
-        return item.id === 'healing_draught' || item.id === 'mana_vial';
+        return Boolean(item.hpRestore || item.manaRestore);
       };
 
       const beltGrid = Array.from({ length: MAX_BELT_ITEMS }, (_, idx) => {
@@ -220,9 +221,10 @@ export function createModalsController(ctx) {
         const secInfo = getCardSecondaryEffect(id, Math.max(CARD_SECONDARY_UNLOCK_LEVEL, lv));
         const inActiveDeck = p.words.includes(id);
         const chancePercent = getCardUpgradeSuccessRate(lv, false);
-        return `<article class="inv-card-row ${lv > 0 || secUnlocked ? 'is-upgraded' : ''}"><div class="inv-card-head"><span class="forge-card-icon">${icon(id)}</span><div><strong>${escape(word.label)}${lv > 0 ? ` +${lv}` : ''}</strong><small class="forge-deck-tag ${inActiveDeck ? 'active' : ''}">${inActiveDeck ? '✓ พกในสำรับต่อสู้' : 'เก็บในคลังสะสม'}</small></div><div class="forge-badges"><span class="forge-lv-pill ${lv > 0 ? 'has-lv' : ''}">+${lv}/${MAX_CARD_UPGRADE}</span>${lv < MAX_CARD_UPGRADE ? `<span class="forge-chance-pill">${chancePercent}% ที่แท่นตีบวก</span>` : ''}${secUnlocked ? `<span class="forge-sec-pill unlocked">ขั้น ${secTier}: ${escape(secInfo.badge)}</span>` : `<span class="forge-sec-pill locked">ปลดล็อกที่ +7: ${escape(secInfo.badge)}</span>`}</div></div><p class="forge-stat-desc">⚡ ${escape(lv > 0 ? describeCardUpgradeEffect(id, lv) : word.description)}</p></article>`;
+        return `<article class="inv-card-row ${lv > 0 || secUnlocked ? 'is-upgraded' : ''}" data-filter-card="${id}"><div class="inv-card-head"><span class="forge-card-icon">${icon(id)}</span><div><strong>${escape(word.label)}${lv > 0 ? ` +${lv}` : ''}</strong><small class="forge-deck-tag ${inActiveDeck ? 'active' : ''}">${inActiveDeck ? '✓ พกในสำรับต่อสู้' : 'เก็บในคลังสะสม'}</small></div><div class="forge-badges"><span class="forge-lv-pill ${lv > 0 ? 'has-lv' : ''}">+${lv}/${MAX_CARD_UPGRADE}</span>${lv < MAX_CARD_UPGRADE ? `<span class="forge-chance-pill">${chancePercent}% ที่แท่นตีบวก</span>` : ''}${secUnlocked ? `<span class="forge-sec-pill unlocked">ขั้น ${secTier}: ${escape(secInfo.badge)}</span>` : `<span class="forge-sec-pill locked">ปลดล็อกที่ +7: ${escape(secInfo.badge)}</span>`}</div></div><p class="forge-stat-desc">⚡ ${escape(lv > 0 ? describeCardUpgradeEffect(id, lv) : word.description)}</p></article>`;
       }).join('');
-      bodyEl.innerHTML = `<div class="inv-cards-list">${cardsHtml}</div>`;
+      bodyEl.innerHTML = `<div data-card-filter-panel="inventory">${cardFilterControls('inventory')}<div class="inv-cards-list">${cardsHtml}</div></div>`;
+      applyCardFilters(bodyEl.querySelector('[data-card-filter-panel="inventory"]'), state);
       return;
     }
 
