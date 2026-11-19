@@ -10,6 +10,7 @@ const LARGE_BOSS_KINDS = new Set([
   'boss', 'mirror_mage', 'frost_lich', 'storm_titan', 'arch_codex', 'ember_overlord',
   'prism_watcher', 'astral_sentinel', 'elder_grimoire', 'eclipse_mage', 'glacial_sovereign', 'thunder_colossus', 'nexus_codex', 'tempest_archon',
   'seal_curator', 'crown_archivist',
+  'gate_weaver', 'mirror_regent', 'seam_warden', 'loom_sovereign',
 ]);
 const arcaneBeamSheets = new Map();
 const arcaneBeam = {

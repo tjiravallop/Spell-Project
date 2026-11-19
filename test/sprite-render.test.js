@@ -675,3 +675,30 @@ test('Floors 26-30 redesigned monsters have authentic names, traits, affinities 
   assert.equal(ENEMIES.crown_archivist.sprite, undefined);
   assert.ok(ENEMY_TRAITS.crown_archivist);
 });
+
+test('Floors 31-35 redesigned monsters have authentic names, traits, affinities and no borrowed sprites', () => {
+  assert.equal(ENEMIES.thread_archer.name, 'พรานศรด้ายวายุ');
+  assert.equal(ENEMIES.thread_archer.affinity, 'wind');
+  assert.equal(ENEMIES.thread_archer.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.thread_archer);
+
+  assert.equal(ENEMIES.lattice_guard.name, 'โกเลมแนวศิลา');
+  assert.equal(ENEMIES.lattice_guard.affinity, 'earth');
+  assert.equal(ENEMIES.lattice_guard.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.lattice_guard);
+
+  assert.equal(ENEMIES.rift_runner.name, 'วิหคสลับรอยแยก');
+  assert.equal(ENEMIES.rift_runner.affinity, 'lightning');
+  assert.equal(ENEMIES.rift_runner.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.rift_runner);
+
+  assert.equal(ENEMIES.gate_weaver.name, 'จ้าวทวารสานมิติ');
+  assert.equal(ENEMIES.gate_weaver.affinity, 'wind');
+  assert.equal(ENEMIES.gate_weaver.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.gate_weaver);
+
+  assert.equal(ENEMIES.mirror_regent.name, 'ราชันกระจกผลึกเหมันต์');
+  assert.equal(ENEMIES.mirror_regent.affinity, 'ice');
+  assert.equal(ENEMIES.mirror_regent.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.mirror_regent);
+});
