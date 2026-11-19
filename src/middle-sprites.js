@@ -53,16 +53,36 @@ export const middleSprites = {
     r(6 + lk, 29, 8, 3, c[12]); r(19 - lk, 29, 8, 3, c[12]);
   },
   loom_sovereign(r, c, pose, frame) {
-    const pulse = pose === 'attack' ? c[31] : frame % 2 ? c[23] : c[30];
-    r(4, 2, 3, 28, c[12]); r(25, 2, 3, 28, c[12]);
-    r(5, 1, 22, 3, c[14]); r(5, 28, 22, 3, c[14]);
-    r(8, 5, 1, 22, c[23]); r(23, 5, 1, 22, c[23]);
-    r(10, 6, 12, 5, c[20]); r(12, 4, 2, 3, c[30]); r(18, 4, 2, 3, c[30]);
-    r(11, 11, 10, 11, c[21]); r(12, 12, 8, 3, c[23]);
-    r(13, 13, 2, 1, c[31]); r(18, 13, 2, 1, c[31]);
-    r(10, 22, 12, 4, c[20]); r(13, 15, 6, 5, pulse); r(15, 16, 2, 3, c[9]);
-    r(1, 9, 3, 2, pulse); r(28, 9, 3, 2, pulse);
-    r(0, 20, 4, 2, c[23]); r(28, 20, 4, 2, c[23]);
+    // ราชันกี่ทอโลก (The Loom Sovereign - Final Boss Floor 50★, auto 2x scale)
+    const atk = pose === 'attack';
+    const pulse = atk ? c[31] : frame % 2 ? c[23] : c[30];
+    const floatY = [0, -1, 0, 1][frame % 4];
+    // Giant World Loom Frame standing in background
+    r(3, 1, 3, 30, c[12]); r(26, 1, 3, 30, c[12]);
+    r(4, 0, 24, 3, c[14]); r(4, 29, 24, 3, c[14]);
+    // Loom Strings of Reality (vibrant threads vibrating)
+    r(7, 3, 1, 26, c[23]); r(10, 3, 1, 26, pulse); r(21, 3, 1, 26, pulse); r(24, 3, 1, 26, c[23]);
+    // Cosmic Crown & Celestial Halo
+    r(11, 2, 10, 4, c[30]); r(13, 0, 6, 3, c[31]); r(15, -2, 2, 3, c[9]);
+    // Sovereign Head & Omniscient Eyes
+    r(12, 5 + floatY, 8, 7, c[20]);
+    r(13, 6 + floatY, 6, 5, c[15]);
+    r(14, 7 + floatY, 2, 2, c[31]); r(17, 7 + floatY, 2, 2, c[31]);
+    // Royal Robes of Starry Space
+    r(10, 12 + floatY, 12, 16, c[20]);
+    r(11, 14 + floatY, 10, 13, c[21]);
+    r(13, 13 + floatY, 6, 14, c[23]);
+    r(14, 15 + floatY, 4, 10, pulse);
+    r(15, 17 + floatY, 2, 3, c[9]);
+    // Floating Cosmic Loom Shuttles / Spindles
+    r(0, 10 + floatY, 4, 6, pulse); r(1, 11 + floatY, 2, 4, c[31]);
+    r(28, 10 - floatY, 4, 6, pulse); r(29, 11 - floatY, 2, 4, c[31]);
+    r(0, 22 - floatY, 4, 5, c[23]); r(28, 22 + floatY, 4, 5, c[23]);
+    // Attack burst: threads ignite with blinding white/gold light!
+    if (atk) {
+      r(6, 14, 20, 2, c[31]);
+      r(12, 8, 8, 8, c[31]);
+    }
   },
   rift_runner(r, c, pose, frame) {
     const drift = pose === 'attack' ? -2 : [0, -1, 0, 1][frame % 4];

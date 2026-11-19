@@ -722,3 +722,10 @@ test('Floors 41-45 encounters and Sanctuary 45 progression are valid and narrati
   assert.equal(story.title, 'จุดพักริมรอยแยก');
   assert.match(story.body, /ชั้น 46/);
 });
+
+test('Floors 46-50 final boss Loom Sovereign has authentic traits, no borrowed sprites, and grand 2x scale', () => {
+  assert.equal(ENEMIES.loom_sovereign.name, 'ราชันกี่ทอโลก');
+  assert.equal(ENEMIES.loom_sovereign.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.loom_sovereign);
+  assert.match(ENEMY_TRAITS.loom_sovereign.role, /ชั้น 50/);
+});
