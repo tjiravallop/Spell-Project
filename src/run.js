@@ -1,6 +1,13 @@
 import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS } from './words.js';
 import { RIFT_ENEMIES, RIFT_TOWER, SPACED_FLOORS } from './upper-tower.js';
 import { MIDDLE_BATTLES, MIDDLE_ENEMIES } from './middle-tower.js';
+import {
+  ENDGAME_ENEMIES,
+  ENDGAME_RELICS,
+  ENDGAME_SHOP_ITEMS,
+  ENDGAME_SPACED_FLOORS,
+  buildEndgameTowerRooms,
+} from './endgame-tower.js';
 
 export const ENEMIES = Object.freeze({
   striker: { name: 'อิมพ์หมึก', hp: 16, armor: 0, ward: 0, attack: 3, color: '#ba7862', exp: 10, gold: 8, isBoss: false },
@@ -39,6 +46,7 @@ export const ENEMIES = Object.freeze({
   crown_archivist: { name: 'เจ้าแห่งหอจารึก', hp: 235, armor: 3, ward: 2, attack: 13, color: '#ffd18e', exp: 260, gold: 215, isBoss: true },
   ...RIFT_ENEMIES,
   ...MIDDLE_ENEMIES,
+  ...ENDGAME_ENEMIES,
 });
 
 export const REVISIT_REWARD_RATE = 0.2;
@@ -146,6 +154,7 @@ export const SHOP_ITEMS = Object.freeze({
     badge: 'จั่วเพิ่มสูงสุด 2 ใบ',
     description: 'จั่วจากชุดคำที่พกเพิ่มสูงสุด 2 ใบโดยไม่เกิน 10 ใบในมือ ใช้ได้ในศึกโดยไม่เสียเทิร์น',
   },
+  ...ENDGAME_SHOP_ITEMS,
 });
 
 export const BLESSING_CATALOG = Object.freeze({
@@ -195,7 +204,12 @@ export const BLESSING_CATALOG = Object.freeze({
 
 export function getAvailableShopItems(state) {
   const purchased = state?.purchasedShopItems ?? [];
-  return Object.values(SHOP_ITEMS).filter(item => !(item.oneTime && purchased.includes(item.id)));
+  const currentFloor = state?.room != null ? (getFloorInfo(state.room)?.floor ?? 1) : 1;
+  return Object.values(SHOP_ITEMS).filter(item => {
+    if (item.oneTime && purchased.includes(item.id)) return false;
+    if (item.minFloor && currentFloor < item.minFloor) return false;
+    return true;
+  });
 }
 
 export function getCardUpgradeLevel(state, wordId) {
@@ -349,6 +363,7 @@ export const RELIC_DRAFT_CATALOG = Object.freeze([
     summary: 'ตั้งรับพื้นฐานกันเพิ่ม 3 และโล่เวทแต่ละชั้นเพิ่ม 3',
     status: 'ดรอปจากบอสหลักชั้น 50',
   },
+  ...ENDGAME_RELICS,
 ]);
 
 export function getEquippedRelics(player) {
@@ -471,7 +486,37 @@ export const FLOOR45_SANCTUARY = 45;
 export const FLOOR46_START_ROOM = 112;
 export const FLOOR49_BOUNDARY_ROOM = 123;
 export const FLOOR50_BOSS_ROOM = 124;
-export const TOTAL_TOWER_ROOMS = 125;
+export const FLOOR51_START_ROOM = 125;
+export const FLOOR54_BOUNDARY_ROOM = 136;
+export const FLOOR55_SANCTUARY = 55;
+export const FLOOR56_START_ROOM = 137;
+export const FLOOR59_BOUNDARY_ROOM = 148;
+export const FLOOR60_BOSS_ROOM = 149;
+export const FLOOR61_START_ROOM = 150;
+export const FLOOR64_BOUNDARY_ROOM = 161;
+export const FLOOR65_SANCTUARY = 65;
+export const FLOOR66_START_ROOM = 162;
+export const FLOOR69_BOUNDARY_ROOM = 173;
+export const FLOOR70_BOSS_ROOM = 174;
+export const FLOOR71_START_ROOM = 175;
+export const FLOOR74_BOUNDARY_ROOM = 186;
+export const FLOOR75_SANCTUARY = 75;
+export const FLOOR76_START_ROOM = 187;
+export const FLOOR79_BOUNDARY_ROOM = 198;
+export const FLOOR80_BOSS_ROOM = 199;
+export const FLOOR81_START_ROOM = 200;
+export const FLOOR84_BOUNDARY_ROOM = 211;
+export const FLOOR85_SANCTUARY = 85;
+export const FLOOR86_START_ROOM = 212;
+export const FLOOR89_BOUNDARY_ROOM = 223;
+export const FLOOR90_BOSS_ROOM = 224;
+export const FLOOR91_START_ROOM = 225;
+export const FLOOR94_BOUNDARY_ROOM = 236;
+export const FLOOR95_SANCTUARY = 95;
+export const FLOOR96_START_ROOM = 237;
+export const FLOOR99_BOUNDARY_ROOM = 248;
+export const FLOOR100_BOSS_ROOM = 249;
+export const TOTAL_TOWER_ROOMS = 250;
 
 // Aliases for legacy exports
 export const FLOOR5_START_ROOM = FLOOR6_START_ROOM;
@@ -482,7 +527,7 @@ export const FLOOR18_BOSS_ROOM = FLOOR19_BOUNDARY_ROOM;
 export const FLOOR25_BOSS_ROOM = FLOOR24_BOUNDARY_ROOM;
 
 export const UPPER_RESTS = Object.freeze(Object.fromEntries(
-  [20, 25, 30, 35, 40, 45].map(floor => [`post${floor}`, Math.floor((floor - 1) / 10) * 25 + 24]),
+  [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95].map(floor => [`post${floor}`, Math.floor((floor - 1) / 10) * 25 + 24]),
 ));
 const PULL_REWARD_ROOM = 76;
 const UPPER_TOWER = [
@@ -506,6 +551,14 @@ export function unlockUpperTower(state) {
   if (state.phase === 'won' && state.room === FLOOR20_BOSS_ROOM) {
     state.phase = 'sanctuary';
     state.sanctuaryFloor = 'post20';
+  }
+}
+
+export function unlockEndgameTower(state) {
+  state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR51_START_ROOM);
+  if (state.phase === 'won' && state.room === FLOOR50_BOSS_ROOM) {
+    state.phase = 'sanctuary';
+    state.sanctuaryFloor = 'post50';
   }
 }
 
@@ -537,18 +590,25 @@ export function completeUpperFloor(state) {
     return true;
   }
   if (state.room === FLOOR50_BOSS_ROOM) {
+    if ((state.rooms?.length ?? 0) < TOTAL_TOWER_ROOMS) {
+      state.rooms = buildTowerRooms(state.seed, state.tutorial);
+    }
+    state.sanctuaryUnlocked = true;
+    state.phase = 'sanctuary';
+    state.sanctuaryFloor = 'post50';
+    state.sanctuaryRested = false;
+    state.highestRoom = Math.max(state.highestRoom ?? 0, FLOOR51_START_ROOM);
+    return true;
+  }
+  if (state.room === FLOOR100_BOSS_ROOM) {
     state.phase = 'won';
     return true;
   }
   return false;
 }
-export const TOWER_COMBAT_FLOORS = Object.freeze([
-  1, 2, 3, 4, 6, 7, 8, 9, 10,
-  11, 12, 13, 14, 16, 17, 18, 19, 20,
-  21, 22, 23, 24, 26, 27, 28, 29, 30,
-  31, 32, 33, 34, 36, 37, 38, 39, 40,
-  41, 42, 43, 44, 46, 47, 48, 49, 50,
-]);
+export const TOWER_COMBAT_FLOORS = Object.freeze(
+  Array.from({ length: 100 }, (_, i) => i + 1).filter(f => f % 10 !== 5)
+);
 
 export function getFloorStartRoom(floorNum) {
   const D = Math.floor((floorNum - 1) / 10);
@@ -635,9 +695,9 @@ export function getFloorInfo(roomIndex = 0, totalRooms = TOTAL_TOWER_ROOMS) {
 
   // rel === 24: Major Boss
   const floor = D * 10 + 10;
-  const isFinalBoss = floor === 50;
+  const isFinalBoss = floor === 100;
   const code = `${floor}★`;
-  const displayName = isFinalBoss ? 'บอสใหญ่สุดชั้น 50' : `บอสพิเศษชั้น ${floor}`;
+  const displayName = isFinalBoss ? 'บอสใหญ่สุดชั้น 100 (Endgame Final Boss)' : floor === 50 ? 'บอสใหญ่ชั้น 50' : `บอสพิเศษชั้น ${floor}`;
   const roomRole = isFinalBoss ? 'ห้องบอสใหญ่สุดประจำหอคอย' : `ห้องบอสพิเศษประจำชั้น ${floor}`;
   return {
     floor,
@@ -648,6 +708,7 @@ export function getFloorInfo(roomIndex = 0, totalRooms = TOTAL_TOWER_ROOMS) {
     displayName,
     roomRole,
     isBoss: true,
+    isFinalBoss,
     title: `ชั้นที่ ${floor} · ${roomRole} (${code})`,
   };
 }
@@ -776,6 +837,26 @@ export function prepareEnemies(state) {
       enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
       enemy.armor = phase === 1 ? 4 : phase === 2 ? 5 : phase === 3 ? 3 : 0;
     }
+    if (enemy.kind === 'volcano_colossus' || enemy.kind === 'thunder_drake_emperor') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
+      enemy.armor = phase === 1 ? 4 : phase === 2 ? 6 : phase === 3 ? 3 : 1;
+    }
+    if (enemy.kind === 'ancient_chitin_behemoth') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
+      enemy.armor = phase === 1 ? 5 : phase === 2 ? 7 : phase === 3 ? 4 : 2;
+    }
+    if (enemy.kind === 'nether_dread_lord') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 2 : 0;
+      enemy.armor = phase === 1 ? 4 : phase === 2 ? 6 : phase === 3 ? 3 : 1;
+    }
+    if (enemy.kind === 'eternity_overlord') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 2 : 0;
+      enemy.armor = phase === 1 ? 6 : phase === 2 ? 8 : phase === 3 ? 5 : 2;
+    }
     if (enemy.magmaArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
     if (enemy.permanentArmorShred) enemy.armor = Math.max(0, enemy.armor - enemy.permanentArmorShred);
     else if (enemy.earthArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - (enemy.earthArmorShred ?? 1));
@@ -822,7 +903,8 @@ export function enterRoom(state) {
     state.player.shield = null;
   }
   state.enemies = state.rooms[state.room].map(createEnemy);
-  if (SPACED_FLOORS.has(getFloorInfo(state.room, state.rooms.length).floor)) {
+  const roomFloor = getFloorInfo(state.room, state.rooms.length).floor;
+  if (SPACED_FLOORS.has(roomFloor) || ENDGAME_SPACED_FLOORS.has(roomFloor)) {
     const slots = { 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4] }[state.enemies.length];
     if (slots) state.enemies.forEach((enemy, index) => { enemy.slot = slots[index]; });
   }
@@ -1006,8 +1088,11 @@ export function buildTowerRooms(seed, tutorial = false) {
     p([['rift_runner', 'lattice_guard', 'thread_archer', 'lattice_guard'], ['thread_archer', 'rift_runner', 'seam_warden']]),
     ['seam_warden', 'mirror_regent', 'thread_archer'], // 49-3 boss
 
-    // Floor 50★ Final Boss (room 124)
+    // Floor 50★ Major Boss (room 124)
     ['loom_sovereign', 'rift_runner', 'ward_scribe', 'thread_archer'],
+
+    // Floors 51–100 Endgame Tower (rooms 125–249)
+    ...buildEndgameTowerRooms(p),
   ];
 }
 
@@ -1097,10 +1182,6 @@ export function offerMissedElementReward(state) {
 export function completeBossVictoryTransition(state) {
   state.clearedRooms ??= [];
   if (!state.clearedRooms.includes(state.room)) state.clearedRooms.push(state.room);
-  if (state.room >= (state.rooms?.length ?? 125) - 1) {
-    state.phase = 'won';
-    return state;
-  }
   const rel = state.room % 25;
   const D = Math.floor(state.room / 25);
 
@@ -1124,7 +1205,8 @@ export function completeBossVictoryTransition(state) {
   }
   if (rel === 24) {
     const majorBossFloor = (D + 1) * 10;
-    if (majorBossFloor === 50) {
+    grantBossRelic(state.player, majorBossFloor);
+    if (majorBossFloor === 100 || state.room >= (state.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1) {
       state.phase = 'won';
       return state;
     }
@@ -1133,6 +1215,10 @@ export function completeBossVictoryTransition(state) {
     state.sanctuaryRested = false;
     state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
     state.phase = 'sanctuary';
+    return state;
+  }
+  if (state.room >= (state.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1) {
+    state.phase = 'won';
     return state;
   }
   state.phase = 'loadout';
@@ -1645,23 +1731,40 @@ export function upgradeWordCard(original, wordId, mode = 'stat', options = {}) {
     throw new Error(`การ์ด “${WORDS[wordId].label}” ตีบวกสเตตัสถึงระดับสูงสุด (+${MAX_CARD_UPGRADE}) แล้ว`);
   }
   const goldCost = getCardUpgradeCost(currentLevel);
-  const stashStoneIdx = p.stash.indexOf('smithing_stone');
-  const beltStoneIdx = p.items.indexOf('smithing_stone');
+  const stoneKinds = [
+    { id: 'godly_smithing_essence', bonus: 100 },
+    { id: 'abyssal_smithing_core', bonus: 50 },
+    { id: 'hyper_smithing_cluster', bonus: 40 },
+    { id: 'superior_smithing_stone', bonus: 30 },
+    { id: 'smithing_crystal', bonus: 20 },
+    { id: 'smithing_stone', bonus: 15 },
+  ];
   let usedStone = false;
-  if (stashStoneIdx >= 0) {
-    p.stash.splice(stashStoneIdx, 1);
-    usedStone = true;
-  } else if (beltStoneIdx >= 0) {
-    p.items.splice(beltStoneIdx, 1);
-    usedStone = true;
-  } else {
+  let stoneBonus = SMITHING_STONE_BONUS_RATE;
+  for (const sk of stoneKinds) {
+    const sIdx = p.stash.indexOf(sk.id);
+    const bIdx = p.items.indexOf(sk.id);
+    if (sIdx >= 0) {
+      p.stash.splice(sIdx, 1);
+      usedStone = true;
+      stoneBonus = sk.bonus;
+      break;
+    } else if (bIdx >= 0) {
+      p.items.splice(bIdx, 1);
+      usedStone = true;
+      stoneBonus = sk.bonus;
+      break;
+    }
+  }
+  if (!usedStone) {
     if (p.gold < goldCost) {
       throw new Error(`ทองไม่พอสำหรับการตีบวก · ต้องใช้ ${goldCost} ทอง (มีอยู่ ${p.gold} ทอง)`);
     }
     p.gold -= goldCost;
   }
 
-  const chancePercent = getCardUpgradeSuccessRate(currentLevel, usedStone);
+  const baseRate = CARD_UPGRADE_SUCCESS_RATES[currentLevel] ?? 20;
+  const chancePercent = Math.min(100, baseRate + (usedStone ? stoneBonus : 0));
   const rollPercent = typeof options.roll === 'number'
     ? Math.max(1, Math.min(100, Math.floor(options.roll)))
     : chancePercent >= 100
@@ -1792,47 +1895,7 @@ export function useBattleItem(original, beltIndex) {
   const events = [];
   const summary = { roomRecovery: 0 };
 
-  if (item.hpRestore || item.manaRestore) {
-    const hp = Math.min(item.hpRestore ?? 0, p.maxHp - p.hp);
-    const mana = Math.min(item.manaRestore ?? 0, p.maxMana - p.mana);
-    if (!hp && !mana) throw new Error('พลังชีวิตและมานาที่ไอเทมนี้ฟื้นได้เต็มอยู่แล้ว');
-    p.hp += hp;
-    p.mana += mana;
-    effectText = `ใช้${item.name} · ${[hp ? `HP +${hp}` : '', mana ? `MP +${mana}` : ''].filter(Boolean).join(' · ')}`;
-  } else if (itemId === 'frost_dust') {
-    for (const enemy of state.enemies.filter(e => e.hp > 0)) enemy.chill += 4;
-    effectText = 'โปรยผงหมอกเย็น · ศัตรูทุกตัวหนาว 4';
-  } else if (itemId === 'veil_eraser') {
-    const total = state.enemies.reduce((sum, enemy) => sum + (enemy.hp > 0 ? enemy.ward : 0), 0);
-    if (!total) throw new Error('ศัตรูไม่มีม่านให้สลาย');
-    for (const enemy of state.enemies) if (enemy.hp > 0) enemy.ward = 0;
-    effectText = `โปรยผงสลายม่าน · สลายม่านรวม ${total} ชั้น`;
-  } else if (itemId === 'silence_scroll') {
-    const targets = state.enemies.filter(enemy => enemy.hp > 0 && !enemy.sealed);
-    if (!targets.length) throw new Error('ศัตรูทุกตัวถูกผนึกอยู่แล้ว');
-    for (const enemy of targets) enemy.sealed = true;
-    effectText = `เปิดม้วนผนึกอาคม · ผนึกศัตรู ${targets.length} ตัว`;
-  } else if (itemId === 'draw_pages') {
-    const amount = Math.min(2, Math.max(0, HAND_LIMIT - p.hand.length));
-    if (!amount) throw new Error('มือเต็มแล้ว ต้องมีที่ว่างก่อนจั่ว');
-    const deck = state.deathSpent ? p.words.filter(id => id !== 'death') : p.words;
-    const draw = { rng: state.handRng };
-    for (let i = 0; i < amount; i++) p.hand.push(pick(draw, deck));
-    state.handRng = draw.rng;
-    effectText = `เปิดหน้าตำราเรียกคำ · จั่วเพิ่ม ${amount} ใบ`;
-  } else if (itemId === 'aegis_shard') {
-    if (p.shield && Array.isArray(p.shield.layers) && p.shield.layers.length < 2) {
-      p.shield.layers.push(6);
-      p.shield.expires = Math.max(p.shield.expires, state.turn + 1);
-      if (p.shield.layerEffects) p.shield.layerEffects.push({ elements: ['ice'], triggered: false });
-    } else {
-      p.shield = { layers: [6], expires: state.turn + 1, effect: null, triggered: false };
-    }
-    effectText = 'บดผลึกโล่ฉุกเฉิน · กางโล่เวทป้องกัน +6 หน่วยทันที!';
-  } else if (itemId === 'redraw_dust') {
-    openHand(state);
-    effectText = 'โปรยผงเปลี่ยนชะตา · จั่วการ์ดในมือใหม่ 5 ใบ!';
-  } else if (itemId === 'ember_scroll') {
+  function dealAoeConsumable(amount, element, label, pierceArmor = false) {
     let totalDmg = 0;
     const revisit = isRoomRevisit(state, state.room);
     const dropsCard = hasCardReward(state);
@@ -1840,10 +1903,11 @@ export function useBattleItem(original, beltIndex) {
     const rate = revisit ? REVISIT_REWARD_RATE : 1;
     for (const enemy of state.enemies) {
       if (enemy.hp <= 0) continue;
-      const dmg = Math.min(enemy.hp, 6);
+      const afterArmor = pierceArmor ? amount : Math.max(1, amount - enemy.armor);
+      const dmg = Math.min(enemy.hp, afterArmor);
       enemy.hp -= dmg;
       totalDmg += dmg;
-      events.push({ type: 'damage', target: enemy.id, amount: dmg, actual: dmg, element: 'fire', killed: enemy.hp === 0 });
+      events.push({ type: 'damage', target: enemy.id, amount: dmg, actual: dmg, element, killed: enemy.hp === 0 });
       if (enemy.hp === 0) {
         const base = ENEMIES[enemy.kind];
         const bossEnemy = Boolean(base?.isBoss || isBossRoom(state));
@@ -1886,7 +1950,7 @@ export function useBattleItem(original, beltIndex) {
             summary.relicDropped = relicId;
             events.push({ type: 'relic', relicId });
           }
-          if (majorBossFloor === 50) {
+          if (majorBossFloor === 100 || state.room >= (state.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1) {
             state.phase = 'won';
           } else {
             state.sanctuaryUnlocked = true;
@@ -1901,7 +1965,140 @@ export function useBattleItem(original, beltIndex) {
         }
       }
     }
+    return totalDmg;
+  }
+
+  if (item.hpRestore || item.manaRestore) {
+    const hp = Math.min(item.hpRestore ?? 0, p.maxHp - p.hp);
+    const mana = Math.min(item.manaRestore ?? 0, p.maxMana - p.mana);
+    if (!hp && !mana) throw new Error('พลังชีวิตและมานาที่ไอเทมนี้ฟื้นได้เต็มอยู่แล้ว');
+    p.hp += hp;
+    p.mana += mana;
+    effectText = `ใช้${item.name} · ${[hp ? `HP +${hp}` : '', mana ? `MP +${mana}` : ''].filter(Boolean).join(' · ')}`;
+  } else if (itemId === 'frost_dust') {
+    for (const enemy of state.enemies.filter(e => e.hp > 0)) enemy.chill += 4;
+    effectText = 'โปรยผงหมอกเย็น · ศัตรูทุกตัวหนาว 4';
+  } else if (itemId === 'veil_eraser') {
+    const total = state.enemies.reduce((sum, enemy) => sum + (enemy.hp > 0 ? enemy.ward : 0), 0);
+    if (!total) throw new Error('ศัตรูไม่มีม่านให้สลาย');
+    for (const enemy of state.enemies) if (enemy.hp > 0) enemy.ward = 0;
+    effectText = `โปรยผงสลายม่าน · สลายม่านรวม ${total} ชั้น`;
+  } else if (itemId === 'silence_scroll') {
+    const targets = state.enemies.filter(enemy => enemy.hp > 0 && !enemy.sealed);
+    if (!targets.length) throw new Error('ศัตรูทุกตัวถูกผนึกอยู่แล้ว');
+    for (const enemy of targets) enemy.sealed = true;
+    effectText = `เปิดม้วนผนึกอาคม · ผนึกศัตรู ${targets.length} ตัว`;
+  } else if (itemId === 'draw_pages') {
+    const amount = Math.min(2, Math.max(0, HAND_LIMIT - p.hand.length));
+    if (!amount) throw new Error('มือเต็มแล้ว ต้องมีที่ว่างก่อนจั่ว');
+    const deck = state.deathSpent ? p.words.filter(id => id !== 'death') : p.words;
+    const draw = { rng: state.handRng };
+    for (let i = 0; i < amount; i++) p.hand.push(pick(draw, deck));
+    state.handRng = draw.rng;
+    effectText = `เปิดหน้าตำราเรียกคำ · จั่วเพิ่ม ${amount} ใบ`;
+  } else if (itemId === 'aegis_shard') {
+    if (p.shield && Array.isArray(p.shield.layers) && p.shield.layers.length < 2) {
+      p.shield.layers.push(6);
+      p.shield.expires = Math.max(p.shield.expires, state.turn + 1);
+      if (p.shield.layerEffects) p.shield.layerEffects.push({ elements: ['ice'], triggered: false });
+    } else {
+      p.shield = { layers: [6], expires: state.turn + 1, effect: null, triggered: false };
+    }
+    effectText = 'บดผลึกโล่ฉุกเฉิน · กางโล่เวทป้องกัน +6 หน่วยทันที!';
+  } else if (itemId === 'coral_barrier_tome') {
+    p.shield = { layers: [20], expires: state.turn + 1, effect: null, triggered: false };
+    effectText = 'เปิดคัมภีร์ปะการังศิลา · กางกำแพงปะการังป้องกัน +20 หน่วยทันที!';
+  } else if (itemId === 'oceanic_bubble') {
+    p.shield = { layers: [15], expires: state.turn + 1, effect: 'water', triggered: false };
+    effectText = 'กางฟองอากาศมหาป้อง · มอบโล่ดูดซับ +15 ดาเมจ!';
+  } else if (itemId === 'obsidian_armor_flask') {
+    p.shield = { layers: [25], expires: state.turn + 1, effect: 'earth', triggered: false };
+    effectText = 'ดื่มน้ำยาผลึกออบซิเดียน · เคลือบเกราะหินดำมอบโล่ +25 หน่วย!';
+  } else if (itemId === 'galvanic_shield_generator') {
+    p.shield = { layers: [30], expires: state.turn + 1, effect: 'lightning', triggered: false };
+    effectText = 'เปิดเครื่องสร้างสนามแม่เหล็ก · กางบาเรียสายฟ้าป้องกัน +30 หน่วย!';
+  } else if (itemId === 'titan_wall_scroll') {
+    p.shield = { layers: [40], expires: state.turn + 1, effect: 'earth', triggered: false };
+    effectText = 'ร่ายม้วนคาถากำแพงไททัน · อัญเชิญกำแพงหินศิลาโบราณมอบโล่ +40 หน่วย!';
+  } else if (itemId === 'omega_ward_prism') {
+    p.shield = { layers: [50], expires: state.turn + 1, effect: null, triggered: false };
+    effectText = 'ปลดปล่อยปริซึมเกราะโอเมก้า · มหาโล่ครอบคลุมร่างกาย +50 หน่วย!';
+  } else if (itemId === 'frost_shield_rune') {
+    p.shield = { layers: [35], expires: state.turn + 1, effect: 'ice', triggered: false };
+    for (const enemy of state.enemies.filter(e => e.hp > 0)) enemy.chill += 3;
+    effectText = 'สลักรูนโล่น้ำแข็งศักดิ์สิทธิ์ · มอบโล่ +35 หน่วยและศัตรูหนาวจัด!';
+  } else if (itemId === 'cyclone_feather') {
+    p.shield = { layers: [20], expires: state.turn + 1, effect: 'wind', triggered: false };
+    openHand(state);
+    effectText = 'สะบัดขนนกพายุหมุนคลั่ง · มอบโล่ +20 หน่วยและสลับการ์ดเต็มมือ!';
+  } else if (itemId === 'chronos_hourglass') {
+    p.mana = Math.min(p.maxMana, p.mana + 6);
+    openHand(state);
+    effectText = 'หมุนนาฬิกาทรายกาลเวลา · ฟื้น 6 MP และสลับการ์ดใหม่เต็มมือ!';
+  } else if (itemId === 'absolute_zero_vial') {
+    for (const enemy of state.enemies.filter(e => e.hp > 0)) enemy.freeze += 1;
+    effectText = 'โปรยขวดความเย็นสัมบูรณ์ · แช่แข็งศัตรูทุกตัวในสนาม 1 เทิร์น!';
+  } else if (itemId === 'ignite_scroll') {
+    let clearedCount = 0;
+    for (const enemy of state.enemies) {
+      if (enemy.hp > 0 && enemy.ward > 0) {
+        clearedCount += enemy.ward;
+        enemy.ward = 0;
+      }
+    }
+    effectText = `เผาทำลายม่านเวทด้วยม้วนจุดเพลิง · สลายม่านศัตรูรวม ${clearedCount} ชั้น!`;
+  } else if (itemId === 'redraw_dust') {
+    openHand(state);
+    effectText = 'โปรยผงเปลี่ยนชะตา · จั่วการ์ดในมือใหม่ 5 ใบ!';
+  } else if (itemId === 'ember_scroll') {
+    const totalDmg = dealAoeConsumable(6, 'fire', 'ม้วนเพลิงกวาดล้าง');
     effectText = `เปิดม้วนเพลิงกวาดล้าง · เผาศัตรูทุกตัวรวม ${totalDmg} ดาเมจ!`;
+  } else if (itemId === 'volcanic_ash_bomb') {
+    const totalDmg = dealAoeConsumable(22, 'fire', 'ระเบิดเถ้าภูเขาไฟ');
+    effectText = `ขว้างระเบิดเถ้าภูเขาไฟ · สร้าง ${totalDmg} ดาเมจไฟใส่ศัตรูทั้งหมด!`;
+  } else if (itemId === 'zenith_blade_sigil') {
+    const totalDmg = dealAoeConsumable(50, 'lightning', 'ตราดาบแห่งเซนิธ', true);
+    effectText = `ปลดปล่อยตราดาบแห่งเซนิธ · ฟาดดาบดวงดาวทำลาย ${totalDmg} ดาเมจจริง!`;
+  } else if (itemId === 'supernova_core') {
+    const totalDmg = dealAoeConsumable(35, 'fire', 'แกนซูเปอร์โนวา');
+    effectText = `ระเบิดแกนซูเปอร์โนวา · สร้างคลื่นทำลาย ${totalDmg} ดาเมจ!`;
+  } else if (itemId === 'void_singularity_flask') {
+    const totalDmg = dealAoeConsumable(45, 'wind', 'ขวดสุญญากาศเอกภพ', true);
+    effectText = `เปิดมิติหลุมดำจากขวดสุญญากาศเอกภพ · ดูดกลืนศัตรู ${totalDmg} ดาเมจแท้!`;
+  } else if (itemId === 'pure_lightning_rod') {
+    const target = state.enemies.find(e => e.hp > 0);
+    if (target) {
+      target.ward = 0;
+      const dmg = Math.min(target.hp, 24);
+      target.hp -= dmg;
+      effectText = `ฟาดสายล่อฟ้าทองคำ · ล้างม่านและทำ 24 ดาเมจใส่ ${ENEMIES[target.kind]?.name ?? target.kind}!`;
+      if (state.enemies.every(e => e.hp <= 0)) dealAoeConsumable(0, 'lightning', '');
+    }
+  } else if (itemId === 'sea_serpent_fang') {
+    const target = state.enemies.find(e => e.hp > 0);
+    if (target) {
+      const dmg = Math.min(target.hp, 18);
+      target.hp -= dmg;
+      effectText = `ซัดเขี้ยวอสรพิษสมุทร · ทำ 18 ดาเมจเจาะเกราะใส่ ${ENEMIES[target.kind]?.name ?? target.kind}!`;
+      if (state.enemies.every(e => e.hp <= 0)) dealAoeConsumable(0, 'water', '');
+    }
+  } else if (itemId === 'chain_lightning_orb') {
+    const targets = state.enemies.filter(e => e.hp > 0).slice(0, 2);
+    for (const t of targets) {
+      const dmg = Math.min(t.hp, 18);
+      t.hp -= dmg;
+    }
+    effectText = 'ปลดปล่อยลูกแก้วอสุนีบาตลูกโซ่ · สายฟ้าชิ่งทำดาเมจ 18 หน่วย!';
+    if (state.enemies.every(e => e.hp <= 0)) dealAoeConsumable(0, 'lightning', '');
+  } else if (itemId === 'pyro_core_extract') {
+    const target = state.enemies.find(e => e.hp > 0);
+    if (target) {
+      const dmg = Math.min(target.hp, 15);
+      target.hp -= dmg;
+      target.burn += 5;
+      effectText = `สาดสารสกัดแก่นเพลิงใส่ ${ENEMIES[target.kind]?.name ?? target.kind} · 15 ดาเมจและเผาไหม้ 5!`;
+      if (state.enemies.every(e => e.hp <= 0)) dealAoeConsumable(0, 'fire', '');
+    }
   }
 
   return { ok: true, state, item, effectText, events, summary };
@@ -1943,7 +2140,8 @@ export function intent(enemy, turn, enemies = [], room = 0) {
         : { type: 'ward-grant', amount: 1, target: target.id, shortLabel: `ม่าน #${target.slot + 1}`, label: `ถักม่าน 1 ชั้นให้เพื่อนช่อง ${target.slot + 1} ในเทิร์นถัดไป` };
     }
   }
-  if (profile.swapTurn === cycle) {
+  const isMajorClimaxRelease = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'nether_dread_lord', 'eternity_overlord'].includes(enemy.kind) && turn % 4 === 0;
+  if (!isMajorClimaxRelease && profile.swapTurn === cycle) {
     const target = enemies.filter(other => other.hp > 0 && other.id !== enemy.id)
       .sort((a, b) => Math.abs(b.slot - enemy.slot) - Math.abs(a.slot - enemy.slot) || a.slot - b.slot)[0];
     if (target) {
@@ -1988,6 +2186,21 @@ export function intent(enemy, turn, enemies = [], room = 0) {
   if (enemy.kind === 'tempest_archon' && turn % 4 === 3) {
     return { type: 'charge', amount: 0, label: 'ชาร์จมหาพายุอัสนี · เทิร์นหน้าฟาด 20!' };
   }
+  if (enemy.kind === 'volcano_colossus' && turn % 4 === 3) {
+    return { type: 'charge', amount: 0, label: 'ชาร์จแมกม่ากลืนพิภพ · เทิร์นหน้าทุบ 24!' };
+  }
+  if (enemy.kind === 'thunder_drake_emperor' && turn % 4 === 3) {
+    return { type: 'charge', amount: 0, label: 'สะสมกระแสไฟฟ้าดารากระหน่ำ · เทิร์นหน้าฟาด 26!' };
+  }
+  if (enemy.kind === 'ancient_chitin_behemoth' && turn % 4 === 3) {
+    return { type: 'charge', amount: 0, label: 'สะเทือนธรณีปฐมกาล · เทิร์นหน้ากระแทก 28!' };
+  }
+  if (enemy.kind === 'nether_dread_lord' && turn % 4 === 3) {
+    return { type: 'charge', amount: 0, label: 'รวบรวมลมดับดวงวิญญาณ · เทิร์นหน้าเฉือน 30!' };
+  }
+  if (enemy.kind === 'eternity_overlord' && turn % 4 === 3) {
+    return { type: 'charge', amount: 0, label: 'รวบรวมพลังงานกาลอวกาศนิรันดร์ · เทิร์นหน้าปลดปล่อยคลื่นทำลาย 36!' };
+  }
   if (enemy.kind === 'support' && turn % 2 === 1) return { type: 'heal', amount: 3, label: 'ฟื้น HP พวกเดียวกัน 3' };
   if (enemy.kind === 'chrono_sage' && turn % 2 === 1) return { type: 'heal', amount: 5, label: 'ฟื้น HP พวกเดียวกัน 5' };
   if (enemy.freeze > 0) return { type: 'frozen', amount: 0, label: 'แช่แข็ง · ข้ามการโจมตี' };
@@ -2026,9 +2239,31 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     if (turn % 4 === 0) base = 20;
     else if (turn % 4 === 2) base = 14;
   }
+  else if (enemy.kind === 'volcano_colossus') {
+    if (turn % 4 === 0) base = 24;
+    else if (turn % 4 === 2) base = 16;
+  }
+  else if (enemy.kind === 'thunder_drake_emperor') {
+    if (turn % 4 === 0) base = 26;
+    else if (turn % 4 === 2) base = 17;
+  }
+  else if (enemy.kind === 'ancient_chitin_behemoth') {
+    if (turn % 4 === 0) base = 28;
+    else if (turn % 4 === 2) base = 18;
+  }
+  else if (enemy.kind === 'nether_dread_lord') {
+    if (turn % 4 === 0) base = 30;
+    else if (turn % 4 === 2) base = 20;
+  }
+  else if (enemy.kind === 'eternity_overlord') {
+    if (turn % 4 === 0) base = 36;
+    else if (turn % 4 === 2) base = 24;
+  }
   const loomAllies = enemy.kind === 'loom_sovereign' && room === FLOOR50_BOSS_ROOM && cycle === 2
     ? enemies.filter(other => other.hp > 0 && other.id !== enemy.id).length : 0;
-  base += loomAllies * 3;
+  const eternityAllies = enemy.kind === 'eternity_overlord' && room === FLOOR100_BOSS_ROOM && cycle === 2
+    ? enemies.filter(other => other.hp > 0 && other.id !== enemy.id).length : 0;
+  base += loomAllies * 3 + eternityAllies * 4;
   const amount = Math.max(0, base + enemyClimaxBonus(turn, room) - enemy.chill - (enemy.obscured ? 4 : 0));
-  return { type: 'attack', amount, label: `โจมตี ${amount}${loomAllies ? ` · ลูกสมุน ${loomAllies} ตัวเสริม ${loomAllies * 3}` : ''}` };
+  return { type: 'attack', amount, label: `โจมตี ${amount}${loomAllies ? ` · ลูกสมุน ${loomAllies} ตัวเสริม ${loomAllies * 3}` : ''}${eternityAllies ? ` · ลูกสมุนมิติ ${eternityAllies} ตัวเสริม ${eternityAllies * 4}` : ''}` };
 }

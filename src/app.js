@@ -15,6 +15,7 @@ import {
   FLOOR10_BOSS_ROOM,
   FLOOR20_BOSS_ROOM,
   FLOOR50_BOSS_ROOM,
+  FLOOR100_BOSS_ROOM,
   UPPER_RESTS,
   enemyClimaxBonus,
   hasCardReward,
@@ -999,7 +1000,8 @@ $('new-run').addEventListener('click', () => requestNew());
 $('result-new').addEventListener('click', () => { state = null; startRun(); });
 $('result-sanctuary')?.addEventListener('click', () => {
   try {
-    state = enterSanctuary(state, { floor: state.room === FLOOR50_BOSS_ROOM ? 'post45' : 4 });
+    const target = state.room >= FLOOR100_BOSS_ROOM ? 95 : state.room === FLOOR50_BOSS_ROOM ? 'post50' : 4;
+    state = enterSanctuary(state, { floor: target });
     equipped = [...state.player.words];
     persist(); audio.play('place'); render();
   } catch (error) { toast(error.message); }

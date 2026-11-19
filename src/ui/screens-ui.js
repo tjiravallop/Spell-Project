@@ -2,6 +2,7 @@ import { WORDS, START_WORDS } from '../words.js';
 import {
   MAX_CARD_UPGRADE,
   FLOOR50_BOSS_ROOM,
+  FLOOR100_BOSS_ROOM,
   getCardUpgradeLevel,
   ownsRewardWord,
   getFloorInfo,
@@ -77,19 +78,23 @@ export function renderLoadout(state, equipped) {
 export function renderResult(state, turnLogs, lastEnemies) {
   const won = state.phase === 'won';
   const won50 = won && state.room === FLOOR50_BOSS_ROOM;
+  const won100 = won && (state.room >= FLOOR100_BOSS_ROOM || state.room >= 249);
   const p = state.player;
   $('result-seal').innerHTML = icon(won ? 'book' : 'shield');
   $('result-title').textContent = won ? 'พิชิตชั้น 1–3 สำเร็จ! (เปิดทางสู่ชั้นพักที่ 4 และชั้น 5–9)' : 'การทดลองครั้งนี้จบลง';
   $('result-description').textContent = won
     ? 'คุณปราบบอสชั้น 3 สำเร็จแล้ว! กดเข้าสู่ “ชั้นที่ 4: ชั้นพัก” เพื่อเตรียมตัว ซื้อไอเทม ตีบวกการ์ด และไต่ต่อชั้น 5–8 สู่จุดพักชั้น 9'
     : 'คาถาที่ลองไปไม่สูญเปล่า รอบหน้าคุณรู้มากกว่าเดิม';
-  if (won50) {
+  if (won100) {
+    $('result-title').textContent = '👑 พิชิตหอคอยสมบูรณ์แบบชั้น 100 — จอมเวทแห่งอนันตกาล!';
+    $('result-description').textContent = 'คุณปราบบอสใหญ่สุด “จ้าวแห่งกาลเวลาและมิติอนันต์” และครอบครองมงกุฎอนันตกาล สำเร็จ Endgame True Victory!';
+  } else if (won50) {
     $('result-title').textContent = 'พิชิตหอคอยถึงชั้น 50';
-    $('result-description').textContent = 'ปราบราชันกี่ทอโลกแล้ว กลับจุดพักหลังบอสชั้น 45 เพื่อจัดชุดคำหรือเล่นซ้ำ';
+    $('result-description').textContent = 'ปราบราชันกี่ทอโลกแล้ว มุ่งหน้าสู่ชั้น 51–100 หรือกลับจุดพัก';
   }
   if ($('result-sanctuary')) {
     $('result-sanctuary').hidden = !won;
-    $('result-sanctuary').textContent = won50 ? '🏕 กลับจุดพักหลังบอส 45' : '🏕 เข้าสู่ชั้นที่ 4: ชั้นพัก & ไต่ต่อชั้น 5–9';
+    $('result-sanctuary').textContent = won100 ? '🏕 กลับจุดพักชั้น 95' : won50 ? '🏕 เข้าสู่จุดพักหลังบอส 50 & ไต่ต่อชั้น 51–100' : '🏕 เข้าสู่ชั้นที่ 4: ชั้นพัก & ไต่ต่อชั้น 5–9';
   }
   $('result-stats').innerHTML = [
     [`${(state.clearedRooms ?? []).length}/${state.rooms.length}`, 'ห้องที่ผ่าน'],

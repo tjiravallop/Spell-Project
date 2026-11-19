@@ -180,6 +180,11 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const hasCrown = equippedRelics.includes('forbidden_crown_30');
   const hasMirrorPrism = equippedRelics.includes('mirror_prism_40');
   const hasWorldloom = equippedRelics.includes('worldloom_50');
+  const hasMagmaHeart = equippedRelics.includes('magma_heart_60');
+  const hasThunderConduit = equippedRelics.includes('thunder_conduit_70');
+  const hasGaiaEmblem = equippedRelics.includes('gaia_emblem_80');
+  const hasVoidAnnihilator = equippedRelics.includes('void_annihilator_90');
+  const hasCrownOfEternity = equippedRelics.includes('crown_of_eternity_100');
   const inRift = state.room >= FLOOR31_START_ROOM;
 
   // Calculate card upgrade bonuses from the words placed in this spell phrase
@@ -224,8 +229,15 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const live = () => enemies.filter(enemy => enemy.hp > 0).sort((a, b) => a.slot - b.slot);
   const enemyById = id => enemies.find(enemy => enemy.id === id);
   const newBurn = new Map();
-  let block = (guard ? 3 + (hasWorldloom ? 3 : 0) : 0) + secondaryShieldBonus;
+  let block = (guard ? 3 + (hasWorldloom ? 3 : 0) + (hasGaiaEmblem ? 3 : 0) : 0) + secondaryShieldBonus + (hasGaiaEmblem ? 3 : 0);
   player.mana -= cost;
+  if (!guard && !fizzled && spell && hasThunderConduit) {
+    const isLightning = (spell.elements ?? []).some(id => getElementComponents(id).includes('lightning'));
+    if (isLightning) {
+      player.mana = Math.min(player.maxMana, player.mana + 1);
+      summary.sequence.push('ท่อสายฟ้าดารารีฟันด์ 1 มานา');
+    }
+  }
 
   function awardEnemyBounty(enemy) {
     const base = ENEMIES[enemy.kind];
@@ -300,6 +312,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const hpBefore = player.hp;
       const maxHpBefore = player.maxHp;
       awardEnemyBounty(enemy);
+      if (hasVoidAnnihilator) {
+        player.mana = Math.min(player.maxMana, player.mana + 3);
+        summary.sequence.push('ศิลาล้างมิติฟื้นคืน 3 มานาจากการสังหาร');
+      }
       if (player.maxHp > maxHpBefore) {
         event.levelHp = player.hp - hpBefore;
         event.levelMaxHp = player.maxHp - maxHpBefore;
@@ -519,6 +535,12 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         broken++;
       }
     }
+    if (triggerShieldEffects && broken && hasMagmaHeart) {
+      for (const enemy of live()) {
+        damage(enemy, 12, 'fire', 0);
+      }
+      summary.sequence.push('หัวใจแมกมาปะทุ · ระเบิดเพลิง 12 ใส่ศัตรูทั้งหมดเมื่อโล่แตก');
+    }
     if (triggerShieldEffects && broken && shield?.effect === 'veil' && remaining > 0) {
       const extra = Math.min(remaining, 8);
       remaining -= extra;
@@ -541,13 +563,19 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const blessingBonus = (family === 'fire' && blessings.includes('blessing_ember') ? 2 : 0)
         + (family === 'ice' && blessings.includes('blessing_frost') ? 2 : 0)
         + (family === 'lightning' && blessings.includes('blessing_thunder') ? 2 : 0);
-      const relicBonus = hasEmberCore && getElementComponents(id).includes('fire') ? 2 : 0;
+      const relicBonus = (hasEmberCore && getElementComponents(id).includes('fire') ? 2 : 0)
+        + (hasMagmaHeart && (getElementComponents(id).includes('fire') || getElementComponents(id).includes('earth')) ? 3 : 0)
+        + (hasThunderConduit && getElementComponents(id).includes('lightning') ? 6 : 0);
       return sum + WORDS[id].damage + elemUpgrade + blessingBonus + relicBonus;
     }, 0) / elements.length : (spell.shellDamage ?? WORDS[spell.form].damage);
-    const strength = (base + formUpgradeBonus + auxUpgradeBonus) * spell.multiplier * targetScale;
+    let strength = (base + formUpgradeBonus + auxUpgradeBonus) * spell.multiplier * targetScale;
+    if (hasCrownOfEternity && elements.length > 1) {
+      strength = Math.round(strength * 1.5);
+    }
     const pierce = (spell.pierce ?? 0)
       + pierceUpgradeBonus
       + (hasMirrorPrism && spell.form === 'beam' ? 3 : 0)
+      + (hasVoidAnnihilator ? 4 : 0)
       + (families.includes('lightning') || elements.some(id => ['plasma', 'shockstream', 'frostvolt', 'magnet', 'thunderstorm'].includes(id)) ? 2 : 0)
       + (blessings.includes('blessing_thunder') ? 1 : 0);
     return { strength, pierce };
@@ -843,6 +871,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const rawHeal = (spell.healing ?? 0) + healUpgradeBonus + secondaryHealBonus;
       const riftHealBonus = inRift && rawHeal > 0 ? Math.ceil(rawHeal * RIFT_SPELL_BONUS / 100) + Math.floor((player.maxHp ?? 36) * 0.03) : 0;
       heal(rawHeal + riftHealBonus, false, 'shield-heal');
+    }
+    if (hasGaiaEmblem) {
+      heal(4, false, 'gaia');
+      summary.sequence.push('ตราพระแม่ธรณีฟื้นฟู +4 HP จากการกางโล่');
     }
   } else if (spell.form === 'heal') {
     const rawHeal = spell.healing + healUpgradeBonus + secondaryHealBonus;
@@ -1224,7 +1256,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           summary.relicDropped = relicId;
           events.push({ type: 'relic', relicId });
         }
-        if (majorBossFloor === 50) {
+        if (majorBossFloor === 100 || state.room >= (state.rooms?.length ?? 250) - 1) {
           state.phase = 'won';
         } else {
           state.sanctuaryUnlocked = true;

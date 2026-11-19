@@ -1,6 +1,36 @@
 import { ATTACK_FORMS, ELEMENTS, WORDS, START_WORDS, LARGE_SHIELD_HP, getSpellCatalog } from './words.js';
 import { RIFT_ENEMIES } from './upper-tower.js';
-import { ENEMIES, HAND_LIMIT, MAX_MANA, TURN_DRAW, SHOP_ITEMS, MAX_BELT_ITEMS, MAX_RELIC_SLOTS, MAX_CARD_UPGRADE, FLOOR21_START_ROOM, FLOOR30_BOSS_ROOM, FLOOR40_BOSS_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS, openHand, isBossRoom, isSanctuaryPost20Unlocked, isUpperCacheRoom, unlockUpperTower, refreshMiddleTowerRooms, offerMissedElementReward, fillRewardChoices, grantBossRelic } from './run.js';
+import {
+  ENEMIES,
+  HAND_LIMIT,
+  MAX_MANA,
+  TURN_DRAW,
+  SHOP_ITEMS,
+  MAX_BELT_ITEMS,
+  MAX_RELIC_SLOTS,
+  MAX_CARD_UPGRADE,
+  FLOOR21_START_ROOM,
+  FLOOR30_BOSS_ROOM,
+  FLOOR40_BOSS_ROOM,
+  FLOOR50_BOSS_ROOM,
+  FLOOR60_BOSS_ROOM,
+  FLOOR70_BOSS_ROOM,
+  FLOOR80_BOSS_ROOM,
+  FLOOR90_BOSS_ROOM,
+  FLOOR100_BOSS_ROOM,
+  TOTAL_TOWER_ROOMS,
+  UPPER_RESTS,
+  openHand,
+  isBossRoom,
+  isSanctuaryPost20Unlocked,
+  isUpperCacheRoom,
+  unlockUpperTower,
+  unlockEndgameTower,
+  refreshMiddleTowerRooms,
+  offerMissedElementReward,
+  fillRewardChoices,
+  grantBossRelic,
+} from './run.js';
 
 export const SAVE_KEY = 'spell-foundry.run.v2';
 export const BACKUP_KEY = 'spell-foundry.backup.v2';
@@ -20,7 +50,7 @@ export function validateRun(state) {
   if (state.version !== 2 || ![2, 3].includes(state.rulesVersion)) throw new Error('เวอร์ชันเซฟหรือกฎเกมนี้ยังไม่รองรับ');
   if (state.hpCurveVersion !== undefined && state.hpCurveVersion !== 1) invalid();
   if (typeof state.seed !== 'string' || state.seed.length > 200 || !integer(state.rng, 1, 4294967295) || typeof state.tutorial !== 'boolean') invalid();
-  if (!integer(state.room, 0, FLOOR50_BOSS_ROOM) || !integer(state.turn, 1, 10000) || !phases.includes(state.phase)) invalid();
+  if (!integer(state.room, 0, FLOOR100_BOSS_ROOM) || !integer(state.turn, 1, 10000) || !phases.includes(state.phase)) invalid();
   if (state.magmaPuddles !== undefined && (state.phase !== 'battle' || !Array.isArray(state.magmaPuddles)
     || new Set(state.magmaPuddles).size !== state.magmaPuddles.length || state.magmaPuddles.some(slot => !integer(slot, 0, 4)))) invalid();
   if (state.blackhole !== undefined && (state.phase !== 'battle' || !object(state.blackhole)
@@ -37,7 +67,7 @@ export function validateRun(state) {
   if (p.exp !== undefined && !integer(p.exp, 0, 1000000)) invalid();
   if (p.gold !== undefined && !integer(p.gold, 0, 1000000)) invalid();
   if (p.items !== undefined && (!Array.isArray(p.items) || p.items.length > MAX_BELT_ITEMS || p.items.some(id => !Object.hasOwn(SHOP_ITEMS, id)))) invalid();
-  if (p.relics !== undefined && (!Array.isArray(p.relics) || p.relics.length > 10 || p.relics.some(id => typeof id !== 'string'))) invalid();
+  if (p.relics !== undefined && (!Array.isArray(p.relics) || p.relics.length > 25 || p.relics.some(id => typeof id !== 'string'))) invalid();
   if (p.equippedRelics !== undefined && (
     !Array.isArray(p.equippedRelics) ||
     p.equippedRelics.length > MAX_RELIC_SLOTS ||
@@ -48,7 +78,7 @@ export function validateRun(state) {
   if (state.rewardedBossRooms !== undefined && (!Array.isArray(state.rewardedBossRooms) || state.rewardedBossRooms.some(r => !integer(r, 0, state.rooms.length - 1)))) invalid();
   if (state.highestRoom !== undefined && !integer(state.highestRoom, 0, state.rooms.length - 1)) invalid();
   if (state.sanctuaryFloor !== undefined) {
-    const valid = [4, 5, 9, 14, 15, 19, 25, 35, 45].includes(state.sanctuaryFloor)
+    const valid = [4, 5, 9, 14, 15, 19, 25, 35, 45, 55, 65, 75, 85, 95].includes(state.sanctuaryFloor)
       || (typeof state.sanctuaryFloor === 'string' && (state.sanctuaryFloor.startsWith('pre') || state.sanctuaryFloor.startsWith('post')));
     if (!valid) invalid();
   }
@@ -178,8 +208,17 @@ export function loadRun(storage) {
           state.hpCurveVersion = 1;
         }
         if (state.phase === 'reward' && state.rewards.length < 3) fillRewardChoices(state);
-        for (const [room, floor] of [[FLOOR30_BOSS_ROOM, 30], [FLOOR40_BOSS_ROOM, 40], [FLOOR50_BOSS_ROOM, 50]]) {
-          if (state.clearedRooms.includes(room) || (room === FLOOR50_BOSS_ROOM && state.room === room && state.phase === 'won')) {
+        for (const [room, floor] of [
+          [FLOOR30_BOSS_ROOM, 30],
+          [FLOOR40_BOSS_ROOM, 40],
+          [FLOOR50_BOSS_ROOM, 50],
+          [FLOOR60_BOSS_ROOM, 60],
+          [FLOOR70_BOSS_ROOM, 70],
+          [FLOOR80_BOSS_ROOM, 80],
+          [FLOOR90_BOSS_ROOM, 90],
+          [FLOOR100_BOSS_ROOM, 100],
+        ]) {
+          if (state.clearedRooms.includes(room) || (room === FLOOR100_BOSS_ROOM && state.room === room && state.phase === 'won')) {
             grantBossRelic(state.player, floor);
           }
         }
@@ -191,6 +230,7 @@ export function loadRun(storage) {
           enemy.maxHp = maxHp;
         }
         if (isSanctuaryPost20Unlocked(state)) unlockUpperTower(state);
+        if (state.clearedRooms.includes(FLOOR50_BOSS_ROOM) || state.room > FLOOR50_BOSS_ROOM) unlockEndgameTower(state);
         refreshMiddleTowerRooms(state);
         offerMissedElementReward(state);
         return { ok: true, state, recovered: key === BACKUP_KEY };

@@ -12,6 +12,11 @@ import {
   FLOOR31_START_ROOM,
   FLOOR40_BOSS_ROOM,
   FLOOR50_BOSS_ROOM,
+  FLOOR60_BOSS_ROOM,
+  FLOOR70_BOSS_ROOM,
+  FLOOR80_BOSS_ROOM,
+  FLOOR90_BOSS_ROOM,
+  FLOOR100_BOSS_ROOM,
   UPPER_RESTS,
   firstClimaxTurn,
   enemyClimaxBonus,
@@ -392,6 +397,22 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     } else if (state.room === FLOOR50_BOSS_ROOM && enemy.kind === 'loom_sovereign') {
       bossHint = 'ท่าหนักทุกสามเทิร์นเพิ่ม 3 ดาเมจต่อลูกสมุนที่ยังอยู่ · กำจัดลูกสมุนเพื่อลดแรงโจมตี';
       badges.push(`<span class="enemy-badge badge-push" title="${bossHint}">ท่าหนัก +3/ลูกสมุน</span>`);
+    } else if (state.room === FLOOR60_BOSS_ROOM && enemy.kind === 'volcano_colossus') {
+      bossHint = 'เกล็ดลาวาหลอมเหลว · มีเกราะลดดาเมจและสะท้อนไฟ 3 หากไม่ใช้น้ำแข็งสยบ';
+      badges.push(`<span class="enemy-badge badge-burn" title="${bossHint}">เกล็ดลาวา</span>`);
+    } else if (state.room === FLOOR70_BOSS_ROOM && enemy.kind === 'thunder_drake_emperor') {
+      bossHint = 'เกราะมหาประจุดารา · สะท้อนสายฟ้า 4 เมื่อมีเกราะหากไม่เจาะทะลวง';
+      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">ประจุดารา</span>`);
+    } else if (state.room === FLOOR80_BOSS_ROOM && enemy.kind === 'ancient_chitin_behemoth') {
+      bossHint = 'เกราะไคตินโบราณ · เกราะหนาและต้านทานดาเมจเวททั่วไป 30%';
+      badges.push(`<span class="enemy-badge badge-armor" title="${bossHint}">ไคตินหนา</span>`);
+    } else if (state.room === FLOOR90_BOSS_ROOM && enemy.kind === 'nether_dread_lord') {
+      bossHint = 'ม่านมิติอนันต์ · กางม่าน 2 ชั้นและร่นระยะโจมตี';
+      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">ม่านมิติ 2</span>`);
+    } else if (state.room === FLOOR100_BOSS_ROOM && enemy.kind === 'eternity_overlord') {
+      const eternityGuarded = state.enemies.filter(ally => ally.id !== enemy.id && ally.hp > 0).length;
+      bossHint = `จ้าวอนันตกาล · พลังทำลายล้างเพิ่ม +4 ต่อลูกสมุนมิติที่ยังอยู่ (${eternityGuarded} ตัว)`;
+      badges.push(`<span class="enemy-badge badge-push" title="${bossHint}">ท่าหนัก +4/ลูกสมุน</span>`);
     }
     if (status.chill > 0) badges.push(`<span class="enemy-badge badge-chill">❄ หนาว −${status.chill}</span>`);
     if (status.freeze > 0) badges.push(`<span class="enemy-badge badge-freeze">🧊 แช่แข็ง ${status.freeze}</span>`);

@@ -7,7 +7,7 @@ import {
   enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom,
   getRewardPool, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
   FLOOR5_START_ROOM, FLOOR6_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR14_BOUNDARY_ROOM, FLOOR15_START_ROOM, FLOOR16_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR19_BOUNDARY_ROOM, FLOOR20_BOSS_ROOM,
-  FLOOR21_START_ROOM, FLOOR24_BOUNDARY_ROOM, FLOOR25_BOSS_ROOM, FLOOR26_START_ROOM, FLOOR29_BOUNDARY_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR40_BOSS_ROOM, FLOOR50_BOSS_ROOM, UPPER_RESTS,
+  FLOOR21_START_ROOM, FLOOR24_BOUNDARY_ROOM, FLOOR25_BOSS_ROOM, FLOOR26_START_ROOM, FLOOR29_BOUNDARY_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR40_BOSS_ROOM, FLOOR50_BOSS_ROOM, TOTAL_TOWER_ROOMS, UPPER_RESTS,
 } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
 import { Battlefield } from '../src/render.js';
@@ -68,7 +68,7 @@ test('a pre-expansion save opens 21–30 and both spell and item wins keep progr
   assert.equal(state.rng, old.rng);
   assert.deepEqual(state.rooms.slice(0, old.rooms.length), old.rooms);
   assert.deepEqual(state.rooms, loadRun(storage).state.rooms);
-  assert.equal(state.rooms.length, 125);
+  assert.equal(state.rooms.length, TOTAL_TOWER_ROOMS);
   assert.throws(() => revisitRoom(state, FLOOR21_START_ROOM + 1));
   state = revisitRoom(state, FLOOR21_START_ROOM);
   const earlyLoss = structuredClone(state);
@@ -128,7 +128,7 @@ test('a pre-expansion save opens 21–30 and both spell and item wins keep progr
   const completed = loadRun(storage).state;
   assert.equal(completed.phase, 'sanctuary');
   assert.equal(completed.sanctuaryFloor, 'post30');
-  assert.equal(completed.rooms.length, FLOOR50_BOSS_ROOM + 1);
+  assert.equal(completed.rooms.length, TOTAL_TOWER_ROOMS);
   assert.equal(completed.highestRoom, FLOOR31_START_ROOM);
   assert.equal(saveRun(completed, storage).ok, true);
   assert.deepEqual(loadRun(storage).state, completed);
@@ -161,10 +161,11 @@ test('a pre-expansion save opens 21–30 and both spell and item wins keep progr
       late = revisitRoom(restAtSanctuary(late), room + 1);
     }
   }
-  assert.equal(late.phase, 'won');
+  assert.equal(late.phase, 'sanctuary');
+  assert.equal(late.sanctuaryFloor, 'post50');
   assert.equal(late.room, FLOOR50_BOSS_ROOM);
   assert.equal(saveRun(late, storage).ok, true);
-  assert.equal(loadRun(storage).state.phase, 'won');
+  assert.equal(loadRun(storage).state.phase, 'sanctuary');
 });
 
 test('rift positioning uses the same intents and actions for pull, swap, and sealing', () => {
@@ -341,7 +342,7 @@ test('major bosses award their artifacts through spells and items without duplic
     const result = cast(state, 'shot fire');
     assert.equal(result.summary.relicDropped, id);
     assert.ok(result.state.player.relics.includes(id));
-    assert.equal(result.state.phase, room === FLOOR50_BOSS_ROOM ? 'won' : 'sanctuary');
+    assert.equal(result.state.phase, 'sanctuary');
     const itemState = structuredClone(state);
     itemState.player.items = ['ember_scroll'];
     const itemResult = useBattleItem(itemState, 0);
@@ -1434,7 +1435,7 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
   assert.equal(getFloorInfo(2, 9).code, '1-3');
   assert.equal(getFloorInfo(2, 9).isBoss, true);
   assert.equal(getFloorInfo(8, 9).code, '3-3');
-  assert.deepEqual(RELIC_DRAFT_CATALOG.map(r => r.dropFloor), [10, 20, 30, 40, 50]);
+  assert.deepEqual(RELIC_DRAFT_CATALOG.map(r => r.dropFloor), [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
 
   let state = createRun('rpg-test', true);
   // First clear of Room 0 (1-1: striker -> 10 EXP, 8 Gold)
@@ -1629,7 +1630,7 @@ test('forging past +2 rolls from the run seed and charges for the attempt', () =
 test('Floors 5-8 (2 sub-rooms + 1 boss each), Floor 9 Sanctuary, boss random card drops, and defeat fallback to Floor 4', () => {
   const storage = new MemoryStorage();
   const baseRun = createRun('floors-5-9', true);
-  assert.equal(baseRun.rooms.length, 125);
+  assert.equal(baseRun.rooms.length, TOTAL_TOWER_ROOMS);
 
   // Verify room index -> floor/sub-room mapping
   assert.equal(getFloorInfo(0).code, '1-1');
@@ -2160,7 +2161,7 @@ test('Sanctuary artifact equip/unequip charm slots toggle Floor 10 artifact comb
 test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card/gold boss rewards, and defeat fallbacks', () => {
   const storage = new MemoryStorage();
   const run = createRun('floors-11-19', true);
-  assert.equal(run.rooms.length, 125);
+  assert.equal(run.rooms.length, TOTAL_TOWER_ROOMS);
 
   // Verify room index -> floor/sub-room mapping for Floors 11-20
   assert.equal(getFloorInfo(25).code, '11-1');
