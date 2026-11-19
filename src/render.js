@@ -124,6 +124,7 @@ export const vfxScale = source => (source?.grand ? 5 : source?.large ? 2 : 1);
 export class Battlefield {
   constructor(canvas, settings) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d', { alpha: false });
+    this.hpNumbersInHud = Boolean(canvas.closest?.('.battle-scene'));
     this.settings = settings; this.state = null; this.target = null; this.events = []; this.started = 0; this.duration = 0;
     this.spriteArt = loadSpriteArt();
     this.background = document.createElement('canvas'); this.background.width = 320; this.background.height = 180;
@@ -1122,19 +1123,19 @@ export class Battlefield {
         this.drawHealVfx(px, 146, fraction, now, event);
         if (event.source === 'player' && !this.settings.reducedMotion) this.drawHealingSigil(px, 146, fraction, event.healKind, vfxScale(event));
         const healEdge = event.healKind === 'grand' ? C[31] : event.source !== 'player' ? C[22] : C[26];
-        this.drawFloatingPopup(px, 96 - Math.round(fraction * 12), `+${event.amount} HP`, C[9], healEdge);
+        if (!this.hpNumbersInHud) this.drawFloatingPopup(px, 96 - Math.round(fraction * 12), `+${event.amount} HP`, C[9], healEdge);
       }
 
       if (event.type === 'attack') {
         this.drawEnemyAttackVfx(x, 51, fraction, impact, event, now);
         if (impact) {
-          if (event.ultimate) {
+          if (event.ultimate && (!this.hpNumbersInHud || !event.amount)) {
             const ultTitle = event.sourceKind === 'tempest_archon' ? '⚡ อสุนีพิพากษา!' : '💥 พิพากษาเพลิง!';
             const ultText = event.amount > 0 ? `${ultTitle} −${event.amount} HP` : `${ultTitle} ติดโล่!`;
             const ultFg = event.sourceKind === 'tempest_archon' ? C[31] : C[30];
             const ultEdge = event.sourceKind === 'tempest_archon' ? C[27] : C[19];
             this.drawFloatingPopup(51, 86 - Math.round((fraction - 0.5) * 18), ultText, ultFg, ultEdge);
-          } else if (event.amount > 0) {
+          } else if (event.amount > 0 && !this.hpNumbersInHud) {
             this.drawFloatingPopup(51, 94 - Math.round((fraction - 0.5) * 16), `−${event.amount} HP`, C[9], C[19]);
           }
         }
@@ -1150,7 +1151,7 @@ export class Battlefield {
         g.fillRect(rx - 2, ry - 2, 4, 4);
         if (impact) {
           this.drawElementalImpactFlash(51, 124, 'lightning', fraction);
-          this.drawFloatingPopup(51, 92 - Math.round((fraction - 0.5) * 16), event.amount > 0 ? `สะท้อน −${event.amount} HP` : 'สะท้อนติดโล่!', C[9], C[22]);
+          if (!this.hpNumbersInHud || !event.amount) this.drawFloatingPopup(51, 92 - Math.round((fraction - 0.5) * 16), event.amount > 0 ? `สะท้อน −${event.amount} HP` : 'สะท้อนติดโล่!', C[9], C[22]);
         }
       }
 
@@ -1163,7 +1164,7 @@ export class Battlefield {
         if (impact) {
           this.drawElementalImpactFlash(51, 124, 'blast', fraction);
           this.drawHitBurstVfx(51, 124, C[16], Math.min(1, (fraction - 0.55) / 0.45), 'fire', now);
-          this.drawFloatingPopup(51, 92 - Math.round((fraction - 0.5) * 16), event.amount > 0 ? `เกล็ดแมกมา −${event.amount} HP` : 'เกล็ดแมกมาติดโล่!', C[9], C[16]);
+          if (!this.hpNumbersInHud || !event.amount) this.drawFloatingPopup(51, 92 - Math.round((fraction - 0.5) * 16), event.amount > 0 ? `เกล็ดแมกมา −${event.amount} HP` : 'เกล็ดแมกมาติดโล่!', C[9], C[16]);
         }
       }
 
@@ -1176,7 +1177,7 @@ export class Battlefield {
         if (impact) {
           this.drawElementalImpactFlash(51, 124, 'lightning', fraction);
           this.drawHitBurstVfx(51, 124, C[31], Math.min(1, (fraction - 0.55) / 0.45), 'lightning', now);
-          this.drawFloatingPopup(51, 92 - Math.round((fraction - 0.5) * 16), event.amount > 0 ? `เกราะอสุนี −${event.amount} HP` : 'เกราะอสุนีติดโล่!', C[31], C[22]);
+          if (!this.hpNumbersInHud || !event.amount) this.drawFloatingPopup(51, 92 - Math.round((fraction - 0.5) * 16), event.amount > 0 ? `เกราะอสุนี −${event.amount} HP` : 'เกราะอสุนีติดโล่!', C[31], C[22]);
         }
       }
 
@@ -2592,6 +2593,7 @@ export class Battlefield {
   }
 
   drawDamagePopup(x, fraction, event, color, labelLift = 0) {
+    if (this.hpNumbersInHud && event.amount > 0) return;
     if (event.amount === 0 && !this.settings.reducedMotion && fraction < 0.3) {
       this.pixelDiamond(x - 6, 121, 3, C[7], C[9]);
     }

@@ -226,9 +226,28 @@ export function getCardUpgradeCost(currentLevel = 0) {
   return CARD_UPGRADE_COSTS[currentLevel] ?? 999;
 }
 
-export function getCardUpgradeSuccessRate(currentLevel = 0, useStone = false) {
+const SMITHING_MATERIALS = [
+  { id: 'godly_smithing_essence', bonus: 100 },
+  { id: 'abyssal_smithing_core', bonus: 50 },
+  { id: 'hyper_smithing_cluster', bonus: 40 },
+  { id: 'superior_smithing_stone', bonus: 30 },
+  { id: 'smithing_crystal', bonus: 20 },
+  { id: 'smithing_stone', bonus: SMITHING_STONE_BONUS_RATE },
+];
+
+export function getCardUpgradeMaterial(player) {
+  for (const material of SMITHING_MATERIALS) {
+    for (const source of ['stash', 'items']) {
+      const index = player[source]?.indexOf(material.id) ?? -1;
+      if (index >= 0) return { ...material, source, index };
+    }
+  }
+  return null;
+}
+
+export function getCardUpgradeSuccessRate(currentLevel = 0, useStone = false, bonus = SMITHING_STONE_BONUS_RATE) {
   const base = CARD_UPGRADE_SUCCESS_RATES[currentLevel] ?? 20;
-  return Math.min(100, base + (useStone ? SMITHING_STONE_BONUS_RATE : 0));
+  return Math.min(100, base + (useStone ? bonus : 0));
 }
 
 export function getCardSecondaryTier(level = 0, unlockedFlag = false) {
@@ -1794,40 +1813,18 @@ export function upgradeWordCard(original, wordId, mode = 'stat', options = {}) {
     throw new Error(`การ์ด “${WORDS[wordId].label}” ตีบวกสเตตัสถึงระดับสูงสุด (+${MAX_CARD_UPGRADE}) แล้ว`);
   }
   const goldCost = getCardUpgradeCost(currentLevel);
-  const stoneKinds = [
-    { id: 'godly_smithing_essence', bonus: 100 },
-    { id: 'abyssal_smithing_core', bonus: 50 },
-    { id: 'hyper_smithing_cluster', bonus: 40 },
-    { id: 'superior_smithing_stone', bonus: 30 },
-    { id: 'smithing_crystal', bonus: 20 },
-    { id: 'smithing_stone', bonus: 15 },
-  ];
-  let usedStone = false;
-  let stoneBonus = SMITHING_STONE_BONUS_RATE;
-  for (const sk of stoneKinds) {
-    const sIdx = p.stash.indexOf(sk.id);
-    const bIdx = p.items.indexOf(sk.id);
-    if (sIdx >= 0) {
-      p.stash.splice(sIdx, 1);
-      usedStone = true;
-      stoneBonus = sk.bonus;
-      break;
-    } else if (bIdx >= 0) {
-      p.items.splice(bIdx, 1);
-      usedStone = true;
-      stoneBonus = sk.bonus;
-      break;
-    }
-  }
-  if (!usedStone) {
+  const material = getCardUpgradeMaterial(p);
+  const usedStone = Boolean(material);
+  if (material) {
+    p[material.source].splice(material.index, 1);
+  } else {
     if (p.gold < goldCost) {
       throw new Error(`ทองไม่พอสำหรับการตีบวก · ต้องใช้ ${goldCost} ทอง (มีอยู่ ${p.gold} ทอง)`);
     }
     p.gold -= goldCost;
   }
 
-  const baseRate = CARD_UPGRADE_SUCCESS_RATES[currentLevel] ?? 20;
-  const chancePercent = Math.min(100, baseRate + (usedStone ? stoneBonus : 0));
+  const chancePercent = getCardUpgradeSuccessRate(currentLevel, usedStone, material?.bonus);
   const rollPercent = typeof options.roll === 'number'
     ? Math.max(1, Math.min(100, Math.floor(options.roll)))
     : chancePercent >= 100
@@ -1858,6 +1855,7 @@ export function upgradeWordCard(original, wordId, mode = 'stat', options = {}) {
     secondaryEffect: hasCardSecondaryUpgrade(state, wordId) ? getCardSecondaryEffect(wordId, Math.max(CARD_SECONDARY_UNLOCK_LEVEL, newLevel)) : null,
     effect: describeCardUpgradeEffect(wordId, newLevel),
     usedStone,
+    materialId: material?.id,
     cost: usedStone ? 0 : goldCost,
     goldCost: usedStone ? 0 : goldCost,
   };

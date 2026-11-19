@@ -35,10 +35,8 @@ import {
   moveStashToBelt,
   useInventoryItem,
   discardInventoryItem,
-  upgradeWordCard,
   revisitRoom,
   useBattleItem,
-  buyShopItem,
   ENEMIES,
 } from './run.js';
 import { simulateTurn, estimateWordCost } from './combat.js';
@@ -341,6 +339,7 @@ function changeScreen(next) {
   }
   if (next !== 'sanctuary') sanctuaryMenu.close();
   if (next !== 'battle') {
+    $('combat-numbers').replaceChildren();
     try { $('discard-panel')?.close(); } catch {}
     $('discard-panel')?.removeAttribute('open');
   }
@@ -439,6 +438,7 @@ const sanctuaryCtx = {
   recordFormulaDiscovery,
   saveAccountDiscovered,
   openTools: name => modals.openTools(name),
+  updateInventoryBadge: () => updateInventoryNavBadge(state),
 };
 
 function renderSanctuary() {
@@ -843,6 +843,7 @@ function finishTurn() {
   equipped = [...state.player.words];
   words = [];
   if (enteredRoom) {
+    $('combat-numbers').replaceChildren();
     setCastFx(null);
     secondTargetId = null;
     targetId = state.enemies[0]?.id ?? null;
@@ -1185,68 +1186,6 @@ document.addEventListener('click', event => {
       persist(); audio.play('remove');
       modals.renderInventoryModal(); refreshActiveScreen();
       toast(`🗑 ทิ้ง “${res.item?.name ?? 'ไอเทม'}” ออกจากกระเป๋าแล้ว`);
-    } catch (error) { toast(error.message); }
-    return;
-  }
-  const shopCardBuyEl = !busy ? event.target.closest('#sanctuary-shop-list [data-buy-item]') : null;
-  if (shopCardBuyEl && !shopCardBuyEl.disabled) {
-    const itemId = shopCardBuyEl.dataset.buyItem;
-    try {
-      const item = SHOP_ITEMS[itemId];
-      const beltBefore = (state.player.items ?? []).length;
-      state = buyShopItem(state, itemId);
-      const wentToBelt = (state.player.items ?? []).length > beltBefore;
-      persist(); audio.play('discover');
-      renderSanctuary(); updateInventoryNavBadge(state);
-      for (const id of ['gold-value', 'sanctuary-shop-gold', 'sanctuary-forge-gold', 'sanctuary-gold-pill', 'rpg-resource']) {
-        const el = $(id);
-        if (el) queueFxClassRestart(el, ['gold-balance-flash'], 'gold-balance-flash');
-      }
-      toast(
-        item.oneTime
-          ? `🛒 ซื้อ “${item.name}” สำเร็จ! (−${item.cost} ทอง · สินค้าชิ้นเดียวถูกนำออกจากร้านแล้ว)`
-          : wentToBelt
-            ? `🛒 ซื้อ “${item.name}” สำเร็จ! (−${item.cost} ทอง · เก็บเข้าเข็มขัดไอเทมด่วนแล้ว)`
-            : `🛒 ซื้อ “${item.name}” สำเร็จ! (−${item.cost} ทอง · เก็บเข้าคลังกระเป๋าสำรองแล้ว)`,
-      );
-    } catch (error) { toast(error.message); }
-    return;
-  }
-  const upgradeBtnEl = !busy ? event.target.closest('[data-upgrade-card]') : null;
-  if (upgradeBtnEl && !upgradeBtnEl.disabled && state?.phase === 'sanctuary') {
-    const wordId = upgradeBtnEl.dataset.upgradeCard;
-    const mode = upgradeBtnEl.dataset.upgradeMode || 'stat';
-    try {
-      const res = upgradeWordCard(state, wordId, mode);
-      state = res.state;
-      persist();
-      audio.play(res.failed ? 'invalid' : 'discover');
-      renderSanctuary(); updateInventoryNavBadge(state);
-      const forgeCardEl = document.querySelector(`#sanctuary-upgrade-list [data-forge-card="${wordId}"]`);
-      if (forgeCardEl) {
-        const fxCls = res.failed
-          ? 'forge-fail-shake'
-          : (res.milestoneUnlocked || mode === 'secondary')
-            ? 'forge-milestone-flash'
-            : 'forge-success-flash';
-        queueFxClassRestart(forgeCardEl, ['forge-success-flash', 'forge-milestone-flash', 'forge-fail-shake'], fxCls);
-      }
-      for (const id of ['gold-value', 'sanctuary-shop-gold', 'sanctuary-forge-gold', 'sanctuary-gold-pill']) {
-        const el = $(id);
-        if (el) queueFxClassRestart(el, ['gold-balance-flash'], 'gold-balance-flash');
-      }
-      const wordLabel = WORDS[wordId]?.label ?? wordId;
-      if (res.failed) {
-        toast(`⚠️ ตีบวก “${wordLabel} +${res.attemptedLevel}” พลาด! (โอกาสสำเร็จ ${res.chancePercent}% · การ์ดไม่แตก คงอยู่ที่ +${res.newLevel})`);
-      } else if (mode === 'secondary') {
-        toast(`🌟 ปลุกพลังการ์ด “${wordLabel}” สำเร็จ! ปลดล็อก ${res.effect.label} (−${res.goldCost} ทอง)`);
-      } else if (res.milestoneUnlocked && res.secondaryEffect) {
-        toast(`🌟 ตีบวก “${wordLabel} +${res.newLevel}” สำเร็จ! ปลดล็อกเอฟเฟกต์รอง ${res.secondaryEffect.tierTag}: ${res.secondaryEffect.label}!`);
-      } else if (res.usedStone) {
-        toast(`⚒️ ตีบวกการ์ด “${wordLabel} +${res.newLevel}” สำเร็จด้วยหินตีบวกอักษร! (โอกาส ${res.chancePercent}% · ${res.effect})`);
-      } else {
-        toast(`⚒️ ตีบวกการ์ด “${wordLabel} +${res.newLevel}” สำเร็จ! (โอกาส ${res.chancePercent}% · ${res.effect} · −${res.goldCost} ทอง)`);
-      }
     } catch (error) { toast(error.message); }
     return;
   }

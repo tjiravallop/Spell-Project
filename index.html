@@ -64,11 +64,14 @@
       </div>
       <aside id="story-banner" class="story-banner" aria-label="บันทึกเนื้อเรื่อง" hidden></aside>
       <div class="battlefield-wrap" id="battlefield-wrap">
-        <canvas id="battle-canvas" width="320" height="180" role="img" aria-label="สนามต่อสู้พิกเซล เลือกเป้าหมายจากป้ายเหนือศัตรู"></canvas>
-        <div id="canvas-impact-layer" class="canvas-impact-layer" aria-hidden="true"></div>
+        <div class="battle-scene">
+          <canvas id="battle-canvas" width="320" height="180" role="img" aria-label="สนามต่อสู้พิกเซล เลือกเป้าหมายจากป้ายเหนือศัตรู"></canvas>
+          <div id="canvas-impact-layer" class="canvas-impact-layer" aria-hidden="true"></div>
+          <div id="combat-numbers" aria-hidden="true"></div>
+          <p id="shield-status" class="muted" hidden></p>
+          <aside id="tutorial" class="tutorial" hidden><span id="tutorial-icon"></span><p id="tutorial-text"></p><button id="dismiss-tip" class="text-button" aria-label="ปิดคำแนะนำนี้">×</button></aside>
+        </div>
         <div id="enemy-list" class="enemy-list" aria-label="เลือกศัตรูและอ่านเจตนา"></div>
-        <p id="shield-status" class="muted" hidden></p>
-        <aside id="tutorial" class="tutorial" hidden><span id="tutorial-icon"></span><p id="tutorial-text"></p><button id="dismiss-tip" class="text-button" aria-label="ปิดคำแนะนำนี้">×</button></aside>
       </div>
       <div class="combat-command">
       <section id="spell-desk" class="spell-desk" aria-label="โต๊ะประกอบคาถา">
@@ -177,22 +180,70 @@
             <div id="sanctuary-story" class="story-card sanctuary-story-card"></div>
           </details>
         </div>
-        <section class="sanctuary-panel sanctuary-shop-panel" id="sanctuary-shop-panel" hidden>
-          <div class="sanctuary-panel-head">
-            <span id="sanctuary-shop-gold" class="rpg-gold-badge">💰 0 ทอง</span>
+        <section class="sanctuary-shop-panel" id="sanctuary-shop-panel" hidden>
+          <div class="shop-detail">
+            <div id="shop-detail-content">
+              <div class="shop-display" aria-hidden="true"><span id="shop-item-icon"></span></div>
+              <div class="shop-detail-body">
+                <h3 id="shop-item-name" tabindex="-1"></h3>
+                <p id="shop-item-description"></p>
+                <div class="shop-item-meta"><span id="shop-item-stock"></span><span id="shop-item-destination"></span></div>
+                <button id="shop-buy-btn" class="primary-button" type="button">ซื้อ</button>
+              </div>
+            </div>
+            <p id="shop-receipt" role="status" aria-atomic="true"></p>
           </div>
-          <div id="sanctuary-shop-list" class="sanctuary-shop-list"></div>
+          <div class="shop-catalog">
+            <div class="forge-library-heading">
+              <h3>เลือกสินค้า</h3>
+              <span id="sanctuary-shop-gold" class="rpg-gold-badge">0 ทอง</span>
+            </div>
+            <label class="shop-search">ค้นหาสินค้า<input id="shop-search" type="search" placeholder="ชื่อสินค้า" autocomplete="off"></label>
+            <div id="shop-categories" class="shop-categories" aria-label="หมวดสินค้า">
+              <button type="button" data-shop-category="all" aria-pressed="true">ทั้งหมด</button>
+              <button type="button" data-shop-category="restore" aria-pressed="false">ฟื้นฟู</button>
+              <button type="button" data-shop-category="battle" aria-pressed="false">ในสนาม</button>
+              <button type="button" data-shop-category="forge" aria-pressed="false">ตีบวก</button>
+            </div>
+            <div id="sanctuary-shop-list" class="sanctuary-shop-list" aria-label="สินค้า"></div>
+            <p id="shop-empty" class="muted" hidden></p>
+          </div>
         </section>
 
-        <section class="sanctuary-panel sanctuary-upgrade-panel" id="sanctuary-upgrade-panel" data-card-filter-panel="forge" hidden>
-          <div class="sanctuary-panel-head">
-            <div class="sanctuary-forge-resources" id="sanctuary-forge-resources">
-              <span id="sanctuary-forge-gold" class="rpg-gold-badge">💰 0 ทอง</span>
+        <section class="sanctuary-upgrade-panel" id="sanctuary-upgrade-panel" data-card-filter-panel="forge" hidden>
+          <div class="forge-workbench" aria-labelledby="forge-word-name">
+            <div id="forge-stage" class="forge-stage" data-outcome="idle">
+              <div class="forge-anvil" aria-hidden="true"></div>
+              <div id="forge-stage-card" class="forge-stage-card" aria-hidden="true"></div>
+              <div class="forge-hammer" aria-hidden="true"></div>
+              <div class="forge-sparks" aria-hidden="true"></div>
+            </div>
+            <div class="forge-workbench-body">
+              <div class="forge-word-heading">
+                <h3 id="forge-word-name" tabindex="-1"></h3>
+                <span id="forge-level-change"></span>
+              </div>
+              <p id="forge-next-effect" class="forge-effect"></p>
+              <dl id="forge-terms" class="forge-terms">
+                <div><dt>โอกาสสำเร็จ</dt><dd id="forge-chance"></dd></div>
+                <div><dt>ใช้ต่อครั้ง</dt><dd id="forge-cost"></dd></div>
+              </dl>
+              <button id="forge-upgrade-btn" type="button" class="primary-button">ตีบวก</button>
+              <p id="forge-result" class="forge-result" role="status" aria-atomic="true"></p>
+              <details class="forge-secondary">
+                <summary id="forge-secondary-title">เอฟเฟกต์รอง</summary>
+                <p id="forge-secondary-description"></p>
+              </details>
             </div>
           </div>
-          <p class="muted">ใช้ทองตีบวกการ์ดได้ถึง <strong>+10</strong> หากตีพลาด การ์ดจะอยู่ระดับเดิม เมื่อถึง <strong>+7, +9 และ +10</strong> เอฟเฟกต์รองจะปลดล็อกและเพิ่มระดับอัตโนมัติ</p>
-          <div id="sanctuary-card-filters"></div>
-          <div id="sanctuary-upgrade-list" class="sanctuary-upgrade-list"></div>
+          <div class="forge-library">
+            <div class="forge-library-heading">
+              <h3>เลือกการ์ด</h3>
+              <span id="sanctuary-forge-gold" class="rpg-gold-badge">0 ทอง</span>
+            </div>
+            <div id="sanctuary-card-filters"></div>
+            <div id="sanctuary-upgrade-list" class="sanctuary-upgrade-list" aria-label="การ์ดที่ตีบวกได้"></div>
+          </div>
         </section>
 
         <div id="sanctuary-deck-panel" hidden>

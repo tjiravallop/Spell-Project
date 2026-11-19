@@ -103,6 +103,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
   let animPlayerMaxHp = 0;
 
   function beginTurnAnimation(state) {
+    $('combat-numbers').replaceChildren();
     animEnemyHp = Object.fromEntries(state.enemies.map(e => [e.id, e.hp]));
     animPlayerHp = state.player.hp;
     animPlayerMaxHp = state.player.maxHp;
@@ -114,12 +115,12 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     renderPlayerHp(animPlayerHp, animPlayerMaxHp);
   }
 
-  function spawnEnemyPop(enemyId, text, variant = 'damage', extraClass = '') {
+  function spawnEnemyPop(enemyId, text, variant) {
     const card = $(`target-${enemyId}`);
     if (!card || getSettings().reducedMotion) return;
     const existing = card.querySelectorAll('.enemy-floating-pop').length;
     const pop = document.createElement('span');
-    pop.className = `enemy-floating-pop pop-${variant}${extraClass ? ` ${extraClass}` : ''}`;
+    pop.className = `enemy-floating-pop pop-${variant}`;
     pop.setAttribute('aria-hidden', 'true');
     pop.textContent = text;
     if (existing > 0) {
@@ -254,13 +255,58 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     };
   }
 
-  function handleCombatStep(event) {
+  function showCombatNumber(event, index) {
+    const heals = event.type === 'heal' || event.type === 'room-clear';
+    const incoming = ['attack', 'mirror-reflect', 'ember-thorns', 'storm-static'].includes(event.type);
+    if (!heals && !incoming && event.type !== 'damage') return;
+    const amount = event.recovered ?? event.actual ?? event.amount;
+    if (!(amount > 0)) return;
+
+    const actor = incoming || event.type === 'room-clear' ? 'player' : event.target;
+    const state = getState();
+    const enemyIndex = state.enemies.findIndex(enemy => enemy.id === actor);
+    const battlefield = getBattlefield();
+    const layer = $('combat-numbers');
+    const related = [...layer.children].filter(number => number.dataset.actor === actor);
+    const usedLanes = new Set(related.map(number => number.dataset.lane));
+    const lane = ['0', '1', '2'].find(candidate => !usedLanes.has(candidate)) ?? related[0].dataset.lane;
+    if (usedLanes.size === 3) related[0].remove();
+    if (layer.childElementCount >= 12) layer.firstElementChild.remove();
+
+    const number = document.createElement('span');
+    number.className = 'combat-number';
+    number.dataset.actor = actor;
+    number.dataset.lane = lane;
+    number.dataset.kind = heals ? 'heal' : incoming ? 'incoming' : 'damage';
+    number.dataset.element = elementFamily(event.element ?? '');
+    const strong = Boolean(event.grand || event.large || event.heavy || event.weakness || event.killed || amount >= (heals ? 12 : 15));
+    if (strong) number.classList.add('is-strong');
+    if (event.weakness || event.killed) number.classList.add('is-gold');
+    const name = heals ? 'ฟื้น HP' : event.weakness ? 'จุดอ่อน' : event.killed ? 'ปิดฉาก' : event.resisted ? 'ต้านทาน' : event.ultimate ? 'ท่าบอส' : 'HP';
+    const digits = document.createElement('strong');
+    digits.textContent = `${heals ? '+' : '−'}${amount}`;
+    const caption = document.createElement('small');
+    caption.textContent = name;
+    number.append(digits, caption);
+
+    const x = actor === 'player' ? 51 : battlefield.snapshots?.[index]?.positions[enemyIndex] ?? enemyImpactCoords(actor).x;
+    const stagger = enemyIndex < 0 ? 0 : (state.enemies[enemyIndex].slot % 2) * 24;
+    const offset = [0, 22, -22][Number(lane)];
+    number.style.setProperty('--number-x', `calc(${x / 3.2}% + ${offset}px)`);
+    number.style.setProperty('--number-y', `${62 - stagger - Number(lane) * 15}%`);
+    layer.appendChild(number);
+    number.addEventListener('animationend', () => number.remove(), { once: true });
+    setTimeout(() => number.remove(), 880);
+  }
+
+  function handleCombatStep(event, index) {
     const state = getState();
     const audio = getAudio();
     const battlefield = getBattlefield();
     audio.combat(event);
     const status = $('animation-status-text');
     if (event.protection) renderShieldStatus(event.protection);
+    showCombatNumber(event, index);
     switch (event.type) {
       case 'projectile': {
         const form = WORDS[event.form]?.label ?? event.form;
@@ -287,7 +333,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           }
           status.textContent = `${[form, element].filter(Boolean).join(' ')} · ${wardLabel(event.wardRemaining)}`;
         } else if (event.damage) {
-          handleCombatStep(event.damage);
+          handleCombatStep(event.damage, index);
         } else {
           status.textContent = `ร่าย ${[form, element].filter(Boolean).join(' ')}`;
         }
@@ -306,9 +352,6 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         if (event.amount > 0) {
           changeAnimatedEnemyHp(event.target, -(event.actual ?? event.amount));
           triggerEnemyCardFx(event.target, 'enemy-hit-shake');
-          const elemCls = event.element ? `elem-${elementFamily(event.element)}` : '';
-          const weakTag = event.weakness ? ' ⚡จุดอ่อน' : event.resisted ? ' 🛡ต้านทาน' : '';
-          spawnEnemyPop(event.target, `-${event.actual ?? event.amount}${event.killed ? ' ✦' : ''}${weakTag}`, 'damage', `${elemCls}${event.weakness ? ' pop-weakness' : ''}${event.killed ? ' pop-killed' : ''}`.trim());
         } else {
           triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
           spawnEnemyPop(event.target, 'เกราะกันหมด', 'target');
@@ -361,14 +404,14 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         break;
       case 'chain-lightning':
         status.textContent = `${WORDS[event.element].label}ชิ่ง`;
-        if (event.damage) handleCombatStep(event.damage);
+        if (event.damage) handleCombatStep(event.damage, index);
         break;
       case 'magma-puddle':
         status.textContent = `แอ่งแมกม่าช่อง ${event.slot + 1} ปะทุเทิร์นหน้า`;
         break;
       case 'magma-erupt':
         status.textContent = `แอ่งแมกม่าช่อง ${event.slot + 1} ปะทุ`;
-        if (event.damage) handleCombatStep(event.damage);
+        if (event.damage) handleCombatStep(event.damage, index);
         break;
       case 'ward-grant':
         status.textContent = `ช่อง ${event.slot + 1} ได้ม่านเพิ่มเทิร์นหน้า`;
@@ -433,7 +476,6 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           changeAnimatedEnemyHp(event.target, event.amount);
           triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
           if (event.amount > 0) {
-            spawnEnemyPop(event.target, `+${event.amount}`, 'heal');
             const { x, y } = enemyImpactCoords(event.target);
             pulseElementalOverlay('ward', x, y);
           }
@@ -455,6 +497,8 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         const card = $(`target-${event.target}`);
         if (enemy && card) {
           card.style.setProperty('--enemy-x', `${battlefield.enemyX(enemy, event.slot) / 3.2}%`);
+          const label = card.querySelector('[data-enemy-slot-label]');
+          if (label) label.textContent = `ช่อง ${event.slot + 1}`;
           if (Object.hasOwn(card.dataset, 'middleLane')) card.dataset.middleLane = event.slot % 2;
         }
         status.textContent = event.advancing ? `ศัตรูไล่ประชิดช่อง ${event.slot + 1}` : `${event.pulled ? 'ดึง' : 'ผลัก'}ศัตรูไปช่อง ${event.slot + 1}`;
@@ -464,7 +508,12 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         status.textContent = `ศัตรูสลับช่อง ${event.slot + 1} กับ ${event.sourceSlot + 1}`;
         for (const [id, slot] of [[event.target, event.slot], [event.source, event.sourceSlot]]) {
           const enemy = state.enemies.find(candidate => candidate.id === id);
-          if (enemy) $(`target-${id}`)?.style.setProperty('--enemy-x', `${battlefield.enemyX(enemy, slot) / 3.2}%`);
+          const card = $(`target-${id}`);
+          if (enemy && card) {
+            card.style.setProperty('--enemy-x', `${battlefield.enemyX(enemy, slot) / 3.2}%`);
+            const label = card.querySelector('[data-enemy-slot-label]');
+            if (label) label.textContent = `ช่อง ${slot + 1}`;
+          }
         }
         break;
       case 'attack': {

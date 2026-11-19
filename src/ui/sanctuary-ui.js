@@ -7,13 +7,16 @@ import {
   CARD_SECONDARY_UNLOCK_LEVEL,
   RELIC_DRAFT_CATALOG,
   getAvailableShopItems,
+  buyShopItem,
   getEquippedRelics,
   getCardUpgradeLevel,
   deckCapacity,
   hasCardSecondaryUpgrade,
   getCardUpgradeCost,
   getCardUpgradeSuccessRate,
-  getCardSecondaryTier,
+  getCardUpgradeMaterial,
+  upgradeWordCard,
+  SHOP_ITEMS,
   getCardSecondaryEffect,
   describeCardUpgradeEffect,
   getFloorInfo,
@@ -36,7 +39,116 @@ import {
   rarityClass,
   playingCardFace,
   queueFxClassRestart,
+  preserveFocus,
 } from './dom.js';
+
+let forgeWord = START_WORDS[0];
+let forgeResult = null;
+let forgeImpactTimer = 0;
+
+function renderForge(state) {
+  const { player } = state;
+  const list = $('sanctuary-upgrade-list');
+  const owned = [...new Set([...START_WORDS, ...state.collection, ...player.words])];
+  if (!owned.includes(forgeWord)) forgeWord = owned[0];
+  const scroll = list.scrollTop;
+  list.innerHTML = owned.map(id => {
+    const level = getCardUpgradeLevel(state, id);
+    return `<button id="forge-choice-${id}" type="button" class="forge-choice ${rarityClass(WORDS[id])}" data-forge-word="${id}" data-filter-card="${id}" aria-pressed="${id === forgeWord}">${icon(id)}<span>${escape(WORDS[id].label)}</span><small>+${level}</small></button>`;
+  }).join('');
+  const filters = $('sanctuary-card-filters');
+  if (!filters.firstElementChild) filters.innerHTML = cardFilterControls('forge');
+  applyCardFilters($('sanctuary-upgrade-panel'), state);
+  list.scrollTop = scroll;
+
+  const word = WORDS[forgeWord];
+  const level = getCardUpgradeLevel(state, forgeWord);
+  const maxed = level >= MAX_CARD_UPGRADE;
+  const next = Math.min(MAX_CARD_UPGRADE, level + 1);
+  const material = getCardUpgradeMaterial(player);
+  const goldCost = getCardUpgradeCost(level);
+  const affordable = Boolean(material) || player.gold >= goldCost;
+  const chance = getCardUpgradeSuccessRate(level, Boolean(material), material?.bonus);
+  const secondary = hasCardSecondaryUpgrade(state, forgeWord);
+  const secondaryInfo = getCardSecondaryEffect(forgeWord, Math.max(CARD_SECONDARY_UNLOCK_LEVEL, level));
+
+  $('forge-stage-card').className = `forge-stage-card ${rarityClass(word)}`;
+  $('forge-stage-card').innerHTML = `${icon(forgeWord)}<span>+${level}</span>`;
+  $('forge-word-name').textContent = word.label;
+  $('forge-level-change').textContent = maxed ? `เต็มระดับ +${level}` : `+${level} → +${next}`;
+  $('forge-next-effect').textContent = describeCardUpgradeEffect(forgeWord, next);
+  $('forge-terms').hidden = maxed;
+  $('forge-chance').textContent = `${chance}%`;
+  $('forge-cost').textContent = material ? SHOP_ITEMS[material.id].name + ' 1 ชิ้น' : `${goldCost} ทอง`;
+  $('sanctuary-forge-gold').textContent = `${player.gold} ทอง`;
+  $('forge-secondary-title').textContent = secondary ? `เอฟเฟกต์รอง · ${secondaryInfo.label}` : `เอฟเฟกต์รอง · ปลดที่ +${CARD_SECONDARY_UNLOCK_LEVEL}`;
+  $('forge-secondary-description').textContent = secondaryInfo.description;
+
+  const button = $('forge-upgrade-btn');
+  button.disabled = maxed || !affordable;
+  button.setAttribute('aria-disabled', String(Boolean(forgeImpactTimer) || button.disabled));
+  button.textContent = maxed ? 'ตีบวกเต็มแล้ว' : affordable ? `ตีบวกเป็น +${next}` : `ขาดอีก ${goldCost - player.gold} ทอง`;
+  const result = $('forge-result');
+  const attempt = forgeResult?.wordId === forgeWord ? forgeResult : null;
+  const outcome = forgeImpactTimer ? 'pending' : attempt?.failed ? 'fail' : attempt ? 'success' : 'idle';
+  $('forge-stage').dataset.outcome = outcome;
+  result.dataset.outcome = outcome;
+  if (forgeImpactTimer) {
+    result.textContent = 'กำลังตีบวก…';
+  } else if (attempt) {
+    const effect = attempt.milestoneUnlocked && attempt.secondaryEffect ? ` · ${attempt.secondaryEffect.label}` : '';
+    result.textContent = attempt.failed
+      ? `ตี +${attempt.attemptedLevel} พลาด · คงระดับ +${attempt.newLevel}`
+      : `ตีบวกสำเร็จ · +${attempt.newLevel}${effect}`;
+  } else {
+    result.textContent = 'ถ้าตีพลาด ระดับจะคงเดิม';
+  }
+}
+
+let selectedShopItem = null;
+let shopCategory = 'all';
+
+function renderShop(state) {
+  const { player } = state;
+  const catalog = getAvailableShopItems(state);
+  const list = $('sanctuary-shop-list');
+  const query = $('shop-search').value.trim().toLocaleLowerCase();
+  const visible = catalog.filter(item => {
+    const category = item.vaultOnly ? 'forge' : item.hpRestore || item.manaRestore ? 'restore' : 'battle';
+    return (shopCategory === 'all' || shopCategory === category)
+      && (!query || item.name.toLocaleLowerCase().includes(query));
+  });
+  const sold = state.purchasedShopItems.includes(selectedShopItem);
+  const item = sold ? SHOP_ITEMS[selectedShopItem] : visible.find(candidate => candidate.id === selectedShopItem) ?? visible[0];
+  selectedShopItem = item?.id ?? null;
+  const scroll = list.scrollTop;
+  list.innerHTML = visible.map(candidate =>
+    `<button id="shop-choice-${candidate.id}" class="shop-choice" type="button" data-shop-choice="${candidate.id}" aria-pressed="${candidate.id === selectedShopItem}"><span class="shop-choice-icon" aria-hidden="true">${escape(candidate.icon)}</span><span>${escape(candidate.name)}</span><small>${candidate.cost} ทอง</small></button>`
+  ).join('');
+  list.scrollTop = scroll;
+  for (const button of $('shop-categories').querySelectorAll('button')) {
+    button.setAttribute('aria-pressed', String(button.dataset.shopCategory === shopCategory));
+  }
+  $('shop-empty').hidden = visible.length > 0;
+  $('shop-empty').textContent = catalog.length ? 'ไม่พบสินค้า ลองเปลี่ยนคำค้นหรือหมวดสินค้า' : 'สินค้าหมดแล้ว';
+  $('shop-detail-content').hidden = !item;
+  if (!item) return;
+
+  const beltSpace = !item.vaultOnly && player.items.length < MAX_BELT_ITEMS;
+  const hasSpace = beltSpace || player.stash.length < MAX_STASH_ITEMS;
+  const shortfall = item.cost - player.gold;
+  $('shop-item-icon').textContent = item.icon;
+  $('shop-item-name').textContent = item.name;
+  $('shop-item-description').textContent = item.description;
+  $('shop-item-stock').textContent = sold ? 'ซื้อครบแล้ว' : item.oneTime ? 'จำกัด 1 ชิ้น' : 'ซื้อซ้ำได้';
+  $('shop-item-destination').hidden = sold;
+  $('shop-item-destination').textContent = hasSpace
+    ? (beltSpace ? 'เก็บเข้าเข็มขัด' : 'เก็บเข้าคลังสำรอง')
+    : item.vaultOnly ? 'คลังสำรองเต็ม' : 'กระเป๋าเต็ม';
+  const buy = $('shop-buy-btn');
+  buy.disabled = sold || !hasSpace || shortfall > 0;
+  buy.textContent = sold ? 'ซื้อแล้ว' : !hasSpace ? 'ไม่มีช่องเก็บ' : shortfall > 0 ? `ขาดอีก ${shortfall} ทอง` : `ซื้อ · ${item.cost} ทอง`;
+}
 
 export function renderSanctuaryTravel(state) {
   const select = $('sanctuary-floor-select');
@@ -180,35 +292,7 @@ export function renderSanctuary(ctx) {
   }
 
   p.stash ??= [];
-  const shopList = $('sanctuary-shop-list');
-  if (shopList) {
-    const availableItems = getAvailableShopItems(state);
-    if (!availableItems.length) {
-      shopList.innerHTML = `<div class="shop-empty-notice">สินค้าในร้านถูกซื้อครบหมดแล้ว</div>`;
-    } else {
-      const groups = [
-        { label: 'ฟื้นฟู HP และมานา', items: availableItems.filter(item => item.hpRestore || item.manaRestore) },
-        { label: 'เครื่องมือในสนาม', items: availableItems.filter(item => !item.hpRestore && !item.manaRestore && !item.vaultOnly) },
-        { label: 'วัตถุดิบตีบวก', items: availableItems.filter(item => item.vaultOnly) },
-      ];
-      const card = item => {
-        const canAfford = p.gold >= item.cost;
-        const hasSpace = (!item.vaultOnly && p.items.length < MAX_BELT_ITEMS) || p.stash.length < MAX_STASH_ITEMS;
-        const disabled = !hasSpace || !canAfford;
-        const stockTag = item.oneTime
-          ? `<span class="shop-stock-tag once">จำกัด 1 ชิ้น</span>`
-          : `<span class="shop-stock-tag repeat">ซื้อซ้ำได้</span>`;
-        const btnLabel = !hasSpace
-          ? `กระเป๋าเต็ม (${MAX_BELT_ITEMS + MAX_STASH_ITEMS}/${MAX_BELT_ITEMS + MAX_STASH_ITEMS})`
-          : !canAfford
-            ? `ทองไม่พอ (${item.cost} ทอง)`
-            : `ซื้อไอเทม · 💰 ${item.cost} ทอง`;
-        return `<article class="shop-item-card ${item.oneTime ? 'is-one-time' : ''} ${disabled ? 'is-disabled' : 'is-selectable'}" data-shop-item="${item.id}" ${disabled ? '' : `data-buy-item="${item.id}"`}><div class="shop-item-head"><span class="shop-item-icon">${item.icon}</span><div class="shop-item-title"><strong>${escape(item.name)}</strong><span class="shop-item-badge">${escape(item.badge)}</span></div><div class="shop-item-price-group"><span class="shop-item-price">💰 ${item.cost}</span>${stockTag}</div></div><p class="shop-item-desc">${escape(item.description)}</p><button type="button" class="secondary-button shop-buy-btn" data-buy-item="${item.id}" ${disabled ? 'disabled' : ''}>${btnLabel}</button></article>`;
-      };
-      shopList.innerHTML = groups.filter(group => group.items.length)
-        .map(group => `<h3 class="shop-group-heading">${group.label}</h3>${group.items.map(card).join('')}`).join('');
-    }
-  }
+  renderShop(state);
 
   renderSanctuaryTravel(state);
 
@@ -217,47 +301,7 @@ export function renderSanctuary(ctx) {
   if ($('sanctuary-deck-count')) {
     $('sanctuary-deck-count').textContent = `เลือก ${activeEquipped.length} / ${cap} คำ`;
   }
-  const ownedCards = [...new Set([...START_WORDS, ...(state.collection ?? []), ...(p.words ?? [])])];
-  const upgradeListEl = $('sanctuary-upgrade-list');
-  if (upgradeListEl) {
-    const filterControls = $('sanctuary-card-filters');
-    if (filterControls && !filterControls.firstElementChild) filterControls.innerHTML = cardFilterControls('forge');
-    const hasStone = (p.stash ?? []).includes('smithing_stone') || (p.items ?? []).includes('smithing_stone');
-    upgradeListEl.innerHTML = ownedCards.map(id => {
-      const word = WORDS[id];
-      const lv = getCardUpgradeLevel(state, id);
-      const secUnlocked = hasCardSecondaryUpgrade(state, id);
-      const secTier = getCardSecondaryTier(lv, Boolean(p.cardSecondaryUpgrades?.[id]));
-      const secInfo = getCardSecondaryEffect(id, Math.max(CARD_SECONDARY_UNLOCK_LEVEL, lv));
-      const inActiveDeck = p.words.includes(id);
-      const statGoldCost = getCardUpgradeCost(lv);
-      const chancePercent = getCardUpgradeSuccessRate(lv, hasStone);
-      const isMaxStat = lv >= MAX_CARD_UPGRADE;
-      const canStatUpgrade = !isMaxStat && (hasStone || p.gold >= statGoldCost);
-
-      const nextMilestone = lv < 7 ? 7 : lv < 9 ? 9 : 10;
-      const chanceTone = chancePercent >= 80 ? 'safe' : chancePercent >= 50 ? 'mid' : 'risky';
-      const chancePill = isMaxStat
-        ? `<span class="forge-chance-pill safe">✦ ตีบวกสูงสุด +${MAX_CARD_UPGRADE}</span>`
-        : `<span class="forge-chance-pill ${chanceTone}" title="หากตีบวกไม่ติด การ์ดจะไม่แตกและไม่ลดระดับ">🎲 โอกาสติด ${chancePercent}%${hasStone ? ' (+หิน 15%)' : ''}</span>`;
-
-      const currentStatDesc = lv > 0
-        ? `สเตตัสปัจจุบัน (+${lv}): ${describeCardUpgradeEffect(id, lv)} · ถัดไป (+${Math.min(MAX_CARD_UPGRADE, lv + 1)}): ${describeCardUpgradeEffect(id, Math.min(MAX_CARD_UPGRADE, lv + 1))}`
-        : `เมื่อตีบวก (+1): ${describeCardUpgradeEffect(id, 1)}`;
-      const nextStatBtnLabel = isMaxStat
-        ? `✓ ตีบวกเต็มระดับสูงสุด (+${MAX_CARD_UPGRADE})`
-        : hasStone
-          ? `⚒️ ตีบวก +${lv + 1} (โอกาส ${chancePercent}%) · ใช้หินตีบวกฟรี`
-          : `⚒️ ตีบวก +${lv + 1} (โอกาส ${chancePercent}%) · 💰 ${statGoldCost} ทอง`;
-
-      const milestoneStatusText = secUnlocked
-        ? `🌟 ปลดล็อกเอฟเฟกต์รอง ${secInfo.tierTag} แล้ว (${secInfo.badge})${lv < 10 ? ` · ตีบวกถึง +${nextMilestone} เพื่อยกระดับขั้นถัดไป!` : ' · ระดับสูงสุด!'}`
-        : `🔒 เอฟเฟกต์รองจะปลดล็อกอัตโนมัติเมื่อตีบวกถึง +7 (+9 / +10 แรงขึ้น): ${secInfo.badge}`;
-
-      return `<article class="forge-card word-${id} ${rarityClass(word)} ${lv > 0 || secUnlocked ? 'is-upgraded' : ''}" data-forge-card="${id}" data-filter-card="${id}"><div class="forge-card-head"><div class="forge-card-title"><span class="forge-card-icon">${icon(id)}</span><div><strong>${escape(word.label)}${lv > 0 ? ` +${lv}` : ''}</strong><small class="forge-deck-tag ${inActiveDeck ? 'active' : ''}">${inActiveDeck ? '✓ พกในสำรับ' : 'ในคลังสะสม'}</small></div></div><div class="forge-badges"><span class="forge-lv-pill ${lv > 0 ? 'has-lv' : ''}">+${lv}/${MAX_CARD_UPGRADE}</span>${chancePill}${secUnlocked ? `<span class="forge-sec-pill unlocked">ขั้น ${secTier}: ${escape(secInfo.badge)}</span>` : `<span class="forge-sec-pill locked">ปลดล็อกที่ +7: ${escape(secInfo.badge)}</span>`}</div></div><p class="forge-stat-desc">⚡ ${escape(currentStatDesc)}</p><p class="forge-sec-desc">${escape(milestoneStatusText)} — ${escape(secInfo.description)}</p><div class="forge-actions"><button type="button" class="secondary-button forge-btn forge-stat-btn" data-upgrade-card="${id}" data-upgrade-mode="stat" ${!canStatUpgrade ? 'disabled' : ''}>${nextStatBtnLabel}</button></div></article>`;
-    }).join('');
-    applyCardFilters($('sanctuary-upgrade-panel'), state);
-  }
+  renderForge(state);
   const wordsEl = $('sanctuary-words');
   if (wordsEl) {
     wordsEl.innerHTML = [...START_WORDS, ...state.collection].map(id => {
@@ -339,12 +383,117 @@ export function bindSanctuaryEvents(ctx) {
       const [activePanel, title] = sanctuaryPanels[button.dataset.sanctuaryMenu];
       for (const [panel] of Object.values(sanctuaryPanels)) $(panel).hidden = panel !== activePanel;
       $('sanctuary-menu-title').textContent = title;
+      if (activePanel === 'sanctuary-upgrade-panel') renderForge(ctx.getState());
+      if (activePanel === 'sanctuary-shop-panel') {
+        selectedShopItem = null;
+        $('shop-receipt').textContent = '';
+        renderShop(ctx.getState());
+      }
       button.focus({ preventScroll: true });
       sanctuaryMenu.showModal();
       sanctuaryMenu.scrollTop = 0;
       ctx.audio.play('place');
     });
   }
+
+  $('shop-search').addEventListener('input', () => {
+    selectedShopItem = null;
+    $('sanctuary-shop-list').scrollTop = 0;
+    $('shop-receipt').textContent = '';
+    renderShop(ctx.getState());
+  });
+  $('shop-categories').addEventListener('click', event => {
+    const button = event.target.closest('[data-shop-category]');
+    if (!button || button.dataset.shopCategory === shopCategory) return;
+    shopCategory = button.dataset.shopCategory;
+    selectedShopItem = null;
+    $('sanctuary-shop-list').scrollTop = 0;
+    $('shop-receipt').textContent = '';
+    renderShop(ctx.getState());
+  });
+  $('sanctuary-shop-list').addEventListener('click', event => {
+    const button = event.target.closest('[data-shop-choice]');
+    if (!button || button.dataset.shopChoice === selectedShopItem) return;
+    selectedShopItem = button.dataset.shopChoice;
+    $('shop-receipt').textContent = '';
+    preserveFocus(() => renderShop(ctx.getState()));
+    ctx.audio.play('place');
+  });
+  $('shop-buy-btn').addEventListener('click', event => {
+    const button = event.currentTarget;
+    const state = ctx.getState();
+    if (button.disabled || !selectedShopItem || state?.phase !== 'sanctuary') return;
+    const item = SHOP_ITEMS[selectedShopItem];
+    const receipt = $('shop-receipt');
+    try {
+      const next = buyShopItem(state, item.id);
+      const storage = next.player.items.length > state.player.items.length ? 'เข็มขัด' : 'คลังสำรอง';
+      ctx.setState(next);
+      ctx.persist();
+      ctx.audio.play('discover');
+      renderSanctuary(ctx);
+      ctx.updateInventoryBadge();
+      receipt.textContent = `ซื้อ “${item.name}” แล้ว · เก็บใน${storage}`;
+      if (button.disabled) $('shop-item-name').focus({ preventScroll: true });
+      for (const id of ['sanctuary-shop-gold', 'sanctuary-gold-pill']) {
+        queueFxClassRestart($(id), ['gold-balance-flash'], 'gold-balance-flash');
+      }
+    } catch (error) {
+      receipt.textContent = error.message;
+    }
+  });
+
+  const forgeStage = $('forge-stage');
+  $('sanctuary-upgrade-list').addEventListener('click', event => {
+    const choice = event.target.closest('[data-forge-word]');
+    if (!choice || forgeImpactTimer || choice.dataset.forgeWord === forgeWord) return;
+    forgeWord = choice.dataset.forgeWord;
+    forgeResult = null;
+    forgeStage.classList.remove('is-striking');
+    preserveFocus(() => renderForge(ctx.getState()));
+  });
+
+  $('forge-upgrade-btn').addEventListener('click', event => {
+    const button = event.currentTarget;
+    const state = ctx.getState();
+    if (forgeImpactTimer || button.disabled || state?.phase !== 'sanctuary') return;
+    try {
+      forgeResult = upgradeWordCard(state, forgeWord);
+      ctx.setState(forgeResult.state);
+      ctx.persist();
+      const reveal = () => {
+        forgeImpactTimer = 0;
+        ctx.audio.play(forgeResult.failed ? 'invalid' : 'discover');
+        renderSanctuary(ctx);
+        ctx.updateInventoryBadge();
+        if (button.disabled) $('forge-word-name').focus({ preventScroll: true });
+      };
+      if (document.body.classList.contains('reduced-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        reveal();
+      } else {
+        forgeStage.dataset.outcome = 'pending';
+        $('forge-result').dataset.outcome = 'pending';
+        $('forge-result').textContent = 'กำลังตีบวก…';
+        button.setAttribute('aria-disabled', 'true');
+        queueFxClassRestart(forgeStage, ['is-striking'], 'is-striking');
+        forgeImpactTimer = setTimeout(reveal, 230);
+      }
+    } catch (error) {
+      $('forge-result').textContent = error.message;
+      $('forge-result').dataset.outcome = 'fail';
+    }
+  });
+
+  sanctuaryMenu.addEventListener('close', () => {
+    if (!forgeImpactTimer && !forgeStage.classList.contains('is-striking')) return;
+    clearTimeout(forgeImpactTimer);
+    forgeImpactTimer = 0;
+    forgeStage.classList.remove('is-striking');
+    if (ctx.getState()?.phase === 'sanctuary') {
+      renderSanctuary(ctx);
+      ctx.updateInventoryBadge();
+    }
+  });
 
   $('sanctuary-rest-btn')?.addEventListener('click', () => {
     try {

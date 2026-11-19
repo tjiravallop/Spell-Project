@@ -10,12 +10,15 @@ const filters = {
 export function cardFilterControls(surface) {
   const current = filters[surface];
   const options = (entries, selected) => entries.map(([value, label]) => `<option value="${value}"${value === selected ? ' selected' : ''}>${label}</option>`).join('');
-  return `<div class="card-filters" aria-label="ตัวกรองการ์ด">
-    <label>ค้นหาการ์ด<input type="search" data-card-filter="search" value="${escape(current.search)}" placeholder="ชื่อการ์ด เช่น ไฟ" autocomplete="off"></label>
-    <label>ประเภท<select data-card-filter="role">${options([['', 'ทุกประเภท'], ['role-form', 'รูปแบบโจมตี'], ['role-element', 'ธาตุ'], ['role-defense', 'ป้องกัน'], ['role-support', 'ฟื้นฟู / เป้าหมาย'], ['role-mod', 'คำเสริม']], current.role)}</select></label>
+  const search = `<label>ค้นหาการ์ด<input type="search" data-card-filter="search" value="${escape(current.search)}" placeholder="ชื่อการ์ด เช่น ไฟ" autocomplete="off"></label>`;
+  const advanced = `<label>ประเภท<select data-card-filter="role">${options([['', 'ทุกประเภท'], ['role-form', 'รูปแบบโจมตี'], ['role-element', 'ธาตุ'], ['role-defense', 'ป้องกัน'], ['role-support', 'ฟื้นฟู / เป้าหมาย'], ['role-mod', 'คำเสริม']], current.role)}</select></label>
     <label>ความหายาก<select data-card-filter="rarity">${options([['', 'ทุกระดับ'], ...Object.entries(RARITIES)], current.rarity)}</select></label>
     <label>สถานะ<select data-card-filter="status">${options([['', 'ทุกสถานะ'], ['deck', 'พกในสำรับ'], ['upgraded', 'ตีบวกแล้ว'], ['unupgraded', 'ยังไม่ตีบวก'], ['max', 'ตีบวกเต็ม +10']], current.status)}</select></label>
-    <button type="button" class="secondary-button card-filter-reset" data-card-filter-reset>ล้างตัวกรอง</button>
+    <button type="button" class="secondary-button card-filter-reset" data-card-filter-reset>ล้างตัวกรอง</button>`;
+  const controls = surface === 'forge'
+    ? `${search}<details class="forge-filters"><summary>ตัวกรอง</summary><div>${advanced}</div></details>`
+    : search + advanced;
+  return `<div class="card-filters" aria-label="ตัวกรองการ์ด">${controls}
     <p class="card-filter-count" data-card-filter-count aria-live="polite"></p>
   </div><p class="card-filter-empty" data-card-filter-empty hidden>ไม่พบการ์ดที่ตรงกับตัวกรอง ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</p>`;
 }

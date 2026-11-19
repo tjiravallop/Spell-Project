@@ -423,20 +423,9 @@ body.reduced-motion .turn-label{animation:none!important}
 .enemy-hp-text.hp-text-hit,#hp-value.hp-value-hit{color:#ffb3a7;animation:hpNumberBump .34s cubic-bezier(.2,1.25,.35,1)}
 .enemy-hp-text.hp-text-heal,#hp-value.hp-value-heal{color:#a8f2b0;animation:hpNumberBump .34s cubic-bezier(.2,1.25,.35,1)}
 .enemy-floating-pop{position:absolute;top:-14px;left:50%;transform:translateX(-50%);translate:var(--pop-x,0px) var(--pop-y,0px);z-index:8;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em;white-space:nowrap;text-shadow:0 1px 2px #000;box-shadow:0 4px 12px #000b;pointer-events:none;animation:enemyPopFloat .86s cubic-bezier(.18,1.15,.32,1) forwards}
-.enemy-floating-pop.pop-damage{background:#3d1914f2;border:1.5px solid var(--fire);color:#ffd2c2}
-.enemy-floating-pop.pop-damage.elem-fire,.enemy-floating-pop.pop-damage.elem-akki{background:#42180ef2;border-color:#ff844b;color:#ffe2cf}
-.enemy-floating-pop.pop-damage.elem-ice,.enemy-floating-pop.pop-damage.elem-heman{background:#122e3af2;border-color:#6de0ff;color:#dcf8ff}
-.enemy-floating-pop.pop-damage.elem-lightning,.enemy-floating-pop.pop-damage.elem-asani{background:#362d10f2;border-color:#ffe066;color:#fff8cc}
-.enemy-floating-pop.pop-damage.elem-earth,.enemy-floating-pop.pop-damage.elem-pathaphi{background:#332312f2;border-color:#e0a84d;color:#ffe8c2}
-.enemy-floating-pop.pop-damage.elem-water,.enemy-floating-pop.pop-damage.elem-wari{background:#102b3ef2;border-color:#44d0ff;color:#d6f6ff}
-.enemy-floating-pop.pop-damage.elem-wind,.enemy-floating-pop.pop-damage.elem-vayu{background:#12332bf2;border-color:#86e3b6;color:#d6ffec}
-.enemy-floating-pop.pop-damage.pop-killed{border-color:var(--gold);box-shadow:0 0 14px #dab87a88,0 4px 12px #000c;color:#fff2bd}
-.enemy-floating-pop.pop-damage.pop-weakness{border-color:#ffe53b;box-shadow:0 0 16px #ffeb3b88,0 4px 12px #000c;color:#fffde7;transform:translateX(-50%) scale(1.12)}
 .enemy-floating-pop.pop-ward{background:#261a38f2;border:1.5px solid var(--violet);color:#e5d4ff}
 .enemy-floating-pop.pop-target{background:#2b2414f2;border:1.5px solid var(--gold);color:#ffe7b3}
-.enemy-floating-pop.pop-heal{background:#162e1bf2;border:1.5px solid #6cb874;color:#c8f5cc}
 .enemy-floating-pop.pop-status{background:#152833f2;border:1.5px solid var(--ice);color:#ccf2ff}
-.enemy-floating-pop.pop-attack{background:#3b1619f2;border:1.5px solid var(--danger);color:#ffc4be}
 
 /* Elemental VFX Burst Overlay on Enemy Cards */
 .enemy-vfx-burst{position:absolute;inset:-4px;border-radius:10px;pointer-events:none;z-index:4;overflow:hidden;animation:vfxBurstFade .56s cubic-bezier(.16,1,.3,1) forwards}
@@ -742,33 +731,13 @@ body.reduced-motion .battlefield-wrap,body.reduced-motion #battle-view{animation
 .sanctuary-rule-pill.warn{background:#2d2214;border-color:#c7934277;color:#f5cf87}
 .sanctuary-action-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:auto}
 .sanctuary-action-row .primary-button,.sanctuary-action-row .secondary-button{flex:1;min-height:44px;padding:8px 14px;font-size:13px}
-.sanctuary-view .insight-box,.sanctuary-view .shop-item-card,.sanctuary-view .sanctuary-floor-row,.sanctuary-view .charm-slot:not(.filled),.sanctuary-view .forge-card:not(.is-upgraded){background:#161413;border-color:#44362b}
+.sanctuary-view .insight-box,.sanctuary-view .sanctuary-floor-row,.sanctuary-view .charm-slot:not(.filled){background:#161413;border-color:#44362b}
 .sanctuary-insight-preview{margin:2px 0}
 .insight-box{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:8px;background:#0e171a;border:1px solid #35545c;font-size:12px}
 .insight-box.complete{border-color:#4b8c7b;background:#132623;color:#9fe8d4;font-weight:600}
 .insight-cat{font-size:11px;color:#ffd67a;font-weight:700}
 .insight-box strong{font-size:13px;color:#f2f7f7}
 .insight-box small{font-size:11px;color:var(--muted)}
-.sanctuary-shop-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.shop-group-heading{grid-column:1/-1;margin:10px 0 0;color:#e8cf9e;font-size:15px}
-.shop-item-card{display:flex;flex-direction:column;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:10px;background:#0f191c;border:1px solid #2f4b52;transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease}
-.shop-item-card.is-selectable{cursor:pointer}
-.shop-item-card.is-selectable:hover{transform:translateY(-2px);border-color:#f0c36d;box-shadow:0 6px 16px #00000059}
-.shop-item-card.is-one-time{border-color:#8a6b35;background:linear-gradient(180deg,#181915,#0f191c)}
-.shop-item-card.is-disabled{opacity:.65}
-.shop-item-head{display:flex;align-items:flex-start;gap:9px}
-.shop-item-icon{font-size:22px}
-.shop-item-title{display:flex;flex-direction:column;flex:1}
-.shop-item-title strong{font-size:14px}
-.shop-item-badge{font-size:11px;color:#82e0c4;font-weight:700}
-.shop-item-price-group{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
-.shop-item-price{font-size:13px;font-weight:700;color:#ffd670}
-.shop-stock-tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px}
-.shop-stock-tag.once{background:#382613;border:1px solid #d89b4488;color:#ffd180}
-.shop-stock-tag.repeat{background:#152c2b;border:1px solid #458a8066;color:#93e5d2}
-.shop-item-desc{font-size:12px;color:var(--muted);margin:0;line-height:1.45}
-.shop-buy-btn{width:100%}
-.shop-empty-notice{padding:16px;border-radius:8px;background:#0e171a;border:1px dashed #2f4b52;color:var(--muted);text-align:center;font-size:13px}
 @keyframes goldBalanceFlash{0%{transform:scale(1)}35%{transform:scale(1.06);border-color:#ffd978;box-shadow:0 0 14px #ffd97866}100%{transform:scale(1)}}
 .gold-balance-flash{animation:goldBalanceFlash .45s ease-out}
 .sanctuary-floor-map{display:flex;flex-direction:column;gap:12px}
@@ -847,8 +816,6 @@ body.reduced-motion .battlefield-wrap,body.reduced-motion #battle-view{animation
 @media(max-width:600px){.relic-action-btn{min-height:44px}}
 
 /* Sanctuary Card Upgrade Forge (#sanctuary-upgrade-panel) & Upgraded Card Pips */
-.sanctuary-forge-resources{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.sanctuary-upgrade-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:12px}
 .card-filters{display:flex;align-items:end;flex-wrap:wrap;gap:8px;margin:12px 0;padding:10px;border:1px solid #574630;border-radius:8px;background:#161922}
 .card-filters label{display:flex;flex:1 1 135px;min-width:0;flex-direction:column;gap:4px;color:#e5d1a8;font-size:12px;font-weight:700}
 .card-filters input,.card-filters select{box-sizing:border-box;width:100%;min-height:44px;padding:8px;border:1px solid #695779;border-radius:6px;background:#171526;color:var(--text);font:inherit;font-size:14px}
@@ -856,22 +823,10 @@ body.reduced-motion .battlefield-wrap,body.reduced-motion #battle-view{animation
 .card-filter-reset{min-height:44px}
 .card-filter-count{flex-basis:100%;margin:0;color:var(--muted);font-size:12px}
 .card-filter-empty{margin:8px 0 14px;color:var(--muted);font-size:14px}
-.forge-card[hidden],.inv-card-row[hidden],.card-filter-empty[hidden]{display:none}
+.inv-card-row[hidden],.card-filter-empty[hidden]{display:none}
 @media(max-width:600px){.card-filters label{flex-basis:calc(50% - 8px)}.card-filters label:first-child{flex-basis:100%}}
-.forge-card{display:flex;flex-direction:column;justify-content:space-between;gap:8px;padding:12px 14px;border-radius:10px;background:#0f191c;border:1.5px solid #2e4950;transition:border-color .15s,box-shadow .15s,transform .15s}
-.forge-card.is-upgraded{border-color:#d8b46799;background:linear-gradient(165deg,#1d251d 0%,#0f191c 100%);box-shadow:0 0 14px #d8b46722}
-@keyframes forgeSuccessFlash{0%{transform:scale(1);border-color:#ffe494;box-shadow:0 0 0 0 rgba(255,216,110,.7),inset 0 0 26px rgba(255,220,120,.38)}40%{transform:scale(1.02);border-color:#fff2b8;box-shadow:0 0 0 6px rgba(255,216,110,0),0 0 28px rgba(255,214,108,.48),inset 0 0 18px rgba(255,224,132,.24)}100%{transform:scale(1)}}
-@keyframes forgeMilestoneFlash{0%{transform:scale(1);border-color:#8ff5e8;box-shadow:0 0 0 0 rgba(126,245,232,.75),inset 0 0 32px rgba(255,222,120,.45)}42%{transform:scale(1.03);border-color:#ffe9a6;box-shadow:0 0 0 8px rgba(126,245,232,0),0 0 34px rgba(126,245,232,.55),inset 0 0 20px rgba(126,245,232,.28)}100%{transform:scale(1)}}
-@keyframes forgeFailShake{0%,100%{transform:translateX(0)}18%{transform:translateX(-5px);border-color:#ff948a;box-shadow:0 0 18px rgba(255,120,110,.36)}36%{transform:translateX(5px)}54%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
-.forge-card.forge-success-flash{animation:forgeSuccessFlash .62s cubic-bezier(.16,1,.3,1)}
-.forge-card.forge-milestone-flash{animation:forgeMilestoneFlash .78s cubic-bezier(.16,1,.3,1)}
-.forge-card.forge-fail-shake{animation:forgeFailShake .46s ease-out}
-.reduced-motion .forge-card.forge-success-flash,.reduced-motion .forge-card.forge-milestone-flash,.reduced-motion .forge-card.forge-fail-shake{animation:none}
-.forge-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
-.forge-card-title{display:flex;align-items:center;gap:9px}
 .forge-card-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:8px;background:#16262a;border:1px solid #355259}
 .forge-card-icon .icon{width:20px;height:20px}
-.forge-card-title strong{display:block;font-size:15px;line-height:1.2;color:var(--text)}
 .forge-deck-tag{font-size:10px;color:var(--muted)}
 .forge-deck-tag.active{color:#9fe8d4;font-weight:600}
 .forge-badges{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
@@ -884,12 +839,6 @@ body.reduced-motion .battlefield-wrap,body.reduced-motion #battle-view{animation
 .forge-sec-pill{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;border:1px dashed #355259;background:#111d20;color:var(--muted)}
 .forge-sec-pill.unlocked{border-style:solid;border-color:#53b8a6;background:#14302d;color:#a8fff0}
 .forge-stat-desc,.forge-sec-desc{margin:0;font-size:11.5px;line-height:1.4;color:var(--muted)}
-.forge-card.is-upgraded .forge-stat-desc{color:#e9dfc4}
-.forge-actions{display:flex;flex-direction:column;gap:6px;margin-top:4px}
-.forge-btn{width:100%;min-height:38px;padding:7px 10px;font-size:11.5px;justify-content:center;text-align:center}
-.forge-sec-btn:not(:disabled){border-color:#53b8a688;color:#b8f7eb}
-.forge-sec-btn:hover:not(:disabled){background:#16302f;border-color:#7ef5e8}
-.forge-sec-btn.is-unlocked{border-color:#3d7a6f;background:#122624;color:#8ee8d4;opacity:.85}
 
 .playing-card-inner.is-upgraded-card{border-color:rgba(240,195,109,.55);box-shadow:inset 0 0 14px rgba(211,170,107,.16)}
 .card-plus{font-style:normal;color:var(--gold);font-size:.86em}
@@ -937,7 +886,7 @@ body.reduced-motion .battlefield-wrap,body.reduced-motion #battle-view{animation
 .inv-card-row{padding:10px 12px;border-radius:9px;background:#111d20;border:1px solid #2c464d;display:flex;flex-direction:column;gap:6px}
 .inv-card-row.is-upgraded{border-color:#d8b46788;background:#1b221b}
 .inv-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
-@media(max-width:600px){.sanctuary-upgrade-list,.inv-cards-list{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}}
+@media(max-width:600px){.inv-cards-list{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}}
 
 /* Story Chronicle Banner & Floor 5->6-8 Narrative Cards */
 .story-banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;margin-bottom:0;background:var(--panel);border:1px solid var(--line);border-bottom:0;text-align:left}
