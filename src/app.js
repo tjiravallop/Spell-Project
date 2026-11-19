@@ -1048,6 +1048,36 @@ $('climb-button').addEventListener('click', () => {
 });
 $('cast-button').addEventListener('click', () => commit());
 $('discard-panel').addEventListener('cancel', event => event.preventDefault());
+
+// Dialog explicit close buttons & backdrop tap-to-dismiss for mobile/touch
+$('battle-tools')?.querySelector('.dialog-heading button')?.addEventListener('click', () => {
+  $('battle-tools').close();
+});
+$('settings-dialog')?.querySelector('.dialog-heading button')?.addEventListener('click', () => {
+  $('settings-dialog').close();
+});
+$('sanctuary-menu')?.querySelector('.sanctuary-menu-head button')?.addEventListener('click', () => {
+  sanctuaryMenu.close();
+});
+
+for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu']) {
+  const dialog = $(id);
+  if (!dialog) continue;
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    const isInDialog = (
+      rect.top <= event.clientY &&
+      event.clientY <= rect.top + rect.height &&
+      rect.left <= event.clientX &&
+      event.clientX <= rect.left + rect.width
+    );
+    if (!isInDialog) {
+      if (id === 'sanctuary-menu') sanctuaryMenu.close();
+      else dialog.close();
+    }
+  });
+}
 $('reopen-discard-btn')?.addEventListener('click', () => {
   try {
     $('battle-tools').close();

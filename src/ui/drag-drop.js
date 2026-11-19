@@ -32,6 +32,9 @@ export function initDragDrop(ctx) {
       document.body.append(drag.ghost);
       drag.handle.closest('.word-item, .spell-slot')?.classList.add('dragging-source');
       document.body.classList.add('is-dragging');
+      if (typeof navigator !== 'undefined' && navigator.vibrate && !ctx.getSettings?.()?.reducedMotion) {
+        try { navigator.vibrate(15); } catch {}
+      }
     }
     drag.ghost.style.transform = `translate(${event.clientX - 64}px, ${event.clientY - 88}px) rotate(-4deg) scale(1.04)`;
     document.querySelectorAll('.drop-hover').forEach(el => {

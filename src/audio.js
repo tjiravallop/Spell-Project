@@ -183,7 +183,23 @@ export class GameAudio {
     this.noise(duration * 0.75, { bus: 'sfx', filterType: 'lowpass', filterFreq: 180, gain: gain * 0.6 });
   }
 
+  haptic(name) {
+    if (this.settings?.reducedMotion) return;
+    if (typeof navigator === 'undefined' || !navigator.vibrate) return;
+    try {
+      if (name === 'place' || name === 'select') navigator.vibrate(15);
+      else if (name === 'remove') navigator.vibrate(10);
+      else if (name === 'cast') navigator.vibrate(22);
+      else if (name === 'weakness') navigator.vibrate([25, 40, 35]);
+      else if (name === 'hit') navigator.vibrate(15);
+      else if (name === 'wall-slam') navigator.vibrate([20, 25, 20]);
+      else if (name === 'win' || name === 'discover') navigator.vibrate([15, 30, 20]);
+      else if (name === 'invalid') navigator.vibrate([10, 30, 10]);
+    } catch {}
+  }
+
   play(name) {
+    this.haptic(name);
     if (!this.context) return;
     if (name === 'place') {
       // Tactile wooden card snap with slight organic pitch variation
