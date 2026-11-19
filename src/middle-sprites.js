@@ -24,16 +24,33 @@ export const middleSprites = {
     r(0, 12 - flare, 3, 6, c[27]); r(29, 16 + flare, 3, 5, c[23]);
   },
   seam_warden(r, c, pose, frame) {
-    const arm = pose === 'attack' ? 3 : 0;
-    r(11, 1, 10, 4, c[12]); r(8, 4, 16, 6, c[10]);
-    r(10, 5, 12, 4, c[13]); r(12, 6, 3, 2, c[31]); r(18, 6, 3, 2, c[31]);
-    r(6, 10, 20, 15, c[10]); r(8, 11, 16, 12, c[12]);
-    r(14, 10, 3, 5, c[30]); r(12, 15, 3, 3, c[30]); r(15, 18, 3, 5, c[30]);
-    r(3, 11 - arm, 5, 14, c[13]); r(1, 17 - arm, 5, 8, c[10]);
-    r(24, 11, 5, 14, c[13]); r(27, 17, 4, 8, c[10]);
+    // จ้าวอสูรเฝ้ารอยต่อ (Ancient Seam Titan - Earth boss, auto 2x scale)
+    const atk = pose === 'attack';
+    const arm = atk ? 4 : 0;
+    const lk = atk ? -2 : frame % 2;
+    const coreGlow = atk ? c[31] : frame % 2 ? c[30] : c[29];
+    // Massive Crag Head & Glowing Eyes
+    r(11, 1, 10, 4, c[12]);
+    r(8, 4, 16, 6, c[10]);
+    r(10, 5, 12, 4, c[13]);
+    r(12, 6, 3, 2, c[31]); r(18, 6, 3, 2, c[31]);
+    // Giant Stone Shoulder Pauldrons
+    r(2, 6 - arm, 8, 8, c[11]); r(3, 4 - arm, 6, 3, c[14]);
+    r(22, 6, 8, 8, c[11]); r(23, 4, 6, 3, c[14]);
+    // Heavy Torso & Runic Seam Cracks
+    r(6, 10, 20, 15, c[10]);
+    r(8, 11, 16, 12, c[12]);
+    r(14, 10, 3, 5, coreGlow);
+    r(12, 15, 3, 3, coreGlow);
+    r(15, 18, 3, 5, coreGlow);
+    r(14, 16, 4, 3, c[31]);
+    // Massive Titan Fists
+    r(1, 14 - arm, 7, 13, c[10]); r(2, 15 - arm, 5, 10, c[13]);
+    if (atk) r(0, 24, 8, 6, c[31]); // Shockwave impact
+    r(24, 14, 7, 13, c[10]); r(25, 15, 5, 10, c[13]);
+    // Sturdy Column Legs
     r(7, 24, 7, 7, c[10]); r(19, 24, 7, 7, c[10]);
-    r(9, 27, 4, 2, c[14]); r(20, 27, 4, 2, c[14]);
-    r(14, 16, 2, 2, frame % 2 ? c[31] : c[30]);
+    r(6 + lk, 29, 8, 3, c[12]); r(19 - lk, 29, 8, 3, c[12]);
   },
   loom_sovereign(r, c, pose, frame) {
     const pulse = pose === 'attack' ? c[31] : frame % 2 ? c[23] : c[30];

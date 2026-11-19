@@ -702,3 +702,15 @@ test('Floors 31-35 redesigned monsters have authentic names, traits, affinities 
   assert.equal(ENEMIES.mirror_regent.sprite, undefined);
   assert.ok(ENEMY_TRAITS.mirror_regent);
 });
+
+test('Floors 36-40 redesigned monsters have authentic names, traits, affinities and no borrowed sprites', () => {
+  assert.equal(ENEMIES.seam_warden.name, 'จ้าวผู้เฝ้ารอยต่อ');
+  assert.equal(ENEMIES.seam_warden.affinity, 'earth');
+  assert.equal(ENEMIES.seam_warden.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.seam_warden);
+
+  assert.equal(ENEMIES.mirror_regent.name, 'ราชันกระจกผลึกเหมันต์');
+  assert.equal(ENEMIES.mirror_regent.affinity, 'ice');
+  assert.equal(ENEMIES.mirror_regent.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.mirror_regent);
+});
