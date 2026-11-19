@@ -897,7 +897,7 @@ test('epic hybrid cards use the existing elemental slots and each has its own ef
   assert.equal(shield.state.enemies[0].wetUntil, 2);
 });
 
-test('magma survives saving, erupts on its slot, and weakens armor for the next cast', () => {
+test('magma survives saving, erupts on its slot, and permanently shreds armor', () => {
   const state = battle(['sentinel', 'sentinel']);
   state.player.maxHp = state.player.hp = 100;
   state.collection.push('magma');
@@ -914,7 +914,8 @@ test('magma survives saving, erupts on its slot, and weakens armor for the next 
   assert.equal(ripple.events.find(event => event.type === 'magma-erupt').target, 'enemy-0');
   assert.equal(ripple.events.find(event => event.element === 'magma' && event.type === 'damage').amount, 6);
   assert.equal(ripple.state.enemies[0].armor, 0);
-  assert.equal(cast(ripple.state, 'guard').state.enemies[0].armor, 2);
+  assert.equal(ripple.state.enemies[0].permanentArmorShred, 2);
+  assert.equal(cast(ripple.state, 'guard').state.enemies[0].armor, 0);
   restored.enemies[0].slot = 3;
   assert.equal(cast(restored, 'guard').events.find(event => event.type === 'magma-erupt').target, undefined);
   for (const enemy of restored.enemies) enemy.hp = 1;
@@ -1096,15 +1097,32 @@ test('shield protection carries one turn, and two layers detonate across the fie
   assert.equal(simulateTurn(state, ['blast', 'shield', 'fire']).ok, false);
 });
 
-test('fire shields trigger burn once, explosive shield only triggers on break', () => {
+test('elemental shields counter each attacker, explosive shield only triggers on break', () => {
   const state = battle(['striker', 'striker', 'striker']);
   const fire = cast(state, 'shield fire pair');
-  assert.deepEqual(fire.state.enemies.map(enemy => enemy.burn), [3, 0, 0]);
+  assert.deepEqual(fire.state.enemies.map(enemy => enemy.burn), [3, 3, 3]);
   const blast = cast(state, 'shield fire blast');
   assert.equal(blast.summary.damage, 15);
   assert.deepEqual(blast.state.enemies.map(enemy => enemy.burn), [0, 0, 0]);
   const ice = cast(state, 'shield ice');
-  assert.equal(cast(ice.state, 'shield fire').state.player.shield, null);
+  const stacked = cast(ice.state, 'shield fire');
+  assert.deepEqual(stacked.state.player.shield.layers, [3]);
+  assert.equal(stacked.state.player.shield.effect, 'fire');
+});
+
+test('stacked shield layers retain their elements and expire independently after saving', () => {
+  const state = createRun('stack-and-save');
+  state.player.hand = ['shield', 'fire'];
+  const first = cast(state, 'shield fire').state;
+  first.player.hand = ['shield', 'ice'];
+  const second = cast(first, 'shield ice');
+  const created = second.events.find(event => event.type === 'shield');
+  assert.deepEqual(created.protection.details.map(({ hp, effect }) => [hp, effect]), [[3, 'fire'], [6, 'ice']]);
+  assert.deepEqual(second.state.player.shield.layers, [6]);
+  assert.equal(second.state.player.shield.effect, 'ice');
+  const storage = new MemoryStorage();
+  assert.equal(saveRun(second.state, storage).ok, true);
+  assert.deepEqual(loadRun(storage).state.player.shield, second.state.player.shield);
 });
 
 test('healing is immediate and pair on shield healing doubles only healing', () => {
@@ -1208,6 +1226,57 @@ test('deck cap and previously collected cards apply at the next floor', () => {
   state = chooseReward(state, state.rewards[0]);
   assert.equal(new Set(state.player.words).size, state.player.words.length);
   assert.equal(validateRun(state), state);
+});
+
+test('duplicate early rewards do not leave the deck capped at six', () => {
+  const state = createRun('duplicate-early-reward', false, ['beam']);
+  state.room = 5;
+  state.highestRoom = 6;
+  state.rewardedBossRooms = [2];
+  state.learned = ['beam'];
+  state.player.words.push('beam');
+  state.phase = 'reward';
+  state.rewards = ['beam'];
+  const chosen = chooseReward(state, 'beam');
+  assert.equal(chosen.player.words.length, 7);
+  assert.equal(new Set(chosen.player.words).size, 7);
+  assert.equal(chosen.collection.length, 2);
+  assert.deepEqual(chosen.player.words, chooseReward(state, 'beam').player.words);
+});
+
+test('loading an old six-card run repairs the missing seventh card', () => {
+  const state = createRun('repair-six-cards', false, ['beam']);
+  state.room = state.highestRoom = 6;
+  state.enemies = state.rooms[6].map(createEnemy);
+  state.rewardedBossRooms = [2, 5];
+  state.learned = ['beam'];
+  state.player.words.push('beam');
+  const storage = new MemoryStorage();
+  assert.equal(saveRun(state, storage).ok, true);
+  const repaired = loadRun(storage).state;
+  assert.equal(repaired.player.words.length, 7);
+  assert.equal(new Set(repaired.player.words).size, 7);
+  assert.deepEqual(repaired.player.words, loadRun(storage).state.player.words);
+  assert.equal(saveRun(repaired, storage).ok, true);
+  assert.deepEqual(loadRun(storage).state.player.words, repaired.player.words);
+});
+
+test('early game over resets cards and discovered spells in the saved run', () => {
+  const state = createRun('early-loss-reset', false, ['beam']);
+  state.learned = ['beam'];
+  state.player.words.push('beam');
+  state.stats.discovered = ['shot fire'];
+  state.player.hp = 1;
+  state.turn = 7;
+  const result = simulateTurn(state, 'guard');
+  assert.equal(result.state.phase, 'lost');
+  assert.deepEqual(result.state.collection, []);
+  assert.deepEqual(result.state.learned, []);
+  assert.deepEqual(result.state.player.words, START_WORDS);
+  assert.deepEqual(result.state.stats.discovered, []);
+  const storage = new MemoryStorage();
+  assert.equal(saveRun(result.state, storage).ok, true);
+  assert.deepEqual(loadRun(storage).state.collection, []);
 });
 
 test('loss stops further retaliation', () => {

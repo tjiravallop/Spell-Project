@@ -37,10 +37,11 @@
       <div class="home-copy">
         <h1>คำของคุณ<br><em>กฎของเวท</em></h1>
         <p class="home-intro">ตำราบอกให้ท่องจำ<br>ที่นี่ให้คุณลองเรียงใหม่</p>
-        <p class="home-description">ประกอบคาถา อ่านใจศัตรู แล้วค้นพบว่า<br>แค่สลับคำ เวทก็เปลี่ยนไป</p>
+        <p class="home-description">เรียงการ์ดคำเป็นคาถา ดูท่าถัดไปของศัตรู แล้วลองสลับคำเพื่อค้นพบผลใหม่</p>
+        <p id="early-loss-warning" class="muted">หากแพ้ก่อนถึงจุดพักชั้น 5 รอบจะจบ และการ์ดสะสมกับสูตรที่ค้นพบจะถูกล้าง</p>
         <div class="home-buttons"><button id="new-run" class="primary-button">เริ่มไต่หอคอย <span aria-hidden="true">↗</span></button><button id="continue-run" class="secondary-button" hidden>เล่นต่อ</button></div>
         <p id="collection-summary" class="muted"></p><p id="save-notice" class="save-notice" role="status"></p>
-        <div class="home-facts"><span>ชั้น 1–3 &amp; 5–8 + บอสพิเศษชั้น 10 &amp; จุดพัก</span><span>ปราบบอสชั้น 10 ดรอปอาติแฟคชิ้นแรก</span><span>บอสดรอปการ์ด · ไม่จับเวลา</span></div>
+        <div class="home-facts"><span>100 ชั้น · 250 ห้องต่อสู้</span><span>บอสใหญ่ทุก 10 ชั้น</span><span>ต่อสู้แบบผลัดเทิร์น · ไม่จับเวลา</span></div>
       </div>
       <div class="home-illustration"><div class="art-label"><span>ห้องทดลองคำต้องห้าม</span><span>เปิดรับความผิดพลาด</span></div><canvas id="home-canvas" width="320" height="180" role="img" aria-label="ภาพพิกเซลนักเวทในห้องสมุดใต้ดิน เผชิญหน้าผู้ถือม่านและหยดหมึก"></canvas><div class="home-spell"><span class="mini-word">ลูก</span><span class="mini-word fire">ไฟ</span><span class="mini-word">คู่</span><span class="mini-word">น้ำแข็ง</span><p>ลูกเดียวผสานสองธาตุ</p></div></div>
       <div class="home-bottom"><span class="edition">ฉบับทดลองที่ 01</span><p>พกได้ 7 คำ · 4 ช่อง · ความเป็นไปได้ที่คุณประกอบเอง</p><span>ทุกคาถามีเหตุผล</span></div>
@@ -54,7 +55,7 @@
           <div class="rpg-top-row">
             <span class="rpg-level-badge" id="level-value" title="เลเวลผู้ร่าย">Lv.1</span>
             <span class="rpg-exp-text" id="exp-value">EXP 0/25</span>
-            <span class="rpg-gold-badge" id="gold-value" title="ทองใช้ซื้อไอเทมได้เฉพาะที่ร้านค้าชั้นพัก (ชั้น 4 และชั้น 9)">💰 0 ทอง</span>
+            <span class="rpg-gold-badge" id="gold-value" title="ใช้ทองซื้อไอเทมที่ร้านค้าในจุดพัก">💰 0 ทอง</span>
           </div>
           <div class="resource-meter exp-meter"><i id="exp-meter"></i></div>
         </div>
@@ -127,7 +128,7 @@
 
       <div class="sanctuary-room">
         <header class="sanctuary-hud">
-          <h1 id="sanctuary-title">ชั้นพัก · ชั้น 4</h1>
+          <h1 id="sanctuary-title">จุดพัก</h1>
           <div id="sanctuary-status" class="sanctuary-status"></div>
         </header>
         <div class="sanctuary-scene">
@@ -222,10 +223,10 @@
       </dialog>
     </section>
 
-    <section id="result-view" class="intermission" hidden><span id="result-seal" class="result-seal"></span><h1 id="result-title"></h1><p id="result-description"></p><div id="result-stats" class="result-stats"></div><div id="discoveries" class="discoveries"></div><div class="result-actions"><button id="result-sanctuary" class="primary-button" hidden>🏕 เข้าสู่ชั้นที่ 4: ชั้นพัก &amp; ไต่ต่อชั้น 5–9</button><button id="result-new" class="primary-button">เริ่มรอบใหม่</button><button id="replay-seed" class="secondary-button">ทดลอง seed เดิม</button><button id="result-home" class="text-button">หน้าหลัก</button></div><p id="result-seed" class="muted"></p></section>
+    <section id="result-view" class="intermission" hidden><span id="result-seal" class="result-seal"></span><h1 id="result-title"></h1><p id="result-description"></p><div id="result-stats" class="result-stats"></div><div id="discoveries" class="discoveries"></div><div class="result-actions"><button id="result-sanctuary" class="primary-button" hidden>ไปจุดพักชั้น 5</button><button id="result-new" class="primary-button">เริ่มรอบใหม่</button><button id="replay-seed" class="secondary-button">ทดลอง seed เดิม</button><button id="result-home" class="text-button">หน้าหลัก</button></div><p id="result-seed" class="muted"></p></section>
     <p id="storage-warning" class="storage-warning" role="status" hidden></p>
   </main>
-  <footer class="site-footer"><span>คาถานอกตำรา</span><span>อ่านผลก่อนร่าย แล้วเขียนทางออกของคุณเอง</span></footer>
+  <footer class="site-footer"><span>คาถานอกตำรา</span></footer>
   <dialog id="battle-tools" class="game-sheet" aria-labelledby="tools-title">
       <div class="dialog-heading">
         <h2 id="tools-title">ตำราคาถา</h2>
@@ -282,7 +283,7 @@
     <div class="dialog-actions"><button id="confirm-discard" class="primary-button" disabled>ยืนยันทิ้งการ์ด</button></div>
   </dialog>
   <dialog id="settings-dialog" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-heading"><h2 id="settings-title">พักสักครู่</h2><button class="icon-button" aria-label="ปิดการตั้งค่า" value="close">×</button></div><p class="muted">เกมเป็นเทิร์น คุณมีเวลาคิดเต็มที่</p><label class="setting">เพลง <input id="music-volume" type="range" min="0" max="100" step="1"><output id="music-output"></output></label><label class="setting">เสียงเอฟเฟกต์ <input id="sfx-volume" type="range" min="0" max="100" step="1"><output id="sfx-output"></output></label><label class="setting">เสียงปุ่ม <input id="ui-volume" type="range" min="0" max="100" step="1"><output id="ui-output"></output></label><label class="check-setting"><input id="reduce-motion" type="checkbox">ลดการเคลื่อนไหว</label><label class="check-setting"><input id="show-tips" type="checkbox">แสดงคำแนะนำ</label><div class="dialog-actions"><button id="mute-all" class="secondary-button" type="button">ปิดเสียงทั้งหมด</button><button class="primary-button" value="close">กลับไปเล่น</button></div><button id="pause-home" class="text-button" type="button">บันทึกแล้วกลับหน้าหลัก</button></form></dialog>
-  <dialog id="replace-dialog" aria-labelledby="replace-title"><form method="dialog"><h2 id="replace-title">เริ่มการทดลองใหม่?</h2><p>รอบใหม่จะใช้ช่องเซฟปัจจุบัน คุณยังกลับไปเล่นรอบเดิมได้หากยกเลิก</p><div class="dialog-actions"><button class="secondary-button" value="cancel">ยกเลิก</button><button id="confirm-new" class="primary-button" type="button">เริ่มรอบใหม่</button></div></form></dialog>
+  <dialog id="replace-dialog" aria-labelledby="replace-title" aria-describedby="replace-notice replace-loss-warning"><form method="dialog"><h2 id="replace-title">เริ่มรอบใหม่?</h2><p id="replace-notice">รอบใหม่จะใช้ช่องเซฟปัจจุบัน</p><p id="replace-loss-warning">หากแพ้ก่อนถึงจุดพักชั้น 5 รอบจะจบ และการ์ดสะสมกับสูตรที่ค้นพบจะถูกล้าง</p><div class="dialog-actions"><button class="secondary-button" value="cancel">ยกเลิก</button><button id="confirm-new" class="primary-button" type="button">เริ่มรอบใหม่</button></div></form></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
   <noscript><p class="storage-warning">เกมนี้ต้องเปิด JavaScript เพื่อประกอบและจำลองคาถา</p></noscript>
 </body>

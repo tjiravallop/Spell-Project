@@ -224,6 +224,7 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
   z-index: 3;
   left: 10px;
   bottom: 9px;
+  max-width: calc(100% - 20px);
   margin: 0;
   color: var(--ice);
   background: #10172deb;
@@ -245,7 +246,7 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
 }
 .battlefield-wrap .tutorial .icon { width: 15px; height: 15px; }
 .battlefield-wrap .tutorial .text-button { min-width: 34px; min-height: 36px; padding: 0; flex: none; font-size: 20px; }
-#battle-view:has(.animation-controls:not([hidden])) :is(.tutorial,#shield-status) { visibility: hidden; }
+#battle-view:has(.animation-controls:not([hidden])) .tutorial { visibility: hidden; }
 #battle-view .canvas-impact-node { width: 64px; height: 64px; }
 
 .combat-command {

@@ -1,5 +1,6 @@
 import {
   WORDS,
+  ELEMENTS,
   STANDALONE_WORDS,
   LARGE_SHOT_FORMULAS,
   LARGE_SHIELD_FORMULAS,
@@ -255,6 +256,7 @@ export function describeFormulaEffect(formula) {
       const names = sp.layerEffects.map(elements => elements.map(id => WORDS[id].label).join(' + '));
       parts.push(names.length === 1 ? `ผสาน ${names[0]} ไว้ในโล่ชั้นเดียว` : `โล่ชั้นแรก ${names[0]} · ชั้นสอง ${names[1]}`);
     }
+    if (sp.layerEffects || ELEMENTS.includes(sp.effect)) parts.push('ตอบโต้ศัตรูทุกครั้งที่ตีโดนชั้นโล่ธาตุ');
     if (sp.effect === 'veil') parts.push('ม่านแตกกันส่วนล้นเพิ่มได้อีก 8');
     if (sp.effect === 'brace') parts.push('กันเพิ่ม 6 เมื่อโดนโจมตีแรง 10 ขึ้นไปครั้งแรก');
     if (sp.effect === 'fire') parts.push('สะท้อนไฟใส่ผู้โจมตี');

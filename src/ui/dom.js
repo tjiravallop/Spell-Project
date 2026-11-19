@@ -21,6 +21,12 @@ export const escape = value => String(value).replace(/[&<>"']/g, char => ({
 export const upperCheckpoint = key => Object.hasOwn(UPPER_RESTS, key);
 export const checkpointFloor = key => Number(key.slice(4));
 
+export function restLocationLabel(checkpoint) {
+  if (typeof checkpoint === 'number') return `จุดพักชั้น ${checkpoint}`;
+  if (checkpoint.startsWith('pre')) return `จุดพักก่อนบอสชั้น ${checkpoint.slice(3)}`;
+  return `จุดพักหลังบอสชั้น ${checkpointFloor(checkpoint)}`;
+}
+
 export const CARD_META = Object.freeze({
   shot: { roleClass: 'role-form' },
   beam: { roleClass: 'role-form' },

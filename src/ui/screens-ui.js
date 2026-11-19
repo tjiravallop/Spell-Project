@@ -4,6 +4,7 @@ import {
   FLOOR50_BOSS_ROOM,
   FLOOR100_BOSS_ROOM,
   getCardUpgradeLevel,
+  deckCapacity,
   ownsRewardWord,
   getFloorInfo,
   isSanctuaryUnlocked,
@@ -43,7 +44,7 @@ export function renderRewards(state, reveal) {
 }
 
 export function renderLoadout(state, equipped) {
-  const cap = Math.min(7, START_WORDS.length + state.learned.length);
+  const cap = deckCapacity(state);
   const nextFloorInfo = getFloorInfo(Math.min(state.rooms.length - 1, state.room + 1), state.rooms.length);
   $('loadout-count').textContent = `เลือก ${equipped.length}/${cap} คำ · ฟื้น HP +12 เมื่อขึ้นสู่ชั้นที่ ${nextFloorInfo.floor} (${nextFloorInfo.displayName}) · มี 💰 ${state.player.gold ?? 0} ทอง`;
   const loadoutStoryBox = $('loadout-story');
@@ -81,10 +82,10 @@ export function renderResult(state, turnLogs, lastEnemies) {
   const won100 = won && (state.room >= FLOOR100_BOSS_ROOM || state.room >= 249);
   const p = state.player;
   $('result-seal').innerHTML = icon(won ? 'book' : 'shield');
-  $('result-title').textContent = won ? 'พิชิตชั้น 1–3 สำเร็จ! (เปิดทางสู่ชั้นพักที่ 4 และชั้น 5–9)' : 'การทดลองครั้งนี้จบลง';
+  $('result-title').textContent = won ? 'ผ่านช่วงเปิดหอคอย' : 'รอบนี้จบลง';
   $('result-description').textContent = won
-    ? 'คุณปราบบอสชั้น 3 สำเร็จแล้ว! กดเข้าสู่ “ชั้นที่ 4: ชั้นพัก” เพื่อเตรียมตัว ซื้อไอเทม ตีบวกการ์ด และไต่ต่อชั้น 5–8 สู่จุดพักชั้น 9'
-    : 'คาถาที่ลองไปไม่สูญเปล่า รอบหน้าคุณรู้มากกว่าเดิม';
+    ? 'แวะจุดพักเพื่อฟื้นพลัง ซื้อไอเทม และจัดชุดคำก่อนไต่ต่อ'
+    : 'คุณแพ้ก่อนถึงจุดพักชั้น 5 การ์ดสะสมและสูตรที่ค้นพบถูกล้างแล้ว';
   if (won100) {
     $('result-title').textContent = '👑 พิชิตหอคอยสมบูรณ์แบบชั้น 100 — จอมเวทแห่งอนันตกาล!';
     $('result-description').textContent = 'คุณปราบบอสใหญ่สุด “จ้าวแห่งกาลเวลาและมิติอนันต์” และครอบครองมงกุฎอนันตกาล สำเร็จ Endgame True Victory!';
@@ -94,17 +95,17 @@ export function renderResult(state, turnLogs, lastEnemies) {
   }
   if ($('result-sanctuary')) {
     $('result-sanctuary').hidden = !won;
-    $('result-sanctuary').textContent = won100 ? '🏕 กลับจุดพักชั้น 95' : won50 ? '🏕 เข้าสู่จุดพักหลังบอส 50 & ไต่ต่อชั้น 51–100' : '🏕 เข้าสู่ชั้นที่ 4: ชั้นพัก & ไต่ต่อชั้น 5–9';
+    $('result-sanctuary').textContent = won100 ? '🏕 กลับจุดพักชั้น 95' : won50 ? '🏕 เข้าสู่จุดพักหลังบอส 50 & ไต่ต่อชั้น 51–100' : 'ไปจุดพักชั้น 5';
   }
   $('result-stats').innerHTML = [
     [`${(state.clearedRooms ?? []).length}/${state.rooms.length}`, 'ห้องที่ผ่าน'],
     [`Lv.${p.level ?? 1}`, `เลเวล (💰 ${p.gold ?? 0} ทอง)`],
     [state.stats.casts, 'ครั้งที่ร่าย'],
-    [state.stats.discovered.length, 'คาถาที่ทดลอง'],
+    [state.stats.discovered.length, 'สูตรที่ค้นพบ'],
   ].map(([n, label]) => `<div><strong>${n}</strong><span>${label}</span></div>`).join('');
   const recentTurnHtml = turnLogs.length
     ? `<div class="result-log-section"><h2>สรุปเทิร์นล่าสุดก่อนจบศึก (เรียงล่าสุดบนสุด)</h2><ol class="combat-log result-combat-log">${turnLogs.slice(0, 5).map((entry, idx) => formatTurnLogCard(entry, idx, lastEnemies)).join('')}</ol></div>`
     : '';
-  $('discoveries').innerHTML = `<h2>ร่องรอยจากการทดลอง</h2>${state.stats.discovered.slice(-6).map(text => `<div class="discovered-spell">${text.split(' ').map(id => WORDS[id].label).join(' · ')}</div>`).join('') || '<p class="muted">ยังไม่มีคาถาที่ร่ายในรอบนี้</p>'}${recentTurnHtml}`;
+  $('discoveries').innerHTML = `<h2>ร่องรอยจากการทดลอง</h2>${state.stats.discovered.slice(-6).map(text => `<div class="discovered-spell">${text.split(' ').map(id => WORDS[id].label).join(' · ')}</div>`).join('') || '<p class="muted">ไม่มีสูตรที่บันทึกไว้ในรอบนี้</p>'}${recentTurnHtml}`;
   $('result-seed').textContent = `SEED ${state.seed} · ความเสียหายรวม ${state.stats.damage} · ป้องกัน ${state.stats.blocked}`;
 }

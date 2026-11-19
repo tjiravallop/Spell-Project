@@ -42,8 +42,7 @@ import { canFormCardsInHand, canFormPhraseInHand, describeFormulaEffect } from '
 import {
   $,
   escape,
-  upperCheckpoint,
-  checkpointFloor,
+  restLocationLabel,
   cardMeta,
   rarityClass,
   playingCardFace,
@@ -67,19 +66,19 @@ export function renderTurnLabel(state) {
     return `<i class="turn-pip ${filled ? 'filled' : ''} ${current ? 'current' : ''} ${warn ? 'warn' : ''}"></i>`;
   }).join('') + `<i class="turn-pip climax-pip ${climaxBonus > 0 ? 'active' : turnsUntilClimax === 1 ? 'imminent' : ''}"></i>`;
   const frequency = state.room >= FLOOR31_START_ROOM ? 'ทุก 2 เทิร์น' : 'ทุกเทิร์น';
-  let statusText = `คลั่งเทิร์น ${climaxTurn}`;
-  let titleText = `เทิร์น ${turn} · ศัตรูเริ่มคลั่งเทิร์น ${climaxTurn} และเพิ่มดาเมจ +1 ${frequency}`;
+  let statusText = `ศัตรูคลั่งเทิร์น ${climaxTurn}`;
+  let titleText = `เทิร์น ${turn} · ศัตรูเริ่มคลั่งเทิร์น ${climaxTurn} และโจมตีแรงขึ้น 1 หน่วย ${frequency}`;
   if (turnsUntilClimax === 2) {
-    statusText = '⚠ อีก 2 เทิร์นคลั่ง';
+    statusText = 'อีก 2 เทิร์นก่อนศัตรูคลั่ง';
   } else if (turnsUntilClimax === 1) {
-    statusText = '🔥 เทิร์นหน้าคลั่ง +1!';
+    statusText = 'เทิร์นหน้าศัตรูโจมตีแรงขึ้น';
   } else if (climaxBonus > 0) {
-    statusText = `⚡ คลั่ง +${climaxBonus} ดาเมจ`;
+    statusText = `ศัตรูคลั่ง +${climaxBonus}`;
     titleText = `ศัตรูโจมตีแรงขึ้น +${climaxBonus} หน่วย · เพิ่ม +1 ${frequency}`;
   }
   el.title = titleText;
   el.setAttribute('aria-label', `เทิร์น ${turn} ${statusText} ${turnsUntilClimax > 0 ? `เหลือ ${turnsUntilClimax} เทิร์นก่อนคลั่ง` : ''}`);
-  el.innerHTML = `<span class="turn-pips" aria-hidden="true">${pips}</span><strong class="turn-num">เทิร์น ${turn}${turn < climaxTurn ? `/${climaxTurn - 1}` : ''}</strong><span class="turn-sep" aria-hidden="true">·</span><span class="turn-status">${statusText}</span>`;
+  el.innerHTML = `<span class="turn-pips" aria-hidden="true">${pips}</span><strong class="turn-num">เทิร์น ${turn}</strong><span class="turn-sep" aria-hidden="true">·</span><span class="turn-status">${statusText}</span>`;
 }
 
 export function renderRoomTrack(state, busy) {
@@ -379,8 +378,10 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     }
     // Show slot number from Floor 11+ so slot-targeted intents (ฮีล #N, ม่าน #N, เข้าช่อง N) are legible at a glance
     if (state.room >= FLOOR11_START_ROOM) badges.push(`<span class="enemy-badge">#${enemy.slot + 1}</span>`);
-    if (enemy.armor > 0) badges.push(`<span class="enemy-badge badge-armor" title="เกราะหักดาเมจทุกครั้งที่โดนโจมตี (สายฟ้าข้ามเกราะได้ 2)">🛡 เกราะ ${enemy.armor}</span>`);
-    if (enemy.ward > 0) badges.push(`<span class="enemy-badge badge-ward" title="ม่านเวทบล็อกกระสุนลูกแรก (ใช้คู่เปิดม่าน หรือใช้ลำแสงทะลุม่าน)">🔮 ม่าน ${enemy.ward}</span>`);
+    const projectedArmor = forecast?.ok ? forecast.summary.enemyArmorAfterTurn?.[enemy.id] ?? enemy.armor : enemy.armor;
+    const armorText = projectedArmor < enemy.armor ? `${enemy.armor} → ${projectedArmor}` : enemy.armor;
+    if (enemy.armor > 0 || enemy.permanentArmorShred) badges.push(`<span class="enemy-badge badge-armor badge-armor-value" title="เกราะลดความเสียหายต่อการโจมตีหนึ่งครั้ง${enemy.permanentArmorShred ? ` · ถูกทุบถาวร ${enemy.permanentArmorShred} หน่วยในศึกนี้` : ''}">🛡 เกราะ ${armorText}</span>`);
+    if (enemy.ward > 0) badges.push(`<span class="enemy-badge badge-ward" title="ม่านกันกระสุน 1 ลูกต่อชั้น ลำแสงทะลุม่านได้">🔮 ม่าน ${enemy.ward}</span>`);
     const exposedHint = isRiftBossExposed(enemy.kind, state.turn) ? `เปิดช่อง · รับดาเมจเวทเพิ่ม ${RIFT_EXPOSED_BONUS}%` : '';
     if (exposedHint) badges.push(`<span class="enemy-badge badge-push" title="${exposedHint}">เปิดช่อง +${RIFT_EXPOSED_BONUS}%</span>`);
     const readLabel = enemy.readForm ? WORDS[enemy.readForm].label : '';
@@ -404,7 +405,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
       bossHint = 'เกราะมหาประจุดารา · สะท้อนสายฟ้า 4 เมื่อมีเกราะหากไม่เจาะทะลวง';
       badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">ประจุดารา</span>`);
     } else if (state.room === FLOOR80_BOSS_ROOM && enemy.kind === 'ancient_chitin_behemoth') {
-      bossHint = 'เกราะไคตินโบราณ · เกราะหนาและต้านทานดาเมจเวททั่วไป 30%';
+      bossHint = 'เกราะไคตินเปลี่ยนตามเทิร์น · ทุบเกราะเพื่อลดค่าป้องกัน หรือใช้คาถาทะลวง';
       badges.push(`<span class="enemy-badge badge-armor" title="${bossHint}">ไคตินหนา</span>`);
     } else if (state.room === FLOOR90_BOSS_ROOM && enemy.kind === 'nether_dread_lord') {
       bossHint = 'ม่านมิติอนันต์ · กางม่าน 2 ชั้นและร่นระยะโจมตี';
@@ -420,7 +421,6 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     if (status.wetUntil >= state.turn) badges.push('<span class="enemy-badge badge-chill">เปียก</span>');
     if (status.obscured) badges.push('<span class="enemy-badge badge-ward">เล็ง −4</span>');
     if (state.magmaPuddles?.includes(enemy.slot)) badges.push('<span class="enemy-badge badge-burn">แอ่งแมกม่า</span>');
-    if (status.armor < enemy.armor) badges.push(`<span class="enemy-badge badge-armor">เกราะ → ${status.armor}</span>`);
     if (status.healCutUntil >= state.turn) badges.push('<span class="enemy-badge badge-burn">ฮีล ½</span>');
     if (status.lastingChill) badges.push('<span class="enemy-badge badge-chill">หนาว 2 ครั้ง</span>');
     if (status.sealed) badges.push('<span class="enemy-badge badge-ward badge-sealed">ผนึก</span>');
@@ -439,7 +439,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const middleLane = Object.hasOwn(MIDDLE_ENEMIES, enemy.kind) ? ` data-middle-lane="${enemy.slot % 2}"` : '';
     const crowdLane = state.room >= FLOOR21_START_ROOM && visibleEnemies.length >= 3 ? ` data-crowd-lane="${enemy.slot % 2}"` : '';
     const hpPct = `${Math.max(0, Math.min(100, enemy.hp / enemy.maxHp * 100))}%`;
-    return `<button type="button" id="target-${enemy.id}" class="enemy-card enemy-kind-${enemy.kind} ${targetId === enemy.id ? 'target' : ''}" style="--enemy-x:${positions.get(enemy.id) / 3.2}%;--enemy-y:${ENEMIES[enemy.kind]?.isBoss ? 42 : 56}%" data-target="${enemy.id}"${middleLane}${crowdLane} aria-pressed="${targetId === enemy.id}" ${busy ? 'disabled' : ''} title="${escape(description)}" aria-label="${escape(description)}${escape(projectedLabel)} เกราะ ${enemy.armor} ม่าน ${enemy.ward}"><span class="enemy-intent intent-${intentClass}">${intentLabel}${projectedLabel}</span><span class="enemy-hp-text">${enemy.hp}/${enemy.maxHp}${predicted !== null && predicted !== enemy.hp ? ` <em>→ ${predicted}</em>` : ''}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${hpPct}"></i><i class="enemy-hp-fill" style="width:${hpPct}"></i></span><span class="enemy-info">${badges.join('')}</span></button>`;
+    return `<button type="button" id="target-${enemy.id}" class="enemy-card enemy-kind-${enemy.kind} ${targetId === enemy.id ? 'target' : ''}" style="--enemy-x:${positions.get(enemy.id) / 3.2}%;--enemy-y:${ENEMIES[enemy.kind]?.isBoss ? 42 : 56}%" data-target="${enemy.id}"${middleLane}${crowdLane} aria-pressed="${targetId === enemy.id}" ${busy ? 'disabled' : ''} title="${escape(description)}" aria-label="${escape(description)}${escape(projectedLabel)} เกราะ ${armorText} ม่าน ${enemy.ward}"><span class="enemy-intent intent-${intentClass}">${intentLabel}${projectedLabel}</span><span class="enemy-hp-text">${enemy.hp}/${enemy.maxHp}${predicted !== null && predicted !== enemy.hp ? ` <em>→ ${predicted}</em>` : ''}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${hpPct}"></i><i class="enemy-hp-fill" style="width:${hpPct}"></i></span><span class="enemy-info">${badges.join('')}</span></button>`;
   }).join('');
 }
 
@@ -637,19 +637,19 @@ export function renderQuickCombos(ctx, parsed, knownSpell = false) {
   if (barEl) barEl.classList.toggle('has-formulas', castable.length > 0);
   if (emptyEl) {
     if (castable.length > 0) {
-      emptyEl.textContent = 'แตะสูตรเพื่อวางลงแท่น';
+      emptyEl.textContent = 'เลือกสูตรเพื่อวางการ์ดบนแท่นร่าย';
       emptyEl.className = 'known-formulas-empty is-hint';
     } else if (state?.player?.hand?.length > HAND_LIMIT) {
-      emptyEl.textContent = 'กรุณาทิ้งไพ่ส่วนเกินในมือก่อน';
+      emptyEl.textContent = 'เลือกทิ้งการ์ดส่วนเกินก่อนร่าย';
       emptyEl.className = 'known-formulas-empty';
     } else if (shortMana.length > 0) {
-      emptyEl.textContent = `มี ${shortMana.length} สูตรที่ตรงไพ่ในมือ แต่มานายังไม่พอ`;
+      emptyEl.textContent = `มี ${shortMana.length} สูตรที่มีการ์ดครบ แต่มานาไม่พอ`;
       emptyEl.className = 'known-formulas-empty is-warn';
     } else if (cardsOnlyCount > 0) {
-      emptyEl.textContent = `มี ${cardsOnlyCount} สูตรที่ตรงไพ่ในมือ แต่มานา/เงื่อนไขยังไม่พอ`;
+      emptyEl.textContent = `มี ${cardsOnlyCount} สูตรที่มีการ์ดครบ แต่ยังร่ายไม่ได้`;
       emptyEl.className = 'known-formulas-empty is-warn';
     } else if (totalDiscovered === 0) {
-      emptyEl.textContent = 'ยังไม่มีสูตรที่ค้นพบ · วางไพ่แล้วกด “ทดลองร่าย” เพื่อบันทึกสูตรแรก';
+      emptyEl.textContent = 'สูตรที่ค้นพบจะปรากฏที่นี่เมื่อมีการ์ดครบ';
       emptyEl.className = 'known-formulas-empty';
     } else {
       emptyEl.textContent = 'ยังไม่มีสูตรที่ร่ายได้จากการ์ดในมือขณะนี้';
@@ -807,14 +807,14 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
     if (overHand || notEnoughMana) {
       box.classList.add('invalid');
       box.replaceChildren();
-      $('spell-feedback').textContent = overHand ? 'เลือกทิ้งการ์ดที่เกินก่อนเล่นต่อ' : `ต้องใช้ ${attemptCost} มานา ขณะนี้มี ${state.player.mana}`;
+      $('spell-feedback').textContent = overHand ? 'เลือกทิ้งการ์ดส่วนเกินก่อนร่าย' : `ต้องใช้ ${attemptCost} มานา ขณะนี้มี ${state.player.mana}`;
       return;
     }
     castBtn.classList.add('cast-ready');
     $('spell-feedback').textContent = '';
     box.classList.add('experimental');
     const phraseLabel = words.map(id => WORDS[id].label).join(' · ');
-    box.innerHTML = '<strong>สูตรยังไม่ถูกค้นพบ</strong><p>ถ้าร่ายเฟล จะเสียไพ่ มานา และเทิร์น</p>';
+    box.innerHTML = '<strong>สูตรทดลอง</strong><p>ถ้าร่ายไม่สำเร็จ จะเสียการ์ดและมานา แล้วศัตรูจะลงมือ</p>';
     castBtn.setAttribute('aria-label', `ทดลองร่ายคาถา ${phraseLabel} ใช้ ${attemptCost} มานา`);
     return;
   }
@@ -836,39 +836,56 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
   }
   castBtn.classList.add('cast-ready');
   const s = forecast.summary;
-  const fell = Boolean(s.fellToFloor || s.fellToFloor4);
-  if (s.hp <= 0 || fell) box.classList.add('danger');
-  let headline = `ความเสียหาย ${s.damage} · รับ ${s.incoming} · HP เหลือ ${s.hp}`;
-  if (s.fellToFloor === 4 || s.fellToFloor4) headline = `พ่ายแพ้ในชั้น 5–8 · ร่วงพักชั้น 4 (รีเซ็ตเริ่มไต่ 5-1 · ฟื้น HP ${s.hp})`;
-  else if (s.fellToFloor === 9) headline = `พ่ายแพ้บอสชั้น 10 · ร่วงพักชั้น 9 (ฟื้น HP ${s.hp})`;
-  else if (s.fellToFloor === 'post10') headline = `พ่ายแพ้ในชั้น 11–13 · ร่วงพักหลังบอส 10 (รีเซ็ตเริ่มไต่ 11-1 · ฟื้น HP ${s.hp})`;
-  else if (s.fellToFloor === 14) headline = `พ่ายแพ้ในชั้น 15–18 · ร่วงพักชั้น 14 (รีเซ็ตเริ่มไต่ 15-1 · ฟื้น HP ${s.hp})`;
-  else if (s.fellToFloor === 19) headline = `พ่ายแพ้บอสชั้น 20 · ร่วงพักชั้น 19 (ฟื้น HP ${s.hp})`;
-  else if (upperCheckpoint(s.fellToFloor)) headline = `พ่ายแพ้ · กลับจุดพักหลังบอส ${checkpointFloor(s.fellToFloor)} · HP ${s.hp}`;
-  else if (s.hp <= 0) headline = 'หลังศัตรูตอบโต้ HP จะเหลือ 0';
-  else if (s.phase === 'reward') headline = `ผ่านศึก · เปิดการ์ดคำ · HP เหลือ ${s.hp}`;
-  else if (s.nextRoom !== state.room || s.phase === 'sanctuary') headline = `ผ่านศึกเปิดทาง${s.roomRecovery ? ` · ฟื้น HP +${s.roomRecovery}` : ''} · HP เหลือ ${s.hp}`;
+  const fallback = s.fellToFloor ?? (s.fellToFloor4 ? 4 : null);
+  if (s.hp <= 0 || fallback !== null) box.classList.add('danger');
+  let headline = `ทำความเสียหาย ${s.damage} · รับความเสียหาย ${s.incoming} · HP เหลือ ${s.hp}`;
+  if (fallback !== null) headline = `จะแพ้ศึกและกลับ${restLocationLabel(fallback)}`;
+  else if (s.phase === 'lost') headline = 'HP จะเหลือ 0 และรอบจะจบ';
+  else if (s.phase === 'won') headline = `ชนะศึก · HP เหลือ ${s.hp}`;
+  else if (s.phase === 'reward') headline = `ชนะศึกและได้เลือกการ์ดคำ · HP เหลือ ${s.hp}`;
+  else if (s.nextRoom !== state.room || s.phase === 'sanctuary') headline = `ชนะศึก${s.roomRecovery ? ` · ฟื้น HP ${s.roomRecovery}` : ''} · HP เหลือ ${s.hp}`;
   const lvUpInfo = s.levelUps?.length ? s.levelUps[s.levelUps.length - 1] : null;
   const details = [
     `ใช้ ${s.cost} มานา`,
     s.manaRefunded ? `คืนมานา +${s.manaRefunded}` : '',
-    `เหลือ ${s.manaAfterCast}`,
-    s.wards ? `ทำลายม่าน ${s.wards}` : '',
-    s.blocked ? `ป้องกัน ${s.blocked}` : '',
-    s.healed ? `ฟื้น ${s.healed}` : '',
+    `มานาเหลือ ${s.manaAfterCast}`,
+    s.wards ? `ทำลายม่าน ${s.wards} ชั้น` : '',
+    s.blocked ? `ป้องกันความเสียหาย ${s.blocked}` : '',
+    s.healed ? `ฟื้น HP ${s.healed}` : '',
     s.shield ? `โล่เหลือ ${s.shield}` : '',
     (s.goldGain || s.expGain) ? `ได้ 💰+${s.goldGain} ทอง · ✨+${s.expGain} EXP${s.revisit ? ' (ห้องซ้ำ 20%)' : ''}` : '',
     lvUpInfo ? `🎉 เลเวลอัพ Lv.${lvUpInfo.level} (+${lvUpInfo.hpGain} Max HP${lvUpInfo.mpGain ? `, +${lvUpInfo.mpGain} Max MP` : ''})` : '',
     s.phase === 'battle' ? `เทิร์นหน้ามานา ${s.nextMana}` : '',
   ].filter(Boolean);
-  box.innerHTML = `<strong>${headline}</strong><details><summary>รายละเอียด</summary><p>${details.join(' · ')}</p>${s.sequence.length ? `<p class="forecast-sequence">${s.sequence.join(' → ')}</p>` : ''}</details>`;
+  box.innerHTML = `<strong>${headline}</strong><details><summary>รายละเอียดผลคาดการณ์</summary><p>${details.join(' · ')}</p>${s.sequence.length ? `<p class="forecast-sequence">${s.sequence.join(' → ')}</p>` : ''}</details>`;
   $('cast-button').setAttribute('aria-label', `ร่ายคาถา ใช้ ${s.cost} มานา ${headline}`);
 }
 
-export function renderTutorial({ state, settings, dismissedRoom }) {
+export function renderTutorial({ state, settings, dismissedRoom, words }) {
   $('tutorial').hidden = !settings.tips || dismissedRoom === state.room;
   let text;
-  if (state.room === 0) text = 'แตะหรือลากไพ่ขึ้นแท่น แล้วกดทดลองร่าย';
+  if (state.room === 0 && !state.stats.discovered.length) {
+    const hand = state.player.hand;
+    if (hand.length > HAND_LIMIT) {
+      text = 'เลือกทิ้งการ์ดส่วนเกินให้เหลือไม่เกิน 10 ใบ แล้วค่อยเรียงคาถา';
+    } else if (hand.includes('shot') && (hand.includes('fire') || hand.includes('ice'))) {
+      const element = hand.includes('fire') ? 'fire' : 'ice';
+      const label = WORDS[element].label;
+      if (words.length === 2 && words[0] === 'shot' && words[1] === element) {
+        text = `เรียง “ลูก ${label}” ครบแล้ว กดปุ่มร่ายเพื่อโจมตี`;
+      } else if (words.length === 1 && words[0] === 'shot') {
+        text = `เลือก “${label}” ต่อจาก “ลูก” เพื่อให้คาถาครบ`;
+      } else {
+        text = `คาถาแรกของคุณ เลือก “ลูก” ก่อน แล้วตามด้วย “${label}”`;
+      }
+    } else if (hand.includes('shield')) {
+      text = 'ใช้ “โล่” ใบเดียวเพื่อรับการโจมตี หรือกด “ตั้งรับ” เพื่อรอจั่ว';
+    } else {
+      text = 'กด “ตั้งรับ” เพื่อรอจั่ว เมื่อได้ “ลูก” กับการ์ดธาตุ ให้เรียงรูปเวทก่อนธาตุ';
+    }
+  } else if (state.room === 0) {
+    text = 'ใช้สูตรที่ค้นพบเพื่อดูผลก่อนร่าย หรือลองเรียงคำใหม่ ถ้ามานาไม่พอ กด “ตั้งรับ” ได้';
+  }
   else if (state.enemies.some(e => e.hp > 0 && e.kind === 'prism_crab')) text = 'ปูเกราะปริซึมมีเกราะ 5 แต่จะเปิดกระดองเหลือเกราะ 1 ในเทิร์นถัดไปเมื่อขึ้นป้าย “ปิดกระดอง”';
   else if (state.enemies.some(e => e.hp > 0 && e.kind === 'lantern_wisp')) text = 'โคมวิญญาณจะฮีลเพื่อนที่เหลือ HP ต่ำสุดในเทิร์นคี่ ดูเลข # บนเจตนาแล้วรีบเก็บเป้าหรือสกัดโคมก่อน';
   else if (state.enemies.some(e => e.hp > 0 && e.kind === 'scroll_moth')) text = 'ผีเสื้อคัมภีร์จะถักม่านให้เพื่อนในเทิร์น 1, 4, 7… ใช้ลำแสงทะลุม่านหรือเก็บผีเสื้อก่อน';
@@ -877,7 +894,7 @@ export function renderTutorial({ state, settings, dismissedRoom }) {
   else if (state.room === FLOOR21_START_ROOM + 1) text = 'โกเลมชาร์จก่อนฟาดหนักหนึ่งเทิร์น ดูเลขบนป้ายชาร์จเพื่อเตรียมโล่หรือลดแรงโจมตีด้วยน้ำแข็ง';
   else if (state.room === FLOOR21_START_ROOM + 2) text = 'ผู้พิทักษ์เลือกเติมม่านให้เพื่อนที่สัดส่วน HP ต่ำสุด ผลคาดการณ์จะแสดงเมื่อเป้าหมายเปลี่ยน';
   else if (state.enemies.some(e => e.kind === 'elite')) text = 'บอสมีม่านในเทิร์นคี่ ใช้ “ลูก ไฟ คู่” เปิดม่านแล้วทำดาเมจ หรือรอเทิร์นคู่เพื่อยิงตอนม่านหาย';
-  else if (state.enemies.some(e => e.ward > 0) && state.player.words.includes('pair')) text = 'เมื่อศัตรูมีม่าน ใช้ “ลูก ไฟ คู่” ให้ลูกแรกเปิดม่านและลูกที่สองทำดาเมจ ถ้าคำยังไม่ครบ ให้ป้องกันเพื่อรอจั่ว';
+  else if (state.enemies.some(e => e.ward > 0) && state.player.words.includes('pair')) text = 'เมื่อศัตรูมีม่าน ใช้ “ลูก ไฟ คู่” ให้ลูกแรกเปิดม่านและลูกที่สองทำดาเมจ ถ้าคำยังไม่ครบ ให้กด “ตั้งรับ” เพื่อรอจั่ว';
   else if (state.enemies.length > 1 && state.player.words.includes('blast')) text = '“ลูก ไฟ ระเบิด” โดนเป้าหมายและตัวที่อยู่ติดซ้ายขวา ลองเล็งตัวตรงกลาง';
   else if (state.enemies.some(e => e.armor)) text = 'เกราะหักดาเมจทุกครั้ง สายฟ้าข้ามเกราะได้ 2 หน่วย และโล่ช่วยรับการโจมตีหนัก';
   else text = 'ดูเจตนาศัตรูก่อนร่าย น้ำแข็งลดแรงโจมตีครั้งถัดไป และโล่ที่เหลืออยู่ต่อได้อีกหนึ่งเทิร์น';

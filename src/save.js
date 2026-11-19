@@ -30,6 +30,8 @@ import {
   offerMissedElementReward,
   fillRewardChoices,
   grantBossRelic,
+  clearLostRunProgress,
+  repairEarlyDeck,
 } from './run.js';
 
 export const SAVE_KEY = 'spell-foundry.run.v2';
@@ -42,6 +44,7 @@ const phases = ['battle', 'reward', 'loadout', 'sanctuary', 'won', 'lost'];
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 // Shield upgrades add twice their level, and veil/grand/rift/worldloom add their own bonuses.
 const maxShieldLayerHp = 300;
+const shieldEffects = [null, ...ELEMENTS, 'blast', 'akki-blast', 'brace', 'veil'];
 const previousRiftBossHp = { gate_weaver: 190, mirror_regent: 235, seam_warden: 270, loom_sovereign: 330 };
 
 export function validateRun(state) {
@@ -90,7 +93,13 @@ export function validateRun(state) {
   if (state.purchasedShopItems !== undefined && (!Array.isArray(state.purchasedShopItems) || state.purchasedShopItems.length > Object.keys(SHOP_ITEMS).length || state.purchasedShopItems.some(id => !Object.hasOwn(SHOP_ITEMS, id)))) invalid();
   if (p.shield !== null) {
     const shield = p.shield;
-    if (!object(shield) || ![null, ...ELEMENTS, 'blast', 'akki-blast', 'brace', 'veil'].includes(shield.effect) || typeof shield.triggered !== 'boolean' || !integer(shield.expires, state.turn, state.turn + 1) || !Array.isArray(shield.layers) || !integer(shield.layers.length, 1, 2) || shield.layers.some(amount => !integer(amount, 1, maxShieldLayerHp))) invalid();
+    if (!object(shield) || !shieldEffects.includes(shield.effect) || typeof shield.triggered !== 'boolean' || !integer(shield.expires, state.turn, state.turn + 1) || !Array.isArray(shield.layers) || !integer(shield.layers.length, 1, shield.layerDetails ? 12 : 2) || shield.layers.some(amount => !integer(amount, 1, maxShieldLayerHp))) invalid();
+    if (shield.layerDetails !== undefined && (shield.layerEffects !== undefined || !Array.isArray(shield.layerDetails)
+      || shield.layerDetails.length !== shield.layers.length || shield.layerDetails.some(layer => !object(layer)
+        || !shieldEffects.includes(layer.effect) || !integer(layer.expires, state.turn, state.turn + 1)
+        || typeof layer.triggered !== 'boolean' || (layer.elements !== undefined && (layer.effect !== null
+          || !Array.isArray(layer.elements) || !integer(layer.elements.length, 1, 2)
+          || new Set(layer.elements).size !== layer.elements.length || layer.elements.some(id => !ELEMENTS.includes(id))))))) invalid();
     if (shield.layerEffects !== undefined && (shield.effect !== null || !Array.isArray(shield.layerEffects) ||
         shield.layerEffects.length !== shield.layers.length || shield.layerEffects.some(layer => !object(layer) ||
           typeof layer.triggered !== 'boolean' || !Array.isArray(layer.elements) ||
@@ -160,7 +169,10 @@ export function validateRun(state) {
   state.rewardedBossRooms ??= [];
   state.highestRoom ??= state.room;
   state.sanctuaryRested ??= false;
-  state.sanctuaryFloor ??= 4;
+  const legacyRest = { 4: 5, 9: 'pre10', 14: 15, 19: 'pre20' };
+  state.sanctuaryFloor = legacyRest[state.sanctuaryFloor] ?? state.sanctuaryFloor ?? 5;
+  const mislabeledRest = /^post([2-9])5$/.exec(state.sanctuaryFloor);
+  if (mislabeledRest) state.sanctuaryFloor = `post${mislabeledRest[1]}0`;
   state.sanctuary9Unlocked ??= false;
   state.sanctuaryPost10Unlocked ??= false;
   state.sanctuary14Unlocked ??= false;
@@ -196,6 +208,8 @@ export function loadRun(storage) {
       hadData = true;
       try {
         const state = validateRun(JSON.parse(raw));
+        if (state.phase === 'lost') clearLostRunProgress(state);
+        else repairEarlyDeck(state);
         if (state.hpCurveVersion === undefined) {
           const level = state.player.level;
           const reduction = Math.max(0, Math.min(level, 25) - 1)

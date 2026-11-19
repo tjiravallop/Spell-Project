@@ -1,4 +1,5 @@
-import { WORDS, START_WORDS, STANDALONE_WORDS, fireShieldLayers, parseSpell } from './words.js';
+import { shieldProtection } from './shields.js';
+import { WORDS, STANDALONE_WORDS, fireShieldLayers, parseSpell } from './words.js';
 import {
   HAND_LIMIT,
   MAX_CARD_UPGRADE,
@@ -8,6 +9,7 @@ import {
   equipRelic,
   unequipRelic,
   getCardUpgradeLevel,
+  deckCapacity,
   ownsRewardWord,
   nextExpForLevel,
   levelUpRewards,
@@ -16,17 +18,10 @@ import {
   FLOOR20_BOSS_ROOM,
   FLOOR50_BOSS_ROOM,
   FLOOR100_BOSS_ROOM,
-  UPPER_RESTS,
   enemyClimaxBonus,
   hasCardReward,
   isBossRoom,
   isRoomRevisit,
-  isSanctuaryUnlocked,
-  isSanctuary9Unlocked,
-  isSanctuaryPost10Unlocked,
-  isSanctuary14Unlocked,
-  isSanctuary19Unlocked,
-  isSanctuaryPost20Unlocked,
   roomsPerFloor,
   discardOverflow,
   createRun,
@@ -34,6 +29,8 @@ import {
   chooseReward,
   equipWords,
   enterSanctuary,
+  getSanctuaryCheckpoints,
+  isSanctuaryFloorUnlocked,
   moveBeltToStash,
   moveStashToBelt,
   useInventoryItem,
@@ -53,8 +50,7 @@ import { RIFT_SPELL_BONUS } from './upper-tower.js';
 import { canFormPhraseInHand, computePlayableCombos } from './combos.js';
 import {
   $,
-  upperCheckpoint,
-  checkpointFloor,
+  restLocationLabel,
   queueFxClassRestart,
   focusAfterRender,
   preserveFocus,
@@ -71,6 +67,7 @@ import {
   BATTLE_VIEW_SHAKE_CLASSES,
   resetPlayerHpFx,
   pulsePlayerHud,
+  renderShieldStatus,
   createBattleFxController,
 } from './ui/battle-fx.js';
 import {
@@ -228,6 +225,12 @@ function saveAccountDiscovered() {
   storeAccountDiscovered(accountDiscovered);
 }
 
+function clearLostDiscovery() {
+  collection = [];
+  accountDiscovered.clear();
+  saveAccountDiscovered();
+}
+
 function syncDiscoveredFromState() {
   if (!state?.stats?.discovered) return;
   let changed = false;
@@ -359,6 +362,7 @@ function showHome() {
   loaded = loadRun();
   changeScreen('home');
   const saved = loaded.state;
+  if (saved?.phase === 'lost') clearLostDiscovery();
   collection = [...new Set([...collection, ...(saved?.collection ?? [])])];
   $('collection-summary').textContent = collection.length ? `การ์ดที่สะสม ${collection.length} ใบ · ${collection.map(id => WORDS[id].label).join(' · ')}` : '';
   $('continue-run').hidden = !saved;
@@ -366,11 +370,7 @@ function showHome() {
   if (saved) {
     const fInfo = getFloorInfo(saved.room, saved.rooms.length);
     const locLabel = saved.phase === 'sanctuary'
-      ? (upperCheckpoint(saved.sanctuaryFloor)
-        ? `จุดพักหลังบอสชั้น ${checkpointFloor(saved.sanctuaryFloor)}`
-        : saved.sanctuaryFloor === 'post10'
-          ? 'จุดพักพิเศษ (หลังบอสชั้น 10)'
-          : `ชั้น ${[4, 9, 14, 19].includes(saved.sanctuaryFloor) ? saved.sanctuaryFloor : 4} (ชั้นพัก & ร้านค้า)`)
+      ? restLocationLabel(saved.sanctuaryFloor ?? 5)
       : `ชั้น ${fInfo.floor} ห้อง ${fInfo.code}`;
     $('save-notice').textContent = loaded.error || `เซฟล่าสุด · ${locLabel} · Lv.${saved.player.level ?? 1} · 💰 ${saved.player.gold ?? 0} ทอง · HP ${saved.player.hp}/${saved.player.maxHp}${loaded.recovered ? ' · กู้จากสำเนาก่อนหน้า' : ''}`;
   } else {
@@ -484,50 +484,19 @@ function renderBattle() {
   const floorArtifact = floorInfo.isBoss ? RELIC_DRAFT_CATALOG.find(relic => relic.dropFloor === floorInfo.floor) : null;
   const isSpecialFloorBoss = Boolean(floorArtifact);
   const specialArtifactName = floorArtifact?.name ?? '';
-  const specialArtifactOrder = `ชิ้นที่ ${floorInfo.floor / 10}`;
-  const roomTypeLabel = floorInfo.floor >= 21 ? floorInfo.roomRole : isSpecialFloorBoss
-    ? `ห้องบอสพิเศษประจำชั้น ${floorInfo.floor}`
-    : floorInfo.isBoss
-      ? `ห้องบอสประจำชั้น ${floorInfo.floor}`
-      : `ห้องย่อยที่ ${floorInfo.sub}/2 (${floorInfo.code})`;
-  $('tower-heading-title').textContent = floorInfo.isBoss ? `บอส ${floorInfo.floor}` : floorInfo.floor >= 21 ? `ชั้น ${floorInfo.floor}` : `ห้อง ${floorInfo.code}`;
-  $('tower-heading-title').title = roomTypeLabel;
+  $('tower-heading-title').textContent = floorInfo.isBoss ? `บอสชั้น ${floorInfo.floor}` : `ห้อง ${floorInfo.code}`;
+  $('tower-heading-title').title = floorInfo.roomRole;
   $('room-subtitle').textContent = revisit
-    ? `กำลังวนซ้ำ${roomTypeLabel} · ได้รับทองและ EXP ลดลงเหลือ 20%${floorInfo.isBoss ? (isSpecialFloorBoss ? ' (อาติแฟครับไปแล้ว)' : ' (บอสไม่ดรอปการ์ดคำซ้ำ)') : ''}`
+    ? 'เล่นห้องเดิม · ได้ทองและ EXP 20%'
     : isSpecialFloorBoss
-      ? `ปราบบอสพิเศษประจำชั้นที่ ${floorInfo.floor} เพื่อรับอาติแฟค${specialArtifactOrder} “${specialArtifactName}” และเปิดทางสู่จุดพักพิเศษ!`
-      : isBossRoom(state)
-        ? `ปราบบอสประจำชั้น ${floorInfo.floor} เพื่อเลือกการ์ดคำใหม่${floorInfo.floor === 3 ? ' และเปิดทางสู่ชั้นที่ 4 (ชั้นพัก)' : floorInfo.floor === 8 ? ' และเปิดทางสู่ชั้นที่ 9 (ชั้นพัก)' : floorInfo.floor === 13 ? ' และเปิดทางสู่ชั้นที่ 14 (ชั้นพัก)' : floorInfo.floor === 18 ? ' และเปิดทางสู่ชั้นที่ 19 (ชั้นพัก)' : ' และขึ้นสู่ชั้นถัดไป'}`
-        : `กำจัดมอนสเตอร์ใน${roomTypeLabel} เพื่อรับทอง + EXP (ผ่านครบ 2 ห้องย่อยจะพบบอสประจำชั้น ${floorInfo.floor})`;
-  if (floorInfo.floor >= 21 && !revisit && !isSpecialFloorBoss) {
-    $('room-subtitle').textContent = hasCardReward(state) ? 'ชนะศึกเพื่อเลือกการ์ดคำ' : 'ชนะศึกเพื่อรับทองและ EXP';
-  }
+      ? `ชนะเพื่อรับอาร์ติแฟกต์ “${specialArtifactName}”`
+      : hasCardReward(state) ? 'ชนะเพื่อเลือกการ์ดคำ' : 'ชนะเพื่อรับทองและ EXP';
   renderRoomTrack(state, busy);
   syncRpgResourceBar();
   renderTurnLabel(state);
-  if ($('stage-bounty-note')) {
-    const climbWarn = floorInfo.floor === 20
-      ? ' · หากแพ้บอสชั้น 20 จะร่วงกลับไปพักฟื้นที่ชั้น 19'
-      : floorInfo.floor >= 15
-        ? ' · หากแพ้ในชั้น 15–18 จะร่วงกลับไปพักชั้น 14 และเริ่มไต่ชั้น 15 ใหม่'
-        : floorInfo.floor >= 11
-          ? ' · หากแพ้ในชั้น 11–13 จะร่วงกลับไปพักหลังบอส 10 และเริ่มไต่ชั้น 11 ใหม่'
-          : floorInfo.floor === 10
-            ? ' · หากแพ้บอสชั้น 10 จะร่วงกลับไปพักฟื้นที่ชั้น 9'
-            : floorInfo.floor >= 5
-              ? ' · หากแพ้ในชั้น 5–8 จะร่วงกลับไปพักชั้น 4 และเริ่มไต่ชั้น 5 ใหม่'
-              : '';
-    $('stage-bounty-note').textContent = revisit
-      ? `วนซ้ำชั้นเดิม: ทอง/EXP เหลือ 20% · ฟื้นมานา +3/เทิร์น${climbWarn}`
-      : isSpecialFloorBoss
-        ? `บอสพิเศษชั้น ${floorInfo.floor}: ปราบครั้งแรกดรอปอาติแฟค “${specialArtifactName}” · ฟื้นมานา +3/เทิร์น${climbWarn}`
-        : floorInfo.isBoss
-          ? `ห้องบอสประจำชั้น: ปราบครั้งแรกดรอปการ์ดคำ · ฟื้นมานา +3/เทิร์น${climbWarn}`
-          : `ห้องย่อย ${floorInfo.sub}/2: มอนย่อยดรอปทอง + EXP 100% · ฟื้นมานา +3/เทิร์น${climbWarn}`;
-    if (floorInfo.floor >= 21) {
-      $('stage-bounty-note').textContent = `${revisit ? 'เล่นซ้ำ · ทอง/EXP 20%' : isSpecialFloorBoss ? `ชนะรับอาติแฟค “${specialArtifactName}”` : 'ฟื้นมานา +3/เทิร์น'}${floorInfo.floor >= 31 ? ` · ดาเมจเวท +${RIFT_SPELL_BONUS}%` : ''} · ถ้าแพ้ กลับจุดพักหลังบอส ${Math.floor((floorInfo.floor - 1) / 5) * 5}`;
-    }
-  }
+  const roomNotes = ['ฟื้นมานา 3 หน่วยต่อเทิร์น'];
+  if (floorInfo.floor >= 31) roomNotes.push(`ความเสียหายเวท +${RIFT_SPELL_BONUS}% ยกเว้น “${WORDS.death.label}”`);
+  $('stage-bounty-note').textContent = roomNotes.join(' · ');
   $('seed-label').textContent = `SEED ${state.seed}`;
   const parsed = parseSpell(words, p.words);
   const knownSpell = isKnownValidSpell(words);
@@ -563,9 +532,7 @@ function renderBattle() {
   secondSelect.innerHTML = '<option value="">ใช้เป้าหมายแรก</option>' + selectable.map(enemy => `<option value="${enemy.id}">${ENEMY_LABEL(enemy)} · ช่อง ${enemy.slot + 1}</option>`).join('');
   secondSelect.value = secondTargetId ?? '';
   secondSelect.disabled = busy;
-  const protection = p.shield?.layers.reduce((sum, amount) => sum + amount, 0) ?? 0;
-  $('shield-status').textContent = protection ? `${p.shield.effect === 'veil' ? 'ม่าน' : 'โล่'} ${protection} · ${p.shield.layers.length} ชั้น · ถึงเทิร์น ${p.shield.expires}` : '';
-  $('shield-status').hidden = !protection;
+  renderShieldStatus(shieldProtection(p.shield));
   const forecast = busy || !knownSpell ? null : getCachedSimulation(state, words, targetId, secondTargetId ?? targetId);
   battlefield.set(state, targetId);
   renderEnemies({ state, battlefield, targetId, busy }, forecast);
@@ -574,19 +541,20 @@ function renderBattle() {
   renderQuickCombos({ state, words, busy, accountDiscovered, getPlayableCombos, lastJustUnlockedKey }, parsed, knownSpell);
   renderWordBank({ state, words, busy });
   renderForecast({ state, words, busy }, parsed, forecast, knownSpell);
-  $('expression').textContent = words.length ? (knownSpell ? 'สูตรที่ค้นพบ' : 'วลีทดลอง') : 'แตะหรือลากไพ่ขึ้นแท่น';
+  $('expression').textContent = words.length ? (knownSpell ? 'สูตรที่ค้นพบ' : 'สูตรทดลอง') : 'วางการ์ดคำบนแท่นร่าย';
   $('cast-label').textContent = words.length && !knownSpell ? 'ทดลองร่าย' : 'ร่ายคาถา';
   $('move-left').disabled = busy || selectedSlot === null || selectedSlot <= 0 || selectedSlot >= words.length;
   $('move-right').disabled = busy || selectedSlot === null || selectedSlot >= words.length - 1;
   $('remove-word').disabled = busy || selectedSlot === null || selectedSlot >= words.length;
   $('clear-spell').disabled = busy || !words.length;
   $('guard-button').disabled = busy || p.hand.length > HAND_LIMIT;
-  $('guard-button').title = `ใช้ 0 มานา กันความเสียหาย ${getEquippedRelics(p).includes('worldloom_50') ? 6 : 3}`;
+  const guardBonus = getEquippedRelics(p).filter(id => id === 'worldloom_50' || id === 'gaia_emblem_80').length * 3;
+  $('guard-button').title = `ใช้ 0 มานา กันความเสียหาย ${3 + guardBonus}`;
   for (const id of ['map-open', 'log-open', 'guide-open', 'inventory-open', 'combos-open']) $(id).disabled = busy;
   $('settings-open').disabled = busy;
   $('animation-controls').hidden = !busy;
   renderBattleStory(state, collapsedStoryIds);
-  renderTutorial({ state, settings, dismissedRoom });
+  renderTutorial({ state, settings, dismissedRoom, words });
   renderLog();
   requestWorkerPreview(knownSpell);
 }
@@ -717,7 +685,7 @@ function commit(guard = false) {
       lastJustUnlockedKey = null;
       setCastFx({
         type: 'fizzle',
-        badge: 'ร่ายเฟล',
+        badge: 'ร่ายไม่สำเร็จ',
         title: fizzleLabel(result.summary.cost),
         detail: phraseLabel,
       });
@@ -770,7 +738,7 @@ function commit(guard = false) {
     turn: state.turn,
     climaxBonus: enemyClimaxBonus(state.turn, state.room),
     actionType: guard ? 'guard' : result.summary.fizzled ? 'fizzle' : 'cast',
-    expression: guard ? 'ตั้งรับพื้นฐาน' : parsed?.ok && !result.summary.fizzled ? parsed.expression : phraseLabel,
+    expression: guard ? 'ตั้งรับ' : parsed?.ok && !result.summary.fizzled ? parsed.expression : phraseLabel,
     cost: result.summary.cost ?? 0,
     manaBefore: state.player.mana,
     manaAfter: result.summary.manaAfterCast ?? state.player.mana,
@@ -889,35 +857,12 @@ function finishTurn() {
     const mpBonusText = lv.mpGain > 0 ? ` · เพิ่ม Max MP +${lv.mpGain}!` : '';
     toast(`🎉 เลเวลอัพเป็น Lv.${lv.level}! เพิ่ม Max HP +${lv.hpGain}${mpBonusText}`);
   }
-  if (upperCheckpoint(result.summary?.fellToFloor)) {
-    setCastFx(null);
-    audio.play('lose');
-    toast(`กลับจุดพักหลังบอส ${checkpointFloor(result.summary.fellToFloor)}`);
-  } else if (result.summary?.fellToFloor === 19) {
+  const fallback = result.summary?.fellToFloor ?? (result.summary?.fellToFloor4 ? 4 : null);
+  if (fallback !== null) {
     setCastFx(null);
     audio.play('lose');
     words = [];
-    toast('💫 พ่ายแพ้บอสชั้น 20! ร่วงกลับมาพักฟื้นที่ชั้น 19 แล้ว');
-  } else if (result.summary?.fellToFloor === 14) {
-    setCastFx(null);
-    audio.play('lose');
-    words = [];
-    toast('💫 พ่ายแพ้ระหว่างไต่ชั้น 15–18! ร่วงกลับมาพักฟื้นที่ชั้น 14 แล้ว (ต้องเริ่มไต่ใหม่ตั้งแต่ 15-1)');
-  } else if (result.summary?.fellToFloor === 'post10') {
-    setCastFx(null);
-    audio.play('lose');
-    words = [];
-    toast('💫 พ่ายแพ้ระหว่างไต่ชั้น 11–13! ร่วงกลับมาพักที่จุดพักหลังบอส 10 แล้ว (ต้องเริ่มไต่ใหม่ตั้งแต่ 11-1)');
-  } else if (result.summary?.fellToFloor === 9) {
-    setCastFx(null);
-    audio.play('lose');
-    words = [];
-    toast('💫 พ่ายแพ้บอสชั้น 10! ร่วงกลับมาพักฟื้นที่ชั้น 9 แล้ว');
-  } else if (result.summary?.fellToFloor4 || result.summary?.fellToFloor === 4) {
-    setCastFx(null);
-    audio.play('lose');
-    words = [];
-    toast('💫 พ่ายแพ้ระหว่างไต่ชั้น 5–8! ร่วงกลับมาพักฟื้นที่ชั้น 4 แล้ว (ต้องเริ่มไต่ใหม่ตั้งแต่ 5-1)');
+    toast(`แพ้ศึก · กลับ${restLocationLabel(fallback)}`);
   } else if (result.summary?.relicDropped) {
     recentRelicDropId = result.summary.relicDropped;
     setCastFx(null);
@@ -931,6 +876,7 @@ function finishTurn() {
     words = [];
   } else if (state.phase === 'lost') {
     setCastFx(null);
+    clearLostDiscovery();
     audio.play('lose');
   } else if (castFxState) {
     castFxTimer = setTimeout(() => setCastFx(null), 2800);
@@ -965,7 +911,7 @@ function applySettings() {
   battlefield.configure(settings);
   homeArt.configure(settings);
   audio.configure(settings);
-  if (state?.phase === 'battle' && screen === 'battle') renderTutorial({ state, settings, dismissedRoom });
+  if (state?.phase === 'battle' && screen === 'battle') renderTutorial({ state, settings, dismissedRoom, words });
 }
 
 function refreshActiveScreen() {
@@ -1000,7 +946,7 @@ $('new-run').addEventListener('click', () => requestNew());
 $('result-new').addEventListener('click', () => { state = null; startRun(); });
 $('result-sanctuary')?.addEventListener('click', () => {
   try {
-    const target = state.room >= FLOOR100_BOSS_ROOM ? 95 : state.room === FLOOR50_BOSS_ROOM ? 'post50' : 4;
+    const target = state.room >= FLOOR100_BOSS_ROOM ? 95 : state.room === FLOOR50_BOSS_ROOM ? 'post50' : 5;
     state = enterSanctuary(state, { floor: target });
     equipped = [...state.player.words];
     persist(); audio.play('place'); render();
@@ -1008,18 +954,7 @@ $('result-sanctuary')?.addEventListener('click', () => {
 });
 $('loadout-sanctuary-button')?.addEventListener('click', () => {
   try {
-    const latestRiftRest = Object.entries(UPPER_RESTS).findLast(([key, room]) => key !== 'post20' && state.clearedRooms.includes(room));
-    const targetFloor = latestRiftRest?.[0] ?? (isSanctuaryPost20Unlocked(state)
-      ? 'post20'
-      : isSanctuary19Unlocked(state)
-        ? 19
-        : isSanctuary14Unlocked(state)
-          ? 14
-          : isSanctuaryPost10Unlocked(state)
-            ? 'post10'
-            : isSanctuary9Unlocked(state)
-              ? 9
-              : 4);
+    const targetFloor = getSanctuaryCheckpoints(state).findLast(floor => isSanctuaryFloorUnlocked(state, floor)) ?? 5;
     state = enterSanctuary(state, { floor: targetFloor });
     equipped = [...state.player.words];
     persist(); audio.play('place'); render();
@@ -1347,7 +1282,7 @@ document.addEventListener('click', event => {
   if (button.dataset.enterSanctuary !== undefined) {
     try {
       const raw = button.dataset.enterSanctuary;
-      const targetFloor = raw === 'post10' || upperCheckpoint(raw) ? raw : Number(raw);
+      const targetFloor = raw.startsWith('pre') || raw.startsWith('post') ? raw : Number(raw);
       state = enterSanctuary(state, { floor: targetFloor });
       $('battle-tools').close();
       sanctuaryMenu.close();
@@ -1355,11 +1290,7 @@ document.addEventListener('click', event => {
       equipped = [...state.player.words];
       words = []; selectedSlot = null;
       persist(); audio.play('place'); render();
-      toast(upperCheckpoint(targetFloor)
-        ? `🏕 เดินทางเข้าสู่จุดพักหลังบอสชั้น ${checkpointFloor(targetFloor)}`
-        : targetFloor === 'post10'
-          ? '🏕 เดินทางเข้าสู่จุดพักพิเศษหลังบอสชั้น 10 (ร้านค้า & แท่นตีบวก)'
-          : `🏕 เดินทางเข้าสู่ชั้นที่ ${targetFloor}: ชั้นพักจอมเวท & ร้านค้าเวทมนตร์`);
+      toast(`เดินทางถึง${restLocationLabel(targetFloor)}`);
     } catch (error) { toast(error.message); }
     return;
   }
@@ -1430,7 +1361,7 @@ document.addEventListener('click', event => {
   }
   if (button.dataset.sanctuaryEquip && state.phase === 'sanctuary') {
     const id = button.dataset.sanctuaryEquip;
-    const cap = Math.min(7, START_WORDS.length + state.learned.length);
+    const cap = deckCapacity(state);
     if (equipped.includes(id)) equipped = equipped.filter(word => word !== id);
     else if (equipped.length < cap) equipped.push(id);
     else { toast('ถอดการ์ดหนึ่งใบก่อนเลือกใบใหม่'); return; }
@@ -1488,7 +1419,7 @@ document.addEventListener('click', event => {
   if (button.dataset.equip && state.phase === 'loadout') {
     const id = button.dataset.equip;
     if (equipped.includes(id)) equipped = equipped.filter(word => word !== id);
-    else if (equipped.length < Math.min(7, START_WORDS.length + state.learned.length)) equipped.push(id);
+    else if (equipped.length < deckCapacity(state)) equipped.push(id);
     else { toast('ถอดการ์ดหนึ่งใบก่อนเลือกใบใหม่'); return; }
     preserveFocus(() => renderLoadout(state, equipped));
   }

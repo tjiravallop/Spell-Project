@@ -49,6 +49,17 @@ export function triggerEnemyCardFx(enemyId, fxClass) {
   queueFxClassRestart(card, ['enemy-hit-shake', 'enemy-acting-lunge', 'enemy-targeted-pulse'], fxClass);
 }
 
+export function renderShieldStatus(protection) {
+  const el = $('shield-status');
+  const layers = protection?.details ?? [];
+  el.hidden = !layers.length;
+  el.textContent = layers.length ? `โล่ ${layers.length} ชั้น · ${layers.map(layer => {
+    const elements = layer.elements ?? (layer.effect ? [layer.effect] : []);
+    const name = elements.map(id => WORDS[id]?.label ?? (id === 'akki-blast' ? 'อัคคีระเบิด' : id)).join('+');
+    return `${name ? name + ' ' : ''}${layer.hp}`;
+  }).join(' / ')}` : '';
+}
+
 export function pulsePlayerHud(kind = 'shield') {
   const bar = document.querySelector('.resource-bar');
   const shieldEl = $('shield-status');
@@ -249,6 +260,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     const battlefield = getBattlefield();
     audio.combat(event);
     const status = $('animation-status-text');
+    if (event.protection) renderShieldStatus(event.protection);
     switch (event.type) {
       case 'projectile': {
         const form = WORDS[event.form]?.label ?? event.form;
@@ -296,15 +308,29 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           triggerEnemyCardFx(event.target, 'enemy-hit-shake');
           const elemCls = event.element ? `elem-${elementFamily(event.element)}` : '';
           const weakTag = event.weakness ? ' ⚡จุดอ่อน' : event.resisted ? ' 🛡ต้านทาน' : '';
-          spawnEnemyPop(event.target, `-${event.amount}${event.killed ? ' ✦' : ''}${weakTag}`, 'damage', `${elemCls}${event.weakness ? ' pop-weakness' : ''}${event.killed ? ' pop-killed' : ''}`.trim());
+          spawnEnemyPop(event.target, `-${event.actual ?? event.amount}${event.killed ? ' ✦' : ''}${weakTag}`, 'damage', `${elemCls}${event.weakness ? ' pop-weakness' : ''}${event.killed ? ' pop-killed' : ''}`.trim());
         } else {
           triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
-          spawnEnemyPop(event.target, 'เกราะ 0', 'target');
+          spawnEnemyPop(event.target, 'เกราะกันหมด', 'target');
         }
         if (event.levelMaxHp) changeAnimatedPlayerHp(event.levelHp, event.levelMaxHp);
         status.textContent = `${damageLabel(event)}${event.killed ? ' · ปราบศัตรูแล้ว' : ''}`;
         break;
       }
+      case 'armor-shred': {
+        const badge = $(`target-${event.target}`)?.querySelector('.badge-armor-value');
+        if (badge) {
+          badge.textContent = `🛡 เกราะ ${event.armor}`;
+          badge.title = 'ค่าพลังป้องกันหลังโดนทุบเกราะ';
+        }
+        spawnEnemyPop(event.target, `เกราะ −${event.amount}`, 'target');
+        status.textContent = `ทุบเกราะ −${event.amount} · เหลือ ${event.armor}`;
+        break;
+      }
+      case 'shield-counter':
+        spawnEnemyPop(event.target, `โล่${WORDS[event.element].label}ตอบโต้`, 'status');
+        status.textContent = `โล่${WORDS[event.element].label}ตอบโต้ผู้โจมตี`;
+        break;
       case 'blast': {
         pulseSpellSlotsElem(event.element ?? 'fire');
         const label = event.element === 'blackhole' ? 'หลุมดำยุบ' : event.element === 'meteor' ? 'อุกกาบาตตก' : event.devastation ? 'ทำลายล้าง' : event.radius === 2 ? 'มหาระเบิด' : 'ระเบิด';
@@ -416,11 +442,13 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         status.textContent = `${action} +${event.amount} HP`;
         break;
       }
-      case 'status':
+      case 'status': {
+        const label = { burn: 'เผาไหม้', chill: 'หนาว', freeze: 'แช่แข็ง' }[event.status];
         triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
-        spawnEnemyPop(event.target, event.status === 'burn' ? '🔥 เผา' : '🧊 แช่แข็ง', 'status');
-        status.textContent = event.status === 'burn' ? 'ศัตรูติดเผา' : 'ศัตรูถูกแช่แข็ง';
+        spawnEnemyPop(event.target, label, 'status');
+        status.textContent = `ศัตรูติดสถานะ${label}`;
         break;
+      }
       case 'push': {
         triggerEnemyCardFx(event.target, 'enemy-hit-shake');
         const enemy = state.enemies.find(candidate => candidate.id === event.target);

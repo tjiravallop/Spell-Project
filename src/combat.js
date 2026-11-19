@@ -1,3 +1,4 @@
+import { makeShield, shieldLayers, shieldProtection } from './shields.js';
 import { ATTACK_FORMS, WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS } from './words.js';
 import { RIFT_SPELL_BONUS, RIFT_EXPOSED_BONUS, isRiftBossExposed } from './upper-tower.js';
 import {
@@ -229,7 +230,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const live = () => enemies.filter(enemy => enemy.hp > 0).sort((a, b) => a.slot - b.slot);
   const enemyById = id => enemies.find(enemy => enemy.id === id);
   const newBurn = new Map();
-  let block = (guard ? 3 + (hasWorldloom ? 3 : 0) + (hasGaiaEmblem ? 3 : 0) : 0) + secondaryShieldBonus + (hasGaiaEmblem ? 3 : 0);
+  let block = (guard ? 3 + (hasWorldloom ? 3 : 0) : 0) + secondaryShieldBonus + (hasGaiaEmblem ? 3 : 0);
   player.mana -= cost;
   if (!guard && !fizzled && spell && hasThunderConduit) {
     const isLightning = (spell.elements ?? []).some(id => getElementComponents(id).includes('lightning'));
@@ -327,9 +328,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (enemy.hp <= 0 || amount <= 0) return;
     const actual = Math.min(enemy.armor, amount);
     enemy.armor = Math.max(0, enemy.armor - amount);
-    enemy.permanentArmorShred = (enemy.permanentArmorShred ?? 0) + amount;
+    enemy.permanentArmorShred = Math.min(10, (enemy.permanentArmorShred ?? 0) + amount);
     if (actual > 0) {
-      summary.sequence.push(`ทุบทำลายเกราะ ${enemy.slot + 1} ถาวร −${actual} (เหลือเกราะ ${enemy.armor})`);
+      events.push({ type: 'armor-shred', target: enemy.id, amount: actual, armor: enemy.armor });
+      summary.sequence.push(`ทุบเกราะช่อง ${enemy.slot + 1} ถาวร −${actual} (เหลือ ${enemy.armor})`);
     }
   }
 
@@ -377,6 +379,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         amount: earthGain,
         secondary: true,
         element: elements.includes('permafrost') ? 'permafrost' : elements.includes('pathaphi') ? 'pathaphi' : 'earth',
+        protection: protection(),
       });
     }
     if (elements.includes('monsoon') && !summary.monsoonHealed) {
@@ -404,24 +407,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       applyEarthArmorShred(enemy, 1);
     }
     applyMoisture(enemy, elements);
-    if (elements.includes('heatwave')) {
-      newBurn.set(enemy.id, (newBurn.get(enemy.id) ?? 0) + 4);
-      events.push({ type: 'status', status: 'burn', target: enemy.id });
-      for (const candidate of live()) {
-        if (Math.abs(candidate.slot - enemy.slot) === 1) {
-          newBurn.set(candidate.id, (newBurn.get(candidate.id) ?? 0) + 4);
-          events.push({ type: 'status', status: 'burn', target: candidate.id });
-        }
-      }
-    }
-    if (elements.includes('shockstream')) {
-      for (const target of live()) {
-        if (target.id !== enemy.id && target.wetUntil >= turn) {
-          damage(target, 10, 'shockstream', 2, spell.form);
-          summary.sequence.push(`กระแสช็อตแล่นผ่านน้ำใส่ช่อง ${target.slot + 1} 10 ดาเมจ`);
-        }
-      }
-    }
+    if (elements.includes('heatwave')) burnNearby(enemy);
+    if (elements.includes('shockstream')) shockWetEnemies(enemy, spell.form);
     if (spell.freeze) {
       enemy.freeze += spell.freeze;
       events.push({ type: 'status', status: 'freeze', target: enemy.id });
@@ -433,6 +420,22 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         + (hasEmberCore && elements.some(id => getElementComponents(id).includes('fire')) ? 1 : 0);
       newBurn.set(enemy.id, (newBurn.get(enemy.id) ?? 0) + burnAmount);
       events.push({ type: 'status', status: 'burn', target: enemy.id });
+    }
+  }
+
+  function burnNearby(enemy) {
+    for (const target of live().filter(candidate => Math.abs(candidate.slot - enemy.slot) <= 1)) {
+      newBurn.set(target.id, (newBurn.get(target.id) ?? 0) + 4);
+      events.push({ type: 'status', status: 'burn', target: target.id });
+    }
+  }
+
+  function shockWetEnemies(enemy, attackForm) {
+    for (const target of live()) {
+      if (target.id !== enemy.id && target.wetUntil >= turn) {
+        damage(target, 10, 'shockstream', 2, attackForm);
+        summary.sequence.push(`กระแสช็อตชิ่งไปช่อง ${target.slot + 1}`);
+      }
     }
   }
 
@@ -509,39 +512,41 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const guarded = Math.min(block, remaining);
     block -= guarded;
     remaining -= guarded;
-    const shield = player.shield;
-    if (triggerShieldEffects && remaining > 0 && rawAmount >= 10 && shield?.effect === 'brace' && !shield.triggered) {
-      const bonus = 6;
-      shield.layers[0] += bonus;
-      shield.triggered = true;
-      events.push({ type: 'brace', amount: bonus, protection: protection() });
-      summary.sequence.push('โล่ยืนหยัดเสริมการป้องกัน 6');
-    }
-    const beforeShield = remaining;
+    const layers = shieldLayers(player.shield);
     let broken = 0;
-    const effects = [];
-    while (remaining > 0 && shield?.layers.length) {
-      const absorbedLayer = Math.min(shield.layers[0], remaining);
-      remaining -= absorbedLayer;
-      shield.layers[0] -= absorbedLayer;
-      const layer = shield.layerEffects?.[0];
-      if (triggerShieldEffects && layer && !layer.triggered) {
-        effects.push(...layer.elements);
-        layer.triggered = true;
+    let veilBroke = false;
+    const effects = new Set();
+    const explosions = [];
+    while (remaining > 0 && layers.length) {
+      const layer = layers[0];
+      if (triggerShieldEffects && rawAmount >= 10 && layer.effect === 'brace' && !layer.triggered) {
+        layer.hp += 6;
+        for (const brace of layers) {
+          if (brace.effect === 'brace' && brace.expires === layer.expires) brace.triggered = true;
+        }
+        player.shield = makeShield(layers);
+        events.push({ type: 'brace', amount: 6, protection: protection() });
+        summary.sequence.push('โล่ยืนหยัดเสริมการป้องกัน 6');
       }
-      if (!shield.layers[0]) {
-        shield.layers.shift();
-        shield.layerEffects?.shift();
+      const absorbedLayer = Math.min(layer.hp, remaining);
+      remaining -= absorbedLayer;
+      layer.hp -= absorbedLayer;
+      if (triggerShieldEffects && absorbedLayer > 0) {
+        for (const effect of layer.elements ?? (WORDS[layer.effect]?.damage ? [layer.effect] : [])) effects.add(effect);
+      }
+      if (!layer.hp) {
+        layers.shift();
         broken++;
+        if (layer.effect === 'veil') veilBroke = true;
+        if (layer.effect === 'blast' || layer.effect === 'akki-blast') explosions.push(layer.effect === 'akki-blast' ? 'akki' : 'fire');
       }
     }
+    player.shield = makeShield(layers);
     if (triggerShieldEffects && broken && hasMagmaHeart) {
-      for (const enemy of live()) {
-        damage(enemy, 12, 'fire', 0);
-      }
+      for (const enemy of live()) damage(enemy, 12, 'fire', 0);
       summary.sequence.push('หัวใจแมกมาปะทุ · ระเบิดเพลิง 12 ใส่ศัตรูทั้งหมดเมื่อโล่แตก');
     }
-    if (triggerShieldEffects && broken && shield?.effect === 'veil' && remaining > 0) {
+    if (triggerShieldEffects && veilBroke && remaining > 0) {
       const extra = Math.min(remaining, 8);
       remaining -= extra;
       summary.sequence.push(`ม่านแตก · กันส่วนล้น ${extra}`);
@@ -551,8 +556,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     player.hp -= actual;
     summary.blocked += absorbed;
     summary.incoming += actual;
-    if (shield && !shield.layers.length) player.shield = null;
-    return { actual, absorbed, beforeShield, remaining, broken, effects, shield };
+    return { actual, absorbed, effects, explosions };
   }
 
   function attackPower(elements, targetScale = 1) {
@@ -581,6 +585,13 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     return { strength, pierce };
   }
 
+  function pullNeighborsToward(enemy) {
+    for (const neighbor of live()) {
+      if (neighbor.slot < enemy.slot) pushEnemy(neighbor, 1);
+      else if (neighbor.slot > enemy.slot) pushEnemy(neighbor, -1);
+    }
+  }
+
   function elementAfterHit(enemy, elements, strength, pierce, sweep, slot) {
     if (elements.includes('magma')) leaveMagma(slot);
     const gust = elements.some(id => ['wind', 'vayu', 'thunderstorm', 'dust', 'heatwave', 'chillgale'].includes(id));
@@ -590,12 +601,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         if (target.id !== enemy.id) pushEnemy(target);
       }
     }
-    if (elements.includes('magnet')) {
-      for (const neighbor of live()) {
-        if (neighbor.slot < enemy.slot) pushEnemy(neighbor, 1);
-        else if (neighbor.slot > enemy.slot) pushEnemy(neighbor, -1);
-      }
-    }
+    if (elements.includes('magnet')) pullNeighborsToward(enemy);
     if (elements.includes('frostvolt')) chainLightning(enemy, strength, pierce, sweep, 'frostvolt', spell.form);
     else if (elements.includes('thunderstorm')) chainLightning(enemy, strength, pierce, sweep, 'thunderstorm', spell.form);
     else if (elements.includes('asani')) chainLightning(enemy, strength, pierce, sweep, 'asani', spell.form);
@@ -755,15 +761,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   }
 
   function protection() {
-    const shield = player.shield;
-    return {
-      amount: block + (shield?.layers.reduce((sum, hp) => sum + hp, 0) ?? 0),
-      layers: shield?.layers.length ?? 0,
-      element: shield?.effect,
-      layerEffects: shield?.layerEffects?.map(layer => layer.elements),
-      ...(shield?.grand ? { grand: true } : {}),
-      ...(shield?.large ? { large: true } : {}),
-    };
+    return shieldProtection(player.shield, block);
   }
 
   function shieldBlast(count, element = 'fire') {
@@ -778,7 +776,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   }
 
   if (guard) {
-    events.push({ type: 'shield', amount: block, shieldKind: 'guard' });
+    events.push({ type: 'shield', amount: block, shieldKind: 'guard', protection: protection() });
   } else if (fizzled) {
     const expression = rawIds.map(id => WORDS[id].label).join(' ');
     events.push({ type: 'fizzle', ids: rawIds, cost, expression });
@@ -833,39 +831,33 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       }
     }
   } else if (spell.form === 'detonate') {
-    const shield = player.shield;
-    const detonated = fireShieldLayers(shield, spell.element);
-    if (shield.layerEffects) {
-      const remaining = shield.layerEffects.map((layer, index) => ({ layer, hp: shield.layers[index] }))
-        .filter((_, index) => !detonated.includes(index));
-      shield.layers = remaining.map(({ hp }) => hp);
-      shield.layerEffects = remaining.map(({ layer }) => layer);
-    }
-    if (!shield.layerEffects || !shield.layers.length) player.shield = null;
+    const detonated = fireShieldLayers(player.shield, spell.element);
+    player.shield = makeShield(shieldLayers(player.shield).filter((_, index) => !detonated.includes(index)));
     shieldBlast(detonated.length, spell.element);
   } else if (spell.form === 'shield') {
     const baseLayerCap = (spell.layerHp ?? 6) + shieldUpgradeBonus;
     const riftDefenseBonus = inRift ? Math.ceil(baseLayerCap * RIFT_SPELL_BONUS / 100) + Math.floor((player.maxHp ?? 36) * 0.025) : 0;
     const layerCap = baseLayerCap + riftDefenseBonus + (hasWorldloom ? 3 : 0);
-    player.shield = {
-      layers: Array(spell.layers).fill(layerCap),
+    const created = Array.from({ length: spell.layers }, (_, index) => ({
+      hp: layerCap,
       expires: turn + 1,
       effect: spell.effect,
       triggered: false,
-      ...(spell.grand ? { grand: true } : {}),
-      ...(spell.large ? { large: true } : {}),
-    };
-    if (spell.layerEffects) player.shield.layerEffects = spell.layerEffects.map(elements => ({ elements, triggered: false }));
+      ...(spell.layerEffects && { elements: spell.layerEffects[index] }),
+      ...(spell.grand && { grand: true }),
+      ...(spell.large && { large: true }),
+    }));
+    player.shield = makeShield([...shieldLayers(player.shield), ...created]);
     events.push({
       type: 'shield',
       amount: spell.layers * layerCap + secondaryShieldBonus,
       layers: spell.layers,
       element: spell.effect,
-      layerEffects: spell.layerEffects,
       shieldKind: spell.effect ?? 'shield',
       grand: Boolean(spell.grand),
       large: Boolean(spell.large),
       elements: spell.elements ?? [],
+      protection: protection(),
     });
     if (spell.healing || secondaryHealBonus > 0) {
       const rawHeal = (spell.healing ?? 0) + healUpgradeBonus + secondaryHealBonus;
@@ -881,7 +873,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const riftHealBonus = inRift && rawHeal > 0 ? Math.ceil(rawHeal * RIFT_SPELL_BONUS / 100) + Math.floor((player.maxHp ?? 36) * 0.04) : 0;
     heal(rawHeal + riftHealBonus);
     if (secondaryShieldBonus > 0) {
-      events.push({ type: 'shield', amount: secondaryShieldBonus, secondary: true, shieldKind: 'bonus' });
+      events.push({ type: 'shield', amount: secondaryShieldBonus, secondary: true, shieldKind: 'bonus', protection: protection() });
       summary.sequence.push(`เกราะเสริมจากการ์ด +${secondaryShieldBonus}`);
     }
   } else {
@@ -982,7 +974,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (secondGrandTrigger) expandedBlast(secondGrandTrigger.trigger, secondGrandTrigger.warded, 'grand');
     if (spell.devastation) expandedBlast(ignition, warded, 'devastation');
     if (secondaryShieldBonus > 0) {
-      events.push({ type: 'shield', amount: secondaryShieldBonus, secondary: true, shieldKind: 'bonus' });
+      events.push({ type: 'shield', amount: secondaryShieldBonus, secondary: true, shieldKind: 'bonus', protection: protection() });
       summary.sequence.push(`เกราะเสริมจากการ์ด +${secondaryShieldBonus}`);
     }
     if (secondaryHealBonus > 0) {
@@ -1025,10 +1017,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const target = live().find(enemy => enemy.slot === slot);
     events.push({ type: 'magma-erupt', slot, target: target?.id, element: 'magma' });
     if (!target) continue;
-    if (!(target.magmaArmorUntil >= turn)) target.armor = Math.max(0, target.armor - 2);
-    target.magmaArmorUntil = turn + 1;
     damage(target, 6, 'magma', target.armor);
-    summary.sequence.push(`แอ่งแมกม่าช่อง ${slot + 1} · เกราะลดสูงสุด 2`);
+    applyEarthArmorShred(target, 2);
   }
   delete state.magmaPuddles;
   for (const [id, form] of formsHit) enemyById(id).readForm = form;
@@ -1054,7 +1044,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       enemy.chill = enemy.lastingChill ? 4 : 0;
       delete enemy.lastingChill;
       delete enemy.obscured;
-      const { actual, absorbed, beforeShield, remaining, broken, effects, shield } = applyIncomingToPlayer(action.amount, true);
+      const { actual, absorbed, effects, explosions } = applyIncomingToPlayer(action.amount, true);
       const attackerBase = ENEMIES[enemy.kind];
       const isBossAttacker = Boolean(attackerBase?.isBoss || isBossRoom(state));
       const isSpecialBoss = enemy.kind === 'ember_overlord' || enemy.kind === 'tempest_archon';
@@ -1081,22 +1071,21 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         heavy: isHeavyAttack,
         protection: protection(),
       });
-      if (shield && beforeShield > remaining) {
-        if (!shield.triggered) {
-          if (shield.effect) effects.push(shield.effect);
-          shield.triggered = true;
-        }
+      if (effects.size) {
         const shieldRank = upgrades.shield ?? 0;
-        const riftCounterScale = inRift ? 1 + RIFT_SPELL_BONUS / 100 : 1;
         for (const effect of effects) {
+          if (enemy.hp <= 0) break;
+          events.push({ type: 'shield-counter', target: enemy.id, element: effect });
           const elemRank = upgrades[effect] ?? 0;
           const wetBonus = enemy.wetUntil >= turn ? 2 : 0;
-          const counterBurn = Math.ceil((3 + (hasEmberCore ? 1 : 0) + Math.floor(shieldRank / 2) + Math.floor(elemRank / 2)) * riftCounterScale);
-          const counterDmg = Math.ceil((5 + Math.floor(shieldRank / 2) + elemRank) * riftCounterScale);
+          const counterBurn = 3 + (hasEmberCore ? 1 : 0) + Math.floor(shieldRank / 2) + Math.floor(elemRank / 2);
+          const counterDmg = 5 + Math.floor(shieldRank / 2) + elemRank;
           if (effect === 'fire') newBurn.set(enemy.id, (newBurn.get(enemy.id) ?? 0) + counterBurn);
-          if (effect === 'ice') enemy.chill += 4;
+          if (['ice', 'chillgale', 'frostvolt'].includes(effect)) enemy.chill += 4;
           if (effect === 'water') heal(2, false, 'water');
-          if (effect === 'lightning') damage(enemy, counterDmg + wetBonus, 'lightning', 2);
+          if (['lightning', 'plasma', 'magnet', 'shockstream', 'frostvolt'].includes(effect)) {
+            damage(enemy, counterDmg + wetBonus, effect, 2);
+          }
           if (effect === 'earth') {
             applyEarthArmorShred(enemy, 1);
             damage(enemy, Math.max(3, counterDmg - 2), 'earth');
@@ -1105,10 +1094,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
             enemy.healCutUntil = turn + 1;
             newBurn.set(enemy.id, (newBurn.get(enemy.id) ?? 0) + counterBurn);
           }
-          if (effect === 'heman') {
-            enemy.chill += 2;
-            enemy.lastingChill = true;
-          }
+          if (effect === 'heman') enemy.chill += 2;
+          if (effect === 'heman' || effect === 'chillgale') enemy.lastingChill = true;
           if (effect === 'asani') {
             damage(enemy, counterDmg + wetBonus, 'asani', 2);
             chainLightning(enemy, 5 + Math.floor(elemRank / 2), 2);
@@ -1119,7 +1106,17 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           }
           if (effect === 'wari') enemy.chill += 2;
           if (effect === 'magma') leaveMagma(enemy.slot);
-          if (effect === 'wind' || effect === 'vayu') pushEnemy(enemy);
+          if (effect === 'dust') applyEarthArmorShred(enemy, 1);
+          if (effect === 'permafrost' || effect === 'scald') applyEarthArmorShred(enemy, 2);
+          if (effect === 'heatwave') burnNearby(enemy);
+          if (['wind', 'vayu', 'dust', 'heatwave', 'chillgale'].includes(effect)) pushEnemy(enemy);
+          if (effect === 'monsoon') {
+            heal(4, false, 'water');
+            for (const target of live()) pushEnemy(target);
+          }
+          if (effect === 'magnet') pullNeighborsToward(enemy);
+          if (effect === 'shockstream') shockWetEnemies(enemy);
+          if (effect === 'frostvolt') chainLightning(enemy, counterDmg, 2, undefined, effect);
           applyMoisture(enemy, [effect]);
           if (effect === 'thunderstorm') {
             damage(enemy, counterDmg + wetBonus, effect, 2);
@@ -1127,9 +1124,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
             chainLightning(enemy, 5 + Math.floor(elemRank / 2), 2, undefined, effect);
           }
         }
-        if (broken && ['blast', 'akki-blast'].includes(shield.effect)) shieldBlast(broken, shield.effect === 'akki-blast' ? 'akki' : 'fire');
-        if (!shield.layers.length) player.shield = null;
       }
+      for (const element of explosions) shieldBlast(1, element);
     } else if (action.type === 'heal') {
       const target = action.target ? enemyById(action.target) : live().reduce((best, candidate) => candidate.hp / candidate.maxHp < best.hp / best.maxHp ? candidate : best);
       const amount = enemyHealing(target, action.amount);
@@ -1198,7 +1194,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       delete enemy.earthArmorShred;
     }
   }
-  if (player.shield?.expires <= turn) player.shield = null;
+  if (player.shield?.expires <= turn || player.shield?.layerDetails) {
+    player.shield = makeShield(shieldLayers(player.shield).filter(layer => layer.expires > turn));
+  }
+  summary.enemyArmorAfterTurn = Object.fromEntries(enemies.map(enemy => [enemy.id, enemy.armor]));
 
   summary.finalEnemyHp = Object.fromEntries(enemies.map(enemy => [enemy.id, enemy.hp]));
   state.stats.turns++;
@@ -1282,7 +1281,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const renewal = Math.max(0, Math.min(spell.shieldRenewal, spell.layerHp + shieldUpgradeBonus + (hasWorldloom ? 3 : 0) - layer));
       if (renewal > 0) {
         player.shield.layers[0] += renewal;
-        events.push({ type: 'shield', ...protection(), amount: player.shield.layers[0], restored: renewal, grand: Boolean(spell.grand), large: Boolean(spell.large), shieldKind: spell.effect ?? 'shield' });
+        events.push({ type: 'shield', protection: protection(), amount: renewal, restored: renewal, grand: Boolean(spell.grand), large: Boolean(spell.large), shieldKind: spell.effect ?? 'shield' });
         summary.sequence.push(`ต้นเทิร์นถัดไปเติมโล่ +${renewal}`);
       }
     }

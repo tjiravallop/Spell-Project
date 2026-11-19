@@ -1,3 +1,5 @@
+import { shieldLayers } from './shields.js';
+
 export const RARITIES = Object.freeze({
   common: 'ธรรมดา',
   rare: 'หายาก',
@@ -190,10 +192,9 @@ export function getWeaknessReaction(element, targetAffinity) {
 }
 export const elementFamily = id => SECOND_TIER_ELEMENTS[id] ?? FUSED_ELEMENTS[id] ?? id;
 export function fireShieldLayers(shield, element) {
-  if (!shield) return [];
-  if (shield.layerEffects) return shield.layerEffects.flatMap((layer, index) => layer.elements.includes(element) ? [index] : []);
-  const effect = element === 'akki' ? 'akki-blast' : 'blast';
-  return [element, effect].includes(shield.effect) ? shield.layers.map((_, index) => index) : [];
+  const explosive = element === 'akki' ? 'akki-blast' : 'blast';
+  return shieldLayers(shield).flatMap((layer, index) =>
+    layer.elements?.includes(element) || layer.effect === element || layer.effect === explosive ? [index] : []);
 }
 export const ELEMENTS = [
   'fire', 'ice', 'lightning', 'earth', 'water', 'wind',

@@ -1,3 +1,4 @@
+import { shieldProtection } from './shields.js';
 import { ENEMIES, FLOOR21_START_ROOM, RELIC_DRAFT_CATALOG } from './run.js';
 import { elementFamily } from './words.js';
 import { middleSprites } from './middle-sprites.js';
@@ -221,15 +222,7 @@ export class Battlefield {
   buildSnapshots() {
     const enemies = this.state?.enemies ?? [];
     const basePositions = this.positions();
-    const shield = this.state?.player.shield;
-    let curProtection = {
-      amount: shield?.layers.reduce((sum, hp) => sum + hp, 0) ?? 0,
-      layers: shield?.layers.length ?? 0,
-      element: shield?.effect,
-      layerEffects: shield?.layerEffects?.map(layer => layer.elements),
-      grand: Boolean(shield?.grand),
-      large: Boolean(shield?.large),
-    };
+    let curProtection = shieldProtection(this.state?.player.shield);
     const curPositions = [...basePositions];
     const curDead = new Set();
     const curWards = Object.fromEntries(enemies.map(e => [e.id, e.ward]));
@@ -298,7 +291,7 @@ export class Battlefield {
         }
       }
       if (ev.type === 'dispel') curWards[ev.target] = 0;
-      if (ev.type === 'shield') curProtection = ev;
+      if (ev.type === 'shield') curProtection = ev.protection ?? ev;
       else if (ev.type === 'brace') curProtection = ev.protection;
       else if (ev.type === 'attack' || ev.type === 'mirror-reflect' || ev.type === 'ember-thorns' || ev.type === 'storm-static') curProtection = ev.protection;
       else if (ev.type === 'blast' && ev.protection) curProtection = ev.protection;
@@ -790,16 +783,8 @@ export class Battlefield {
     }
     this.sprite('wizard', 51 + (playerPose === 'hurt' && !this.settings.reducedMotion && frame % 2 ? -2 : 0), 147, frame, playerPose, null, progress);
 
-    const shield = this.state?.player.shield;
-    let protection = snap ? snap.protection : {
-      amount: shield?.layers.reduce((sum, hp) => sum + hp, 0) ?? 0,
-      layers: shield?.layers.length ?? 0,
-      element: shield?.effect,
-      layerEffects: shield?.layerEffects?.map(layer => layer.elements),
-      grand: Boolean(shield?.grand),
-      large: Boolean(shield?.large),
-    };
-    if (event?.type === 'shield') protection = event;
+    let protection = snap?.protection ?? shieldProtection(this.state?.player.shield);
+    if (event?.type === 'shield') protection = event.protection ?? event;
     if (event?.type === 'brace') protection = event.protection;
     if (event?.type === 'blast' && event.protection) protection = event.protection;
     const shieldHit = impact && event?.absorbed > 0;
@@ -811,14 +796,16 @@ export class Battlefield {
       const shieldOpts = {
         grand: Boolean(protection.grand),
         large: Boolean(protection.large),
-        shieldKind: protection.shieldKind ?? protection.element ?? 'shield',
+        shieldKind: protection.shieldKind ?? protection.element ?? event?.shieldKind ?? 'shield',
         restored: Boolean(protection.restored),
       };
       const shieldScale = shieldOpts.grand ? 5 : shieldOpts.large ? 2 : 1;
-      if (protection.layers === 2 || front?.[1]) {
-        const outerW = Math.round(48 * shieldScale);
-        const outerTop = 148 - Math.round(49 * shieldScale);
-        this.barrier(51, outerTop, outerW, elementColor[secondaryElem] ?? C[26], false, secondaryElem, now, shieldCasting ? progress : 1, true, shieldOpts);
+      const outerLayers = Math.max(protection.layers - 1, front?.[1] ? 1 : 0);
+      for (let layer = outerLayers; layer > 0; layer--) {
+        const element = protection.layerEffects?.[layer]?.[0] ?? secondaryElem;
+        const outerW = Math.round((42 + 6 * layer) * shieldScale);
+        const outerTop = 148 - Math.round((45 + 4 * layer) * shieldScale);
+        this.barrier(51, outerTop, outerW, elementColor[element] ?? C[26], false, element, now, shieldCasting ? progress : 1, true, shieldOpts);
       }
       const shieldBroke = shieldHit && protection.layers > (event.protection?.layers ?? 0);
       const shieldImpact = shieldHit && protection.layers > 0 && event.type === 'attack' && !this.settings.reducedMotion

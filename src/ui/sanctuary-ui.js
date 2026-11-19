@@ -9,6 +9,7 @@ import {
   getAvailableShopItems,
   getEquippedRelics,
   getCardUpgradeLevel,
+  deckCapacity,
   hasCardSecondaryUpgrade,
   getCardUpgradeCost,
   getCardUpgradeSuccessRate,
@@ -16,13 +17,9 @@ import {
   getCardSecondaryEffect,
   describeCardUpgradeEffect,
   getFloorInfo,
-  FLOOR5_START_ROOM,
-  FLOOR11_START_ROOM,
-  FLOOR15_START_ROOM,
-  UPPER_RESTS,
-  isSanctuaryUnlocked,
   isSanctuaryFloorUnlocked,
-  getSanctuaryNextRoom,
+  getSanctuaryCheckpoints,
+  getSanctuaryContinueRoom,
   restAtSanctuary,
   updateSanctuaryLoadout,
   ENEMIES,
@@ -34,8 +31,7 @@ import { cardFilterControls, applyCardFilters } from './card-filters.js';
 import {
   $,
   escape,
-  upperCheckpoint,
-  checkpointFloor,
+  restLocationLabel,
   cardMeta,
   rarityClass,
   playingCardFace,
@@ -55,16 +51,10 @@ export function renderSanctuaryTravel(state) {
     floors.get(info.floor).push({ index, info, enemies });
   });
 
-  const allPossibleRests = [];
-  for (let d = 0; d < 5; d++) {
-    const mid = d * 10 + 5;
-    const boss = (d + 1) * 10;
-    allPossibleRests.push([mid, `จุดพักชั้น ${mid}`, isSanctuaryFloorUnlocked(state, mid)]);
-    allPossibleRests.push([`pre${boss}`, `จุดพักก่อนบอสใหญ่ ${boss}`, isSanctuaryFloorUnlocked(state, `pre${boss}`)]);
-    allPossibleRests.push([`post${boss}`, `จุดพักหลังบอสใหญ่ ${boss}`, isSanctuaryFloorUnlocked(state, `post${boss}`)]);
-  }
   const currentSanctuary = state.sanctuaryFloor ?? 5;
-  const rests = allPossibleRests.filter(([floor, , unlocked]) => unlocked && floor !== currentSanctuary);
+  const rests = getSanctuaryCheckpoints(state)
+    .filter(floor => floor !== currentSanctuary && isSanctuaryFloorUnlocked(state, floor))
+    .map(floor => [floor, restLocationLabel(floor)]);
   const floorOptions = [...floors.keys()].reverse().map(floor =>
     `<option value="floor-${floor}">ชั้น ${floor}</option>`).join('');
   const restOptions = rests.map(([floor, label]) =>
@@ -140,25 +130,22 @@ export function renderSanctuary(ctx) {
     }
   }
 
-  const healPreview = Math.min(Math.max(10, Math.ceil(p.maxHp * 0.4)), p.maxHp - p.hp);
+  const healPreview = p.maxHp - p.hp;
   const canHeal = healPreview > 0 || p.mana < p.maxMana;
   const restBtn = $('sanctuary-rest-btn');
   restBtn.disabled = state.sanctuaryRested || !canHeal;
   $('sanctuary-rest-label').textContent = state.sanctuaryRested ? 'พักแล้ว' : canHeal ? 'พักฟื้น' : 'พลังเต็ม';
   $('sanctuary-rest-gain').textContent = !restBtn.disabled
-    ? [healPreview ? `+${healPreview} HP` : '', p.mana < p.maxMana ? 'เติม MP' : ''].filter(Boolean).join(' · ')
+    ? [healPreview ? `+${healPreview} HP` : '', p.mana < p.maxMana ? 'เติมมานาเต็ม' : ''].filter(Boolean).join(' · ')
     : '';
 
   const nextRoomBtn = $('sanctuary-next-room-btn');
   if (nextRoomBtn) {
-    const cleared = state.clearedRooms ?? [];
-    const highest = Math.min(state.rooms.length - 1, Math.max(state.highestRoom ?? 0, state.room));
-    const defaultRestart = getSanctuaryNextRoom(state, sanctuaryFloor);
-    const targetRoomIdx = Math.min(defaultRestart, highest);
+    const targetRoomIdx = getSanctuaryContinueRoom(state);
     const fInfo = getFloorInfo(targetRoomIdx, state.rooms.length);
-    const isRepeat = cleared.includes(targetRoomIdx);
+    const isRepeat = state.clearedRooms?.includes(targetRoomIdx);
     nextRoomBtn.dataset.revisitRoom = String(targetRoomIdx);
-    const destination = fInfo.isBoss ? fInfo.displayName : `${fInfo.code}`;
+    const destination = fInfo.isBoss ? `บอสชั้น ${fInfo.floor}` : `ชั้น ${fInfo.floor} · ห้อง ${fInfo.code}`;
     $('sanctuary-next-room-label').textContent = isRepeat ? `เล่นซ้ำ · ${destination}` : `ไต่ต่อ · ${destination}`;
   }
 
@@ -226,7 +213,7 @@ export function renderSanctuary(ctx) {
   renderSanctuaryTravel(state);
 
   const activeEquipped = ctx.getEquipped();
-  const cap = Math.min(7, START_WORDS.length + state.learned.length);
+  const cap = deckCapacity(state);
   if ($('sanctuary-deck-count')) {
     $('sanctuary-deck-count').textContent = `เลือก ${activeEquipped.length} / ${cap} คำ`;
   }
@@ -364,7 +351,7 @@ export function bindSanctuaryEvents(ctx) {
       ctx.setState(restAtSanctuary(ctx.getState()));
       ctx.persist();
       ctx.audio.play('win');
-      ctx.toast('🔥 พักฟื้นที่กองไฟสำเร็จ! ฟื้นพลังชีวิตและเติมมานาเต็มแล้ว');
+      ctx.toast('พักที่กองไฟแล้ว · HP และมานาเต็ม');
       renderSanctuary(ctx);
       $('sanctuary-next-room-btn').focus({ preventScroll: true });
     } catch (error) { ctx.toast(error.message); }

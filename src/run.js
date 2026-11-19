@@ -1,3 +1,4 @@
+import { makeShield, shieldLayers } from './shields.js';
 import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS } from './words.js';
 import { RIFT_ENEMIES, RIFT_TOWER, SPACED_FLOORS } from './upper-tower.js';
 import { MIDDLE_BATTLES, MIDDLE_ENEMIES } from './middle-tower.js';
@@ -1174,6 +1175,39 @@ export function makeRewards(state) {
   state.phase = 'reward';
 }
 
+function earlyBossRewards(state) {
+  return [2, 5].filter(room => (state.rewardedBossRooms ?? []).includes(room)
+    || ((state.highestRoom ?? state.room) > room && !(state.phase === 'reward' && state.room === room))).length;
+}
+
+export function deckCapacity(state) {
+  const owned = new Set([...START_WORDS, ...(state.collection ?? [])]).size;
+  const unlocked = Math.max(START_WORDS.length + earlyBossRewards(state), START_WORDS.length + (state.learned?.length ?? 0), state.player?.words?.length ?? 0);
+  return Math.min(7, owned, unlocked);
+}
+
+export function repairEarlyDeck(state, fillWords = true) {
+  if (state.phase === 'lost') return;
+  const needed = Math.min(7, START_WORDS.length + earlyBossRewards(state));
+  const savedRng = state.rng;
+  try {
+    while (new Set([...START_WORDS, ...state.collection]).size < needed) {
+      const candidates = getRewardPool(state).filter(id => !ownsRewardWord(state, id));
+      if (!candidates.length) break;
+      const id = drawReward(state, candidates);
+      state.collection.push(id);
+    }
+  } finally {
+    state.rng = savedRng;
+  }
+  if (!fillWords) return;
+  const cap = deckCapacity(state);
+  for (const id of [...START_WORDS, ...state.collection]) {
+    if (state.player.words.length >= cap) break;
+    if (!state.player.words.includes(id)) state.player.words.push(id);
+  }
+}
+
 export function offerMissedElementReward(state) {
   if (state.room !== FLOOR30_BOSS_ROOM || state.phase !== 'won') return;
   completeUpperFloor(state);
@@ -1244,7 +1278,8 @@ export function chooseReward(original, id) {
   state.rewardedBossRooms ??= [];
   if (!state.rewardedBossRooms.includes(state.room)) state.rewardedBossRooms.push(state.room);
   state.rewards = [];
-  const cap = Math.min(7, START_WORDS.length + state.learned.length);
+  repairEarlyDeck(state, false);
+  const cap = deckCapacity(state);
   if (state.player.words.length < cap && !state.player.words.includes(id)) {
     state.player.words.push(id);
   }
@@ -1376,6 +1411,14 @@ function resetPlayerForSanctuaryFallback(state) {
   });
 }
 
+export function clearLostRunProgress(state) {
+  state.collection = [];
+  state.learned = [];
+  state.player.words = [...START_WORDS];
+  state.player.hand = [];
+  state.stats.discovered = [];
+}
+
 export function fallBackOnDefeat(state) {
   const room = state.room;
   const D = Math.floor(room / 25);
@@ -1384,6 +1427,7 @@ export function fallBackOnDefeat(state) {
   if (rel < 12) {
     if (D === 0) {
       state.phase = 'lost';
+      clearLostRunProgress(state);
       return { phase: 'lost' };
     }
     const rest = `post${D * 10}`;
@@ -1464,7 +1508,7 @@ export function fallBackToUpperSanctuary(state) {
 
 export function validateDeckWords(original, words) {
   const available = [...START_WORDS, ...original.collection];
-  const cap = Math.min(7, START_WORDS.length + original.learned.length);
+  const cap = deckCapacity(original);
   if (!Array.isArray(words) || words.length !== cap || new Set(words).size !== words.length || words.some(word => !available.includes(word))) {
     throw new Error('ชุดคำไม่ถูกต้อง');
   }
@@ -1514,6 +1558,26 @@ export function getSanctuaryNextRoom(state, sanctuaryFloor) {
   return 0;
 }
 
+export function getSanctuaryCheckpoints(state) {
+  const lastFloor = getFloorInfo(state.rooms.length - 1, state.rooms.length).floor;
+  const checkpoints = [];
+  for (let boss = 10; boss <= lastFloor; boss += 10) {
+    checkpoints.push(boss - 5, `pre${boss}`);
+    if (boss < lastFloor) checkpoints.push(`post${boss}`);
+  }
+  return checkpoints;
+}
+
+export function getSanctuaryContinueRoom(state) {
+  const highest = Math.min(state.rooms.length - 1, Math.max(state.highestRoom ?? 0, state.room));
+  const start = Math.min(getSanctuaryNextRoom(state), highest);
+  const cleared = new Set(state.clearedRooms ?? []);
+  for (let room = start; room <= highest; room++) {
+    if (!cleared.has(room)) return room;
+  }
+  return start;
+}
+
 export function enterSanctuary(original, options = {}) {
   if (!original || original.phase === 'lost') throw new Error('ไม่สามารถเข้าชั้นพักได้ในขณะนี้');
   const rawOpt = options.floor;
@@ -1549,8 +1613,7 @@ export function restAtSanctuary(original) {
   if (original.phase !== 'sanctuary') throw new Error('พักฟื้นได้เฉพาะที่ชั้นพักเท่านั้น');
   if (original.sanctuaryRested) throw new Error('คุณได้พักฟื้นที่กองไฟในรอบการแวะนี้แล้ว');
   const state = structuredClone(original);
-  const healAmount = Math.max(10, Math.ceil(state.player.maxHp * 0.4));
-  state.player.hp = Math.min(state.player.maxHp, state.player.hp + healAmount);
+  state.player.hp = state.player.maxHp;
   state.player.mana = state.player.maxMana;
   state.sanctuaryRested = true;
   return state;
@@ -1997,13 +2060,7 @@ export function useBattleItem(original, beltIndex) {
     state.handRng = draw.rng;
     effectText = `เปิดหน้าตำราเรียกคำ · จั่วเพิ่ม ${amount} ใบ`;
   } else if (itemId === 'aegis_shard') {
-    if (p.shield && Array.isArray(p.shield.layers) && p.shield.layers.length < 2) {
-      p.shield.layers.push(6);
-      p.shield.expires = Math.max(p.shield.expires, state.turn + 1);
-      if (p.shield.layerEffects) p.shield.layerEffects.push({ elements: ['ice'], triggered: false });
-    } else {
-      p.shield = { layers: [6], expires: state.turn + 1, effect: null, triggered: false };
-    }
+    p.shield = makeShield([...shieldLayers(p.shield), { hp: 6, expires: state.turn + 1, effect: null, triggered: false }]);
     effectText = 'บดผลึกโล่ฉุกเฉิน · กางโล่เวทป้องกัน +6 หน่วยทันที!';
   } else if (itemId === 'coral_barrier_tome') {
     p.shield = { layers: [20], expires: state.turn + 1, effect: null, triggered: false };
