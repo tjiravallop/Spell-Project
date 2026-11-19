@@ -1,4 +1,4 @@
-import { WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, ELEMENT_VULNERABILITY, ELEMENT_SECONDARY_VULNERABILITY, ELEMENT_LABELS, ELEMENT_GLYPHS } from '../words.js';
+import { WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, ELEMENT_VULNERABILITY, ELEMENT_SECONDARY_VULNERABILITY, ELEMENT_LABELS, ELEMENT_GLYPHS, ELEMENT_ICONS } from '../words.js';
 import {
   HAND_LIMIT,
   MAX_BELT_ITEMS,
@@ -362,10 +362,15 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const projectedAction = after === null ? action : forecast.summary.enemyActions?.[enemy.id] ?? { type: 'dead' };
     const badges = [];
     const enemyAffinity = enemy.affinity ?? base.affinity ?? null;
+    let weakNames = '';
     if (enemyAffinity && ELEMENT_VULNERABILITY[enemyAffinity]) {
-      const weakElem = ELEMENT_VULNERABILITY[enemyAffinity];
-      const weakNames = [weakElem, ELEMENT_SECONDARY_VULNERABILITY[enemyAffinity]].map(id => ELEMENT_LABELS[id]).join(' / ');
-      badges.push(`<span class="enemy-badge badge-affinity affinity-${enemyAffinity}" title="ธาตุ ${ELEMENT_LABELS[enemyAffinity]} · แพ้ทาง ${weakNames} (+25% ดาเมจ) · ต้านทาน ${ELEMENT_LABELS[enemyAffinity]} (−20% ดาเมจ)">${ELEMENT_GLYPHS[enemyAffinity]} ${ELEMENT_LABELS[enemyAffinity]} (แพ้ ${weakNames})</span>`);
+      const primaryWeak = ELEMENT_VULNERABILITY[enemyAffinity];
+      const secondaryWeak = ELEMENT_SECONDARY_VULNERABILITY[enemyAffinity];
+      weakNames = [primaryWeak, secondaryWeak].map(id => ELEMENT_LABELS[id]).join(' / ');
+      const weakIcons = `${ELEMENT_ICONS[primaryWeak] || ''} ${ELEMENT_ICONS[secondaryWeak] || ''}`.trim();
+      const affIcon = ELEMENT_ICONS[enemyAffinity] || ELEMENT_GLYPHS[enemyAffinity] || '';
+      badges.push(`<span class="enemy-badge badge-affinity affinity-${enemyAffinity}" title="ธาตุ ${ELEMENT_LABELS[enemyAffinity]} · ต้านทาน ${ELEMENT_LABELS[enemyAffinity]} (−20% ดาเมจ)">${affIcon} ${ELEMENT_LABELS[enemyAffinity]}</span>`);
+      badges.push(`<span class="enemy-badge badge-weakness" title="จุดอ่อน (+25% ดาเมจ): ${weakNames} (${weakIcons})">แพ้: ${weakIcons}</span>`);
     }
     // Show slot number from Floor 11+ so slot-targeted intents (ฮีล #N, ม่าน #N, เข้าช่อง N) are legible at a glance
     if (state.room >= FLOOR11_START_ROOM) badges.push(`<span class="enemy-badge">#${enemy.slot + 1}</span>`);
@@ -403,7 +408,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const intentClass = action.type === 'attack' && action.amount >= 6 ? 'heavy' : action.type;
     const baseIntentLabel = action.shortLabel ?? (action.type === 'attack' ? `${icon('sword')} ${action.amount}` : action.type === 'heal' ? `${icon('heal')} ${action.amount}` : action.type === 'charge' ? 'ชาร์จ' : action.type === 'sealed' ? 'ติดผนึก' : action.type === 'recover' ? 'เปิดช่อง' : 'แช่แข็ง');
     const intentLabel = String(baseIntentLabel).includes('<svg') ? baseIntentLabel : `${intentIconHtml(action)} ${baseIntentLabel}`;
-    const description = [base.name, `ช่อง ${enemy.slot + 1}`, `HP ${enemy.hp}/${enemy.maxHp}`, action.label, exposedHint, readLabel && `รูปเวทที่จำ ${readLabel}`, readHint, bossHint, trait?.passive(state.turn), trait?.counter].filter(Boolean).join(' · ');
+    const description = [base.name, `ช่อง ${enemy.slot + 1}`, `HP ${enemy.hp}/${enemy.maxHp}`, enemyAffinity && weakNames && `ธาตุ ${ELEMENT_LABELS[enemyAffinity]} (แพ้ ${weakNames})`, action.label, exposedHint, readLabel && `รูปเวทที่จำ ${readLabel}`, readHint, bossHint, trait?.passive(state.turn), trait?.counter].filter(Boolean).join(' · ');
     const predicted = finalHp ?? after;
     const projectedLabel = projectedAction.type === 'dead' ? ' → 0'
       : projectedAction.type === 'sealed' && action.type !== 'sealed' ? ' → ผนึก'

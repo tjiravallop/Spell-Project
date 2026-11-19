@@ -353,6 +353,7 @@ body.reduced-motion .turn-label{animation:none!important}
 .enemy-badge.badge-burn{background:#2e1a15;border-color:#8a4936;color:#ffb89e}
 .enemy-badge.badge-push{background:#202418;border-color:#5c6943;color:#d6e3b5}
 .enemy-badge.badge-affinity{font-weight:700;letter-spacing:0.2px}
+.enemy-badge.badge-weakness{background:#2b2210;border-color:#9e7a2b;color:#ffe699;font-weight:700;letter-spacing:0.2px}
 .enemy-badge.affinity-fire{background:#2a1410;border-color:#8c3824;color:#ff9e80}
 .enemy-badge.affinity-ice{background:#0e1e2b;border-color:#2a6a8c;color:#9ce3ff}
 .enemy-badge.affinity-wind{background:#12241b;border-color:#387854;color:#a3f0be}

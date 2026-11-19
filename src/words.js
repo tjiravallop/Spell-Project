@@ -140,6 +140,15 @@ export const ELEMENT_GLYPHS = Object.freeze({
   water: '≈',
 });
 
+export const ELEMENT_ICONS = Object.freeze({
+  fire: '🔥',
+  ice: '❄️',
+  wind: '💨',
+  earth: '🪨',
+  lightning: '⚡',
+  water: '💧',
+});
+
 export function getElementComponents(element) {
   if (!element) return [];
   if (Array.isArray(element)) return [...new Set(element.flatMap(getElementComponents))];

@@ -622,3 +622,22 @@ test('renderWordBank renders button-based discard cards and alert banner during 
     globalThis.document = oldDocument;
   }
 });
+
+test('enemy affinity and weakness badges render on enemy cards with elemental icons', () => {
+  const oldDocument = globalThis.document;
+  const list = { innerHTML: '' };
+  globalThis.document = { getElementById: id => id === 'enemy-list' ? list : null };
+  try {
+    const state = createRun('affinity-badge-test', false);
+    state.enemies = [createEnemy('ember_imp', 0)];
+    prepareEnemies(state);
+    const battlefield = { positions: () => [126] };
+    renderEnemies({ state, battlefield, targetId: 'enemy-0', busy: false }, null);
+    assert.match(list.innerHTML, /class="enemy-badge badge-affinity affinity-fire"/);
+    assert.match(list.innerHTML, /🔥 ไฟ/);
+    assert.match(list.innerHTML, /class="enemy-badge badge-weakness"/);
+    assert.match(list.innerHTML, /แพ้: 💧 ❄️/);
+  } finally {
+    globalThis.document = oldDocument;
+  }
+});
