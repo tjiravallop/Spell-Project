@@ -512,7 +512,7 @@ test('CSS impact overlay separates is-compact (1x), is-boosted, is-large (2x), a
 
 
 test('new upper-tower middleSprites render distinct pixel silhouettes without throwing', () => {
-  const kinds = ['gate_weaver', 'mirror_regent', 'seam_warden', 'loom_sovereign', 'rift_runner', 'lattice_guard', 'thread_archer', 'ward_scribe', 'ward_keeper', 'rune_ram', 'seal_curator'];
+  const kinds = ['gate_weaver', 'mirror_regent', 'seam_warden', 'loom_sovereign', 'rift_runner', 'lattice_guard', 'thread_archer', 'ward_scribe', 'ward_keeper', 'rune_ram', 'seal_curator', 'void_imp', 'obsidian_golem', 'crown_archivist'];
   const signatures = new Set();
   for (const kind of kinds) {
     const rects = [];
@@ -658,4 +658,20 @@ test('Floors 21-25 redesigned monsters have authentic names, traits, affinities 
   assert.equal(ENEMIES.seal_curator.affinity, 'fire');
   assert.equal(ENEMIES.seal_curator.sprite, undefined);
   assert.ok(ENEMY_TRAITS.seal_curator);
+});
+
+test('Floors 26-30 redesigned monsters have authentic names, traits, affinities and no borrowed sprites', () => {
+  assert.equal(ENEMIES.void_imp.name, 'กบอัคนี');
+  assert.equal(ENEMIES.void_imp.affinity, 'fire');
+  assert.equal(ENEMIES.void_imp.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.void_imp);
+
+  assert.equal(ENEMIES.obsidian_golem.name, 'หมูป่าหินผา');
+  assert.equal(ENEMIES.obsidian_golem.affinity, 'earth');
+  assert.equal(ENEMIES.obsidian_golem.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.obsidian_golem);
+
+  assert.equal(ENEMIES.crown_archivist.name, 'เจ้าแห่งหอจารึก');
+  assert.equal(ENEMIES.crown_archivist.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.crown_archivist);
 });

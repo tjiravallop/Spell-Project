@@ -241,4 +241,101 @@ export const middleSprites = {
     r(27, 6, 4, 4, flameTip);
     r(28, 7, 2, 2, c[31]);
   },
+  void_imp(r, c, pose, frame) {
+    // กบอัคนี (Flame Toad) - Volcanic toad with pulsing molten throat & fiery tongue
+    const atk = pose === 'attack';
+    const puff = frame % 2 ? 1 : 0;
+    const glow = atk ? c[31] : frame % 2 ? c[31] : c[30];
+    // Bulging Eyes with golden slits
+    r(7, 8, 5, 5, c[17]); r(8, 9, 3, 3, c[31]); r(9, 10, 1, 2, c[10]);
+    r(20, 8, 5, 5, c[17]); r(21, 9, 3, 3, c[31]); r(22, 10, 1, 2, c[10]);
+    // Head & Body
+    r(8, 12, 16, 7, c[17]);
+    r(6, 17, 20, 10, c[16]);
+    // Mottled flame warts
+    r(9, 13, 3, 3, c[19]); r(18, 14, 3, 3, c[19]); r(14, 11, 4, 3, c[18]);
+    // Wide mouth
+    r(8, 16, 16, 2, c[10]);
+    // Pulsing molten throat sac
+    r(11 - puff, 17, 10 + puff * 2, 8, glow);
+    r(13, 19, 6, 4, c[31]);
+    r(14, 20, 4, 2, c[9]);
+    // Haunches & webbed feet
+    r(4, 19, 5, 8, c[16]); r(23, 19, 5, 8, c[16]);
+    r(8, 26, 4, 4, c[17]); r(6, 29, 6, 2, c[18]);
+    r(20, 26, 4, 4, c[17]); r(20, 29, 6, 2, c[18]);
+    // Attack: shoot fiery tongue!
+    if (atk) {
+      r(0, 15, 9, 3, c[18]);
+      r(0, 15, 8, 2, c[31]);
+      r(0, 14, 3, 4, c[31]);
+    }
+  },
+  obsidian_golem(r, c, pose, frame) {
+    // หมูป่าหินผา (Crag Boar) - Heavy stone boar with massive crag tusks
+    const atk = pose === 'attack';
+    const lk = atk ? 4 : frame % 2;
+    // Rugged Head & Snout
+    r(4 - (atk ? 3 : 0), 12, 10, 10, c[11]);
+    r(6 - (atk ? 3 : 0), 13, 8, 8, c[12]);
+    r(2 - (atk ? 3 : 0), 16, 4, 6, c[10]);
+    r(1 - (atk ? 3 : 0), 18, 3, 3, c[11]);
+    r(6 - (atk ? 3 : 0), 14, 2, 2, c[31]);
+    r(11 - (atk ? 3 : 0), 9, 3, 4, c[11]);
+    // Massive upward-curving crag tusks
+    r(1 - (atk ? 3 : 0), 14, 3, 6, c[14]);
+    r(0 - (atk ? 3 : 0), 12, 3, 4, c[15]);
+    r(0 - (atk ? 3 : 0), 10, 2, 3, c[9]);
+    // Heavy Crag Carapace & Spines on Spine
+    r(10, 11, 18, 13, c[10]);
+    r(12, 12, 15, 11, c[11]);
+    r(11, 7, 3, 5, c[6]);
+    r(16, 6, 4, 6, c[7]);
+    r(22, 8, 3, 4, c[6]);
+    r(14, 16, 4, 3, c[13]);
+    r(20, 17, 4, 3, c[13]);
+    // 4 legs with stone hooves
+    r(6 - lk, 22, 4, 7, c[10]); r(5 - lk, 28, 5, 3, c[12]);
+    r(11 + lk, 22, 3, 6, c[11]); r(11 + lk, 27, 4, 3, c[12]);
+    r(19 - lk, 22, 4, 7, c[10]); r(19 - lk, 28, 5, 3, c[12]);
+    r(24 + lk, 22, 3, 6, c[11]); r(24 + lk, 27, 4, 3, c[12]);
+    r(28, 14, 2, 4, c[11]);
+  },
+  crown_archivist(r, c, pose, frame) {
+    // เจ้าแห่งหอจารึก (The Crown Archivist - Floor 30★ Major Boss, auto 2x scale)
+    const atk = pose === 'attack';
+    const floatY = [0, -1, 0, 1][frame % 4];
+    const light = atk ? c[31] : frame % 2 ? c[30] : c[31];
+    // Radiant Golden Crown & Spires
+    r(12, 2, 8, 5, c[30]);
+    r(11, 0, 10, 3, c[31]);
+    r(10, -1, 2, 3, c[9]);
+    r(15, -2, 2, 4, c[9]);
+    r(20, -1, 2, 3, c[9]);
+    // Celestial Face & Arcane Eyes
+    r(13, 6, 6, 6, c[15]);
+    r(14, 7, 2, 2, c[31]);
+    r(17, 7, 2, 2, c[31]);
+    // Celestial Wings / Ethereal Mantle spreading wide
+    r(2, 6 + floatY, 8, 18, c[21]);
+    r(4, 8 + floatY, 6, 14, c[23]);
+    r(1, 4 + floatY, 4, 6, c[31]);
+    r(22, 6 + floatY, 8, 18, c[21]);
+    r(22, 8 + floatY, 6, 14, c[23]);
+    r(27, 4 + floatY, 4, 6, c[31]);
+    // Grand Royal Robes & Golden Sash
+    r(10, 11, 12, 18, c[20]);
+    r(11, 13, 10, 15, c[22]);
+    r(13, 12, 6, 17, c[30]);
+    r(14, 13, 4, 15, c[31]);
+    r(12, 21, 2, 2, c[31]);
+    r(18, 21, 2, 2, c[31]);
+    r(15, 25, 2, 2, c[9]);
+    // Floating Runic Archive Tablets revolving around
+    r(0, 13 + floatY, 5, 8, c[14]);
+    r(1, 14 + floatY, 3, 6, light);
+    r(27, 13 - floatY, 5, 8, c[14]);
+    r(28, 14 - floatY, 3, 6, light);
+    r(14, 4, 4, 2, c[9]);
+  },
 };

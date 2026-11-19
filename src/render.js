@@ -416,6 +416,8 @@ export class Battlefield {
       r(pose === 'cast' ? 19 : 21, pose === 'cast' ? 17 : 22, 6, 4, C[19]);
       r(27, 9, 2, 23, C[13]); r(25, 5, 6, 7, C[25]); r(26, 6, 4, 4, C[27]);
       r(26, 4, 4, 1, C[7]); r(9, 6, 3, 1, C[14]);
+    } else if (Object.hasOwn(middleSprites, kind)) {
+      middleSprites[kind](r, C, pose, this.settings.reducedMotion ? 0 : frame);
     } else if (kind === 'swarm') {
       r(6, 17, 20, 3, C[5]); r(3, 20, 26, 8, C[6]); r(1, 26, 30, 4, C[5]); r(4, 29, 25, 3, C[4]);
       r(7, 20, 6, 3, C[8]); r(9, 24, 3, 3, C[0]); r(21, 24, 3, 3, C[0]); r(15, 28, 4, 1, C[0]);
@@ -524,8 +526,6 @@ export class Battlefield {
       r(11, 17, 11, 8, C[15]); r(12, 19, 2, 2, C[0]); r(19, 19, 2, 2, C[0]);
       r(9, 25, 15, 5, cap); r(7, 30, 7, 2, C[12]); r(20, 30, 7, 2, C[12]);
       r(25, 21, 3, 11, C[12]); r(24, 19, 6, 4, trim);
-    } else if (Object.hasOwn(middleSprites, kind)) {
-      middleSprites[kind](r, C, pose, this.settings.reducedMotion ? 0 : frame);
     } else if (['charger', 'sentinel', 'rune_golem', 'storm_titan', 'obsidian_golem', 'astral_sentinel', 'thunder_colossus'].includes(kind)) {
       const shell = ['storm_titan', 'thunder_colossus'].includes(kind) ? C[10] : kind === 'obsidian_golem' ? C[1] : kind === 'astral_sentinel' ? C[20] : kind === 'rune_golem' ? C[11] : C[12];
       const body = ['storm_titan', 'thunder_colossus'].includes(kind) ? C[28] : kind === 'obsidian_golem' ? C[3] : kind === 'astral_sentinel' ? C[21] : C[13];
