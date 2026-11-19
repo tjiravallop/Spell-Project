@@ -133,4 +133,112 @@ export const middleSprites = {
     r(26, 15, 4, 4, c[17]); r(29, 12, 2, 4, c[19]);
     r(10, 18, 3, 7, c[14]); r(13, 25, 3, 2, c[13]); r(16, 27, 4, 2, c[14]); r(20, 29, 4, 2, c[13]);
   },
+  ward_keeper(r, c, pose, frame) {
+    // ด้วงเกราะเพลิง (Blaze Beetle) - Heavy fire beetle with horned pincers & lava seams
+    const atk = pose === 'attack';
+    const lk = atk ? 3 : frame % 2;
+    const glow = atk ? c[31] : frame % 2 ? c[30] : c[19];
+    // Front horn & pincers
+    r(1 - (atk ? 2 : 0), 6, 3, 5, c[16]);
+    r(3 - (atk ? 2 : 0), 4, 3, 4, c[18]);
+    r(5 - (atk ? 1 : 0), 6, 3, 5, c[17]);
+    r(2 - (atk ? 2 : 0), 4, 2, 2, glow);
+    r(3 - (atk ? 1 : 0), 13, 4, 3, c[16]);
+    // Head & glowing eye
+    r(6, 10, 6, 8, c[10]);
+    r(7, 11, 5, 6, c[16]);
+    r(7, 12, 2, 2, c[31]);
+    // Carapace / Shell
+    r(11, 8, 17, 14, c[16]);
+    r(13, 9, 14, 12, c[17]);
+    r(15, 11, 10, 8, c[18]);
+    // Lava seams down shell
+    r(14, 14, 11, 2, glow);
+    r(18, 10, 2, 10, glow);
+    r(10, 21, 18, 4, c[11]);
+    // 6 legs
+    r(7 - lk, 20, 3, 6, c[10]); r(5 - lk, 25, 3, 4, c[11]);
+    r(14 + lk, 22, 4, 6, c[10]); r(13 + lk, 27, 3, 3, c[11]);
+    r(22 - lk, 21, 4, 6, c[10]); r(25 - lk, 26, 4, 4, c[11]);
+  },
+  rune_ram(r, c, pose, frame) {
+    // แพะผาศิลา (Crag Ram) - Rocky horned mountain ram
+    const atk = pose === 'attack';
+    const chg = pose === 'charge';
+    const dip = chg ? 2 : 0;
+    const lk = atk ? 4 : [0, 1, 0, -1][frame % 4];
+    // Head & Muzzle
+    r(5 - (atk ? 3 : 0), 9 + dip, 8, 9, c[12]);
+    r(7 - (atk ? 3 : 0), 10 + dip, 6, 7, c[13]);
+    r(3 - (atk ? 3 : 0), 14 + dip, 4, 5, c[11]);
+    r(2 - (atk ? 3 : 0), 16 + dip, 2, 3, c[10]);
+    r(6 - (atk ? 3 : 0), 12 + dip, 2, 2, c[31]);
+    r(4 - (atk ? 3 : 0), 19 + dip, 3, 4, c[14]);
+    // Great Curved Ram Horns (curls up, back, and down)
+    r(9 - (atk ? 3 : 0), 5 + dip, 6, 5, c[28]);
+    r(10 - (atk ? 3 : 0), 3 + dip, 5, 3, c[29]);
+    r(14 - (atk ? 3 : 0), 4 + dip, 5, 4, c[30]);
+    r(17 - (atk ? 3 : 0), 7 + dip, 4, 6, c[29]);
+    r(15 - (atk ? 3 : 0), 12 + dip, 4, 5, c[28]);
+    r(12 - (atk ? 3 : 0), 15 + dip, 4, 3, c[10]);
+    // Sturdy Body & Rocky Crag Spines
+    r(10, 12, 9, 10, c[13]);
+    r(17, 13, 11, 9, c[12]);
+    r(13, 9, 3, 3, c[28]);
+    r(18, 10, 3, 3, c[28]);
+    r(23, 11, 3, 2, c[11]);
+    r(12, 20, 14, 3, c[14]);
+    // 4 legs with hooves
+    r(8 - lk, 21, 3, 8, c[11]); r(7 - lk, 28, 4, 3, c[10]);
+    r(12 + lk, 21, 3, 7, c[12]); r(12 + lk, 27, 4, 3, c[10]);
+    r(21 - lk, 21, 4, 8, c[11]); r(20 - lk, 28, 4, 3, c[10]);
+    r(25 + lk, 21, 3, 7, c[12]); r(25 + lk, 27, 4, 3, c[10]);
+    r(28, 14, 2, 4, c[14]);
+  },
+  seal_curator(r, c, pose, frame) {
+    // พยัคฆ์เพลิงบรรพกาล (Ancient Blaze Tiger) - Boss (auto 2x scale)
+    const atk = pose === 'attack';
+    const flameTip = atk ? c[31] : frame % 2 ? c[30] : c[31];
+    const leap = atk ? -3 : [0, -1, 0, 1][frame % 4];
+    // Fierce Tiger Muzzle & Fangs
+    r(2 + leap, 13, 5, 6, c[19]);
+    r(3 + leap, 14, 3, 4, c[9]);
+    r(1 + leap, 17, 2, 2, c[9]);
+    // Head & Piercing Eye
+    r(5 + leap, 9, 9, 10, c[18]);
+    r(7 + leap, 10, 7, 8, c[19]);
+    r(5 + leap, 11, 2, 2, c[31]);
+    r(11 + leap, 6, 3, 4, c[17]);
+    r(12 + leap, 7, 2, 2, c[30]);
+    r(8 + leap, 10, 2, 4, c[10]);
+    r(11 + leap, 11, 2, 3, c[10]);
+    // Flaming Mane
+    r(10 + leap, 6, 6, 5, flameTip);
+    r(12 + leap, 4, 4, 3, flameTip);
+    r(11 + leap, 9, 6, 7, c[29]);
+    r(13 + leap, 8, 5, 8, c[30]);
+    r(7 + leap, 18, 7, 6, c[19]);
+    r(6 + leap, 19, 4, 4, c[9]);
+    // Muscular Body & Tiger Stripes
+    r(13, 12, 14, 9, c[18]);
+    r(14, 13, 12, 7, c[19]);
+    r(16, 12, 2, 7, c[10]);
+    r(20, 13, 2, 6, c[10]);
+    r(24, 14, 2, 5, c[10]);
+    // Flame crest on spine
+    r(15, 9, 3, 3, flameTip);
+    r(19, 10, 3, 3, flameTip);
+    r(23, 11, 3, 2, flameTip);
+    // Paws & Claws
+    r(6 + leap, 21, 4, 8, c[18]); r(4 + leap, 27, 6, 3, c[19]); r(3 + leap, 29, 3, 2, c[31]);
+    r(11, 22, 4, 7, c[17]); r(10, 27, 5, 3, c[18]);
+    r(21, 16, 6, 8, c[18]); r(22, 23, 4, 6, c[17]); r(21, 28, 5, 3, c[19]);
+    r(25, 22, 3, 6, c[16]); r(25, 27, 4, 3, c[17]);
+    // Long Fiery Tail
+    r(27, 16, 3, 3, c[18]);
+    r(29, 13, 2, 5, c[19]);
+    r(28, 9, 2, 5, flameTip);
+    r(27, 6, 4, 4, flameTip);
+    r(28, 7, 2, 2, c[31]);
+  },
 };

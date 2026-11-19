@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { Battlefield, vfxScale } from '../src/render.js';
 import { parseSpell } from '../src/words.js';
 import { simulateTurn } from '../src/combat.js';
-import { createRun, createEnemy, prepareEnemies, FLOOR31_START_ROOM } from '../src/run.js';
+import { createRun, createEnemy, prepareEnemies, FLOOR31_START_ROOM, ENEMIES } from '../src/run.js';
+import { ENEMY_TRAITS } from '../src/enemy-traits.js';
 import { inferDeskElement, inferDeskPower, renderSlots, renderEnemies, renderRoomTrack, renderWordBank } from '../src/ui/battle-render.js';
 import { createBattleFxController } from '../src/ui/battle-fx.js';
 import { cardFilterControls, applyCardFilters, bindCardFilters } from '../src/ui/card-filters.js';
@@ -511,7 +512,7 @@ test('CSS impact overlay separates is-compact (1x), is-boosted, is-large (2x), a
 
 
 test('new upper-tower middleSprites render distinct pixel silhouettes without throwing', () => {
-  const kinds = ['gate_weaver', 'mirror_regent', 'seam_warden', 'loom_sovereign', 'rift_runner', 'lattice_guard', 'thread_archer', 'ward_scribe'];
+  const kinds = ['gate_weaver', 'mirror_regent', 'seam_warden', 'loom_sovereign', 'rift_runner', 'lattice_guard', 'thread_archer', 'ward_scribe', 'ward_keeper', 'rune_ram', 'seal_curator'];
   const signatures = new Set();
   for (const kind of kinds) {
     const rects = [];
@@ -640,4 +641,21 @@ test('enemy affinity and weakness badges render on enemy cards with elemental ic
   } finally {
     globalThis.document = oldDocument;
   }
+});
+
+test('Floors 21-25 redesigned monsters have authentic names, traits, affinities and no borrowed sprites', () => {
+  assert.equal(ENEMIES.ward_keeper.name, 'ด้วงเกราะเพลิง');
+  assert.equal(ENEMIES.ward_keeper.affinity, 'fire');
+  assert.equal(ENEMIES.ward_keeper.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.ward_keeper);
+
+  assert.equal(ENEMIES.rune_ram.name, 'แพะผาศิลา');
+  assert.equal(ENEMIES.rune_ram.affinity, 'earth');
+  assert.equal(ENEMIES.rune_ram.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.rune_ram);
+
+  assert.equal(ENEMIES.seal_curator.name, 'พยัคฆ์เพลิงบรรพกาล');
+  assert.equal(ENEMIES.seal_curator.affinity, 'fire');
+  assert.equal(ENEMIES.seal_curator.sprite, undefined);
+  assert.ok(ENEMY_TRAITS.seal_curator);
 });
