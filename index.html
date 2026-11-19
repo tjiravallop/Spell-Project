@@ -274,7 +274,10 @@
       </section>
   </dialog>
   <dialog id="discard-panel" class="game-sheet discard-sheet" aria-labelledby="discard-title">
-    <div class="dialog-heading"><h2 id="discard-title"></h2></div>
+    <div class="dialog-heading">
+      <h2 id="discard-title"></h2>
+      <button id="close-discard-btn" type="button" class="icon-button" aria-label="ปิดหน้าต่างทิ้งการ์ด">×</button>
+    </div>
     <div class="sheet-panel"><div id="discard-cards" class="discard-cards-grid"></div></div>
     <div class="dialog-actions"><button id="confirm-discard" class="primary-button" disabled>ยืนยันทิ้งการ์ด</button></div>
   </dialog>

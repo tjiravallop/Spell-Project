@@ -336,6 +336,10 @@ function changeScreen(next) {
     if (next !== 'battle' || screen !== 'battle') resetPlayerHpFx();
   }
   if (next !== 'sanctuary') sanctuaryMenu.close();
+  if (next !== 'battle') {
+    try { $('discard-panel')?.close(); } catch {}
+    $('discard-panel')?.removeAttribute('open');
+  }
   screen = next;
   for (const name of ['home', 'battle', 'reward', 'loadout', 'sanctuary', 'result']) {
     const el = $(`${name}-view`);
@@ -349,6 +353,8 @@ function changeScreen(next) {
 
 function showHome() {
   if (busy) return;
+  try { $('discard-panel')?.close(); } catch {}
+  $('discard-panel')?.removeAttribute('open');
   loaded = loadRun();
   changeScreen('home');
   const saved = loaded.state;
@@ -1047,7 +1053,13 @@ $('climb-button').addEventListener('click', () => {
   } catch (error) { toast(error.message); }
 });
 $('cast-button').addEventListener('click', () => commit());
-$('discard-panel').addEventListener('cancel', event => event.preventDefault());
+$('close-discard-btn')?.addEventListener('click', () => {
+  try { $('discard-panel').close(); } catch {}
+  $('discard-panel').removeAttribute('open');
+});
+$('discard-panel')?.addEventListener('cancel', () => {
+  $('discard-panel').removeAttribute('open');
+});
 
 // Dialog explicit close buttons & backdrop tap-to-dismiss for mobile/touch
 $('battle-tools')?.querySelector('.dialog-heading button')?.addEventListener('click', () => {
@@ -1060,7 +1072,7 @@ $('sanctuary-menu')?.querySelector('.sanctuary-menu-head button')?.addEventListe
   sanctuaryMenu.close();
 });
 
-for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu']) {
+for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu', 'discard-panel']) {
   const dialog = $(id);
   if (!dialog) continue;
   dialog.addEventListener('click', event => {
@@ -1074,7 +1086,10 @@ for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu']) {
     );
     if (!isInDialog) {
       if (id === 'sanctuary-menu') sanctuaryMenu.close();
-      else dialog.close();
+      else {
+        try { dialog.close(); } catch {}
+        dialog.removeAttribute('open');
+      }
     }
   });
 }
@@ -1494,4 +1509,6 @@ for (const [id, glyph, label] of [
   $(id).title = label;
 }
 applySettings();
+try { $('discard-panel')?.close(); } catch {}
+$('discard-panel')?.removeAttribute('open');
 showHome();

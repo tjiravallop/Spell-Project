@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { Battlefield, vfxScale } from '../src/render.js';
 import { parseSpell } from '../src/words.js';
 import { simulateTurn } from '../src/combat.js';
@@ -728,4 +731,16 @@ test('Floors 46-50 final boss Loom Sovereign has authentic traits, no borrowed s
   assert.equal(ENEMIES.loom_sovereign.sprite, undefined);
   assert.ok(ENEMY_TRAITS.loom_sovereign);
   assert.match(ENEMY_TRAITS.loom_sovereign.role, /ชั้น 50/);
+});
+
+test('dialog styling and discard-panel prevent stuck open modal on game startup', () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const styles = readFileSync(join(root, 'styles.css'), 'utf8');
+  const battleUi = readFileSync(join(root, 'battle-ui.css'), 'utf8');
+  const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
+
+  assert.match(styles, /dialog:not\(\[open\]\)\s*\{\s*display:\s*none\s*!important\s*\}/);
+  assert.match(battleUi, /\.discard-sheet\[open\]/);
+  assert.doesNotMatch(battleUi, /^\.discard-sheet\s*\{\s*[^}]*display:\s*flex/m);
+  assert.match(indexHtml, /id="close-discard-btn"/);
 });

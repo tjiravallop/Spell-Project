@@ -1557,7 +1557,7 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 }
 .sheet-panel .grimoire-tab { background: #211d34; border-color: #514260; }
 .sheet-panel .grimoire-tab.active { background: #3b2a3b; border-color: var(--gold); color: var(--accent); }
-.discard-sheet {
+.discard-sheet[open] {
   max-height: min(88dvh, calc(100dvh - 60px));
   height: auto;
   display: flex;
@@ -1781,7 +1781,7 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   .game-sheet { position: fixed; inset: auto 0 0; width: 100%; max-height: min(52dvh, calc(100dvh - 65px)); padding: 8px 10px max(10px, env(safe-area-inset-bottom)); border-radius: 12px 12px 0 0; z-index: 40; }
   .game-sheet::before { content: ''; align-self: center; width: 32px; height: 3px; background: #9a87a2; border-radius: 2px; }
   /* Discard Sheet Modal (Mobile Bottom Sheet) */
-  .discard-sheet {
+  .discard-sheet[open] {
     position: fixed !important;
     inset: auto 0 0 0 !important;
     top: auto !important;
@@ -1815,7 +1815,9 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
     flex: 0 0 auto;
     margin: 0 0 4px;
     padding: 0 2px;
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   .discard-sheet .dialog-heading h2 {
     font-size: 13.5px;
