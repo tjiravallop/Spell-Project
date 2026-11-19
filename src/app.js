@@ -640,6 +640,8 @@ function addWord(id, index = selectedSlot) {
     } catch {
       $('discard-panel').setAttribute('open', '');
     }
+    updateDiscardUI();
+    $('discard-cards')?.querySelector('button')?.focus({ preventScroll: true });
     return;
   }
   const at = index === null ? words.length : Math.min(index, words.length);
@@ -930,7 +932,7 @@ function finishTurn() {
   renderLog();
   render();
   if (state.phase === 'battle') {
-    if (state.player.hand.length > HAND_LIMIT) { selectedDiscardIndices.clear(); $('discard-cards').querySelector('button')?.focus(); updateDiscardUI(); }
+    if (state.player.hand.length > HAND_LIMIT) { selectedDiscardIndices.clear(); $('discard-cards').querySelector('button')?.focus({ preventScroll: true }); updateDiscardUI(); }
     else focusAfterRender($('cast-button').disabled ? 'guard-button' : 'cast-button');
   }
 }
@@ -1053,6 +1055,8 @@ $('reopen-discard-btn')?.addEventListener('click', () => {
   } catch {
     $('discard-panel').setAttribute('open', '');
   }
+  updateDiscardUI();
+  $('discard-cards')?.querySelector('button')?.focus({ preventScroll: true });
 });
 const selectedDiscardIndices = new Set();
 

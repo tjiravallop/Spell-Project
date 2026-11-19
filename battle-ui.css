@@ -1303,7 +1303,7 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 #spell-desk .word-heal .card-emblem,
 #spell-desk .word-self .card-emblem { color: #9cf0c6; }
 #spell-desk .word-item:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-#spell-desk .playing-card-inner, .discard-sheet .playing-card-inner {
+#spell-desk .playing-card-inner {
   justify-content: space-between;
   gap: 3px;
   padding: 4px 5px;
@@ -1341,7 +1341,7 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 #spell-desk .card-corner-bottom .corner-icon .icon { width: 10px; height: 10px; }
 #spell-desk .spell-slot .card-corner-bottom { display: none; }
 #spell-desk .slot-pill-num { display: none; }
-#spell-desk .card-art-frame, .discard-sheet .card-art-frame {
+#spell-desk .card-art-frame {
   width: 44px;
   height: 44px;
   margin: auto;
@@ -1358,22 +1358,22 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 #spell-desk :is(.word-water,.word-wari) .card-art-frame { background: radial-gradient(circle, #18425e 0%, #0d1824 100%); border-color: rgba(68, 208, 255, .52); }
 #spell-desk :is(.word-wind,.word-vayu) .card-art-frame { background: radial-gradient(circle, #1d4a40 0%, #0d1f1b 100%); border-color: rgba(141, 232, 198, .5); }
 #spell-desk :is(.word-shield,.word-heal,.word-self) .card-art-frame { background: radial-gradient(circle, #204646 0%, #0f1d21 100%); border-color: rgba(136, 228, 196, .48); }
-#spell-desk .card-emblem .icon, .discard-sheet .card-emblem .icon { width: 24px; height: 24px; }
+#spell-desk .card-emblem .icon { width: 24px; height: 24px; }
 #spell-desk .spell-slot .card-emblem .icon { width: 21px; height: 21px; }
 #spell-desk .card-copies { padding: 1px 5px; border-radius: 4px; gap: 3px; }
 #spell-desk .copy-pips { display: inline-flex; gap: 2px; }
 #spell-desk .copy-pip { width: 4px; height: 4px; }
 #spell-desk .copy-count { font-size: 10px; }
-#spell-desk .card-nameplate, .discard-sheet .card-nameplate {
+#spell-desk .card-nameplate {
   padding: 3px 4px;
   background: rgba(10, 10, 20, .78);
   border-top: 1px solid rgba(240, 198, 135, .26);
   border-bottom: 1px solid rgba(240, 198, 135, .2);
   border-radius: 4px;
 }
-#spell-desk .card-title, .discard-sheet .card-title { font-size: 14px; font-weight: 700; white-space: nowrap; }
+#spell-desk .card-title { font-size: 14px; font-weight: 700; white-space: nowrap; }
 #spell-desk .spell-slot .card-title { font-size: 13px; }
-#spell-desk .rarity-badge, .discard-sheet .rarity-badge { font-size: 9.5px; padding: 0; line-height: 1.15; opacity: .9; }
+#spell-desk .rarity-badge { font-size: 9.5px; padding: 0; line-height: 1.15; opacity: .9; }
 #spell-desk .spell-slot .rarity-badge { display: none; }
 #spell-desk .card-upg-row { margin-top: 1px; }
 #spell-desk .card-upg-pip { font-size: 9px; padding: 0 4px; }
@@ -1557,10 +1557,142 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
 }
 .sheet-panel .grimoire-tab { background: #211d34; border-color: #514260; }
 .sheet-panel .grimoire-tab.active { background: #3b2a3b; border-color: var(--gold); color: var(--accent); }
-.discard-sheet #discard-cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(71px,1fr)); gap: 6px; }
-.discard-sheet .discard-card { min-width: 0; min-height: 100px; width: auto; }
-.discard-sheet .card-corner-bottom, .discard-sheet .corner-index { display: none; }
-.discard-sheet .dialog-actions { margin: 0; }
+.discard-sheet {
+  max-height: min(88dvh, calc(100dvh - 60px));
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+.discard-sheet #discard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 4px 2px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.discard-sheet .discard-card {
+  min-width: 0;
+  width: 100%;
+  min-height: 110px;
+  height: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  overflow: hidden;
+  box-sizing: border-box;
+  text-align: center;
+}
+.discard-sheet .playing-card-inner {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px 4px;
+  border-radius: 5px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.discard-sheet .card-corner-bottom,
+.discard-sheet .corner-index,
+.discard-sheet .card-art-ring {
+  display: none !important;
+}
+.discard-sheet .card-corner-top {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+.discard-sheet .discard-check-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(16, 26, 28, 0.95);
+  border: 1px solid rgba(80, 110, 105, 0.6);
+  color: var(--muted);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.discard-sheet .card-art-frame {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  margin: 2px auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+}
+.discard-sheet .card-emblem .icon {
+  width: 18px;
+  height: 18px;
+}
+.discard-sheet .card-nameplate {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
+  padding: 2px 4px;
+  background: rgba(10, 10, 20, 0.82);
+  border-top: 1px solid rgba(240, 198, 135, 0.25);
+  border-bottom: 0;
+  border-radius: 4px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.discard-sheet .card-title {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  max-width: 100%;
+}
+.discard-sheet .rarity-badge {
+  display: block;
+  font-size: 8.5px;
+  line-height: 1.1;
+  padding: 0;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.discard-sheet .dialog-actions {
+  flex: 0 0 auto;
+  margin: 6px 0 0;
+  padding: 0;
+  width: 100%;
+}
+.discard-sheet .dialog-actions .primary-button {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
 
 #sanctuary-floor-select {
   width: 100%;
@@ -1648,7 +1780,161 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   .combat-command .cast-actions :is(.primary-button, .secondary-button) { min-height: 38px; font-size: 13px; }
   .game-sheet { position: fixed; inset: auto 0 0; width: 100%; max-height: min(52dvh, calc(100dvh - 65px)); padding: 8px 10px max(10px, env(safe-area-inset-bottom)); border-radius: 12px 12px 0 0; z-index: 40; }
   .game-sheet::before { content: ''; align-self: center; width: 32px; height: 3px; background: #9a87a2; border-radius: 2px; }
-  .discard-sheet { max-height: calc(100dvh - 55px); }
+  /* Discard Sheet Modal (Mobile Bottom Sheet) */
+  .discard-sheet {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 auto !important;
+    height: auto !important;
+    max-height: min(88dvh, calc(100dvh - 16px)) !important;
+    padding: 8px 10px max(10px, env(safe-area-inset-bottom)) !important;
+    border-radius: 14px 14px 0 0 !important;
+    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.88) !important;
+    z-index: 100 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  .discard-sheet::before {
+    content: '';
+    align-self: center;
+    width: 36px;
+    height: 3px;
+    background: #9a87a2;
+    border-radius: 2px;
+    margin-bottom: 2px;
+    flex: 0 0 auto;
+  }
+  .discard-sheet .dialog-heading {
+    flex: 0 0 auto;
+    margin: 0 0 4px;
+    padding: 0 2px;
+    text-align: center;
+  }
+  .discard-sheet .dialog-heading h2 {
+    font-size: 13.5px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--accent);
+    margin: 0;
+  }
+  .discard-sheet .sheet-panel {
+    flex: 1 1 auto;
+    min-height: 90px;
+    max-height: calc(88dvh - 105px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 2px 1px 6px;
+    margin: 0;
+  }
+  .discard-sheet #discard-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    margin: 0;
+    padding: 2px 0 4px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .discard-sheet .discard-card {
+    min-width: 0;
+    width: 100%;
+    height: 94px;
+    min-height: 94px;
+    max-height: 94px;
+    padding: 2px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: space-between;
+    border-radius: 6px;
+    border-width: 1.5px;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-align: center;
+    touch-action: manipulation;
+  }
+  .discard-sheet .playing-card-inner {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 1px;
+    padding: 2px;
+    border-radius: 4px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .discard-sheet .discard-check-mark {
+    font-size: 8.5px;
+    padding: 1px 3px;
+    line-height: 1;
+  }
+  .discard-sheet .card-art-frame {
+    width: 24px;
+    height: 24px;
+    min-height: 24px;
+    margin: 1px auto;
+    flex: 0 0 24px;
+  }
+  .discard-sheet .card-emblem .icon {
+    width: 14px;
+    height: 14px;
+  }
+  .discard-sheet .card-nameplate {
+    padding: 1px 2px;
+    border-radius: 3px;
+  }
+  .discard-sheet .card-title {
+    font-size: 10px;
+    line-height: 1.15;
+  }
+  .discard-sheet .rarity-badge {
+    font-size: 7.5px;
+    line-height: 1;
+  }
+  .discard-sheet .card-upg-row {
+    margin-top: 0;
+  }
+  .discard-sheet .card-upg-pip {
+    font-size: 7.5px;
+    padding: 0 2px;
+    line-height: 1;
+  }
+  .discard-sheet .discard-card.is-checked {
+    background: linear-gradient(165deg, rgba(85, 26, 32, 0.96) 0%, rgba(46, 14, 18, 0.95) 100%) !important;
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 1.5px var(--danger), 0 3px 8px rgba(0, 0, 0, 0.6) !important;
+    transform: scale(0.97) !important;
+  }
+  .discard-sheet .discard-card:hover {
+    transform: none;
+  }
+  .discard-sheet .dialog-actions {
+    flex: 0 0 auto;
+    margin: 4px 0 0;
+    padding: 0;
+    width: 100%;
+  }
+  .discard-sheet .dialog-actions .primary-button {
+    min-height: 42px;
+    font-size: 13.5px;
+    padding: 6px 12px;
+  }
   #sanctuary-rest-panel { grid-template-columns: minmax(0,1fr); }
 }
 
@@ -1696,4 +1982,5 @@ body.reduced-motion #spell-desk .spell-slot.filled:hover { transform: translateY
   .masthead { padding-inline: 5px; }
   .top-actions { gap: 2px; }
   #battle-view .resource-bar { gap: 5px; }
+  .discard-sheet #discard-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
