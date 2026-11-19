@@ -8,6 +8,7 @@ import { ENEMY_TRAITS } from '../src/enemy-traits.js';
 import { inferDeskElement, inferDeskPower, renderSlots, renderEnemies, renderRoomTrack, renderWordBank } from '../src/ui/battle-render.js';
 import { createBattleFxController } from '../src/ui/battle-fx.js';
 import { cardFilterControls, applyCardFilters, bindCardFilters } from '../src/ui/card-filters.js';
+import { getSanctuaryStory } from '../src/story.js';
 
 test('room track renders the current tower and its sanctuary checkpoints', () => {
   const oldDocument = globalThis.document;
@@ -713,4 +714,11 @@ test('Floors 36-40 redesigned monsters have authentic names, traits, affinities 
   assert.equal(ENEMIES.mirror_regent.affinity, 'ice');
   assert.equal(ENEMIES.mirror_regent.sprite, undefined);
   assert.ok(ENEMY_TRAITS.mirror_regent);
+});
+
+test('Floors 41-45 encounters and Sanctuary 45 progression are valid and narrative intact', () => {
+  const story = getSanctuaryStory({ sanctuaryFloor: 45, player: { relics: [] } });
+  assert.equal(story.kicker, 'จุดพักชั้น 45');
+  assert.equal(story.title, 'จุดพักริมรอยแยก');
+  assert.match(story.body, /ชั้น 46/);
 });

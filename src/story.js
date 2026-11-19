@@ -329,9 +329,9 @@ export function getSanctuaryStory(state, { recentRelicId = null } = {}) {
   const isStormEquipped = equippedRelics.includes('storm_pendulum_20');
   const sanctuaryFloor = state.sanctuaryFloor ?? 4;
 
-  if (['post30', 'post35', 'post40', 'post45'].includes(sanctuaryFloor)) {
-    const floor = Number(sanctuaryFloor.slice(4));
-    return { id: `sanctuary-${sanctuaryFloor}`, kicker: `หลังบอสชั้น ${floor}`, title: 'จุดพักริมรอยแยก',
+  if (['post30', 'post35', 'post40', 'post45'].includes(sanctuaryFloor) || (typeof sanctuaryFloor === 'number' && sanctuaryFloor >= 25)) {
+    const floor = typeof sanctuaryFloor === 'number' ? sanctuaryFloor : Number(sanctuaryFloor.slice(4));
+    return { id: `sanctuary-${sanctuaryFloor}`, kicker: `จุดพักชั้น ${floor}`, title: 'จุดพักริมรอยแยก',
       body: `พักฟื้นและจัดชุดคำก่อนขึ้นชั้น ${floor + 1}` };
   }
 
