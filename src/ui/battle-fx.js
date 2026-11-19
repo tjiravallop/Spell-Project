@@ -103,7 +103,9 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
   let animPlayerMaxHp = 0;
 
   function beginTurnAnimation(state) {
-    $('combat-numbers').replaceChildren();
+    const numbers = $('combat-numbers');
+    if (numbers && typeof numbers.replaceChildren === 'function') numbers.replaceChildren();
+    else if (numbers) numbers.innerHTML = '';
     animEnemyHp = Object.fromEntries(state.enemies.map(e => [e.id, e.hp]));
     animPlayerHp = state.player.hp;
     animPlayerMaxHp = state.player.maxHp;
@@ -267,6 +269,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     const enemyIndex = state.enemies.findIndex(enemy => enemy.id === actor);
     const battlefield = getBattlefield();
     const layer = $('combat-numbers');
+    if (!layer || !layer.children) return;
     const related = [...layer.children].filter(number => number.dataset.actor === actor);
     const usedLanes = new Set(related.map(number => number.dataset.lane));
     const lane = ['0', '1', '2'].find(candidate => !usedLanes.has(candidate)) ?? related[0].dataset.lane;
