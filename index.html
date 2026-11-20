@@ -142,6 +142,7 @@
           </div>
           <div class="sanctuary-exit">
             <button id="sanctuary-next-room-btn" class="sanctuary-plaque sanctuary-climb" type="button"><span id="sanctuary-next-room-label">ไต่ต่อ</span><span aria-hidden="true">→</span></button>
+            <button id="sanctuary-rift-btn" class="sanctuary-plaque sanctuary-rift-btn" type="button" data-sanctuary-menu="rift" aria-haspopup="dialog" hidden><span id="sanctuary-rift-label">🌀 รอยแยก</span><span id="sanctuary-rift-quota" class="rift-btn-quota"></span></button>
             <button id="sanctuary-map-open" class="sanctuary-plaque sanctuary-map-open" type="button" data-sanctuary-menu="map" aria-haspopup="dialog">เลือกชั้นอื่น</button>
           </div>
           <div class="sanctuary-tools" aria-label="เครื่องมือ">
@@ -160,7 +161,18 @@
           <label for="sanctuary-floor-select">ปลายทาง</label>
           <select id="sanctuary-floor-select"></select>
           <div id="sanctuary-floor-map" class="sanctuary-floor-map"></div>
-          <p id="sanctuary-revisit-note" class="muted" hidden>ห้องที่ผ่านแล้วให้ทองและ EXP 20% บอสไม่ดรอปการ์ดคำซ้ำ</p>
+          <p id="sanctuary-revisit-note" class="muted" hidden>ห้องที่ผ่านแล้วให้ทองและ EXP 20% · บอสไม่ดรอปการ์ดคำซ้ำ · ชนะแล้วกลับจุดพักทันที</p>
+        </section>
+        <section id="sanctuary-rift-panel" class="sanctuary-panel sanctuary-rift-panel" hidden>
+          <div class="rift-quota-banner">
+            <div>
+              <strong id="rift-quota-title">โควต้ารอยแยกวันนี้</strong>
+              <p id="rift-quota-sub" class="muted">โควต้าต่อวันเท่ากับจำนวนชั้นที่ผ่านได้ · รีเซ็ตทุกวันใหม่ หรือผ่านชั้นเพิ่มเพื่อรับรอบเพิ่มทันที</p>
+            </div>
+            <span id="rift-quota-pill" class="rift-quota-pill">0 / 0 รอบ</span>
+          </div>
+          <p class="rift-rules-note">สู้ต่อเนื่อง <strong>3 ด่าน</strong> (มินิบอส X8-3 → มินิบอส X9-3 → บอสใหญ่ชั้นหลักสิบ) · ผ่านครบ 3 ด่าน <strong>สุ่มรับการ์ดคำ 1 ใบทันที</strong> ตามเพดานรางวัลของชั้นนั้น (เลือกไม่ได้)</p>
+          <div id="rift-tier-list" class="rift-tier-list" aria-label="ระดับรอยแยกมิติ"></div>
         </section>
         <div id="sanctuary-tome-panel" hidden>
           <article class="sanctuary-panel" id="sanctuary-insight-panel">
@@ -332,6 +344,22 @@
     </div>
     <div class="sheet-panel"><div id="discard-cards" class="discard-cards-grid"></div></div>
     <div class="dialog-actions"><button id="confirm-discard" class="primary-button" disabled>ยืนยันทิ้งการ์ด</button></div>
+  </dialog>
+  <dialog id="rift-reward-dialog" class="game-sheet rift-reward-dialog" aria-labelledby="rift-reward-title">
+    <div class="dialog-heading">
+      <h2 id="rift-reward-title">🌀 พิชิตรอยแยกสำเร็จ!</h2>
+      <button id="rift-reward-close" type="button" class="icon-button" aria-label="ปิดหน้ารางวัลรอยแยก">×</button>
+    </div>
+    <div class="rift-reward-body">
+      <p id="rift-reward-subtitle" class="muted"></p>
+      <div id="rift-reward-card-wrap" class="rift-reward-card-wrap"></div>
+      <p id="rift-reward-outcome" class="rift-reward-outcome"></p>
+      <p id="rift-reward-quota-left" class="muted"></p>
+    </div>
+    <div class="dialog-actions">
+      <button id="rift-reward-again" type="button" class="primary-button">ลงรอยแยกต่อ</button>
+      <button id="rift-reward-done" type="button" class="secondary-button">กลับจุดพัก</button>
+    </div>
   </dialog>
   <dialog id="settings-dialog" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-heading"><h2 id="settings-title">พักสักครู่</h2><button class="icon-button" aria-label="ปิดการตั้งค่า" value="close">×</button></div><p class="muted">เกมเป็นเทิร์น คุณมีเวลาคิดเต็มที่</p><label class="setting">เพลง <input id="music-volume" type="range" min="0" max="100" step="1"><output id="music-output"></output></label><label class="setting">เสียงเอฟเฟกต์ <input id="sfx-volume" type="range" min="0" max="100" step="1"><output id="sfx-output"></output></label><label class="setting">เสียงปุ่ม <input id="ui-volume" type="range" min="0" max="100" step="1"><output id="ui-output"></output></label><label class="check-setting"><input id="reduce-motion" type="checkbox">ลดการเคลื่อนไหว</label><label class="check-setting"><input id="show-tips" type="checkbox">แสดงคำแนะนำ</label><div class="dialog-actions"><button id="mute-all" class="secondary-button" type="button">ปิดเสียงทั้งหมด</button><button class="primary-button" value="close">กลับไปเล่น</button></div><button id="pause-home" class="text-button" type="button">บันทึกแล้วกลับหน้าหลัก</button></form></dialog>
   <dialog id="replace-dialog" aria-labelledby="replace-title" aria-describedby="replace-notice replace-loss-warning"><form method="dialog"><h2 id="replace-title">เริ่มรอบใหม่?</h2><p id="replace-notice">รอบใหม่จะใช้ช่องเซฟปัจจุบัน</p><p id="replace-loss-warning">หากแพ้ก่อนถึงจุดพักชั้น 5 รอบจะจบ และการ์ดสะสมกับสูตรที่ค้นพบจะถูกล้าง</p><div class="dialog-actions"><button class="secondary-button" value="cancel">ยกเลิก</button><button id="confirm-new" class="primary-button" type="button">เริ่มรอบใหม่</button></div></form></dialog>

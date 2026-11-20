@@ -430,6 +430,14 @@ export function equipRelic(original, relicId) {
   return state;
 }
 
+export function getHandLimit(player) {
+  return HAND_LIMIT + (getEquippedRelics(player).includes('crown_of_eternity_100') ? 2 : 0);
+}
+
+export function getMaxMana(player) {
+  return (player?.maxMana ?? MAX_MANA) + (getEquippedRelics(player).includes('crown_of_eternity_100') ? 3 : 0);
+}
+
 export function unequipRelic(original, relicId) {
   if (!original || original.phase !== 'sanctuary') {
     throw new Error('ปรับเปลี่ยนเครื่องรางได้เฉพาะในจุดพักและร้านค้า');
@@ -441,6 +449,7 @@ export function unequipRelic(original, relicId) {
   }
   const state = structuredClone(original);
   state.player.equippedRelics = current.filter(id => id !== relicId);
+  state.player.mana = Math.min(state.player.mana, getMaxMana(state.player));
   return state;
 }
 
@@ -470,7 +479,7 @@ export function applyExpAndGold(player, expGain = 0, goldGain = 0) {
     player.hp = Math.min(player.maxHp, player.hp + hpGain);
     if (mpGain > 0) {
       player.maxMana += mpGain;
-      player.mana = Math.min(player.maxMana, player.mana + mpGain);
+      player.mana = Math.min(getMaxMana(player), player.mana + mpGain);
     }
     levelUps.push({ level: player.level, hpGain, mpGain });
   }
@@ -588,6 +597,7 @@ export function upperCacheAvailable(state) {
 }
 
 export function hasCardReward(state) {
+  if (state?.rift) return false;
   if (state.rewardedBossRooms?.includes(state.room) || isRoomRevisit(state)) return false;
   const rel = state.room % 25;
   if (rel === 24) return false;
@@ -758,11 +768,15 @@ export function openHand(state) {
   const form = pick(draw, deck.filter(id => ATTACK_FORMS.includes(id)));
   const element = pick(draw, deck.filter(id => ELEMENTS.includes(id)));
   const hand = [form, element];
+  const openingSize = 5 + (getEquippedRelics(state.player).includes('crown_of_eternity_100') ? 2 : 0);
   const remaining = deck.filter(id => !hand.includes(id));
-  while (hand.length < 5 && remaining.length) {
+  while (hand.length < openingSize && remaining.length) {
     const id = pick(draw, remaining);
     hand.push(id);
     remaining.splice(remaining.indexOf(id), 1);
+  }
+  while (hand.length < openingSize && deck.length) {
+    hand.push(pick(draw, deck));
   }
   state.player.hand = hand;
   state.handRng = draw.rng;
@@ -778,7 +792,7 @@ export function drawCards(state) {
 
 export function discardOverflow(original, indices) {
   const hand = original.player.hand;
-  const excess = hand.length - HAND_LIMIT;
+  const excess = hand.length - getHandLimit(original.player);
   if (original.phase !== 'battle' || excess < 1) throw new Error('ทิ้งได้เมื่อจั่วแล้วมือเกิน');
   if (!Array.isArray(indices) || indices.length < excess || indices.length > Math.max(2, excess) ||
       new Set(indices).size !== indices.length || indices.some(index => !Number.isInteger(index) || index < 0 || index >= hand.length)) {
@@ -913,7 +927,7 @@ export function enterRoom(state) {
   delete state.deathSpent;
   state.turn = 1;
   state.phase = 'battle';
-  state.player.mana = state.player.maxMana;
+  state.player.mana = getMaxMana(state.player);
   const blessings = state.player.blessings ?? [];
   if (blessings.includes('blessing_aegis')) {
     state.player.shield = { layers: [6], expires: 2, effect: null, triggered: false };
@@ -1120,6 +1134,7 @@ export function createRun(seed = String(Date.now()), tutorial = false, collectio
   const state = {
     version: 2, rulesVersion: 3, hpCurveVersion: 1, seed: String(seed), rng: seedNumber(seed), tutorial,
     room: 0, highestRoom: 0, clearedRooms: [], rewardedBossRooms: [],
+    riftProgressFloor: 0, riftDaily: null,
     sanctuaryRested: false, sanctuaryFloor: 5,
     sanctuaryUnlocked: false,
     sanctuary9Unlocked: false, sanctuaryPost10Unlocked: false,
@@ -1142,14 +1157,18 @@ export function ownsRewardWord(state, id) {
   return START_WORDS.includes(id) || state.collection.includes(id);
 }
 
-export function getRewardPool(state) {
+export function getRewardPoolForRoom(state, roomIndex) {
   return Object.keys(WORDS).filter(id => {
     if (id === 'self' && !ownsRewardWord(state, 'heal')) return false;
-    if (id === 'pull') return state.room >= PULL_REWARD_ROOM;
-    if (UPPER_REWARD_WORDS.includes(id)) return state.room >= FLOOR25_BOSS_ROOM;
-    if (Object.hasOwn(SECOND_TIER_ELEMENTS, id)) return state.room >= FLOOR30_BOSS_ROOM;
-    return state.room >= getFloorStartRoom(3) || !START_WORDS.includes(id);
+    if (id === 'pull') return roomIndex >= PULL_REWARD_ROOM;
+    if (UPPER_REWARD_WORDS.includes(id)) return roomIndex >= FLOOR25_BOSS_ROOM;
+    if (Object.hasOwn(SECOND_TIER_ELEMENTS, id)) return roomIndex >= FLOOR30_BOSS_ROOM;
+    return roomIndex >= getFloorStartRoom(3) || !START_WORDS.includes(id);
   });
+}
+
+export function getRewardPool(state) {
+  return getRewardPoolForRoom(state, state.room);
 }
 
 export function rewardRarityRates(floor) {
@@ -1165,14 +1184,219 @@ export function rewardRarityRates(floor) {
   return { epic: 32, legendary: 12 };
 }
 
-function drawReward(state, pool) {
-  const { floor } = getFloorInfo(state.room, state.rooms.length);
+export function drawRewardForFloor(state, pool, floor) {
   const { epic, legendary } = rewardRarityRates(floor);
   const roll = random(state) * 100;
   const regular = pool.filter(id => !['epic', 'legendary'].includes(WORDS[id].rarity));
   const rarity = roll < legendary ? 'legendary' : roll < legendary + epic ? 'epic' : null;
   const high = rarity ? pool.filter(id => WORDS[id].rarity === rarity) : [];
   return pick(state, high.length ? high : regular.length ? regular : pool);
+}
+
+function drawReward(state, pool) {
+  const { floor } = getFloorInfo(state.room, state.rooms.length);
+  return drawRewardForFloor(state, pool, floor);
+}
+
+// === RIFT DUNGEON (ดันเจี้ยนรอยแยก) ===
+export const RIFT_TIERS = Object.freeze([20, 30, 40, 50, 60, 70, 80, 90, 100]);
+
+export function getLocalDateKey(now = new Date()) {
+  const d = now instanceof Date ? now : new Date(now);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getRiftTierBossRoom(tier) {
+  const D = Math.floor(tier / 10) - 1;
+  return D * 25 + 24;
+}
+
+export function getRiftStageRooms(tier) {
+  const D = Math.floor(tier / 10) - 1;
+  // Stage 1: mini-boss (T-2)-3, Stage 2: mini-boss (T-1)-3, Stage 3: Major Boss T★
+  return [D * 25 + 20, D * 25 + 23, D * 25 + 24];
+}
+
+export function isRiftTierUnlocked(state, tier) {
+  if (!state || state.phase === 'lost' || (state.rooms?.length ?? 0) <= 6) return false;
+  if (!RIFT_TIERS.includes(tier)) return false;
+  const bossRoom = getRiftTierBossRoom(tier);
+  if (bossRoom >= (state.rooms?.length ?? 0)) return false;
+  const cleared = state.clearedRooms ?? [];
+  return Boolean(
+    cleared.includes(bossRoom)
+    || (state.highestRoom ?? 0) > bossRoom
+    || (state.riftProgressFloor ?? 0) >= tier
+    || (tier === 20 && isSanctuaryPost20Unlocked(state))
+    || (tier === 100 && state.phase === 'won' && state.room >= FLOOR100_BOSS_ROOM)
+  );
+}
+
+export function isRiftUnlocked(state) {
+  return isRiftTierUnlocked(state, 20);
+}
+
+export function getRiftDailyCap(state) {
+  if (!state || !Array.isArray(state.rooms) || state.rooms.length <= 6) return 0;
+  const cleared = new Set(state.clearedRooms ?? []);
+  const highest = state.highestRoom ?? 0;
+  let maxFloor = state.riftProgressFloor ?? 0;
+  for (let r = 0; r < state.rooms.length; r++) {
+    const info = getFloorInfo(r, state.rooms.length);
+    if (!info.isBoss) continue;
+    const isCleared = cleared.has(r)
+      || highest > r
+      || (r === FLOOR100_BOSS_ROOM && state.phase === 'won' && state.room >= FLOOR100_BOSS_ROOM);
+    if (isCleared && info.floor > maxFloor) {
+      maxFloor = info.floor;
+    }
+  }
+  return maxFloor;
+}
+
+export function getRiftDailyStatus(state, now = new Date()) {
+  const date = getLocalDateKey(now);
+  const cap = getRiftDailyCap(state);
+  const used = state?.riftDaily?.date === date ? Math.max(0, state.riftDaily.used ?? 0) : 0;
+  const remaining = Math.max(0, cap - used);
+  return { date, used, cap, remaining };
+}
+
+export function getRiftRewardPool(state, tier) {
+  return getRewardPoolForRoom(state, getRiftTierBossRoom(tier));
+}
+
+export function recordClearedFloorProgress(state, roomIndex = state.room) {
+  if (!state || state.rift || !Array.isArray(state.rooms) || state.rooms.length <= 6) return;
+  const info = getFloorInfo(roomIndex, state.rooms.length);
+  if (info.isBoss) {
+    state.riftProgressFloor = Math.max(state.riftProgressFloor ?? 0, info.floor);
+  }
+}
+
+export function startRiftRun(original, tier, now = new Date()) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('เข้าดันเจี้ยนรอยแยกได้จากจุดพักเท่านั้น');
+  }
+  if (!RIFT_TIERS.includes(tier)) {
+    throw new Error('ไม่พบระดับรอยแยกที่เลือก');
+  }
+  if (!isRiftTierUnlocked(original, tier)) {
+    throw new Error(`ต้องผ่านบอสใหญ่ชั้น ${tier} ก่อนเพื่อปลดล็อกรอยแยกนี้`);
+  }
+  const status = getRiftDailyStatus(original, now);
+  if (status.remaining <= 0) {
+    throw new Error(`โควต้ารอยแยกวันนี้หมดแล้ว (${status.remaining}/${status.cap}) · ไต่หอคอยผ่านชั้นเพิ่มเพื่อรับรอบเพิ่ม หรือรอวันถัดไป`);
+  }
+  const state = structuredClone(original);
+  delete state.replayReturn;
+  const stageRooms = getRiftStageRooms(tier);
+  state.riftProgressFloor = Math.max(state.riftProgressFloor ?? 0, status.cap);
+  state.riftDaily = { date: status.date, used: status.used + 1 };
+  state.rift = {
+    tier,
+    stage: 0,
+    stageRooms,
+    returnRoom: original.room,
+    returnSanctuaryFloor: original.sanctuaryFloor ?? 5,
+  };
+  state.room = stageRooms[0];
+  return enterRoom(state);
+}
+
+export function resolveRiftBattleVictory(state, summary, events) {
+  const rift = state.rift;
+  delete state.magmaPuddles;
+  delete state.blackhole;
+  delete state.deathSpent;
+
+  if (rift.stage < rift.stageRooms.length - 1) {
+    const healAmount = Math.max(12, Math.round(state.player.maxHp * 0.2));
+    const recovered = Math.min(healAmount, state.player.maxHp - state.player.hp);
+    state.player.hp += recovered;
+    summary.roomRecovery = recovered;
+    summary.riftStageCleared = rift.stage + 1;
+    rift.stage += 1;
+    state.room = rift.stageRooms[rift.stage];
+    enterRoom(state);
+    return state;
+  }
+
+  // Stage 3/3 cleared — automatically draw and grant 1 random card from this tier's ceiling pool
+  const tier = rift.tier;
+  const pool = getRiftRewardPool(state, tier);
+  const wordId = drawRewardForFloor(state, pool, tier);
+  const wasOwned = ownsRewardWord(state, wordId);
+  const prevLevel = getCardUpgradeLevel(state, wordId);
+  let outcome = 'new';
+  let newLevel = prevLevel;
+  let goldBonus = 0;
+
+  if (wasOwned) {
+    if (prevLevel < MAX_CARD_UPGRADE) {
+      newLevel = prevLevel + 1;
+      (state.player.cardUpgrades ??= {})[wordId] = newLevel;
+      outcome = 'upgrade';
+    } else {
+      goldBonus = 20;
+      state.player.gold = (state.player.gold ?? 0) + goldBonus;
+      outcome = 'gold';
+    }
+  } else {
+    if (!START_WORDS.includes(wordId)) {
+      if (!state.learned.includes(wordId)) state.learned.push(wordId);
+      if (!state.collection.includes(wordId)) state.collection.push(wordId);
+    }
+    const cap = deckCapacity(state);
+    if (state.player.words.length < cap && !state.player.words.includes(wordId)) {
+      state.player.words.push(wordId);
+    }
+  }
+
+  const returnRoom = rift.returnRoom;
+  const returnSanctuaryFloor = rift.returnSanctuaryFloor ?? 5;
+  delete state.rift;
+  state.room = returnRoom;
+  state.sanctuaryFloor = returnSanctuaryFloor;
+  state.sanctuaryUnlocked = true;
+  state.sanctuaryRested = false;
+  state.phase = 'sanctuary';
+  state.turn = 1;
+  state.player.mana = getMaxMana(state.player);
+  state.player.shield = null;
+  state.rewards = [];
+  state.enemies = (state.rooms?.[state.room] ?? []).map((kind, index) => {
+    const enemy = createEnemy(kind, index);
+    enemy.hp = 0;
+    return enemy;
+  });
+
+  const rewardInfo = { tier, wordId, outcome, prevLevel, newLevel, goldBonus };
+  summary.riftCleared = rewardInfo;
+  events.push({ type: 'rift-reward', ...rewardInfo });
+  return state;
+}
+
+export function resolveRiftDefeat(state, summary, events) {
+  const rift = state.rift;
+  const tier = rift.tier;
+  const stage = rift.stage;
+  const returnRoom = rift.returnRoom;
+  const returnSanctuaryFloor = rift.returnSanctuaryFloor ?? 5;
+  delete state.rift;
+  state.room = returnRoom;
+  state.sanctuaryFloor = returnSanctuaryFloor;
+  state.sanctuaryUnlocked = true;
+  state.sanctuaryRested = false;
+  state.phase = 'sanctuary';
+  resetPlayerForSanctuaryFallback(state);
+  summary.riftFailed = { tier, stage };
+  summary.fellToFloor = returnSanctuaryFloor;
+  events.push({ type: 'fall', targetFloor: returnSanctuaryFloor, riftTier: tier });
+  return state;
 }
 
 export function fillRewardChoices(state) {
@@ -1235,6 +1459,7 @@ export function offerMissedElementReward(state) {
 export function completeBossVictoryTransition(state) {
   state.clearedRooms ??= [];
   if (!state.clearedRooms.includes(state.room)) state.clearedRooms.push(state.room);
+  recordClearedFloorProgress(state, state.room);
   const rel = state.room % 25;
   const D = Math.floor(state.room / 25);
 
@@ -1418,7 +1643,7 @@ function resetPlayerForSanctuaryFallback(state) {
   delete state.deathSpent;
   state.turn = 1;
   state.player.hp = Math.max(10, Math.ceil(state.player.maxHp * 0.5));
-  state.player.mana = state.player.maxMana;
+  state.player.mana = getMaxMana(state.player);
   state.player.shield = null;
   state.rewards = [];
   state.pendingBlessings = [];
@@ -1439,6 +1664,7 @@ export function clearLostRunProgress(state) {
 }
 
 export function fallBackOnDefeat(state) {
+  delete state.replayReturn;
   const room = state.room;
   const D = Math.floor(room / 25);
   const rel = room % 25;
@@ -1616,6 +1842,18 @@ export function enterSanctuary(original, options = {}) {
     }
   }
   const state = structuredClone(original);
+  delete state.replayReturn;
+  if (state.rift) {
+    state.room = state.rift.returnRoom;
+    delete state.rift;
+    state.enemies = (state.rooms?.[state.room] ?? []).map((kind, index) => {
+      const enemy = createEnemy(kind, index);
+      enemy.hp = 0;
+      return enemy;
+    });
+  } else {
+    for (const enemy of state.enemies) enemy.hp = 0;
+  }
   state.sanctuaryUnlocked = true;
   state.sanctuaryFloor = requestedFloor;
   state.phase = 'sanctuary';
@@ -1624,7 +1862,6 @@ export function enterSanctuary(original, options = {}) {
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
-  for (const enemy of state.enemies) enemy.hp = 0;
   return state;
 }
 
@@ -1633,7 +1870,7 @@ export function restAtSanctuary(original) {
   if (original.sanctuaryRested) throw new Error('คุณได้พักฟื้นที่กองไฟในรอบการแวะนี้แล้ว');
   const state = structuredClone(original);
   state.player.hp = state.player.maxHp;
-  state.player.mana = state.player.maxMana;
+  state.player.mana = getMaxMana(state.player);
   state.sanctuaryRested = true;
   return state;
 }
@@ -1746,9 +1983,9 @@ export function useInventoryItem(original, source = 'belt', index = 0) {
   }
   const state = structuredClone(original);
   const targetList = source === 'stash' ? (state.player.stash ??= []) : (state.player.items ??= []);
-  if (item.hpRestore || item.manaRestore) {
+  if (!item.battleOnly && (item.hpRestore || item.manaRestore)) {
     const hp = Math.min(item.hpRestore ?? 0, state.player.maxHp - state.player.hp);
-    const mana = Math.min(item.manaRestore ?? 0, state.player.maxMana - state.player.mana);
+    const mana = Math.min(item.manaRestore ?? 0, getMaxMana(state.player) - state.player.mana);
     if (!hp && !mana) throw new Error('พลังชีวิตและมานาที่ไอเทมนี้ฟื้นได้เต็มอยู่แล้ว');
     targetList.splice(index, 1);
     state.player.hp += hp;
@@ -1916,6 +2153,37 @@ export function updateSanctuaryLoadout(original, words) {
   return state;
 }
 
+export function completeRevisitVictoryToSanctuary(state, summary = null) {
+  const ret = state.replayReturn;
+  const fallbackFloor = getSanctuaryCheckpoints(state)
+    .findLast(floor => isSanctuaryFloorUnlocked(state, floor))
+    ?? state.sanctuaryFloor
+    ?? 5;
+  const targetFloor = ret?.sanctuaryFloor ?? fallbackFloor;
+  const targetRoom = ret?.room ?? state.room;
+  delete state.replayReturn;
+  delete state.magmaPuddles;
+  delete state.blackhole;
+  delete state.deathSpent;
+  state.room = Math.min((state.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1, Math.max(0, targetRoom));
+  state.sanctuaryUnlocked = true;
+  state.sanctuaryFloor = targetFloor;
+  state.sanctuaryRested = false;
+  state.phase = 'sanctuary';
+  state.turn = 1;
+  state.player.shield = null;
+  state.rewards = [];
+  state.pendingBlessings = [];
+  state.pendingTargetRoom = null;
+  state.enemies = (state.rooms?.[state.room] ?? []).map((kind, index) => {
+    const enemy = createEnemy(kind, index);
+    enemy.hp = 0;
+    return enemy;
+  });
+  if (summary) summary.revisitReturnedToSanctuary = targetFloor;
+  return state;
+}
+
 export function revisitRoom(original, targetRoomIndex) {
   if (!original || original.phase === 'lost' || original.phase === 'reward') {
     throw new Error('ยังเปลี่ยนชั้นไม่ได้ในช่วงเปิดการ์ดรางวัล');
@@ -1930,6 +2198,19 @@ export function revisitRoom(original, targetRoomIndex) {
     throw new Error('ต้องผ่านห้องก่อนหน้าเพื่อปลดล็อกเส้นทางนี้ก่อน');
   }
   const state = structuredClone(original);
+  delete state.rift;
+  if (cleared.includes(targetRoomIndex) && isSanctuaryUnlocked(original)) {
+    const fallbackFloor = getSanctuaryCheckpoints(original)
+      .findLast(floor => isSanctuaryFloorUnlocked(original, floor))
+      ?? original.sanctuaryFloor
+      ?? 5;
+    state.replayReturn = {
+      room: original.phase === 'sanctuary' ? original.room : Math.min(state.rooms.length - 1, highest),
+      sanctuaryFloor: original.phase === 'sanctuary' ? (original.sanctuaryFloor ?? fallbackFloor) : fallbackFloor,
+    };
+  } else {
+    delete state.replayReturn;
+  }
   state.room = targetRoomIndex;
   return enterRoom(state);
 }
@@ -1964,7 +2245,8 @@ export function useBattleItem(original, beltIndex) {
     const rate = revisit ? REVISIT_REWARD_RATE : 1;
     for (const enemy of state.enemies) {
       if (enemy.hp <= 0) continue;
-      const afterArmor = pierceArmor ? amount : Math.max(1, amount - enemy.armor);
+      const rawAmount = typeof amount === 'function' ? amount(enemy) : amount;
+      const afterArmor = pierceArmor ? rawAmount : Math.max(1, rawAmount - enemy.armor);
       const dmg = Math.min(enemy.hp, afterArmor);
       enemy.hp -= dmg;
       totalDmg += dmg;
@@ -1980,14 +2262,22 @@ export function useBattleItem(original, beltIndex) {
       }
     }
     if (state.enemies.every(e => e.hp <= 0)) {
+      if (state.rift) {
+        resolveRiftBattleVictory(state, summary, events);
+        return totalDmg;
+      }
       delete state.magmaPuddles;
       delete state.blackhole;
       delete state.deathSpent;
       if (!state.clearedRooms.includes(state.room)) state.clearedRooms.push(state.room);
+      recordClearedFloorProgress(state, state.room);
       state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, state.room + 1));
       if (dropsCard) {
         if (!isBossRoom(state) && !isUpperCacheRoom(state.room)) summary.roomRecovery = recoverAfterRoom(state);
         makeRewards(state);
+      } else if (revisit && (state.replayReturn || isSanctuaryUnlocked(state))) {
+        summary.roomRecovery = recoverAfterRoom(state);
+        completeRevisitVictoryToSanctuary(state, summary);
       } else {
         summary.roomRecovery = recoverAfterRoom(state);
         const rel = state.room % 25;
@@ -2029,9 +2319,27 @@ export function useBattleItem(original, beltIndex) {
     return totalDmg;
   }
 
-  if (item.hpRestore || item.manaRestore) {
+  const maxMana = getMaxMana(p);
+  const handLimit = getHandLimit(p);
+  if (itemId === 'chronos_hourglass') {
+    const manaGain = Math.min(6, Math.max(0, maxMana - p.mana));
+    const drawCount = Math.max(0, handLimit - p.hand.length);
+    if (!manaGain && !drawCount) throw new Error('มานาและการ์ดในมือเต็มอยู่แล้ว');
+    p.mana += manaGain;
+    if (drawCount > 0) {
+      const deck = state.deathSpent ? p.words.filter(id => id !== 'death') : p.words;
+      const draw = { rng: state.handRng };
+      for (let i = 0; i < drawCount; i++) p.hand.push(pick(draw, deck));
+      state.handRng = draw.rng;
+    }
+    const parts = [
+      manaGain ? `ฟื้น +${manaGain} MP` : '',
+      drawCount ? `จั่วเพิ่ม ${drawCount} ใบจนเต็มมือ (${p.hand.length}/${handLimit})` : '',
+    ].filter(Boolean);
+    effectText = `หมุนนาฬิกาทรายกาลเวลา · ${parts.join(' และ ')}!`;
+  } else if (item.hpRestore || item.manaRestore) {
     const hp = Math.min(item.hpRestore ?? 0, p.maxHp - p.hp);
-    const mana = Math.min(item.manaRestore ?? 0, p.maxMana - p.mana);
+    const mana = Math.min(item.manaRestore ?? 0, maxMana - p.mana);
     if (!hp && !mana) throw new Error('พลังชีวิตและมานาที่ไอเทมนี้ฟื้นได้เต็มอยู่แล้ว');
     p.hp += hp;
     p.mana += mana;
@@ -2050,7 +2358,7 @@ export function useBattleItem(original, beltIndex) {
     for (const enemy of targets) enemy.sealed = true;
     effectText = `เปิดม้วนผนึกอาคม · ผนึกศัตรู ${targets.length} ตัว`;
   } else if (itemId === 'draw_pages') {
-    const amount = Math.min(2, Math.max(0, HAND_LIMIT - p.hand.length));
+    const amount = Math.min(2, Math.max(0, handLimit - p.hand.length));
     if (!amount) throw new Error('มือเต็มแล้ว ต้องมีที่ว่างก่อนจั่ว');
     const deck = state.deathSpent ? p.words.filter(id => id !== 'death') : p.words;
     const draw = { rng: state.handRng };
@@ -2086,10 +2394,6 @@ export function useBattleItem(original, beltIndex) {
     p.shield = { layers: [20], expires: state.turn + 1, effect: 'wind', triggered: false };
     openHand(state);
     effectText = 'สะบัดขนนกพายุหมุนคลั่ง · มอบโล่ +20 หน่วยและสลับการ์ดเต็มมือ!';
-  } else if (itemId === 'chronos_hourglass') {
-    p.mana = Math.min(p.maxMana, p.mana + 6);
-    openHand(state);
-    effectText = 'หมุนนาฬิกาทรายกาลเวลา · ฟื้น 6 MP และสลับการ์ดใหม่เต็มมือ!';
   } else if (itemId === 'absolute_zero_vial') {
     for (const enemy of state.enemies.filter(e => e.hp > 0)) enemy.freeze += 1;
     effectText = 'โปรยขวดความเย็นสัมบูรณ์ · แช่แข็งศัตรูทุกตัวในสนาม 1 เทิร์น!';
@@ -2118,8 +2422,8 @@ export function useBattleItem(original, beltIndex) {
     const totalDmg = dealAoeConsumable(35, 'fire', 'แกนซูเปอร์โนวา');
     effectText = `ระเบิดแกนซูเปอร์โนวา · สร้างคลื่นทำลาย ${totalDmg} ดาเมจ!`;
   } else if (itemId === 'void_singularity_flask') {
-    const totalDmg = dealAoeConsumable(45, 'wind', 'ขวดสุญญากาศเอกภพ', true);
-    effectText = `เปิดมิติหลุมดำจากขวดสุญญากาศเอกภพ · ดูดกลืนศัตรู ${totalDmg} ดาเมจแท้!`;
+    const totalDmg = dealAoeConsumable(enemy => (ENEMIES[enemy.kind]?.isBoss ? 45 : enemy.hp), 'wind', 'ขวดสุญญากาศเอกภพ', true);
+    effectText = `เปิดมิติหลุมดำจากขวดสุญญากาศเอกภพ · ทำลายศัตรูทั่วไปและสร้างความเสียหายรวม ${totalDmg}!`;
   } else if (itemId === 'pure_lightning_rod') {
     const target = state.enemies.find(e => e.hp > 0);
     if (target) {

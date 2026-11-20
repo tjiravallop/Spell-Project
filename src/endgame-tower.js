@@ -251,7 +251,7 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: '50 ดาเมจจริงทุกตัว', description: 'ปลดปล่อยดาบดวงดาวสังหาร ทำ 50 ดาเมจจริงใส่ศัตรูทั้งหมดในสนาม',
   },
   chronos_hourglass: {
-    id: 'chronos_hourglass', name: 'นาฬิกาทรายกาลเวลา', icon: '⏳', cost: 72, minFloor: 90, manaRestore: 6,
+    id: 'chronos_hourglass', name: 'นาฬิกาทรายกาลเวลา', icon: '⏳', cost: 72, minFloor: 90, manaRestore: 6, battleOnly: true,
     badge: 'ฟื้น 6 MP & จั่วเต็มมือ', description: 'หมุนเวลา เติม 6 MP และจั่วการ์ดเต็มมือทันที',
   },
   supernova_core: {

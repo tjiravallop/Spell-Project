@@ -1,5 +1,5 @@
 import { makeShield, shieldLayers, shieldProtection } from './shields.js';
-import { ATTACK_FORMS, WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS } from './words.js';
+import { ATTACK_FORMS, FUSED_ELEMENTS, WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS } from './words.js';
 import { RIFT_SPELL_BONUS, RIFT_EXPOSED_BONUS, isRiftBossExposed } from './upper-tower.js';
 import {
   ENEMIES,
@@ -27,6 +27,8 @@ import {
   fallBackToUpperSanctuary,
   getCardSecondaryEffect,
   getEquippedRelics,
+  getHandLimit,
+  getMaxMana,
   grantBossRelic,
   getFloorInfo,
   hasCardSecondaryUpgrade,
@@ -41,9 +43,13 @@ import {
   enterRoom,
   prepareEnemies,
   drawCards,
-  HAND_LIMIT,
   isBossRoom,
   isRoomRevisit,
+  recordClearedFloorProgress,
+  resolveRiftBattleVictory,
+  resolveRiftDefeat,
+  completeRevisitVictoryToSanctuary,
+  isSanctuaryUnlocked,
 } from './run.js';
 
 export const WORD_BASE_COST = Object.freeze({
@@ -111,7 +117,7 @@ export function estimateWordCost(wordIds, library = Object.keys(WORDS)) {
 
 export function simulateTurn(original, spellInput, targetId, secondTargetId = targetId, options = {}) {
   if (original.phase !== 'battle') return { ok: false, error: 'ยังร่ายในช่วงนี้ไม่ได้' };
-  if (original.player.hand.length > HAND_LIMIT) return { ok: false, error: 'เลือกทิ้งการ์ดที่เกินก่อนเล่นต่อ' };
+  if (original.player.hand.length > getHandLimit(original.player)) return { ok: false, error: 'เลือกทิ้งการ์ดที่เกินก่อนเล่นต่อ' };
   const guard = spellInput === 'guard';
   const allowFizzle = Boolean(options?.allowFizzle);
   const rawIds = guard ? [] : Array.isArray(spellInput) ? spellInput.filter(id => id !== null && id !== '') : [];
@@ -233,10 +239,17 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   let block = (guard ? 3 + (hasWorldloom ? 3 : 0) : 0) + secondaryShieldBonus + (hasGaiaEmblem ? 3 : 0);
   player.mana -= cost;
   if (!guard && !fizzled && spell && hasThunderConduit) {
-    const isLightning = (spell.elements ?? []).some(id => getElementComponents(id).includes('lightning'));
+    const castElements = [...(spell.elements ?? []), ...(spell.secondElement ? [spell.secondElement] : [])];
+    const isLightning = castElements.some(id => getElementComponents(id).includes('lightning'));
     if (isLightning) {
-      player.mana = Math.min(player.maxMana, player.mana + 1);
-      summary.sequence.push('ท่อสายฟ้าดารารีฟันด์ 1 มานา');
+      const manaRefund = Math.min(getMaxMana(player) - player.mana, 1);
+      if (manaRefund > 0) {
+        player.mana += manaRefund;
+        summary.manaRefunded = (summary.manaRefunded ?? 0) + manaRefund;
+        summary.manaAfterCast = player.mana;
+        events.push({ type: 'mana-refund', amount: manaRefund, relicId: 'thunder_conduit_70' });
+        summary.sequence.push(`แกนนำอสุนีบาตคืน +${manaRefund} มานา`);
+      }
     }
   }
 
@@ -314,8 +327,14 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const maxHpBefore = player.maxHp;
       awardEnemyBounty(enemy);
       if (hasVoidAnnihilator) {
-        player.mana = Math.min(player.maxMana, player.mana + 3);
-        summary.sequence.push('ศิลาล้างมิติฟื้นคืน 3 มานาจากการสังหาร');
+        const manaRefund = Math.min(getMaxMana(player) - player.mana, 3);
+        if (manaRefund > 0) {
+          player.mana += manaRefund;
+          summary.manaRefunded = (summary.manaRefunded ?? 0) + manaRefund;
+          summary.manaAfterCast = player.mana;
+          events.push({ type: 'mana-refund', amount: manaRefund, relicId: 'void_annihilator_90' });
+          summary.sequence.push(`ศิลาล้างมิติคืน +${manaRefund} มานาจากการสังหาร`);
+        }
       }
       if (player.maxHp > maxHpBefore) {
         event.levelHp = player.hp - hpBefore;
@@ -439,13 +458,13 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
   }
 
-  function chainLightning(enemy, strength, pierce, sweep, element = 'asani', attackForm = null) {
+  function chainLightning(enemy, strength, pierce, sweep, element = 'asani', attackForm = null, flatBonus = 0) {
     if (sweep?.chained) return;
     const neighbor = live().find(target => Math.abs(target.slot - enemy.slot) === 1 && !sweep?.warded?.has(target.id));
     if (!neighbor) return;
     if (sweep) sweep.chained = true;
     events.push({ type: 'chain-lightning', source: enemy.id, target: neighbor.id, element, ...spellVfxFlags });
-    damage(neighbor, strength / 2 + (neighbor.wetUntil >= turn ? 2 : 0), element, pierce, attackForm);
+    damage(neighbor, strength / 2 + flatBonus + (neighbor.wetUntil >= turn ? 2 : 0), element, pierce, attackForm);
     if (element === 'frostvolt') {
       neighbor.chill += 4;
       events.push({ type: 'status', status: 'chill', target: neighbor.id });
@@ -573,7 +592,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       return sum + WORDS[id].damage + elemUpgrade + blessingBonus + relicBonus;
     }, 0) / elements.length : (spell.shellDamage ?? WORDS[spell.form].damage);
     let strength = (base + formUpgradeBonus + auxUpgradeBonus) * spell.multiplier * targetScale;
-    if (hasCrownOfEternity && elements.length > 1) {
+    const isDualFusion = elements.length > 1 || elements.some(id => Boolean(FUSED_ELEMENTS[id]));
+    if (hasCrownOfEternity && isDualFusion) {
       strength = Math.round(strength * 1.5);
     }
     const pierce = (spell.pierce ?? 0)
@@ -602,9 +622,12 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       }
     }
     if (elements.includes('magnet')) pullNeighborsToward(enemy);
-    if (elements.includes('frostvolt')) chainLightning(enemy, strength, pierce, sweep, 'frostvolt', spell.form);
-    else if (elements.includes('thunderstorm')) chainLightning(enemy, strength, pierce, sweep, 'thunderstorm', spell.form);
-    else if (elements.includes('asani')) chainLightning(enemy, strength, pierce, sweep, 'asani', spell.form);
+    const conduitBonus = hasThunderConduit ? 6 : 0;
+    const hasLightningElem = elements.some(id => getElementComponents(id).includes('lightning'));
+    if (elements.includes('frostvolt')) chainLightning(enemy, strength, pierce, sweep, 'frostvolt', spell.form, conduitBonus);
+    else if (elements.includes('thunderstorm')) chainLightning(enemy, strength, pierce, sweep, 'thunderstorm', spell.form, conduitBonus);
+    else if (elements.includes('asani')) chainLightning(enemy, strength, pierce, sweep, 'asani', spell.form, conduitBonus);
+    else if (hasThunderConduit && hasLightningElem) chainLightning(enemy, 0, pierce, sweep, 'lightning', spell.form, 6);
     return gust;
   }
 
@@ -638,7 +661,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     });
     const name = [
       WORDS[spell.form].label,
-      spell.shellBlast ? WORDS.blast.label : '',
+      spell.shellBlast ? WORDS.blast.label : spell.blastShot ? WORDS.shot.label : '',
       uniqueElements.map(id => WORDS[id].label).join('+'),
     ].filter(Boolean).join(' ');
     summary.sequence.push(`${name} → ${enemy.slot + 1}${blocked ? ' (ติดม่าน)' : ''}`);
@@ -890,7 +913,51 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       if (!ignition || spell.form === 'wave' && enemy.id === targetId) ignition = trigger;
       return trigger;
     }
-    if (spell.form === 'blast') {
+    if (spell.form === 'blast' && spell.blastShot) {
+      const radius = spell.grand ? 2 : 1;
+      const elements = spell.elements;
+      const element = elements[0] ?? 'blast';
+      const { strength, pierce } = attackPower(elements);
+      const name = [spell.grand ? 'มหาระเบิดลูก' : 'ระเบิดลูก', elements.map(id => WORDS[id].label).join('+')].filter(Boolean).join(' ');
+      const strikeTargets = spell.shots === 2 ? [targetId, secondTargetId] : [targetId];
+      for (const [round, strikeId] of strikeTargets.entries()) {
+        if (player.hp <= 0) break;
+        const intended = enemyById(strikeId);
+        const center = intended && intended.hp > 0
+          ? intended
+          : live().sort((a, b) => a.hp - b.hp || Math.abs(a.slot - (intended?.slot ?? 0)) - Math.abs(b.slot - (intended?.slot ?? 0)) || a.slot - b.slot)[0];
+        if (!center) break;
+        const slot = center.slot;
+        if (spell.dispel && center.ward > 0) {
+          const amount = center.ward;
+          summary.wards += amount;
+          center.ward = 0;
+          events.push({ type: 'dispel', target: center.id, amount });
+          summary.sequence.push(`สลายม่านช่อง ${slot + 1} ${amount} ชั้น`);
+        }
+        const nearby = live().filter(enemy => Math.abs(enemy.slot - slot) <= radius);
+        const targets = nearby.filter(enemy => enemy.ward === 0);
+        const wardedTargets = nearby.filter(enemy => enemy.ward > 0).map(enemy => enemy.id);
+        const powerAt = enemy => (strength + blastUpgradeBonus) * (enemy.slot === slot ? 1 : 0.5);
+        const hits = targets.map(enemy => ({ enemy, slot: enemy.slot, power: powerAt(enemy) }));
+        blast(center.id, targets, element, enemy => hit(enemy, powerAt(enemy), pierce, elements),
+          { originSlot: slot, radius, elements, scale: 1, grand: Boolean(spell.grand), large: Boolean(spell.large), wardedTargets });
+        const sweep = { chained: false, warded: new Set(live().filter(enemy => enemy.ward > 0).map(enemy => enemy.id)) };
+        for (const h of hits) {
+          elementAfterHit(h.enemy, elements, h.power, pierce, sweep, h.slot);
+          reactToAttack(h.enemy, elements);
+        }
+        const wave = spell.shots === 2 ? ` ระลอก ${round + 1}` : '';
+        const blocked = wardedTargets.length ? ` · ติดม่าน ${wardedTargets.length} เป้า` : '';
+        summary.sequence.push(`${name}${wave} · ${targets.length} เป้า${blocked}`);
+        if (center.hp > 0 && player.hp > 0) {
+          impact(center, elements, sweep, 0.6);
+        }
+        if (spell.devastation && round === 0 && targets.length && !ignition) {
+          ignition = { center: targets.includes(center) ? center : targets[0], slot, strength, pierce, elements };
+        }
+      }
+    } else if (spell.form === 'blast') {
       const center = enemyById(targetId);
       const slot = center.slot;
       const radius = spell.grand ? 2 : 1;
@@ -985,17 +1052,17 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   spellVfxFlags = {};
 
   if (!guard && !fizzled && hasStormPendulum && rawIds.includes('pair')) {
-    const manaRefund = Math.min(player.maxMana - player.mana, 1);
+    const manaRefund = Math.min(getMaxMana(player) - player.mana, 1);
     if (manaRefund > 0) {
       player.mana += manaRefund;
-      summary.manaRefunded = manaRefund;
+      summary.manaRefunded = (summary.manaRefunded ?? 0) + manaRefund;
       summary.manaAfterCast = player.mana;
       events.push({ type: 'mana-refund', amount: manaRefund, relicId: 'storm_pendulum_20' });
       summary.sequence.push(`ลูกตุ้มสายฟ้าคืน +${manaRefund} มานา`);
     }
   }
   if (!guard && !fizzled && hasCrown && rawIds.length === 4) {
-    const manaRefund = Math.min(player.maxMana - player.mana, 2);
+    const manaRefund = Math.min(getMaxMana(player) - player.mana, 2);
     if (manaRefund > 0) {
       player.mana += manaRefund;
       summary.manaRefunded = (summary.manaRefunded ?? 0) + manaRefund;
@@ -1214,59 +1281,71 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     delete state.blackhole;
     delete state.deathSpent;
     player.hp = 0;
-    const fallback = fallBackOnDefeat(state);
-    if (fallback.phase === 'sanctuary') {
-      summary.fellToFloor = fallback.targetFloor;
-      if (fallback.targetFloor === 5 || fallback.targetFloor === 4) summary.fellToFloor4 = true;
-      events.push({ type: 'fall', targetFloor: fallback.targetFloor });
+    if (state.rift) {
+      resolveRiftDefeat(state, summary, events);
     } else {
-      state.phase = 'lost';
+      const fallback = fallBackOnDefeat(state);
+      if (fallback.phase === 'sanctuary') {
+        summary.fellToFloor = fallback.targetFloor;
+        if (fallback.targetFloor === 5 || fallback.targetFloor === 4) summary.fellToFloor4 = true;
+        events.push({ type: 'fall', targetFloor: fallback.targetFloor });
+      } else {
+        state.phase = 'lost';
+      }
     }
   } else if (!live().length) {
-    delete state.blackhole;
-    delete state.deathSpent;
-    if (!state.clearedRooms.includes(state.room)) {
-      state.clearedRooms.push(state.room);
-    }
-    state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, state.room + 1));
-    if (dropsCardReward) {
-      if (!isBossRoom(state) && !isUpperCacheRoom(state.room)) summary.roomRecovery = recoverAfterRoom(state);
-      makeRewards(state);
+    if (state.rift) {
+      resolveRiftBattleVictory(state, summary, events);
     } else {
-      summary.roomRecovery = recoverAfterRoom(state);
-      const rel = state.room % 25;
-      const D = Math.floor(state.room / 25);
-      if (rel === 11) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuaryFloor = D * 10 + 5;
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
-        state.phase = 'sanctuary';
-      } else if (rel === 23) {
-        state.sanctuaryUnlocked = true;
-        state.sanctuaryFloor = `pre${(D + 1) * 10}`;
-        state.sanctuaryRested = false;
-        state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
-        state.phase = 'sanctuary';
-      } else if (rel === 24) {
-        const majorBossFloor = (D + 1) * 10;
-        const relicId = grantBossRelic(player, majorBossFloor);
-        if (relicId) {
-          summary.relicDropped = relicId;
-          events.push({ type: 'relic', relicId });
-        }
-        if (majorBossFloor === 100 || state.room >= (state.rooms?.length ?? 250) - 1) {
-          state.phase = 'won';
-        } else {
+      delete state.blackhole;
+      delete state.deathSpent;
+      if (!state.clearedRooms.includes(state.room)) {
+        state.clearedRooms.push(state.room);
+      }
+      recordClearedFloorProgress(state, state.room);
+      state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, state.room + 1));
+      if (dropsCardReward) {
+        if (!isBossRoom(state) && !isUpperCacheRoom(state.room)) summary.roomRecovery = recoverAfterRoom(state);
+        makeRewards(state);
+      } else if (revisit && (state.replayReturn || isSanctuaryUnlocked(state))) {
+        summary.roomRecovery = recoverAfterRoom(state);
+        completeRevisitVictoryToSanctuary(state, summary);
+      } else {
+        summary.roomRecovery = recoverAfterRoom(state);
+        const rel = state.room % 25;
+        const D = Math.floor(state.room / 25);
+        if (rel === 11) {
           state.sanctuaryUnlocked = true;
-          state.sanctuaryFloor = `post${majorBossFloor}`;
+          state.sanctuaryFloor = D * 10 + 5;
           state.sanctuaryRested = false;
           state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
           state.phase = 'sanctuary';
+        } else if (rel === 23) {
+          state.sanctuaryUnlocked = true;
+          state.sanctuaryFloor = `pre${(D + 1) * 10}`;
+          state.sanctuaryRested = false;
+          state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
+          state.phase = 'sanctuary';
+        } else if (rel === 24) {
+          const majorBossFloor = (D + 1) * 10;
+          const relicId = grantBossRelic(player, majorBossFloor);
+          if (relicId) {
+            summary.relicDropped = relicId;
+            events.push({ type: 'relic', relicId });
+          }
+          if (majorBossFloor === 100 || state.room >= (state.rooms?.length ?? 250) - 1) {
+            state.phase = 'won';
+          } else {
+            state.sanctuaryUnlocked = true;
+            state.sanctuaryFloor = `post${majorBossFloor}`;
+            state.sanctuaryRested = false;
+            state.highestRoom = Math.max(state.highestRoom ?? 0, state.room + 1);
+            state.phase = 'sanctuary';
+          }
+        } else {
+          state.room++;
+          enterRoom(state);
         }
-      } else {
-        state.room++;
-        enterRoom(state);
       }
     }
   } else {
@@ -1287,7 +1366,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
     if (nextMagmaPuddles.size) state.magmaPuddles = [...nextMagmaPuddles];
     drawCards(state);
-    player.mana = Math.min(player.maxMana, player.mana + 3);
+    player.mana = Math.min(getMaxMana(player), player.mana + 3);
     prepareEnemies(state);
   }
   summary.hp = player.hp;

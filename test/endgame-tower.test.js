@@ -5,11 +5,15 @@ import {
   createEnemy,
   prepareEnemies,
   useBattleItem,
+  useInventoryItem,
   getAvailableShopItems,
   grantBossRelic,
   getEquippedRelics,
+  getHandLimit,
+  getMaxMana,
   equipRelic,
   unequipRelic,
+  enterRoom,
   intent,
   completeBossVictoryTransition,
   revisitRoom,
@@ -26,6 +30,7 @@ import {
   SHOP_ITEMS,
   RELIC_DRAFT_CATALOG,
 } from '../src/run.js';
+import { simulateTurn } from '../src/combat.js';
 import {
   ENDGAME_ENEMIES,
   ENDGAME_RELICS,
@@ -303,3 +308,145 @@ test('Save System: Floors 51–100 state round trip and persistence', () => {
   assert.ok(loadRes.state.player.relics.includes('magma_heart_60'));
   assert.deepEqual(loadRes.state.player.items, ['supernova_core', 'omega_ward_prism']);
 });
+
+test('Chronos Hourglass restores MP and draws to full hand limit in battle, and is battle-only', () => {
+  const state = createRun('chronos-test');
+  state.player.mana = 4;
+  state.player.hand = ['shot', 'fire'];
+  state.player.items = ['chronos_hourglass'];
+
+  const res = useBattleItem(state, 0);
+  assert.equal(res.ok, true);
+  assert.equal(res.state.player.mana, 10);
+  assert.equal(res.state.player.hand.length, 10);
+  assert.equal(res.state.player.items.length, 0);
+
+  // Works when MP is already full as long as hand has space
+  const fullMpState = createRun('chronos-full-mp');
+  fullMpState.player.mana = fullMpState.player.maxMana;
+  fullMpState.player.hand = ['shot', 'fire', 'ice'];
+  fullMpState.player.items = ['chronos_hourglass'];
+  const drawOnly = useBattleItem(fullMpState, 0);
+  assert.equal(drawOnly.ok, true);
+  assert.equal(drawOnly.state.player.hand.length, 10);
+
+  // Rejects no-effect use when both MP and hand are already full
+  const noEffect = createRun('chronos-no-effect');
+  noEffect.player.mana = noEffect.player.maxMana;
+  noEffect.player.hand = Array(10).fill('shot');
+  noEffect.player.items = ['chronos_hourglass'];
+  assert.throws(() => useBattleItem(noEffect, 0), /เต็มอยู่แล้ว/);
+
+  // Rejects outside battle
+  const sanct = createRun('chronos-sanctuary');
+  sanct.phase = 'sanctuary';
+  sanct.player.mana = 2;
+  sanct.player.items = ['chronos_hourglass'];
+  assert.throws(() => useInventoryItem(sanct, 'belt', 0), /ฉากต่อสู้/);
+});
+
+test('Void Singularity Flask destroys non-bosses and deals 45 true damage to bosses', () => {
+  const state = createRun('void-flask-test');
+  state.player.items = ['void_singularity_flask'];
+  state.enemies = [
+    createEnemy('zenith_templar', 0), // non-boss, 145 HP, 5 armor
+    createEnemy('volcano_colossus', 1), // boss, 580 HP, 5 armor
+  ];
+
+  const res = useBattleItem(state, 0);
+  assert.equal(res.ok, true);
+  assert.equal(res.state.enemies[0].hp, 0);
+  assert.equal(res.state.enemies[1].hp, 580 - 45);
+});
+
+test('Thunder Conduit 70 chains +6 lightning shock to adjacent enemies and refunds +1 mana', () => {
+  const base = createRun('thunder-conduit-test');
+  base.collection = ['lightning', 'plasma'];
+  base.player.words = ['shot', 'fire', 'ice', 'pair', 'shield', 'lightning', 'plasma'];
+  base.player.hand = ['shot', 'lightning', 'fire', 'pair', 'plasma'];
+  base.player.maxMana = 20;
+  base.player.mana = 20;
+  base.enemies = [
+    { id: 'enemy-0', kind: 'striker', hp: 50, maxHp: 50, armor: 0, ward: 0, chill: 0, freeze: 0, burn: 0, burnTurn: 0, slot: 0 },
+    { id: 'enemy-1', kind: 'striker', hp: 50, maxHp: 50, armor: 0, ward: 0, chill: 0, freeze: 0, burn: 0, burnTurn: 0, slot: 1 },
+  ];
+
+  const withoutRelic = simulateTurn(base, ['shot', 'lightning'], 'enemy-0');
+  assert.equal(withoutRelic.ok, true);
+  assert.equal(withoutRelic.events.some(e => e.type === 'chain-lightning'), false);
+  assert.equal(withoutRelic.state.enemies[1].hp, 50);
+
+  const withRelic = structuredClone(base);
+  withRelic.player.relics = ['thunder_conduit_70'];
+  withRelic.player.equippedRelics = ['thunder_conduit_70'];
+  const res = simulateTurn(withRelic, ['shot', 'lightning'], 'enemy-0');
+  assert.equal(res.ok, true);
+  // Primary: 8 + 6 = 14 damage
+  assert.equal(res.state.enemies[0].hp, 50 - 14);
+  // Adjacent enemy receives 6 chain-lightning shock damage + VFX event
+  assert.equal(res.state.enemies[1].hp, 50 - 6);
+  const chainEv = res.events.find(e => e.type === 'chain-lightning');
+  assert.ok(chainEv);
+  assert.equal(chainEv.source, 'enemy-0');
+  assert.equal(chainEv.target, 'enemy-1');
+  assert.equal(chainEv.element, 'lightning');
+  // Mana refund recorded in summary and events: 20 - 3 + 1 = 18
+  assert.equal(res.summary.manaRefunded, 1);
+  assert.equal(res.summary.manaAfterCast, 18);
+  assert.ok(res.events.some(e => e.type === 'mana-refund' && e.relicId === 'thunder_conduit_70' && e.amount === 1));
+});
+
+test('Crown of Eternity 100 grants +3 starting/max mana, +2 hand size/limit, and +50% Dual Fusion damage', () => {
+  const storage = new MemoryStorage();
+  let state = createRun('crown-eternity-test');
+  state.collection = ['magma'];
+  state.player.words = ['shot', 'fire', 'ice', 'pair', 'shield', 'magma'];
+  state.player.relics = ['crown_of_eternity_100'];
+  state.player.equippedRelics = ['crown_of_eternity_100'];
+
+  assert.equal(getMaxMana(state.player), 15);
+  assert.equal(getHandLimit(state.player), 12);
+
+  // Entering room grants +3 starting mana (15) and +2 opening hand size (7)
+  enterRoom(state);
+  assert.equal(state.player.mana, 15);
+  assert.equal(state.player.hand.length, 7);
+
+  // Can hold 12 cards without overflow and save/load cleanly
+  state.player.hand = ['shot', 'fire', 'ice', 'pair', 'magma', 'shield', 'shot', 'fire', 'ice', 'pair', 'magma', 'shield'];
+  assert.equal(saveRun(state, storage).ok, true);
+  assert.equal(loadRun(storage).ok, true);
+
+  // Dual Fusion +50% applies to both two-card fusion and single-card fused element (magma)
+  state.enemies = [
+    { id: 'enemy-0', kind: 'striker', hp: 100, maxHp: 100, armor: 0, ward: 0, chill: 0, freeze: 0, burn: 0, burnTurn: 0, slot: 0 },
+  ];
+  const noCrown = structuredClone(state);
+  noCrown.player.equippedRelics = [];
+  noCrown.player.hand = ['shot', 'fire', 'ice', 'pair', 'magma'];
+  noCrown.player.mana = 12;
+
+  const pairBase = simulateTurn(noCrown, ['shot', 'fire', 'pair', 'ice'], 'enemy-0');
+  const pairCrown = simulateTurn(state, ['shot', 'fire', 'pair', 'ice'], 'enemy-0');
+  assert.equal(pairCrown.summary.damage, Math.round(pairBase.summary.damage * 1.5));
+
+  const magmaBase = simulateTurn(noCrown, ['shot', 'magma'], 'enemy-0');
+  const magmaCrown = simulateTurn(state, ['shot', 'magma'], 'enemy-0');
+  assert.equal(magmaCrown.summary.damage, Math.round(magmaBase.summary.damage * 1.5));
+
+  // Chronos Hourglass draws up to the Crown-boosted hand limit (12) and mana cap (15)
+  state.player.mana = 10;
+  state.player.hand = ['shot', 'fire'];
+  state.player.items = ['chronos_hourglass'];
+  const chronoRes = useBattleItem(state, 0);
+  assert.equal(chronoRes.state.player.mana, 15);
+  assert.equal(chronoRes.state.player.hand.length, 12);
+
+  // Unequipping Crown in sanctuary clamps mana safely back to base maxMana
+  state.phase = 'sanctuary';
+  state.player.mana = 15;
+  state = unequipRelic(state, 'crown_of_eternity_100');
+  assert.equal(getMaxMana(state.player), 12);
+  assert.equal(state.player.mana, 12);
+});
+

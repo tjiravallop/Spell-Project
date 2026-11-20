@@ -9,6 +9,7 @@ import {
   getAvailableShopItems,
   buyShopItem,
   getEquippedRelics,
+  getMaxMana,
   getCardUpgradeLevel,
   deckCapacity,
   hasCardSecondaryUpgrade,
@@ -26,6 +27,14 @@ import {
   restAtSanctuary,
   updateSanctuaryLoadout,
   ENEMIES,
+  RIFT_TIERS,
+  isRiftUnlocked,
+  isRiftTierUnlocked,
+  getRiftDailyStatus,
+  getRiftStageRooms,
+  getRiftRewardPool,
+  rewardRarityRates,
+  ownsRewardWord,
 } from '../run.js';
 import { icon } from '../icons.js';
 import { getSanctuaryStory } from '../story.js';
@@ -200,6 +209,68 @@ export function renderSanctuaryTravel(state) {
   }).join('')}</div>` : '';
 }
 
+export function renderRiftPanel(state) {
+  const list = $('rift-tier-list');
+  if (!list || !state) return;
+  const status = getRiftDailyStatus(state);
+  const pill = $('rift-quota-pill');
+  if (pill) {
+    pill.textContent = `${status.remaining} / ${status.cap} รอบ`;
+    pill.classList.toggle('is-empty', status.remaining <= 0);
+  }
+  const sub = $('rift-quota-sub');
+  if (sub) {
+    sub.textContent = `ผ่านหอคอยสูงสุดชั้น ${status.cap} (ได้ ${status.cap} รอบ/วัน · ใช้ไปแล้ว ${status.used}) · ผ่านชั้นเพิ่มในวันนี้รับรอบเพิ่มทันที`;
+  }
+  list.innerHTML = RIFT_TIERS.map(tier => {
+    const unlocked = isRiftTierUnlocked(state, tier);
+    const stageRooms = getRiftStageRooms(tier);
+    const stageLabels = [`${tier - 2}-3`, `${tier - 1}-3`, `บอส ${tier}★`];
+    const stagesHtml = stageRooms.map((roomIdx, idx) => {
+      const enemyKinds = state.rooms?.[roomIdx] ?? [];
+      const names = enemyKinds.map(kind => ENEMIES[kind]?.name ?? kind).join(' · ');
+      return `<li><b>ด่าน ${idx + 1} (${stageLabels[idx]})</b><span>${escape(names)}</span></li>`;
+    }).join('');
+    const pool = getRiftRewardPool(state, tier);
+    const unowned = pool.filter(id => !ownsRewardWord(state, id)).length;
+    const rates = rewardRarityRates(tier);
+    const canEnter = unlocked && status.remaining > 0;
+    const btnText = !unlocked
+      ? `🔒 ผ่านบอสชั้น ${tier} เพื่อปลดล็อก`
+      : status.remaining <= 0
+        ? `โควต้าวันนี้หมดแล้ว (${status.remaining}/${status.cap})`
+        : `🌀 เข้ารอยแยกชั้น ${tier} (−1 รอบ)`;
+    return `<article class="rift-tier-card ${unlocked ? 'is-unlocked' : 'is-locked'}" data-rift-tier-card="${tier}">
+      <div class="rift-tier-head">
+        <strong>รอยแยกชั้น ${tier}</strong>
+        <span class="rift-tier-badge">${unlocked ? 'เปิดแล้ว' : `ล็อกชั้น ${tier}`}</span>
+      </div>
+      <ul class="rift-stage-list">${stagesHtml}</ul>
+      <div class="rift-tier-ceiling">เพดานรางวัลชั้น ${tier} · พูล ${pool.length} ใบ (ยังไม่มี ${unowned} ใบ) · Epic ${rates.epic}% / Legend ${rates.legendary}%</div>
+      <button type="button" class="${canEnter ? 'primary-button' : 'secondary-button'} rift-enter-btn" data-enter-rift="${tier}" ${canEnter ? '' : 'disabled'}>${escape(btnText)}</button>
+    </article>`;
+  }).join('');
+}
+
+export function openSanctuaryRiftPanel(ctx) {
+  const state = ctx.getState();
+  if (!state || state.phase !== 'sanctuary' || !isRiftUnlocked(state)) return;
+  const sanctuaryMenu = $('sanctuary-menu');
+  const panelIds = [
+    'sanctuary-shop-panel',
+    'sanctuary-upgrade-panel',
+    'sanctuary-deck-panel',
+    'sanctuary-tome-panel',
+    'sanctuary-map-panel',
+    'sanctuary-rift-panel',
+  ];
+  for (const id of panelIds) $(id).hidden = id !== 'sanctuary-rift-panel';
+  $('sanctuary-menu-title').textContent = 'รอยแยกมิติ';
+  renderRiftPanel(state);
+  if (!sanctuaryMenu.open) sanctuaryMenu.showModal();
+  sanctuaryMenu.scrollTop = 0;
+}
+
 export function renderSanctuary(ctx) {
   const state = ctx.getState();
   if (!state) return;
@@ -243,12 +314,13 @@ export function renderSanctuary(ctx) {
   }
 
   const healPreview = p.maxHp - p.hp;
-  const canHeal = healPreview > 0 || p.mana < p.maxMana;
+  const maxMana = getMaxMana(p);
+  const canHeal = healPreview > 0 || p.mana < maxMana;
   const restBtn = $('sanctuary-rest-btn');
   restBtn.disabled = state.sanctuaryRested || !canHeal;
   $('sanctuary-rest-label').textContent = state.sanctuaryRested ? 'พักแล้ว' : canHeal ? 'พักฟื้น' : 'พลังเต็ม';
   $('sanctuary-rest-gain').textContent = !restBtn.disabled
-    ? [healPreview ? `+${healPreview} HP` : '', p.mana < p.maxMana ? 'เติมมานาเต็ม' : ''].filter(Boolean).join(' · ')
+    ? [healPreview ? `+${healPreview} HP` : '', p.mana < maxMana ? 'เติมมานาเต็ม' : ''].filter(Boolean).join(' · ')
     : '';
 
   const nextRoomBtn = $('sanctuary-next-room-btn');
@@ -259,6 +331,26 @@ export function renderSanctuary(ctx) {
     nextRoomBtn.dataset.revisitRoom = String(targetRoomIdx);
     const destination = fInfo.isBoss ? `บอสชั้น ${fInfo.floor}` : `ชั้น ${fInfo.floor} · ห้อง ${fInfo.code}`;
     $('sanctuary-next-room-label').textContent = isRepeat ? `เล่นซ้ำ · ${destination}` : `ไต่ต่อ · ${destination}`;
+  }
+
+  const riftBtn = $('sanctuary-rift-btn');
+  if (riftBtn) {
+    const isTutorialTower = (state.rooms?.length ?? 0) <= 6;
+    riftBtn.hidden = isTutorialTower;
+    if (!isTutorialTower) {
+      const unlocked = isRiftUnlocked(state);
+      const status = getRiftDailyStatus(state);
+      riftBtn.disabled = !unlocked;
+      riftBtn.classList.toggle('is-locked', !unlocked);
+      $('sanctuary-rift-label').textContent = unlocked ? '🌀 รอยแยก' : '🔒 รอยแยก (ชั้น 20)';
+      $('sanctuary-rift-quota').textContent = unlocked ? `${status.remaining}/${status.cap}` : '';
+      riftBtn.title = unlocked
+        ? `ดันเจี้ยนรอยแยก · คงเหลือวันนี้ ${status.remaining}/${status.cap} รอบ (3 บอสต่อเนื่อง · สุ่มรับการ์ด 1 ใบ)`
+        : 'ผ่านบอสใหญ่ชั้น 20 เพื่อปลดล็อกดันเจี้ยนรอยแยก';
+    }
+  }
+  if ($('sanctuary-rift-panel') && !$('sanctuary-rift-panel').hidden) {
+    renderRiftPanel(state);
   }
 
   ctx.syncDiscoveredFromState();
@@ -368,6 +460,7 @@ export function bindSanctuaryEvents(ctx) {
     deck: ['sanctuary-deck-panel', 'ชุดคำ'],
     tome: ['sanctuary-tome-panel', 'ตำรา'],
     map: ['sanctuary-map-panel', 'เลือกชั้นอื่น'],
+    rift: ['sanctuary-rift-panel', 'รอยแยกมิติ'],
   };
 
   for (const [selector, iconId] of [
@@ -384,6 +477,7 @@ export function bindSanctuaryEvents(ctx) {
       for (const [panel] of Object.values(sanctuaryPanels)) $(panel).hidden = panel !== activePanel;
       $('sanctuary-menu-title').textContent = title;
       if (activePanel === 'sanctuary-upgrade-panel') renderForge(ctx.getState());
+      if (activePanel === 'sanctuary-rift-panel') renderRiftPanel(ctx.getState());
       if (activePanel === 'sanctuary-shop-panel') {
         selectedShopItem = null;
         $('shop-receipt').textContent = '';

@@ -17,7 +17,7 @@ import {
   getSpellCatalog,
   parseSpell,
 } from './words.js';
-import { HAND_LIMIT } from './run.js';
+import { getHandLimit } from './run.js';
 
 export const ATTACK_CANDIDATES = Object.freeze([
   ['blackhole'], ['death'], ['meteor'],
@@ -37,6 +37,21 @@ export const ATTACK_CANDIDATES = Object.freeze([
   ['shot', 'blast', 'large'],
   ['shot', 'blast', 'pair'],
   ['shot', 'blast'],
+  ['blast', 'shot', 'fire', 'pair'],
+  ['blast', 'shot', 'fire', 'large'],
+  ['blast', 'shot', 'fire'],
+  ['blast', 'shot', 'ice'],
+  ['blast', 'shot', 'lightning'],
+  ['blast', 'shot', 'large', 'pair'],
+  ['blast', 'shot', 'large'],
+  ['blast', 'shot', 'pair'],
+  ['blast', 'shot'],
+  ['blast', 'fire', 'large', 'pair'],
+  ['blast', 'fire', 'pair'],
+  ['blast', 'pair', 'fire'],
+  ['blast', 'fire'],
+  ['blast', 'pair'],
+  ['blast'],
   ['shot', 'fire', 'pair', 'blast'],
   ['shot', 'fire', 'blast', 'pair'],
   ['shot', 'fire', 'pair', 'ice'],
@@ -167,7 +182,7 @@ export const MASTER_FORMULAS = Object.freeze(
 export function canFormCardsInHand(state, phrase) {
   if (!state?.player) return null;
   const { hand, words: deck } = state.player;
-  if (hand.length > HAND_LIMIT) return null;
+  if (hand.length > getHandLimit(state.player)) return null;
   const counts = {};
   for (const id of hand) counts[id] = (counts[id] ?? 0) + 1;
   const needed = {};
@@ -187,7 +202,7 @@ export function canFormPhraseInHand(state, phrase) {
 }
 
 export function computePlayableCombos(state, words = [], discoveredKeys = []) {
-  if (!state?.player || state.player.hand.length > HAND_LIMIT) return [];
+  if (!state?.player || state.player.hand.length > getHandLimit(state.player)) return [];
   const discoveredSet = new Set([
     ...(state.stats?.discovered ?? []),
     ...(Array.isArray(discoveredKeys) ? discoveredKeys : [...discoveredKeys]),
@@ -272,7 +287,9 @@ export function describeFormulaEffect(formula) {
     shot: sp.shellBlast ? 'ยิงกระสุนหัวระเบิด' : 'ยิงกระสุน',
     beam: 'ลำแสงทะลุแถวและม่าน',
     wave: 'คลื่นกวาดศัตรูทุกตัว',
-    blast: `ระเบิดตรงเป้า · ช่องอื่นในรัศมี ${sp.grand ? 2 : 1} ช่องรับครึ่งพลัง · ม่านกันแยกเป้า`,
+    blast: sp.blastShot
+      ? `ระเบิดตรงเป้า (รัศมี ${sp.grand ? 2 : 1} ช่อง) ก่อนยิงกระสุนเสริม 60%`
+      : `ระเบิดตรงเป้า · ช่องอื่นในรัศมี ${sp.grand ? 2 : 1} ช่องรับครึ่งพลัง · ม่านกันแยกเป้า`,
     storm: sp.elements.length ? 'พลังธาตุ 150% ใส่เป้าหลัก และ 75% ใส่ช่องข้าง' : 'พลัง 12 ใส่เป้าหลัก และ 6 ใส่ช่องข้าง',
     meteor: 'อุกกาบาตตกใส่เป้าหลัก 28 / ช่องข้าง 10 (ข้ามม่าน)',
     blackhole: 'หลุมดำดึงศัตรูรัศมี 2 ช่อง · ยุบตัวเทิร์นหน้า 30 / 15 (ข้ามม่าน)',
@@ -294,7 +311,7 @@ export function describeFormulaEffect(formula) {
   if (sp.grand && sp.stormPair) parts.push('แรงโจมตี ×1.5 · กระจายครึ่งพลังไปช่องข้างทั้งสองระลอก');
   else if (sp.grand && ['blast', 'meteor', 'blackhole'].includes(sp.form)) parts.push('แรงโจมตี ×1.5');
   else if (sp.grand) parts.push('แรงโจมตี ×1.5 · กระจายครึ่งพลังไปช่องข้าง');
-  if (sp.shots > 1 && !sp.meteorPair) parts.push(sp.form === 'beam' ? 'ลำแสงสองครั้ง' : `${sp.shots} ลูกต่อเนื่อง`);
+  if (sp.shots > 1 && !sp.meteorPair) parts.push(sp.form === 'beam' ? 'ลำแสงสองครั้ง' : sp.blastShot ? 'ระเบิดและยิงซ้ำสองครั้ง' : `${sp.shots} ลูกต่อเนื่อง`);
   if (formula.phrase.includes('large')) parts.push('แรงเวท ×1.5');
   if (sp.blasts) parts.push('ระเบิดกระจายช่องข้างเคียง');
   if (sp.shellBlast) parts.push('ระเบิดรัศมี 1 ช่องเพิ่ม 60% (แรงกว่าระเบิดเดี่ยวและโดนทุกตัวในรัศมี)');

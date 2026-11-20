@@ -2616,7 +2616,6 @@ test('shot blast variants and grand shield pair parse, register in catalog, and 
     ['shot blast pair', 10],
     ['shot blast large', 7],
     ['shot blast large pair', 14],
-    ['shot blast pair large', 14],
     ['shot blast fire', 7],
     ['shot blast fire pair', 14],
     ['shot blast pair fire', 14],
@@ -2638,6 +2637,7 @@ test('shot blast variants and grand shield pair parse, register in catalog, and 
   }
   assert.deepEqual(parseSpell(['shot', 'blast', 'fire', 'ice']).spell, parseSpell(['shot', 'blast', 'ice', 'fire']).spell);
   assert.deepEqual(parseSpell(['shot', 'blast', 'fire', 'pair']).spell, parseSpell(['shot', 'blast', 'pair', 'fire']).spell);
+  assert.equal(parseSpell(['shot', 'blast', 'pair', 'large']).ok, false);
   assert.equal(parseSpell(['shot', 'blast', 'fire', 'fire']).ok, false);
   assert.equal(parseSpell(['shot', 'blast', 'blast']).ok, false);
   assert.equal(parseSpell(['grand', 'shield', 'pair', 'devastation']).ok, false);
@@ -3202,6 +3202,145 @@ test('worldloom_50 rift shield survives save validation and ember_core_10 boosts
   hybridBase.player.equippedRelics = ['ember_core_10'];
   const withEmberCore = cast(hybridBase, 'shot magma').summary.damage;
   assert.equal(withEmberCore, noRelic + 2);
+});
+
+test('large pair rules across shot, beam, wave, storm, and blast parse cleanly, reject pair-before-large (คู่ ใหญ่), and match combat forecasts', () => {
+  const catalog = getSpellCatalog();
+  const cases = [
+    ['shot fire large pair', 10],
+    ['beam fire large pair', 12],
+    ['wave fire large pair', 14],
+    ['storm fire large pair', 12],
+    ['blast pair', 7],
+    ['blast pair fire', 9],
+    ['blast fire pair', 9],
+    ['blast fire large pair', 11],
+    ['blast large pair', 9],
+    ['blast large fire pair', 11],
+    ['blast large pair fire', 11],
+    ['heal large pair', 10],
+    ['heal self large pair', 10],
+    ['veil large pair', 18],
+    ['meteor large pair', 22],
+  ];
+  for (const [phrase, cost] of cases) {
+    const parsed = parseSpell(phrase.split(' '));
+    assert.equal(parsed.ok, true, phrase);
+    assert.equal(parsed.cost, cost, phrase);
+    assert.equal(parsed.spell.large, phrase.includes('large') ? true : undefined, phrase);
+    assert.equal(catalog.has(phrase), true, `catalog missing: ${phrase}`);
+  }
+
+  const rejectedPairLarge = [
+    'shot fire pair large',
+    'beam fire pair large',
+    'wave fire pair large',
+    'storm fire pair large',
+    'blast pair large',
+    'blast pair large fire',
+    'blast pair fire large',
+    'blast fire pair large',
+    'blast shot pair large',
+    'shot blast pair large',
+    'heal pair large',
+    'heal self pair large',
+    'veil pair large',
+    'meteor pair large',
+  ];
+  for (const phrase of rejectedPairLarge) {
+    assert.equal(parseSpell(phrase.split(' ')).ok, false, `should reject คู่ ใหญ่: ${phrase}`);
+    assert.equal(catalog.has(phrase), false, `catalog should exclude คู่ ใหญ่: ${phrase}`);
+  }
+
+  assert.deepEqual(parseSpell(['blast', 'fire', 'pair']).spell, parseSpell(['blast', 'pair', 'fire']).spell);
+  assert.deepEqual(parseSpell(['blast', 'fire', 'large', 'pair']).spell, parseSpell(['blast', 'large', 'pair', 'fire']).spell);
+
+  assert.equal(parseSpell(['storm', 'fire', 'pair', 'blast']).ok, false);
+  assert.equal(parseSpell(['beam', 'fire', 'large', 'blast']).ok, false);
+
+  const state = battle(['rune_ram', 'rune_ram', 'rune_ram']);
+  state.player.maxMana = state.player.mana = 24;
+  state.player.maxHp = state.player.hp = 120;
+  for (const enemy of state.enemies) { enemy.armor = 0; enemy.hp = 60; }
+  const hp = result => Object.values(result.summary.enemyHp);
+
+  state.enemies[0].ward = 1;
+  state.enemies[2].ward = 1;
+  const beamLp = cast(state, 'beam fire large pair', 'enemy-0', 'enemy-2');
+  assert.deepEqual(hp(beamLp), [45, 60, 45]);
+  state.enemies[0].ward = 0;
+  state.enemies[2].ward = 0;
+
+  const waveLp = cast(state, 'wave fire large pair', 'enemy-1');
+  assert.deepEqual(hp(waveLp), [42, 42, 42]);
+
+  const stormLp = cast(state, 'storm fire large pair', 'enemy-1');
+  assert.deepEqual(hp(stormLp), [41, 23, 41]);
+
+  const blastPairFire = cast(state, 'blast pair fire', 'enemy-1');
+  assert.deepEqual(hp(blastPairFire), [50, 40, 50]);
+  const blastLargePairFire = cast(state, 'blast large pair fire', 'enemy-1');
+  assert.deepEqual(hp(blastLargePairFire), [44, 30, 44]);
+});
+
+test('blast shot variants (ระเบิด ลูก / ระเบิด ลูก ธาตุ / ระเบิด ลูก ธาตุ คู่) parse, register in catalog, and differ by word order', () => {
+  const catalog = getSpellCatalog();
+  const cases = [
+    ['blast shot', 5],
+    ['blast shot pair', 10],
+    ['blast shot large', 7],
+    ['blast shot large pair', 14],
+    ['blast shot fire', 7],
+    ['blast shot fire pair', 14],
+    ['blast shot pair fire', 14],
+    ['blast shot fire large', 9],
+    ['blast shot large fire', 9],
+    ['blast shot fire ice', 8],
+    ['blast shot fire burn', 8],
+    ['blast shot ice freeze', 10],
+    ['blast shot fire dispel', 9],
+    ['blast shot fire devastation', 12],
+    ['grand blast shot', 8],
+    ['grand blast shot fire', 10],
+    ['grand blast shot pair', 16],
+    ['grand blast shot large', 10],
+  ];
+  for (const [phrase, cost] of cases) {
+    const parsed = parseSpell(phrase.split(' '));
+    assert.equal(parsed.ok, true, phrase);
+    assert.equal(parsed.cost, cost, phrase);
+    assert.equal(catalog.has(phrase), true, `catalog missing: ${phrase}`);
+    assert.ok(describeFormulaEffect({ phrase: parsed.ids, spell: parsed.spell }).length > 0, phrase);
+  }
+  assert.equal(parseSpell(['blast', 'shot', 'pair', 'large']).ok, false);
+  assert.equal(parseSpell(['blast', 'shot', 'fire', 'fire']).ok, false);
+
+  const state = battle(['rune_ram', 'rune_ram', 'rune_ram']);
+  state.player.maxMana = state.player.mana = 24;
+  state.player.maxHp = state.player.hp = 120;
+  for (const enemy of state.enemies) { enemy.armor = 0; enemy.hp = 60; }
+  const hp = result => Object.values(result.summary.enemyHp);
+
+  const bsf = cast(state, 'blast shot fire', 'enemy-1');
+  assert.deepEqual(hp(bsf), [55, 44, 55]);
+
+  state.enemies[1].ward = 1;
+  const wardedBlastShot = cast(state, 'blast shot fire', 'enemy-1');
+  const wardedShotBlast = cast(state, 'shot blast fire', 'enemy-1');
+  assert.deepEqual(hp(wardedBlastShot), [55, 60, 55]);
+  assert.equal(wardedBlastShot.summary.wards, 1);
+  assert.deepEqual(hp(wardedShotBlast), [60, 60, 60]);
+  assert.equal(wardedShotBlast.summary.wards, 1);
+
+  const pairedDualTarget = cast(state, 'blast shot fire pair', 'enemy-0', 'enemy-2');
+  assert.deepEqual(hp(pairedDualTarget), [44, 60, 44]);
+  state.enemies[1].ward = 0;
+
+  const previewState = structuredClone(state);
+  previewState.player.hand = ['blast', 'shot', 'fire', 'pair'];
+  const preview = simulateTurn(previewState, ['blast', 'shot', 'fire', 'pair'], 'enemy-0', 'enemy-2');
+  assert.equal(preview.ok, true);
+  assert.deepEqual(hp(preview), [44, 50, 44]);
 });
 
 

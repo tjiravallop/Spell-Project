@@ -1,6 +1,7 @@
 import { WORDS, START_WORDS } from '../words.js';
 import {
-  HAND_LIMIT,
+  getHandLimit,
+  getMaxMana,
   MAX_BELT_ITEMS,
   MAX_STASH_ITEMS,
   MAX_CARD_UPGRADE,
@@ -86,7 +87,7 @@ export function createModalsController(ctx) {
     else if (grimoireTab === 'attack') filtered = MASTER_FORMULAS.filter(f => f.group === 'attack');
     else if (grimoireTab === 'defense') filtered = MASTER_FORMULAS.filter(f => f.group === 'defense');
 
-    const inBattle = screen === 'battle' && state?.phase === 'battle' && !busy && state.player.hand.length <= HAND_LIMIT;
+    const inBattle = screen === 'battle' && state?.phase === 'battle' && !busy && state.player.hand.length <= getHandLimit(state.player);
     $('grimoire-castable-label').hidden = !inBattle;
     const word = $('grimoire-word-filter').value;
     if (word) filtered = filtered.filter(f => f.phrase.includes(word));
@@ -108,6 +109,8 @@ export function createModalsController(ctx) {
     $('grimoire-page-number').textContent = `หน้า ${grimoirePage} / ${pageCount} · ${filtered.length} สูตร`;
     const first = (grimoirePage - 1) * GRIMOIRE_PAGE_SIZE;
     listEl.scrollTop = 0;
+    const tomePanel = $('tools-tome');
+    if (tomePanel) tomePanel.scrollTop = 0;
     listEl.innerHTML = filtered.slice(first, first + GRIMOIRE_PAGE_SIZE).map(f => {
       const discovered = ctx.accountDiscovered.has(f.key);
       const playableNow = castableOnly || inBattle && discovered && Boolean(canFormPhraseInHand(state, f.phrase));
@@ -158,9 +161,10 @@ export function createModalsController(ctx) {
     const sanctListText = sanctParts.join(', ');
     const clearedCount = (state.clearedRooms ?? []).length;
 
+    const maxMana = getMaxMana(p);
     heroEl.innerHTML = `
       <div class="inv-stat-chip"><strong>Lv.${p.level}</strong><span>✨ EXP ${p.exp}/${nextExp}</span></div>
-      <div class="inv-stat-chip"><strong>❤️ HP ${p.hp}/${p.maxHp}</strong><span>💧 MP ${p.mana}/${p.maxMana}</span></div>
+      <div class="inv-stat-chip"><strong>❤️ HP ${p.hp}/${p.maxHp}</strong><span>💧 MP ${p.mana}/${maxMana}</span></div>
       <div class="inv-stat-chip gold"><strong>💰 ${p.gold} ทอง</strong><span>🎒 ไอเทม ${p.items.length + p.stash.length}/${MAX_BELT_ITEMS + MAX_STASH_ITEMS} ชิ้น</span></div>
       <div class="inv-stat-chip ${sanctOk ? 'unlocked' : 'locked'}"><strong>${sanctOk ? `🔓 จุดพักเปิดแล้ว (${sanctListText})` : '🔒 ชั้นที่ 4 (ชั้นพัก) ล็อกอยู่'}</strong><span>${sanctOk ? 'เดินทางไปร้านค้า/ตีบวกได้' : `ต้องผ่านชั้น 1–3 ก่อน (${clearedCount}/${state.rooms.length} ห้อง)`}</span></div>
     `;
@@ -169,7 +173,7 @@ export function createModalsController(ctx) {
       const canUseItemNow = item => {
         if (!item || item.vaultOnly) return false;
         if (state.phase === 'battle') return true;
-        return Boolean(item.hpRestore || item.manaRestore);
+        return Boolean(!item.battleOnly && (item.hpRestore || item.manaRestore));
       };
 
       const beltGrid = Array.from({ length: MAX_BELT_ITEMS }, (_, idx) => {
@@ -258,7 +262,7 @@ export function createModalsController(ctx) {
         <div class="sanctuary-relic-list">${blessingsHtml}</div>
       </section>
       <section class="inv-section">
-        <div class="inv-section-head"><h3>👑 ช่องเครื่องรางบอสชั้นลึก (ชั้น 10 / 20 / 30)</h3></div>
+        <div class="inv-section-head"><h3>👑 ช่องเครื่องรางบอสชั้นลึก (ชั้น 10–100)</h3></div>
         <div class="sanctuary-relic-list">${relicsHtml}</div>
       </section>
     `;
@@ -286,6 +290,8 @@ export function createModalsController(ctx) {
       ctx.renderLog();
     }
     if (tab.closest('#battle-tools')) $('tools-title').textContent = tab.textContent;
+    const activePanel = $(tab.getAttribute('aria-controls'));
+    if (activePanel) activePanel.scrollTop = 0;
   }
 
   function openTools(name, showHandFormulas = false) {

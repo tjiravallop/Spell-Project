@@ -214,13 +214,14 @@ const SPELL_STARTS = {
   veil: ['large', 'pair'],
   shield: [...ELEMENTS, 'pair', 'large', 'heal', 'brace'],
   heal: ['self', 'large', 'pair'],
-  blast: ['shield', ...ELEMENTS, 'pair', 'large'],
+  blast: ['shield', 'shot', ...ELEMENTS, 'pair', 'large'],
   grand: [...ATTACK_FORMS, 'blast', 'heal', 'shield', 'veil', 'meteor', 'blackhole'],
 };
 export const STORM_FORMULAS = [
   ['storm'],
   ...ELEMENTS.flatMap(id => [
-    ['storm', id], ['storm', id, 'pair'], ['storm', id, 'blast'], ['storm', id, 'pierce'], ['storm', id, 'push'],
+    ['storm', id], ['storm', id, 'pair'], ['storm', id, 'large'], ['storm', id, 'large', 'pair'],
+    ['storm', id, 'blast'], ['storm', id, 'pierce'], ['storm', id, 'push'],
     ...ELEMENTS.filter(other => other !== id).flatMap(other => [['storm', id, other], ['storm', id, other, 'blast']]),
   ]),
 ];
@@ -245,7 +246,9 @@ export const HEAL_AND_GRAND_DEFENSE_FORMULAS = [
   ['grand', 'veil'], ['veil', 'large'], ['veil', 'pair'], ['veil', 'large', 'pair'],
 ];
 export const CROSS_FORM_FORMULAS = ELEMENTS.flatMap(id => [
-  ['beam', id, 'pair'], ['wave', id, 'pair'], ['wave', id, 'blast'], ['wave', id, 'pierce'],
+  ['beam', id, 'pair'], ['beam', id, 'large', 'pair'],
+  ['wave', id, 'pair'], ['wave', id, 'large', 'pair'],
+  ['wave', id, 'blast'], ['wave', id, 'pierce'],
   ...(elementFamily(id) === 'ice' ? [['beam', id, 'freeze']] : []),
   ['shot', id, 'pull'], ['beam', id, 'pull'],
 ]);
@@ -310,8 +313,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     if (!second) return finishVeil({ type: 'self', form: 'shield', layers: 1, layerHp: 14, effect: 'veil', cost: WORDS.veil.cost });
     if (second === 'pair') {
       if (!third) return finishVeil({ type: 'self', form: 'shield', layers: 2, layerHp: 14, effect: 'veil', cost: WORDS.veil.cost * 2 });
-      if (!grand && third === 'large' && !fourth) return finishVeil({ type: 'self', form: 'shield', layers: 2, layerHp: 21, effect: 'veil', cost: (WORDS.veil.cost + 2) * 2 });
-      return invalid(third === 'large' ? 3 : 2);
+      return invalid(2);
     }
     if (second === 'large') {
       if (!third) return finishVeil({ type: 'self', form: 'shield', layers: 1, layerHp: 21, effect: 'veil', cost: WORDS.veil.cost + 2 });
@@ -329,8 +331,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     }
     if (second === 'pair') {
       if (!third) return finish({ type: 'attack', form: 'meteor', shots: 2, meteorPair: true, multiplier: 1, cost: WORDS.meteor.cost * 2 });
-      if (!grand && third === 'large' && !fourth) return finish({ type: 'attack', form: 'meteor', shots: 2, meteorPair: true, multiplier: 1.5, cost: (WORDS.meteor.cost + 2) * 2 });
-      return invalid(third === 'large' ? 3 : 2);
+      return invalid(2);
     }
     return invalid(grand ? 2 : 1);
   }
@@ -348,18 +349,61 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
       if (!['fire', 'akki'].includes(third)) return invalid(2);
       return fourth ? invalid(3) : finish({ type: 'self', form: 'detonate', element: third, cost: 2 });
     }
+    if (second === 'shot') {
+      const shell = { type: 'attack', form: 'blast', elements: [], shots: 1, blasts: 0, blastShot: true, shellDamage: 8, multiplier: 1, cost: 5 };
+      if (!third) return finish(shell);
+      if (third === 'pair') {
+        if (!fourth) return finish({ ...shell, shots: 2, cost: 10 });
+        if (ELEMENTS.includes(fourth)) return finish({ ...shell, elements: [fourth], shots: 2, cost: 2 * (5 + WORDS[fourth].cost) });
+        return invalid(3);
+      }
+      if (third === 'large') {
+        if (!fourth) return finish({ ...shell, multiplier: 1.5, cost: 7 });
+        if (fourth === 'pair') return finish({ ...shell, shots: 2, multiplier: 1.5, cost: 14 });
+        if (ELEMENTS.includes(fourth)) return finish({ ...shell, elements: [fourth], multiplier: 1.5, cost: 7 + WORDS[fourth].cost });
+        return invalid(3);
+      }
+      if (ELEMENTS.includes(third)) {
+        const elemCost = 5 + WORDS[third].cost;
+        const elemShell = { ...shell, elements: [third], cost: elemCost };
+        if (!fourth) return finish(elemShell);
+        if (fourth === 'pair') return finish({ ...elemShell, shots: 2, cost: 2 * elemCost });
+        if (fourth === 'large') return finish({ ...elemShell, multiplier: 1.5, cost: 7 + WORDS[third].cost });
+        if (fourth === 'pierce') return finish({ ...elemShell, pierce: 2, cost: elemCost + 1 });
+        if (fourth === 'push') return finish({ ...elemShell, push: true, cost: elemCost + 1 });
+        if (fourth === 'pull') return finish({ ...elemShell, pull: true, cost: elemCost + 1 });
+        if (fourth === 'seal' || fourth === 'dispel') return finish({ ...elemShell, [fourth]: true, cost: elemCost + 2 });
+        if (fourth === 'burn' && elementFamily(third) === 'fire') return finish({ ...elemShell, burn: 3, cost: elemCost + 1 });
+        if (fourth === 'freeze' && elementFamily(third) === 'ice') return finish({ ...elemShell, freeze: 1, cost: elemCost + 3 });
+        if (ELEMENTS.includes(fourth)) {
+          if (third === fourth) return fail(3, 'ระเบิดลูกสองธาตุต้องใช้คำธาตุคนละชื่อ');
+          return finish({ ...shell, elements: [third, fourth].sort(), cost: 4 + WORDS[third].cost + WORDS[fourth].cost });
+        }
+        return invalid(3);
+      }
+      return invalid(2);
+    }
     if (second === 'pair') {
       if (!third) return finish({ type: 'attack', form: 'blast', elements: [], multiplier: 1, blastPair: true, cost: 7 });
-      if (third === 'large' && !fourth) return finish({ type: 'attack', form: 'blast', elements: [], multiplier: 1.5, blastPair: true, cost: 9 });
-      return invalid(third === 'large' ? 3 : 2);
+      if (ELEMENTS.includes(third)) {
+        if (!fourth) return finish({ type: 'attack', form: 'blast', elements: [third], multiplier: 1, blastPair: true, cost: 7 + WORDS[third].cost });
+        return invalid(3);
+      }
+      return invalid(2);
     }
     if (second === 'large') {
       if (!third) return finish({ type: 'attack', form: 'blast', elements: [], multiplier: 1.5, blastPair: false, cost: 6 });
-      if (third === 'pair' && !fourth) return finish({ type: 'attack', form: 'blast', elements: [], multiplier: 1.5, blastPair: true, cost: 9 });
-      if (ELEMENTS.includes(third) && !fourth) {
-        return finish({ type: 'attack', form: 'blast', elements: [third], multiplier: 1.5, blastPair: false, cost: 6 + WORDS[third].cost });
+      if (third === 'pair') {
+        if (!fourth) return finish({ type: 'attack', form: 'blast', elements: [], multiplier: 1.5, blastPair: true, cost: 9 });
+        if (ELEMENTS.includes(fourth)) return finish({ type: 'attack', form: 'blast', elements: [fourth], multiplier: 1.5, blastPair: true, cost: 9 + WORDS[fourth].cost });
+        return invalid(3);
       }
-      return invalid(fourth ? 3 : 2);
+      if (ELEMENTS.includes(third)) {
+        if (!fourth) return finish({ type: 'attack', form: 'blast', elements: [third], multiplier: 1.5, blastPair: false, cost: 6 + WORDS[third].cost });
+        if (fourth === 'pair') return finish({ type: 'attack', form: 'blast', elements: [third], multiplier: 1.5, blastPair: true, cost: 9 + WORDS[third].cost });
+        return invalid(3);
+      }
+      return invalid(2);
     }
     if (second ? !ELEMENTS.includes(second) : grand) return fail(grand ? 2 : 1, 'เติมธาตุหลัง “ระเบิด”');
     if (second && third === 'large') {
@@ -371,11 +415,10 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     const dual = ELEMENTS.includes(third);
     if (third && !dual && !paired) return invalid(2);
     if (dual && second === third) return fail(2, 'ระเบิดสองธาตุต้องใช้คำธาตุคนละชื่อ');
-    if (fourth && !(paired && fourth === 'large')) return invalid(3);
-    const large = paired && fourth === 'large';
+    if (fourth) return invalid(3);
     const elements = (dual ? [second, third] : second ? [second] : []).sort();
-    const cost = WORDS.blast.cost + elements.reduce((sum, id) => sum + WORDS[id].cost, 0) - (dual ? 1 : 0) + (paired ? 3 : 0) + (large ? 2 : 0);
-    return finish({ type: 'attack', form: 'blast', elements, multiplier: large ? 1.5 : 1, blastPair: paired, cost });
+    const cost = WORDS.blast.cost + elements.reduce((sum, id) => sum + WORDS[id].cost, 0) - (dual ? 1 : 0) + (paired ? 3 : 0);
+    return finish({ type: 'attack', form: 'blast', elements, multiplier: 1, blastPair: paired, cost });
   }
   if (head === 'heal') {
     if (grand) {
@@ -392,10 +435,10 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     if (second === 'pair' && !third || second === 'self' && third === 'pair' && !fourth) {
       return finish({ type: 'self', form: 'heal', healing: 8, cost: 6 });
     }
-    if (second === 'large' && third === 'pair' && !fourth || second === 'pair' && third === 'large' && !fourth) {
+    if (second === 'large' && third === 'pair' && !fourth) {
       return finish({ type: 'self', form: 'heal', healing: 16, cost: 10 });
     }
-    if (second === 'self' && (third === 'large' && fourth === 'pair' || third === 'pair' && fourth === 'large')) {
+    if (second === 'self' && third === 'large' && fourth === 'pair') {
       return finish({ type: 'self', form: 'heal', healing: 16, cost: 10 });
     }
     if (second === 'large' && !third || second === 'self' && third === 'large' && !fourth) {
@@ -412,15 +455,18 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     if (ELEMENTS.includes(second) && elementFamily(second) === 'ice') stormMods.push('freeze');
     if (second && !elements.length) return invalid(grand ? 2 : 1);
     if (third && (!elements.length || (!dual && !stormMods.includes(third)))) return invalid(2);
-    if (fourth && !(dual && fourth === 'blast')) return invalid(3);
+    const largePairCombo = third === 'large' && fourth === 'pair';
+    if (fourth && !(dual && fourth === 'blast') && !largePairCombo) return invalid(3);
     if (dual && second === third) return fail(2, 'พายุสองธาตุต้องใช้คำธาตุคนละชื่อ');
     if (dual) elements.push(third);
-    const stormPair = third === 'pair';
+    const stormPair = third === 'pair' || fourth === 'pair';
     const stormBlast = third === 'blast' || fourth === 'blast';
-    const stormLarge = third === 'large';
+    const stormLarge = third === 'large' || fourth === 'large';
     const pierce = third === 'pierce' ? 2 : 0;
-    const extraModCost = stormPair ? 3 : stormBlast || third === 'seal' || third === 'dispel' || stormLarge ? 2
-      : third === 'freeze' ? 3 : (pierce || ['push', 'pull', 'burn'].includes(third)) ? 1 : 0;
+    const extraModCost = (stormPair ? 3 : 0) + (stormLarge ? 2 : 0)
+      + (stormBlast || third === 'seal' || third === 'dispel' ? 2 : 0)
+      + (third === 'freeze' ? 3 : 0)
+      + (pierce || ['push', 'pull', 'burn'].includes(third) ? 1 : 0);
     const cost = WORDS.storm.cost + elements.reduce((total, id) => total + WORDS[id].cost, 0)
       - (dual ? 1 : 0) + extraModCost;
     const multiplier = (elements.length ? 1.5 : 1) * (stormLarge ? 1.5 : 1);
@@ -514,7 +560,6 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     if (!third) return finish(shell);
     if (third === 'pair') {
       if (!fourth) return finish({ ...shell, shots: 2, cost: 10 });
-      if (fourth === 'large') return finish({ ...shell, shots: 2, multiplier: 1.5, cost: 14 });
       if (ELEMENTS.includes(fourth)) return finish({ ...shell, elements: [fourth], shots: 2, cost: 2 * (5 + WORDS[fourth].cost) });
       return invalid(3);
     }
@@ -558,6 +603,11 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     return finish({ ...spell, pull: true, cost: baseCost + 1 });
   }
   if (form !== 'shot') {
+    if (third === 'large' && fourth === 'pair') {
+      return finish(form === 'wave'
+        ? { ...spell, wavePair: true, multiplier: 1.5, cost: 2 * (baseCost + 2) }
+        : { ...spell, shots: 2, multiplier: 1.5, cost: 2 * (baseCost + 2) });
+    }
     if (fourth) return invalid(3);
     if (third === 'pair') {
       return finish(form === 'wave'
@@ -575,7 +625,13 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     return invalid(2);
   }
   if (third === 'pair' && (!fourth || fourth === 'blast')) {
-    return finish({ ...spell, shots: 2, blasts: fourth ? 1 : 0, cost: 2 * (baseCost + (fourth ? 2 : 0)) });
+    const isBlast = fourth === 'blast';
+    return finish({
+      ...spell,
+      shots: 2,
+      blasts: isBlast ? 1 : 0,
+      cost: 2 * (baseCost + (isBlast ? 2 : 0)),
+    });
   }
   if (third === 'blast' && (!fourth || fourth === 'pair')) {
     return finish({ ...spell, blasts: fourth ? 2 : 1, cost: baseCost + (fourth ? 4 : 2) });

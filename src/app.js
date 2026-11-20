@@ -1,7 +1,7 @@
 import { shieldProtection } from './shields.js';
 import { WORDS, STANDALONE_WORDS, fireShieldLayers, parseSpell } from './words.js';
 import {
-  HAND_LIMIT,
+  getHandLimit,
   MAX_CARD_UPGRADE,
   SHOP_ITEMS,
   RELIC_DRAFT_CATALOG,
@@ -37,6 +37,8 @@ import {
   discardInventoryItem,
   revisitRoom,
   useBattleItem,
+  startRiftRun,
+  getRiftDailyStatus,
   ENEMIES,
 } from './run.js';
 import { simulateTurn, estimateWordCost } from './combat.js';
@@ -49,6 +51,9 @@ import { canFormPhraseInHand, computePlayableCombos } from './combos.js';
 import {
   $,
   restLocationLabel,
+  cardMeta,
+  rarityClass,
+  playingCardFace,
   queueFxClassRestart,
   focusAfterRender,
   preserveFocus,
@@ -84,7 +89,7 @@ import {
   renderTutorial,
 } from './ui/battle-render.js';
 import { renderRewards, renderLoadout, renderResult } from './ui/screens-ui.js';
-import { renderSanctuary as renderSanctuaryView, bindSanctuaryEvents } from './ui/sanctuary-ui.js';
+import { renderSanctuary as renderSanctuaryView, bindSanctuaryEvents, openSanctuaryRiftPanel } from './ui/sanctuary-ui.js';
 import { createModalsController } from './ui/modals-ui.js';
 import { initDragDrop } from './ui/drag-drop.js';
 import { bindCardFilters } from './ui/card-filters.js';
@@ -113,6 +118,7 @@ let secondTargetId = null;
 let equipped = [];
 let lastEnemies = [];
 let collection = loaded.state?.collection ?? [];
+const selectedDiscardIndices = new Set();
 let busy = false;
 let pending = null;
 let animationTimer = null;
@@ -171,7 +177,9 @@ function getBattleSignature(s = state) {
   const sec = Object.keys(p.cardSecondaryUpgrades ?? {}).filter(k => p.cardSecondaryUpgrades[k]).join(',');
   const rel = getEquippedRelics(p).join(',');
   const bls = (p.blessings ?? []).join(',');
-  return `${s.seed}|${s.room}|${s.turn}|${s.rng}|${s.handRng}|${p.hp}|${p.maxHp}|${p.mana}|${p.maxMana}|${p.level ?? 1}|${p.exp ?? 0}|${p.gold ?? 0}|${cleared}|${upg}|${sec}|${rel}|${bls}|${p.hand.join(',')}|${sh}|${en}|${s.magmaPuddles?.join(',') ?? ''}|${s.blackhole?.slot ?? ''}:${s.blackhole?.power ?? ''}|${Boolean(s.deathSpent)}`;
+  const riftKey = s.rift ? `${s.rift.tier}:${s.rift.stage}` : '';
+  const replayKey = s.replayReturn ? `${s.replayReturn.sanctuaryFloor}:${s.replayReturn.room}` : '';
+  return `${s.seed}|${s.room}|${riftKey}|${replayKey}|${s.turn}|${s.rng}|${s.handRng}|${p.hp}|${p.maxHp}|${p.mana}|${p.maxMana}|${p.level ?? 1}|${p.exp ?? 0}|${p.gold ?? 0}|${cleared}|${upg}|${sec}|${rel}|${bls}|${p.hand.join(',')}|${sh}|${en}|${s.magmaPuddles?.join(',') ?? ''}|${s.blackhole?.slot ?? ''}:${s.blackhole?.power ?? ''}|${Boolean(s.deathSpent)}`;
 }
 
 function getSimCacheKey(sig, spellInput, t1, t2, allowFizzle) {
@@ -312,7 +320,7 @@ function recordFormulaDiscovery(parsed, deferStorage = false) {
 }
 
 function getPlayableCombos() {
-  if (!state?.player || state.player.hand.length > HAND_LIMIT) return [];
+  if (!state?.player || state.player.hand.length > getHandLimit(state.player)) return [];
   const cacheSig = `${getBattleSignature(state)}|${words.join(' ')}|${accountDiscovered.size}`;
   if (comboCache.sig === cacheSig && Array.isArray(comboCache.combos)) {
     return comboCache.combos;
@@ -337,7 +345,10 @@ function changeScreen(next) {
     $('battle-tools').close();
     if (next !== 'battle' || screen !== 'battle') resetPlayerHpFx();
   }
-  if (next !== 'sanctuary') sanctuaryMenu.close();
+  if (next !== 'sanctuary') {
+    sanctuaryMenu.close();
+    try { $('rift-reward-dialog')?.close(); } catch {}
+  }
   if (next !== 'battle') {
     $('combat-numbers').replaceChildren();
     try { $('discard-panel')?.close(); } catch {}
@@ -370,7 +381,9 @@ function showHome() {
     const fInfo = getFloorInfo(saved.room, saved.rooms.length);
     const locLabel = saved.phase === 'sanctuary'
       ? restLocationLabel(saved.sanctuaryFloor ?? 5)
-      : `ชั้น ${fInfo.floor} ห้อง ${fInfo.code}`;
+      : saved.rift
+        ? `รอยแยกชั้น ${saved.rift.tier} ด่าน ${saved.rift.stage + 1}/3`
+        : `ชั้น ${fInfo.floor} ห้อง ${fInfo.code}`;
     $('save-notice').textContent = loaded.error || `เซฟล่าสุด · ${locLabel} · Lv.${saved.player.level ?? 1} · 💰 ${saved.player.gold ?? 0} ทอง · HP ${saved.player.hp}/${saved.player.maxHp}${loaded.recovered ? ' · กู้จากสำเนาก่อนหน้า' : ''}`;
   } else {
     $('save-notice').textContent = loaded.error || '';
@@ -481,16 +494,25 @@ function renderBattle() {
   modals.updateGuideButtonBadge();
   const floorInfo = getFloorInfo(state.room, state.rooms.length);
   const revisit = isRoomRevisit(state, state.room);
-  const floorArtifact = floorInfo.isBoss ? RELIC_DRAFT_CATALOG.find(relic => relic.dropFloor === floorInfo.floor) : null;
+  const floorArtifact = !state.rift && floorInfo.isBoss ? RELIC_DRAFT_CATALOG.find(relic => relic.dropFloor === floorInfo.floor) : null;
   const isSpecialFloorBoss = Boolean(floorArtifact);
   const specialArtifactName = floorArtifact?.name ?? '';
-  $('tower-heading-title').textContent = floorInfo.isBoss ? `บอสชั้น ${floorInfo.floor}` : `ห้อง ${floorInfo.code}`;
-  $('tower-heading-title').title = floorInfo.roomRole;
-  $('room-subtitle').textContent = revisit
-    ? 'เล่นห้องเดิม · ได้ทองและ EXP 20%'
-    : isSpecialFloorBoss
-      ? `ชนะเพื่อรับอาร์ติแฟกต์ “${specialArtifactName}”`
-      : hasCardReward(state) ? 'ชนะเพื่อเลือกการ์ดคำ' : 'ชนะเพื่อรับทองและ EXP';
+  if (state.rift) {
+    const stageNum = state.rift.stage + 1;
+    $('tower-heading-title').textContent = `🌀 รอยแยกชั้น ${state.rift.tier} · ด่าน ${stageNum}/3`;
+    $('tower-heading-title').title = `รอยแยกมิติระดับชั้น ${state.rift.tier} · ด่าน ${stageNum}/3 (${floorInfo.displayName})`;
+    $('room-subtitle').textContent = stageNum < 3
+      ? `มินิบอส ${floorInfo.code} · ชนะเพื่อไปด่าน ${stageNum + 1}/3`
+      : `บอสใหญ่ชั้น ${state.rift.tier}★ · ชนะเพื่อสุ่มรับการ์ด 1 ใบ (เพดานชั้น ${state.rift.tier})`;
+  } else {
+    $('tower-heading-title').textContent = floorInfo.isBoss ? `บอสชั้น ${floorInfo.floor}` : `ห้อง ${floorInfo.code}`;
+    $('tower-heading-title').title = floorInfo.roomRole;
+    $('room-subtitle').textContent = revisit
+      ? (state.replayReturn ? 'เล่นห้องเดิม · ทอง/EXP 20% · ชนะแล้วกลับจุดพัก' : 'เล่นห้องเดิม · ได้ทองและ EXP 20%')
+      : isSpecialFloorBoss
+        ? `ชนะเพื่อรับอาร์ติแฟกต์ “${specialArtifactName}”`
+        : hasCardReward(state) ? 'ชนะเพื่อเลือกการ์ดคำ' : 'ชนะเพื่อรับทองและ EXP';
+  }
   renderRoomTrack(state, busy);
   syncRpgResourceBar();
   renderTurnLabel(state);
@@ -540,6 +562,15 @@ function renderBattle() {
   renderSlots({ state, words, selectedSlot, busy, castFxState }, parsed, knownSpell);
   renderQuickCombos({ state, words, busy, accountDiscovered, getPlayableCombos, lastJustUnlockedKey }, parsed, knownSpell);
   renderWordBank({ state, words, busy });
+  const handLimit = getHandLimit(p);
+  if (p.hand.length <= handLimit) {
+    selectedDiscardIndices.clear();
+  } else {
+    for (const idx of [...selectedDiscardIndices]) {
+      if (idx < 0 || idx >= p.hand.length) selectedDiscardIndices.delete(idx);
+    }
+    updateDiscardUI();
+  }
   renderForecast({ state, words, busy }, parsed, forecast, knownSpell);
   $('expression').textContent = words.length ? (knownSpell ? 'สูตรที่ค้นพบ' : 'สูตรทดลอง') : 'วางการ์ดคำบนแท่นร่าย';
   $('cast-label').textContent = words.length && !knownSpell ? 'ทดลองร่าย' : 'ร่ายคาถา';
@@ -547,7 +578,7 @@ function renderBattle() {
   $('move-right').disabled = busy || selectedSlot === null || selectedSlot >= words.length - 1;
   $('remove-word').disabled = busy || selectedSlot === null || selectedSlot >= words.length;
   $('clear-spell').disabled = busy || !words.length;
-  $('guard-button').disabled = busy || p.hand.length > HAND_LIMIT;
+  $('guard-button').disabled = busy || p.hand.length > handLimit;
   const guardBonus = getEquippedRelics(p).filter(id => id === 'worldloom_50' || id === 'gaia_emblem_80').length * 3;
   $('guard-button').title = `ใช้ 0 มานา กันความเสียหาย ${3 + guardBonus}`;
   for (const id of ['map-open', 'log-open', 'guide-open', 'inventory-open', 'combos-open']) $(id).disabled = busy;
@@ -606,9 +637,10 @@ function describeWord() {
 
 function addWord(id, index = selectedSlot) {
   if (busy) return;
-  if (state.player.hand.length > HAND_LIMIT) {
-    const excess = state.player.hand.length - HAND_LIMIT;
-    toast(`⚠️ ไพ่ในมือเกิน ${excess} ใบ (${state.player.hand.length}/${HAND_LIMIT}) · ต้องเลือกทิ้งก่อนเล่นต่อ`);
+  const handLimit = getHandLimit(state.player);
+  if (state.player.hand.length > handLimit) {
+    const excess = state.player.hand.length - handLimit;
+    toast(`⚠️ ไพ่ในมือเกิน ${excess} ใบ (${state.player.hand.length}/${handLimit}) · ต้องเลือกทิ้งก่อนเล่นต่อ`);
     try {
       $('battle-tools').close();
       if (!$('discard-panel').open) $('discard-panel').showModal();
@@ -766,13 +798,40 @@ function commit(guard = false) {
   playTurn(result, parsed, !guard && isKnownValidSpell(words), newlyDiscovered);
 }
 
+function showRiftRewardDialog(info) {
+  if (!info || !state) return;
+  const dialog = $('rift-reward-dialog');
+  if (!dialog) return;
+  const word = WORDS[info.wordId];
+  const meta = cardMeta(info.wordId);
+  const status = getRiftDailyStatus(state);
+  $('rift-reward-title').textContent = `🌀 พิชิตรอยแยกชั้น ${info.tier} สำเร็จ!`;
+  $('rift-reward-subtitle').textContent = `ผ่านบอสครบ 3 ด่าน · สุ่มได้รับการ์ดคำ 1 ใบ (เพดานชั้น ${info.tier})`;
+  $('rift-reward-card-wrap').innerHTML = `<div class="playing-card word-${info.wordId} ${rarityClass(word)} ${meta.roleClass}">${playingCardFace(state, info.wordId, { bodyExtra: `<p class="reward-desc">${word.description}</p>` })}</div>`;
+  $('rift-reward-outcome').textContent = info.outcome === 'new'
+    ? `✨ การ์ดคำใหม่! เพิ่ม “${word.label}” เข้าคลังแล้ว`
+    : info.outcome === 'upgrade'
+      ? `⬆ การ์ดซ้ำ! “${word.label}” อัปเกรด +${info.prevLevel} → +${info.newLevel}`
+      : `💰 การ์ด “${word.label}” เต็ม +10 แล้ว · รับ +${info.goldBonus} ทองแทน`;
+  $('rift-reward-quota-left').textContent = `โควต้ารอยแยกคงเหลือวันนี้: ${status.remaining} / ${status.cap} รอบ`;
+  const againBtn = $('rift-reward-again');
+  againBtn.disabled = status.remaining <= 0;
+  againBtn.textContent = status.remaining > 0 ? `ลงรอยแยกต่อ (${status.remaining}/${status.cap})` : 'โควต้าวันนี้หมดแล้ว';
+  try {
+    if (!dialog.open) dialog.showModal();
+  } catch {
+    dialog.setAttribute('open', '');
+  }
+}
+
 function playTurn(result, parsed = null, knownSpell = false, newlyDiscovered = false) {
-  const openingRoomCleared = !isBossRoom(state) && !isRoomRevisit(state)
+  const riftStageCleared = Boolean(state.rift && result.summary?.riftStageCleared);
+  const openingRoomCleared = riftStageCleared || (!isBossRoom(state) && !isRoomRevisit(state)
     && !result.summary?.fellToFloor && !result.summary?.fellToFloor4
-    && (result.state.phase === 'reward' || result.state.room !== state.room && result.state.phase === 'battle');
+    && (result.state.phase === 'reward' || result.state.room !== state.room && result.state.phase === 'battle'));
   const events = openingRoomCleared ? [...result.events, {
     type: 'room-clear',
-    code: getFloorInfo(state.room, state.rooms.length).code,
+    code: riftStageCleared ? `รอยแยก ${result.summary.riftStageCleared}/3` : getFloorInfo(state.room, state.rooms.length).code,
     recovered: result.summary.roomRecovery,
   }] : result.events;
   busy = true;
@@ -859,7 +918,20 @@ function finishTurn() {
     toast(`🎉 เลเวลอัพเป็น Lv.${lv.level}! เพิ่ม Max HP +${lv.hpGain}${mpBonusText}`);
   }
   const fallback = result.summary?.fellToFloor ?? (result.summary?.fellToFloor4 ? 4 : null);
-  if (fallback !== null) {
+  const riftCleared = result.summary?.riftCleared ?? null;
+  const riftFailed = result.summary?.riftFailed ?? null;
+  const riftStageCleared = result.summary?.riftStageCleared ?? null;
+  if (riftCleared) {
+    collection = [...state.collection];
+    setCastFx(null);
+    audio.play('win');
+    words = [];
+  } else if (riftFailed) {
+    setCastFx(null);
+    audio.play('lose');
+    words = [];
+    toast(`แพ้ศึกในรอยแยกชั้น ${riftFailed.tier} (ด่าน ${riftFailed.stage + 1}/3) · กลับ${restLocationLabel(fallback ?? 5)}`);
+  } else if (fallback !== null) {
     setCastFx(null);
     audio.play('lose');
     words = [];
@@ -871,6 +943,15 @@ function finishTurn() {
     words = [];
     const dropped = RELIC_DRAFT_CATALOG.find(r => r.id === result.summary.relicDropped);
     toast(`${dropped?.icon ?? '✦'} ปราบบอสชั้น ${dropped?.dropFloor} สำเร็จ! ได้รับอาติแฟค “${dropped?.name}” (${dropped?.summary})${state.phase === 'won' ? ' · กลับจุดพักเพื่อจัดเครื่องราง' : ' · เข้าสู่จุดพักแล้ว'}`);
+  } else if (riftStageCleared) {
+    setCastFx(null);
+    audio.play('win');
+    toast(`🌀 ผ่านรอยแยกด่าน ${riftStageCleared}/3!${result.summary?.roomRecovery ? ` ฟื้น +${result.summary.roomRecovery} HP ·` : ''} เข้าสู่ด่าน ${riftStageCleared + 1}/3!`);
+  } else if (result.summary?.revisitReturnedToSanctuary !== undefined) {
+    setCastFx(null);
+    audio.play('win');
+    words = [];
+    toast(`✓ ชนะห้องเล่นซ้ำแล้ว · กลับสู่${restLocationLabel(result.summary.revisitReturnedToSanctuary)}`);
   } else if (['reward', 'sanctuary', 'won'].includes(state.phase)) {
     setCastFx(null);
     audio.play('win');
@@ -885,8 +966,10 @@ function finishTurn() {
   if (state.tutorial && (state.room >= roomsPerFloor(state) || ['won', 'lost'].includes(state.phase))) completeTutorial();
   renderLog();
   render();
-  if (state.phase === 'battle') {
-    if (state.player.hand.length > HAND_LIMIT) { selectedDiscardIndices.clear(); $('discard-cards').querySelector('button')?.focus({ preventScroll: true }); updateDiscardUI(); }
+  if (riftCleared) {
+    showRiftRewardDialog(riftCleared);
+  } else if (state.phase === 'battle') {
+    if (state.player.hand.length > getHandLimit(state.player)) { selectedDiscardIndices.clear(); $('discard-cards').querySelector('button')?.focus({ preventScroll: true }); updateDiscardUI(); }
     else focusAfterRender($('cast-button').disabled ? 'guard-button' : 'cast-button');
   }
 }
@@ -1010,7 +1093,7 @@ $('sanctuary-menu')?.querySelector('.sanctuary-menu-head button')?.addEventListe
   sanctuaryMenu.close();
 });
 
-for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu', 'discard-panel']) {
+for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu', 'discard-panel', 'rift-reward-dialog']) {
   const dialog = $(id);
   if (!dialog) continue;
   dialog.addEventListener('click', event => {
@@ -1031,6 +1114,20 @@ for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu', 'discard-
     }
   });
 }
+$('rift-reward-close')?.addEventListener('click', () => {
+  try { $('rift-reward-dialog').close(); } catch {}
+  $('rift-reward-dialog').removeAttribute('open');
+});
+$('rift-reward-done')?.addEventListener('click', () => {
+  try { $('rift-reward-dialog').close(); } catch {}
+  $('rift-reward-dialog').removeAttribute('open');
+});
+$('rift-reward-again')?.addEventListener('click', () => {
+  try { $('rift-reward-dialog').close(); } catch {}
+  $('rift-reward-dialog').removeAttribute('open');
+  openSanctuaryRiftPanel(sanctuaryCtx);
+  audio.play('place');
+});
 $('reopen-discard-btn')?.addEventListener('click', () => {
   try {
     $('battle-tools').close();
@@ -1041,11 +1138,10 @@ $('reopen-discard-btn')?.addEventListener('click', () => {
   updateDiscardUI();
   $('discard-cards')?.querySelector('button')?.focus({ preventScroll: true });
 });
-const selectedDiscardIndices = new Set();
 
 function updateDiscardUI() {
   if (!state?.player) return;
-  const excess = state.player.hand.length - HAND_LIMIT;
+  const excess = state.player.hand.length - getHandLimit(state.player);
   const limit = Math.max(2, excess);
   const cards = $('discard-cards')?.querySelectorAll('[data-discard-index]') ?? [];
   for (const card of cards) {
@@ -1073,7 +1169,7 @@ $('discard-cards').addEventListener('click', event => {
   if (!card || card.disabled) return;
   const index = Number(card.dataset.discardIndex);
   if (!Number.isInteger(index)) return;
-  const excess = state.player.hand.length - HAND_LIMIT;
+  const excess = state.player.hand.length - getHandLimit(state.player);
   const limit = Math.max(2, excess);
   if (selectedDiscardIndices.has(index)) {
     selectedDiscardIndices.delete(index);
@@ -1095,7 +1191,7 @@ $('confirm-discard').addEventListener('click', () => {
     state = discardOverflow(state, indices);
     selectedDiscardIndices.clear();
     persist();
-    if (state.player.hand.length <= HAND_LIMIT) {
+    if (state.player.hand.length <= getHandLimit(state.player)) {
       try { $('discard-panel').close(); } catch {}
       $('discard-panel').removeAttribute('open');
     }
@@ -1109,7 +1205,7 @@ $('skip-animation').addEventListener('click', finishTurn);
 $('dismiss-tip').addEventListener('click', () => { dismissedRoom = state.room; $('tutorial').hidden = true; });
 $('battle-canvas').addEventListener('click', event => {
   const id = battlefield.hitTest(event.clientX, event.clientY);
-  if (id && !busy && state.player.hand.length <= HAND_LIMIT) {
+  if (id && !busy && state.player.hand.length <= getHandLimit(state.player)) {
     targetId = id;
     preserveFocus(renderBattle);
   }
@@ -1162,6 +1258,7 @@ document.addEventListener('click', event => {
       if (playItemRoomClear(res)) return;
       if (res.summary?.relicDropped) recentRelicDropId = res.summary.relicDropped;
       state = res.state;
+      if (res.summary?.riftCleared) collection = [...state.collection];
       if (state.phase === 'battle') {
         words = words.filter(id => state.player.hand.includes(id));
         if (res.item.hpRestore) pulsePlayerHud('heal');
@@ -1171,9 +1268,19 @@ document.addEventListener('click', event => {
           targetId = state.enemies.find(e => e.hp > 0)?.id ?? null;
         }
       }
-      persist(); audio.play('discover');
+      persist(); audio.play(res.summary?.riftCleared ? 'win' : 'discover');
       modals.renderInventoryModal(); render();
-      toast(`${res.item.icon} ${res.effectText}`);
+      if (res.summary?.riftCleared) {
+        $('battle-tools').close();
+        showRiftRewardDialog(res.summary.riftCleared);
+      } else if (res.summary?.riftStageCleared) {
+        toast(`🌀 ผ่านรอยแยกด่าน ${res.summary.riftStageCleared}/3! เข้าสู่ด่านถัดไป`);
+      } else if (res.summary?.revisitReturnedToSanctuary !== undefined) {
+        $('battle-tools').close();
+        toast(`✓ ชนะห้องเล่นซ้ำแล้ว · กลับสู่${restLocationLabel(res.summary.revisitReturnedToSanctuary)}`);
+      } else {
+        toast(`${res.item.icon} ${res.effectText}`);
+      }
     } catch (error) { toast(error.message); }
     return;
   }
@@ -1233,6 +1340,19 @@ document.addEventListener('click', event => {
     } catch (error) { toast(error.message); }
     return;
   }
+  if (button.dataset.enterRift !== undefined) {
+    const tier = Number(button.dataset.enterRift);
+    try {
+      state = startRiftRun(state, tier);
+      recentRelicDropId = null;
+      $('battle-tools').close();
+      sanctuaryMenu.close();
+      words = []; selectedSlot = null; secondTargetId = null; targetId = state.enemies[0]?.id ?? null; lastEvents = [];
+      persist(); audio.play('discover'); renderLog(); render();
+      toast(`🌀 เข้าสู่รอยแยกชั้น ${tier} · ด่าน 1/3!`);
+    } catch (error) { toast(error.message); }
+    return;
+  }
   if (button.dataset.revisitRoom !== undefined) {
     const targetRoom = Number(button.dataset.revisitRoom);
     try {
@@ -1246,7 +1366,7 @@ document.addEventListener('click', event => {
       words = []; selectedSlot = null; secondTargetId = null; targetId = state.enemies[0]?.id ?? null; lastEvents = [];
       persist(); audio.play('place'); renderLog(); render();
       toast(wasCleared
-        ? `🧭 วนกลับไปห้อง ${fInfo.code} (ห้องที่ผ่านแล้ว: ได้รับทอง/EXP 20%${fInfo.isBoss ? ' · บอสไม่ดรอปการ์ดคำซ้ำ' : ''})`
+        ? `🧭 วนกลับไปห้อง ${fInfo.code} (ห้องที่ผ่านแล้ว: ทอง/EXP 20%${fInfo.isBoss ? ' · บอสไม่ดรอปการ์ดคำซ้ำ' : ''}${state.replayReturn ? ' · ชนะแล้วกลับจุดพัก' : ''})`
         : fInfo.floor >= 21 ? `⚔ เดินทางสู่ชั้น ${fInfo.floor}` : `⚔ เดินทางสู่ชั้น ${fInfo.floor} ห้อง ${fInfo.code}!`);
     } catch (error) { toast(error.message); }
     return;
@@ -1280,6 +1400,7 @@ document.addEventListener('click', event => {
       if (playItemRoomClear(res)) return;
       if (res.summary?.relicDropped) recentRelicDropId = res.summary.relicDropped;
       state = res.state;
+      if (res.summary?.riftCleared) collection = [...state.collection];
       words = words.filter(id => state.player.hand.includes(id));
       if (res.item.hpRestore) pulsePlayerHud('heal');
       else if (res.item.manaRestore || res.item.id === 'aegis_shard') pulsePlayerHud('shield');
@@ -1287,14 +1408,22 @@ document.addEventListener('click', event => {
       if (!state.enemies.some(e => e.id === targetId && e.hp > 0)) {
         targetId = state.enemies.find(e => e.hp > 0)?.id ?? null;
       }
-      persist(); audio.play('discover');
+      persist(); audio.play(res.summary?.riftCleared ? 'win' : 'discover');
       const droppedRelic = res.summary?.relicDropped
         ? RELIC_DRAFT_CATALOG.find(r => r.id === res.summary.relicDropped)
         : null;
-      toast(droppedRelic
-        ? `${droppedRelic.icon} ปราบบอสชั้น ${droppedRelic.dropFloor} สำเร็จ! ได้รับอาติแฟค “${droppedRelic.name}”${state.phase === 'won' ? ' · กลับจุดพักเพื่อจัดเครื่องราง' : ' · เข้าสู่จุดพักแล้ว'}`
-        : `${res.item.icon} ${res.effectText}`);
       render();
+      if (res.summary?.riftCleared) {
+        showRiftRewardDialog(res.summary.riftCleared);
+      } else if (res.summary?.riftStageCleared) {
+        toast(`🌀 ผ่านรอยแยกด่าน ${res.summary.riftStageCleared}/3! เข้าสู่ด่านถัดไป`);
+      } else if (res.summary?.revisitReturnedToSanctuary !== undefined) {
+        toast(`✓ ชนะห้องเล่นซ้ำแล้ว · กลับสู่${restLocationLabel(res.summary.revisitReturnedToSanctuary)}`);
+      } else {
+        toast(droppedRelic
+          ? `${droppedRelic.icon} ปราบบอสชั้น ${droppedRelic.dropFloor} สำเร็จ! ได้รับอาติแฟค “${droppedRelic.name}”${state.phase === 'won' ? ' · กลับจุดพักเพื่อจัดเครื่องราง' : ' · เข้าสู่จุดพักแล้ว'}`
+          : `${res.item.icon} ${res.effectText}`);
+      }
     } catch (error) { toast(error.message); }
     return;
   }

@@ -1,6 +1,7 @@
 import { WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, ELEMENT_VULNERABILITY, ELEMENT_SECONDARY_VULNERABILITY, ELEMENT_LABELS, ELEMENT_GLYPHS, ELEMENT_ICONS } from '../words.js';
 import {
-  HAND_LIMIT,
+  getHandLimit,
+  getMaxMana,
   MAX_BELT_ITEMS,
   MAX_STASH_ITEMS,
   SHOP_ITEMS,
@@ -256,8 +257,9 @@ export function syncRpgResourceBar(ctx, levelUpRewards, nextExpForLevel) {
     $('sanctuary-forge-gold').dataset.gold = String(p.gold);
   }
   const statusEl = $('sanctuary-status');
+  const maxMana = getMaxMana(p);
   if (statusEl) {
-    statusEl.innerHTML = `<span class="sanctuary-level" title="EXP ${p.exp}/${nextExp}">Lv.${p.level}</span><span class="sanctuary-hp" aria-label="HP ${p.hp}/${p.maxHp}">${icon('heart')} ${p.hp}/${p.maxHp}</span><span class="sanctuary-mana" aria-label="MP ${p.mana}/${p.maxMana}">${icon('mana')} ${p.mana}/${p.maxMana}</span><span id="sanctuary-gold-pill" class="sanctuary-gold" data-gold="${p.gold}" aria-label="${p.gold} ทอง">${icon('coin')} ${p.gold}</span>`;
+    statusEl.innerHTML = `<span class="sanctuary-level" title="EXP ${p.exp}/${nextExp}">Lv.${p.level}</span><span class="sanctuary-hp" aria-label="HP ${p.hp}/${p.maxHp}">${icon('heart')} ${p.hp}/${p.maxHp}</span><span class="sanctuary-mana" aria-label="MP ${p.mana}/${maxMana}">${icon('mana')} ${p.mana}/${maxMana}</span><span id="sanctuary-gold-pill" class="sanctuary-gold" data-gold="${p.gold}" aria-label="${p.gold} ทอง">${icon('coin')} ${p.gold}</span>`;
   }
   renderItemBelt(ctx);
 }
@@ -265,23 +267,24 @@ export function syncRpgResourceBar(ctx, levelUpRewards, nextExpForLevel) {
 export function syncManaPipsPreview(state, pendingCost = 0) {
   const p = state?.player;
   if (!p) return;
+  const maxMana = getMaxMana(p);
   const manaEl = $('mana-value');
   const pipsEl = $('mana-pips');
   const cost = Math.max(0, Number(pendingCost) || 0);
   const short = cost > p.mana;
   if (manaEl) {
-    manaEl.textContent = `${p.mana} / ${p.maxMana}`;
+    manaEl.textContent = `${p.mana} / ${maxMana}`;
     manaEl.classList.toggle('is-short', short);
     manaEl.title = short
       ? `มานาไม่พอ (ต้องการ ${cost} · ขาด ${cost - p.mana})`
       : cost > 0
         ? `คาถาบนแท่นใช้ ${cost} มานา (จะเหลือ ${p.mana - cost})`
-        : `มานา ${p.mana} / ${p.maxMana}`;
+        : `มานา ${p.mana} / ${maxMana}`;
   }
   if (pipsEl) {
-    const count = Math.min(p.maxMana, 16);
-    const filled = Math.ceil(count * p.mana / p.maxMana);
-    const spendPips = cost > 0 ? Math.min(count, Math.ceil(count * cost / p.maxMana)) : 0;
+    const count = Math.min(maxMana, 16);
+    const filled = Math.ceil(count * p.mana / maxMana);
+    const spendPips = cost > 0 ? Math.min(count, Math.ceil(count * cost / maxMana)) : 0;
     pipsEl.classList.toggle('has-shortage', short);
     pipsEl.innerHTML = Array.from({ length: count }, (_, i) => {
       const isFull = i < filled;
@@ -295,6 +298,11 @@ export function syncManaPipsPreview(state, pendingCost = 0) {
 export function renderBattleStory(state, collapsedStoryIds) {
   const banner = $('story-banner');
   if (!banner) return;
+  if (state?.rift) {
+    banner.hidden = true;
+    banner.innerHTML = '';
+    return;
+  }
   const story = getBattleStory(state);
   if (!story) {
     banner.hidden = true;
@@ -639,7 +647,7 @@ export function renderQuickCombos(ctx, parsed, knownSpell = false) {
     if (castable.length > 0) {
       emptyEl.textContent = 'เลือกสูตรเพื่อวางการ์ดบนแท่นร่าย';
       emptyEl.className = 'known-formulas-empty is-hint';
-    } else if (state?.player?.hand?.length > HAND_LIMIT) {
+    } else if (state?.player?.hand?.length > getHandLimit(state.player)) {
       emptyEl.textContent = 'เลือกทิ้งการ์ดส่วนเกินก่อนร่าย';
       emptyEl.className = 'known-formulas-empty';
     } else if (shortMana.length > 0) {
@@ -675,7 +683,7 @@ export function renderQuickCombos(ctx, parsed, knownSpell = false) {
   const container = $('quick-combos');
   if (!container) return;
   const combos = getPlayableCombos();
-  if (!combos.length || state.player.hand.length > HAND_LIMIT) {
+  if (!combos.length || state.player.hand.length > getHandLimit(state.player)) {
     container.hidden = true;
     container.classList.remove('combo-matched', 'combo-prefix-active');
     container.innerHTML = '';
@@ -708,9 +716,10 @@ export function renderQuickCombos(ctx, parsed, knownSpell = false) {
 
 export function renderWordBank({ state, words, busy }) {
   const { hand } = state.player;
-  $('hand-count').textContent = `ในมือ ${hand.length}/${HAND_LIMIT}`;
+  const handLimit = getHandLimit(state.player);
+  $('hand-count').textContent = `ในมือ ${hand.length}/${handLimit}`;
   const ordered = Object.keys(WORDS).filter(id => hand.includes(id));
-  const overflow = hand.length - HAND_LIMIT;
+  const overflow = hand.length - handLimit;
   const discard = $('discard-panel');
   const bank = $('word-bank');
   const scrollLeft = bank.scrollLeft;
@@ -721,7 +730,7 @@ export function renderWordBank({ state, words, busy }) {
     alertEl.hidden = overflow <= 0;
     if (overflow > 0) {
       const alertText = $('discard-alert-text');
-      if (alertText) alertText.textContent = `ไพ่ในมือเกิน ${overflow} ใบ (${hand.length}/${HAND_LIMIT}) · ต้องเลือกทิ้งก่อนเล่นต่อ`;
+      if (alertText) alertText.textContent = `ไพ่ในมือเกิน ${overflow} ใบ (${hand.length}/${handLimit}) · ต้องเลือกทิ้งก่อนเล่นต่อ`;
       const reopenBtn = $('reopen-discard-btn');
       if (reopenBtn) reopenBtn.textContent = `แตะเพื่อเลือกทิ้งไพ่ (${overflow} ใบ)`;
     }
@@ -794,7 +803,7 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
   }
   if (!knownSpell) {
     const attemptCost = estimateWordCost(words, state.player.words);
-    const overHand = state.player.hand.length > HAND_LIMIT;
+    const overHand = state.player.hand.length > getHandLimit(state.player);
     const notEnoughMana = attemptCost > state.player.mana;
     if (notEnoughMana) {
       const missing = attemptCost - state.player.mana;
@@ -866,8 +875,9 @@ export function renderTutorial({ state, settings, dismissedRoom, words }) {
   let text;
   if (state.room === 0 && !state.stats.discovered.length) {
     const hand = state.player.hand;
-    if (hand.length > HAND_LIMIT) {
-      text = 'เลือกทิ้งการ์ดส่วนเกินให้เหลือไม่เกิน 10 ใบ แล้วค่อยเรียงคาถา';
+    const handLimit = getHandLimit(state.player);
+    if (hand.length > handLimit) {
+      text = `เลือกทิ้งการ์ดส่วนเกินให้เหลือไม่เกิน ${handLimit} ใบ แล้วค่อยเรียงคาถา`;
     } else if (hand.includes('shot') && (hand.includes('fire') || hand.includes('ice'))) {
       const element = hand.includes('fire') ? 'fire' : 'ice';
       const label = WORDS[element].label;

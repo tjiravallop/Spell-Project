@@ -2,7 +2,8 @@ import { ATTACK_FORMS, ELEMENTS, WORDS, START_WORDS, LARGE_SHIELD_HP, getSpellCa
 import { RIFT_ENEMIES } from './upper-tower.js';
 import {
   ENEMIES,
-  HAND_LIMIT,
+  getHandLimit,
+  getMaxMana,
   MAX_MANA,
   TURN_DRAW,
   SHOP_ITEMS,
@@ -32,6 +33,7 @@ import {
   grantBossRelic,
   clearLostRunProgress,
   repairEarlyDeck,
+  RIFT_TIERS,
 } from './run.js';
 
 export const SAVE_KEY = 'spell-foundry.run.v2';
@@ -64,7 +66,7 @@ export function validateRun(state) {
   if (!words(state.collection, 0, maxUnlockableWords) || state.collection.some(id => START_WORDS.includes(id))) invalid();
   if (!words(state.learned, 0, maxUnlockableWords) || state.learned.some(id => !state.collection.includes(id))) invalid();
   const p = state.player;
-  if (!object(p) || !integer(p.maxHp, 36, 5000) || !integer(p.hp, 0, p.maxHp) || !integer(p.maxMana, 10, 412) || !integer(p.mana, 0, p.maxMana)) invalid();
+  if (!object(p) || !integer(p.maxHp, 36, 5000) || !integer(p.hp, 0, p.maxHp) || !integer(p.maxMana, 10, 412) || !integer(p.mana, 0, getMaxMana(p))) invalid();
   if (!words(p.words, 5, 7) || p.words.some(id => !START_WORDS.includes(id) && !state.collection.includes(id))) invalid();
   if (p.level !== undefined && !integer(p.level, 1, 1000)) invalid();
   if (p.exp !== undefined && !integer(p.exp, 0, 1000000)) invalid();
@@ -91,6 +93,38 @@ export function validateRun(state) {
   if (state.sanctuary19Unlocked !== undefined && typeof state.sanctuary19Unlocked !== 'boolean') invalid();
   if (state.sanctuaryPost20Unlocked !== undefined && typeof state.sanctuaryPost20Unlocked !== 'boolean') invalid();
   if (state.purchasedShopItems !== undefined && (!Array.isArray(state.purchasedShopItems) || state.purchasedShopItems.length > Object.keys(SHOP_ITEMS).length || state.purchasedShopItems.some(id => !Object.hasOwn(SHOP_ITEMS, id)))) invalid();
+  if (state.riftProgressFloor !== undefined && !integer(state.riftProgressFloor, 0, 100)) invalid();
+  if (state.riftDaily !== undefined && state.riftDaily !== null) {
+    if (!object(state.riftDaily) || typeof state.riftDaily.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(state.riftDaily.date) || !integer(state.riftDaily.used, 0, 1000)) invalid();
+  }
+  if (state.rift !== undefined) {
+    const r = state.rift;
+    const validSanctuary = v => [4, 5, 9, 14, 15, 19, 25, 35, 45, 55, 65, 75, 85, 95].includes(v)
+      || (typeof v === 'string' && (v.startsWith('pre') || v.startsWith('post')));
+    if (
+      state.phase !== 'battle'
+      || !object(r)
+      || !RIFT_TIERS.includes(r.tier)
+      || !integer(r.stage, 0, 2)
+      || !Array.isArray(r.stageRooms)
+      || r.stageRooms.length !== 3
+      || r.stageRooms.some(idx => !integer(idx, 0, state.rooms.length - 1))
+      || state.room !== r.stageRooms[r.stage]
+      || !integer(r.returnRoom, 0, state.rooms.length - 1)
+      || !validSanctuary(r.returnSanctuaryFloor)
+    ) invalid();
+  }
+  if (state.replayReturn !== undefined) {
+    const rr = state.replayReturn;
+    const validSanctuary = v => [4, 5, 9, 14, 15, 19, 25, 35, 45, 55, 65, 75, 85, 95].includes(v)
+      || (typeof v === 'string' && (v.startsWith('pre') || v.startsWith('post')));
+    if (
+      state.phase !== 'battle'
+      || !object(rr)
+      || !integer(rr.room, 0, state.rooms.length - 1)
+      || !validSanctuary(rr.sanctuaryFloor)
+    ) invalid();
+  }
   if (p.shield !== null) {
     const shield = p.shield;
     if (!object(shield) || !shieldEffects.includes(shield.effect) || typeof shield.triggered !== 'boolean' || !integer(shield.expires, state.turn, state.turn + 1) || !Array.isArray(shield.layers) || !integer(shield.layers.length, 1, shield.layerDetails ? 12 : 2) || shield.layers.some(amount => !integer(amount, 1, maxShieldLayerHp))) invalid();
@@ -147,7 +181,7 @@ export function validateRun(state) {
     openHand(state);
     state.rulesVersion = 3;
   }
-  if (!integer(state.handRng, 1, 4294967295) || !Array.isArray(p.hand) || p.hand.length > HAND_LIMIT + (state.phase === 'battle' ? TURN_DRAW : 0) || p.hand.some(id => !p.words.includes(id))) invalid();
+  if (!integer(state.handRng, 1, 4294967295) || !Array.isArray(p.hand) || p.hand.length > getHandLimit(p) + (state.phase === 'battle' ? TURN_DRAW : 0) || p.hand.some(id => !p.words.includes(id))) invalid();
   if (state.deathSpent !== undefined && (state.deathSpent !== true || state.phase !== 'battle'
       || !p.words.includes('death') || p.hand.includes('death'))) invalid();
   if (p.maxMana === 10) {
@@ -179,6 +213,8 @@ export function validateRun(state) {
   state.sanctuary19Unlocked ??= false;
   state.sanctuaryPost20Unlocked ??= false;
   state.purchasedShopItems ??= [];
+  state.riftProgressFloor ??= 0;
+  state.riftDaily ??= null;
   return state;
 }
 
