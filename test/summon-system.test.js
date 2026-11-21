@@ -207,3 +207,91 @@ test('Summon System: Save & Load Persistence', () => {
   assert.equal(validated.player.summon.creatureId, 'dragon');
   assert.equal(validated.player.summon.hp, 80);
 });
+
+test('Summon System: Turn 2 Summon Chaining / Succession Relay Strike ("ลืมกฎแล้วร่ายอัญเชิญซ้ำในเทิร์นถัดไป")', () => {
+  const state = createRun('relay-strike-test', true);
+  state.player.hp = 30;
+  state.player.mana = 20;
+  state.player.words = ['summon', 'dog', 'fire', 'golem', 'water'];
+  state.player.hand = ['summon', 'dog', 'fire'];
+  state.enemies = [{ id: 'e1', kind: 'armored', hp: 50, maxHp: 50, armor: 3, slot: 0 }];
+
+  // Turn 1: Summon dog (Fire)
+  const res1 = simulateTurn(state, ['summon', 'dog', 'fire'], 'e1');
+  assert.ok(res1.ok);
+  assert.ok(res1.state.player.summon, 'Dog is on field after turn 1');
+  assert.equal(res1.state.player.summon.creatureId, 'dog');
+
+  // Turn 2: Player forgets or chains summon: casts Golem (Water)!
+  // Dog must NOT simply vanish! It must perform a Succession Relay Strike, deal strike damage,
+  // trigger Scald (Fire + Water) to reduce enemy armor, and hand off the frontline to Golem!
+  res1.state.player.hand = ['summon', 'golem', 'water'];
+  res1.state.player.mana = 20;
+  const res2 = simulateTurn(res1.state, ['summon', 'golem', 'water'], 'e1');
+  assert.ok(res2.ok);
+
+  // 1. Dog executed proactive strike
+  const strikeEvt = res2.events.find(e => e.type === 'summon_strike' && e.creature === 'dog');
+  assert.ok(strikeEvt, 'Prior summon (Dog) must execute its proactive strike on turn 2 relay');
+  assert.ok(strikeEvt.amount > 0, 'Dog strike damage must be positive');
+
+  // 2. Relay & Depart events fired
+  const relayEvt = res2.events.find(e => e.type === 'summon_relay');
+  assert.ok(relayEvt, 'Summon relay event must fire');
+  assert.equal(relayEvt.oldCreature, 'dog');
+  assert.equal(relayEvt.newCreature, 'golem');
+  assert.ok(res2.events.some(e => e.type === 'summon_depart' && e.creature === 'dog'), 'Dog departed after relay');
+
+  // 3. Scald elemental reaction: Fire dog + Water golem shredded 2 armor
+  assert.equal(res2.state.enemies[0].permanentArmorShred, 2, 'Scald should apply 2 permanent armor shred');
+  assert.equal(res2.state.enemies[0].armor, 1, 'Scald should reduce armor from 3 to 1');
+
+  // 4. New summon (Golem) is active with full stats
+  assert.ok(res2.state.player.summon, 'New summon (Golem) must be active on field');
+  assert.equal(res2.state.player.summon.creatureId, 'golem');
+  assert.equal(res2.state.player.summon.element, 'water');
+  assert.equal(res2.state.player.summon.turnCreated, 2, 'Golem turnCreated must be turn 2');
+});
+
+test('Summon System: All 27 Creatures drawSummonSprite and Audio presets execute without errors', async () => {
+  const { Battlefield } = await import('../src/render.js');
+  const { GameAudio } = await import('../src/audio.js');
+
+  const mockCtx = {
+    fillStyle: '',
+    fillRect: () => {},
+  };
+  const fakeBf = {
+    ctx: mockCtx,
+    settings: { reducedMotion: false },
+    pixelEllipse: () => {},
+  };
+
+  // Verify all 27 creatures render cleanly with various elements
+  for (const cid of CREATURE_WORDS) {
+    for (const elem of ['fire', 'ice', 'lightning', 'earth', 'water', 'wind', null]) {
+      assert.doesNotThrow(() => {
+        Battlefield.prototype.drawSummonSprite.call(fakeBf, {
+          creatureId: cid,
+          name: cid,
+          element: elem,
+          hp: 20,
+          maxHp: 20,
+        }, 88, 147, 0, null, 0);
+      }, `Drawing creature ${cid} with element ${elem} should not throw`);
+    }
+  }
+
+  // Verify GameAudio presets execute without errors
+  const ga = new GameAudio({ muted: true });
+  for (const name of ['summon-invoke', 'summon-strike', 'summon-counter', 'summon-break', 'summon-depart', 'summon-relay']) {
+    assert.doesNotThrow(() => {
+      ga.play(name);
+    }, `Audio preset ${name} should execute cleanly`);
+  }
+  for (const elem of ['fire', 'ice', 'lightning', 'earth', 'water', 'wind']) {
+    assert.doesNotThrow(() => {
+      ga.playElementalBurst(elem);
+    }, `Audio elemental burst for ${elem} should execute cleanly`);
+  }
+});

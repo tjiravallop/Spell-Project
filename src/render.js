@@ -209,7 +209,7 @@ export class Battlefield {
     const victoryHold = Math.round((lastEvent?.type === 'room-clear' ? 900 : 0) / speed);
     const actionEvents = victoryHold ? events.slice(0, -1) : events;
     const rawEnds = actionEvents.map(event => {
-      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'shield-delay', 'fizzle', 'blackhole-open', 'boss-phase', 'timestop', 'ascension', 'ascension-ready'].includes(event.type)
+      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'shield-delay', 'fizzle', 'blackhole-open', 'boss-phase', 'timestop', 'ascension', 'ascension-ready', 'summon', 'summon_invoke', 'summon_strike', 'summon_relay', 'summon_counter', 'summon_break'].includes(event.type)
         || Boolean(event.specialBoss && event.type === 'charge');
       const ultBonus = (event.ultimate && event.type === 'attack') ? 180 : event.type === 'boss-phase' ? 280 : 0;
       const wardHold = event.type === 'projectile' && event.blocked ? 160 : 0;
@@ -730,55 +730,309 @@ export class Battlefield {
 
   drawSummonSprite(summon, x, baseline, frame, event, progress) {
     const g = this.ctx;
-    const r = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(x + a - 12, baseline + b - 24, w, h); };
+    const lunge = (event && (event.type === 'summon_strike' || event.type === 'summon_relay') && !this.settings.reducedMotion)
+      ? Math.round(Math.sin((progress || 0) * Math.PI) * 16)
+      : (event && event.type === 'summon_counter' && !this.settings.reducedMotion)
+        ? Math.round(Math.sin((progress || 0) * Math.PI) * 8)
+        : 0;
+    const sx = x + lunge;
+    const r = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(sx + a - 12, baseline + b - 24, w, h); };
     const bob = this.settings.reducedMotion ? 0 : [0, -1, 0, 1][frame % 4];
     const elem = summon.element;
-    const bodyColor = elem === 'fire' || elem === 'akki' ? C[20]
-      : elem === 'ice' || elem === 'heman' ? C[26]
-      : elem === 'lightning' || elem === 'asani' ? C[30]
-      : elem === 'earth' || elem === 'pathaphi' ? C[13]
-      : elem === 'water' || elem === 'wari' ? C[24]
-      : elem === 'wind' || elem === 'vayu' ? C[16]
-      : C[12];
-    const highlight = elem === 'fire' || elem === 'akki' ? C[21]
-      : elem === 'ice' || elem === 'heman' ? C[27]
-      : elem === 'lightning' || elem === 'asani' ? C[31]
-      : elem === 'earth' || elem === 'pathaphi' ? C[14]
-      : elem === 'water' || elem === 'wari' ? C[25]
-      : elem === 'wind' || elem === 'vayu' ? C[17]
-      : C[14];
+    const elemImpact = ELEMENT_IMPACT[elem] || null;
+    const bodyColor = elemImpact ? elemImpact.secondary : C[12];
+    const highlight = elemImpact ? elemImpact.primary : C[14];
+    const coreColor = elemImpact ? elemImpact.core : C[31];
+    const rimColor = elemImpact ? elemImpact.rim : C[30];
 
     // Summon shadow and aura
-    g.fillStyle = C[0]; g.fillRect(x - 12, baseline - 1, 24, 3);
+    g.fillStyle = C[0]; g.fillRect(sx - 12, baseline - 1, 24, 3);
     const auraColor = elementColor[elem] ?? C[28];
-    this.pixelEllipse(x, baseline - 1, 12, 3, auraColor, false);
+    this.pixelEllipse(sx, baseline - 1, 12, 3, auraColor, false);
 
-    // Creature body silhouette
-    if (summon.creatureId === 'golem' || summon.creatureId === 'gargoyle' || summon.creatureId === 'behemoth') {
-      r(4, 2 + bob, 16, 18, bodyColor);
-      r(6, 4 + bob, 12, 14, highlight);
-      r(7, 6 + bob, 3, 3, C[31]);
-      r(14, 6 + bob, 3, 3, C[31]);
-      r(2, 6 + bob, 4, 12, bodyColor);
-      r(18, 6 + bob, 4, 12, bodyColor);
-    } else if (summon.creatureId === 'dragon' || summon.creatureId === 'phoenix') {
-      r(6, 4 + bob, 12, 14, bodyColor);
-      r(8, 6 + bob, 8, 10, highlight);
-      r(1, 2 + bob, 6, 8, bodyColor);
-      r(17, 2 + bob, 6, 8, bodyColor);
-      r(9, 7 + bob, 2, 2, C[31]);
-      r(13, 7 + bob, 2, 2, C[31]);
-    } else if (summon.creatureId === 'dog' || summon.creatureId === 'wolf') {
-      r(4, 8 + bob, 16, 12, bodyColor);
-      r(14, 4 + bob, 8, 8, bodyColor);
-      r(18, 5 + bob, 2, 2, C[31]);
-      r(15, 2 + bob, 3, 3, highlight);
-      r(2, 6 + bob, 4, 4, highlight);
+    // Ambient floating elemental sparks
+    if (elem && !this.settings.reducedMotion) {
+      for (let i = 0; i < 3; i++) {
+        const px = sx - 10 + ((frame * 7 + i * 9) % 20);
+        const py = baseline - 8 - ((Math.floor(Date.now() / 120) + i * 5) % 18) + bob;
+        g.fillStyle = i % 2 ? rimColor : highlight;
+        g.fillRect(px, py, 2, 2);
+      }
+    }
+
+    // Creature-specific 16-bit pixel silhouettes across all 27 creatures
+    const cid = summon.creatureId;
+    if (cid === 'dog') {
+      r(14, 5 + bob, 7, 6, bodyColor);
+      r(12, 5 + bob, 3, 5, highlight);
+      r(15, 4 + bob, 3, 4, highlight);
+      r(19, 8 + bob, 4, 3, highlight);
+      r(22, 8 + bob, 2, 2, C[0]);
+      r(17, 7 + bob, 2, 2, coreColor);
+      r(13, 10 + bob, 3, 2, rimColor);
+      r(5, 9 + bob, 10, 8, bodyColor);
+      r(5, 17 + bob, 3, 7, bodyColor);
+      r(12, 17 + bob, 3, 7, bodyColor);
+      r(2, 6 + bob, 3, 4, highlight);
+      r(4, 9 + bob, 2, 3, bodyColor);
+    } else if (cid === 'bird') {
+      r(13, 5 + bob, 6, 6, bodyColor);
+      r(19, 7 + bob, 4, 2, rimColor);
+      r(16, 6 + bob, 2, 2, coreColor);
+      r(7, 9 + bob, 8, 8, bodyColor);
+      r(6, 10 + bob, 7, 5, highlight);
+      r(2, 12 + bob, 5, 4, highlight);
+      r(9, 17 + bob, 2, 4, rimColor);
+      r(12, 17 + bob, 2, 4, rimColor);
+    } else if (cid === 'cat') {
+      r(12, 2 + bob, 3, 4, highlight);
+      r(16, 2 + bob, 3, 4, highlight);
+      r(12, 5 + bob, 7, 6, bodyColor);
+      r(14, 7 + bob, 2, 2, rimColor);
+      r(17, 7 + bob, 2, 2, rimColor);
+      r(6, 10 + bob, 8, 7, bodyColor);
+      r(2, 7 + bob, 3, 2, highlight);
+      r(2, 9 + bob, 2, 6, bodyColor);
+      r(6, 17 + bob, 2, 7, bodyColor);
+      r(12, 17 + bob, 2, 7, bodyColor);
+    } else if (cid === 'snake') {
+      r(12, 4 + bob, 8, 7, highlight);
+      r(14, 5 + bob, 6, 5, bodyColor);
+      r(16, 6 + bob, 2, 2, coreColor);
+      r(20, 8 + bob, 4, 1, C[18]);
+      r(4, 12 + bob, 14, 5, bodyColor);
+      r(6, 16 + bob, 14, 5, highlight);
+      r(18, 18 + bob, 3, 3, rimColor);
+    } else if (cid === 'slime') {
+      r(4, 12 + bob, 16, 10, bodyColor);
+      r(6, 7 + bob, 12, 6, bodyColor);
+      r(9, 4 + bob, 6, 4, bodyColor);
+      r(8, 6 + bob, 3, 3, coreColor);
+      r(10, 13 + bob, 4, 4, rimColor);
+      r(8, 11 + bob, 2, 3, C[0]);
+      r(14, 11 + bob, 2, 3, C[0]);
+    } else if (cid === 'bat') {
+      r(0, 6 + bob, 8, 11, highlight);
+      r(16, 6 + bob, 8, 11, highlight);
+      r(8, 8 + bob, 8, 9, bodyColor);
+      r(8, 4 + bob, 3, 4, bodyColor);
+      r(13, 4 + bob, 3, 4, bodyColor);
+      r(10, 9 + bob, 2, 2, rimColor);
+      r(13, 9 + bob, 2, 2, rimColor);
+      r(10, 13 + bob, 1, 2, coreColor);
+      r(13, 13 + bob, 1, 2, coreColor);
+    } else if (cid === 'turtle') {
+      r(4, 8 + bob, 16, 11, bodyColor);
+      r(3, 17 + bob, 18, 3, highlight);
+      r(7, 10 + bob, 4, 4, highlight);
+      r(13, 10 + bob, 4, 4, highlight);
+      r(19, 11 + bob, 5, 5, bodyColor);
+      r(21, 12 + bob, 2, 2, coreColor);
+      r(5, 19 + bob, 4, 5, bodyColor);
+      r(13, 19 + bob, 4, 5, bodyColor);
+    } else if (cid === 'frog') {
+      r(6, 4 + bob, 4, 4, highlight);
+      r(14, 4 + bob, 4, 4, highlight);
+      r(8, 5 + bob, 2, 2, C[0]);
+      r(14, 5 + bob, 2, 2, C[0]);
+      r(5, 8 + bob, 14, 4, bodyColor);
+      r(6, 11 + bob, 12, 8, highlight);
+      r(2, 13 + bob, 4, 9, bodyColor);
+      r(18, 13 + bob, 4, 9, bodyColor);
+      r(7, 19 + bob, 3, 4, bodyColor);
+      r(14, 19 + bob, 3, 4, bodyColor);
+    } else if (cid === 'spider') {
+      r(9, 7 + bob, 6, 6, bodyColor);
+      r(6, 12 + bob, 12, 9, highlight);
+      r(10, 8 + bob, 2, 2, rimColor);
+      r(13, 8 + bob, 2, 2, rimColor);
+      r(0, 5 + bob, 4, 8, bodyColor);
+      r(20, 5 + bob, 4, 8, bodyColor);
+      r(1, 12 + bob, 4, 10, bodyColor);
+      r(19, 12 + bob, 4, 10, bodyColor);
+    } else if (cid === 'rat') {
+      r(17, 11 + bob, 4, 3, highlight);
+      r(20, 11 + bob, 2, 2, C[0]);
+      r(12, 6 + bob, 4, 4, highlight);
+      r(15, 6 + bob, 4, 4, highlight);
+      r(6, 10 + bob, 10, 8, bodyColor);
+      r(0, 16 + bob, 3, 2, highlight);
+      r(3, 14 + bob, 2, 4, highlight);
+      r(5, 16 + bob, 2, 2, bodyColor);
+      r(7, 18 + bob, 2, 5, bodyColor);
+      r(13, 18 + bob, 2, 5, bodyColor);
+    } else if (cid === 'wolf') {
+      r(12, 4 + bob, 8, 7, bodyColor);
+      r(11, 1 + bob, 3, 4, highlight);
+      r(15, 1 + bob, 3, 4, highlight);
+      r(18, 7 + bob, 6, 4, highlight);
+      r(14, 6 + bob, 2, 2, rimColor);
+      r(8, 7 + bob, 6, 8, highlight);
+      r(4, 10 + bob, 10, 8, bodyColor);
+      r(0, 11 + bob, 4, 8, highlight);
+      r(5, 17 + bob, 3, 7, bodyColor);
+      r(13, 17 + bob, 3, 7, bodyColor);
+    } else if (cid === 'bear') {
+      r(4, 5 + bob, 16, 13, bodyColor);
+      r(13, 3 + bob, 3, 3, highlight);
+      r(18, 3 + bob, 3, 3, highlight);
+      r(17, 8 + bob, 6, 5, highlight);
+      r(16, 7 + bob, 2, 2, coreColor);
+      r(5, 17 + bob, 5, 7, bodyColor);
+      r(14, 17 + bob, 5, 7, bodyColor);
+    } else if (cid === 'eagle') {
+      r(18, 7 + bob, 5, 4, rimColor);
+      r(14, 5 + bob, 3, 3, coreColor);
+      r(9, 3 + bob, 6, 4, highlight);
+      r(2, 7 + bob, 8, 11, highlight);
+      r(9, 8 + bob, 8, 9, bodyColor);
+      r(9, 18 + bob, 3, 5, rimColor);
+      r(14, 18 + bob, 3, 5, rimColor);
+    } else if (cid === 'boar') {
+      r(18, 9 + bob, 3, 4, coreColor);
+      r(19, 7 + bob, 2, 3, coreColor);
+      r(17, 10 + bob, 4, 4, highlight);
+      r(15, 8 + bob, 2, 2, rimColor);
+      r(6, 4 + bob, 10, 3, highlight);
+      r(4, 7 + bob, 13, 11, bodyColor);
+      r(5, 18 + bob, 3, 6, bodyColor);
+      r(13, 18 + bob, 3, 6, bodyColor);
+    } else if (cid === 'croc') {
+      r(13, 10 + bob, 10, 4, bodyColor);
+      r(15, 12 + bob, 7, 1, coreColor);
+      r(5, 7 + bob, 10, 3, highlight);
+      r(4, 9 + bob, 12, 8, bodyColor);
+      r(5, 17 + bob, 4, 6, bodyColor);
+      r(13, 17 + bob, 4, 6, bodyColor);
+      r(0, 12 + bob, 5, 5, highlight);
+    } else if (cid === 'skeleton') {
+      r(10, 2 + bob, 7, 6, coreColor);
+      r(12, 4 + bob, 2, 2, C[0]);
+      r(11, 8 + bob, 5, 7, coreColor);
+      r(11, 15 + bob, 5, 3, coreColor);
+      r(10, 18 + bob, 2, 6, coreColor);
+      r(14, 18 + bob, 2, 6, coreColor);
+      r(17, 4 + bob, 2, 8, coreColor);
+      r(17, 2 + bob, 6, 2, rimColor);
+    } else if (cid === 'hornet') {
+      r(2, 11 + bob, 8, 8, highlight);
+      r(4, 13 + bob, 2, 6, C[0]);
+      r(7, 12 + bob, 2, 5, C[0]);
+      r(1, 17 + bob, 3, 3, C[0]);
+      r(9, 10 + bob, 2, 4, bodyColor);
+      r(11, 7 + bob, 6, 6, bodyColor);
+      r(15, 7 + bob, 3, 3, rimColor);
+      r(7, 2 + bob, 7, 5, coreColor);
+      r(13, 1 + bob, 6, 5, coreColor);
+      r(11, 15 + bob, 2, 6, bodyColor);
+      r(14, 15 + bob, 2, 6, bodyColor);
+    } else if (cid === 'golem') {
+      r(2, 3 + bob, 20, 8, bodyColor);
+      r(4, 9 + bob, 16, 9, bodyColor);
+      r(10, 11 + bob, 4, 4, coreColor);
+      r(9, 5 + bob, 6, 2, rimColor);
+      r(0, 8 + bob, 4, 12, highlight);
+      r(20, 8 + bob, 4, 12, highlight);
+      r(5, 18 + bob, 5, 6, bodyColor);
+      r(14, 18 + bob, 5, 6, bodyColor);
+    } else if (cid === 'lion') {
+      r(9, 2 + bob, 11, 11, highlight);
+      r(13, 5 + bob, 5, 5, bodyColor);
+      r(15, 6 + bob, 2, 2, rimColor);
+      r(4, 9 + bob, 11, 8, bodyColor);
+      r(5, 17 + bob, 3, 7, bodyColor);
+      r(12, 17 + bob, 3, 7, bodyColor);
+      r(1, 9 + bob, 2, 7, bodyColor);
+      r(0, 8 + bob, 3, 3, highlight);
+    } else if (cid === 'siren') {
+      r(9, 2 + bob, 8, 8, highlight);
+      r(10, 7 + bob, 5, 6, bodyColor);
+      r(12, 5 + bob, 2, 2, coreColor);
+      r(6, 8 + bob, 4, 4, bodyColor);
+      r(15, 8 + bob, 4, 4, bodyColor);
+      r(7, 13 + bob, 9, 6, highlight);
+      r(4, 18 + bob, 14, 4, rimColor);
+      r(3, 16 + bob, 2, 2, coreColor);
+      r(18, 16 + bob, 2, 2, coreColor);
+    } else if (cid === 'gargoyle') {
+      r(10, 3 + bob, 6, 6, bodyColor);
+      r(9, 1 + bob, 2, 3, highlight);
+      r(15, 1 + bob, 2, 3, highlight);
+      r(11, 5 + bob, 2, 2, rimColor);
+      r(14, 5 + bob, 2, 2, rimColor);
+      r(4, 21 + bob, 16, 3, C[11]);
+      r(2, 4 + bob, 6, 12, highlight);
+      r(18, 4 + bob, 6, 12, highlight);
+      r(7, 18 + bob, 3, 4, bodyColor);
+      r(14, 18 + bob, 3, 4, bodyColor);
+    } else if (cid === 'sprite') {
+      r(11, 6 + bob, 4, 7, bodyColor);
+      r(12, 5 + bob, 2, 2, coreColor);
+      r(3, 2 + bob, 8, 9, coreColor);
+      r(14, 2 + bob, 8, 9, coreColor);
+      r(16, 7 + bob, 3, 3, rimColor);
+      r(8, 16 + bob, 2, 2, coreColor);
+      r(13, 17 + bob, 2, 2, rimColor);
+      r(10, 19 + bob, 2, 2, highlight);
+    } else if (cid === 'hydra') {
+      r(2, 3 + bob, 5, 4, highlight);
+      r(4, 6 + bob, 3, 6, bodyColor);
+      r(3, 4 + bob, 2, 2, rimColor);
+      r(10, 0 + bob, 5, 4, highlight);
+      r(11, 3 + bob, 3, 8, bodyColor);
+      r(12, 1 + bob, 2, 2, rimColor);
+      r(17, 3 + bob, 5, 4, highlight);
+      r(16, 6 + bob, 3, 6, bodyColor);
+      r(18, 4 + bob, 2, 2, rimColor);
+      r(4, 11 + bob, 16, 8, bodyColor);
+      r(5, 18 + bob, 4, 6, bodyColor);
+      r(14, 18 + bob, 4, 6, bodyColor);
+    } else if (cid === 'behemoth') {
+      r(2, 4 + bob, 20, 14, bodyColor);
+      r(20, 6 + bob, 4, 4, coreColor);
+      r(4, 2 + bob, 4, 3, highlight);
+      r(10, 2 + bob, 4, 3, highlight);
+      r(15, 2 + bob, 4, 3, highlight);
+      r(17, 7 + bob, 2, 2, rimColor);
+      r(3, 17 + bob, 6, 7, bodyColor);
+      r(14, 17 + bob, 6, 7, bodyColor);
+    } else if (cid === 'kraken') {
+      r(6, 2 + bob, 12, 9, bodyColor);
+      r(10, 7 + bob, 4, 3, rimColor);
+      r(11, 8 + bob, 2, 1, C[0]);
+      r(0, 9 + bob, 4, 12, highlight);
+      r(2, 12 + bob, 2, 2, coreColor);
+      r(5, 11 + bob, 3, 11, bodyColor);
+      r(10, 11 + bob, 3, 12, highlight);
+      r(15, 11 + bob, 3, 11, bodyColor);
+      r(19, 9 + bob, 4, 12, highlight);
+      r(20, 12 + bob, 2, 2, coreColor);
+    } else if (cid === 'dragon') {
+      r(12, 1 + bob, 3, 4, highlight);
+      r(16, 1 + bob, 3, 4, rimColor);
+      r(17, 6 + bob, 6, 4, highlight);
+      r(15, 5 + bob, 2, 2, rimColor);
+      r(0, 2 + bob, 9, 12, highlight);
+      r(8, 2 + bob, 4, 8, bodyColor);
+      r(9, 9 + bob, 7, 8, coreColor);
+      r(8, 17 + bob, 3, 7, bodyColor);
+      r(14, 17 + bob, 3, 7, bodyColor);
+      r(1, 13 + bob, 5, 5, highlight);
+    } else if (cid === 'phoenix') {
+      r(11, 0 + bob, 4, 5, rimColor);
+      r(17, 5 + bob, 4, 3, rimColor);
+      r(14, 4 + bob, 2, 2, coreColor);
+      r(0, 3 + bob, 9, 11, highlight);
+      r(15, 3 + bob, 8, 10, highlight);
+      r(9, 7 + bob, 7, 8, coreColor);
+      r(2, 15 + bob, 3, 9, rimColor);
+      r(6, 17 + bob, 3, 7, highlight);
+      r(9, 18 + bob, 2, 6, coreColor);
     } else {
       r(6, 4 + bob, 12, 16, bodyColor);
       r(8, 6 + bob, 8, 12, highlight);
-      r(9, 8 + bob, 2, 2, C[31]);
-      r(13, 8 + bob, 2, 2, C[31]);
+      r(9, 8 + bob, 2, 2, coreColor);
+      r(13, 8 + bob, 2, 2, coreColor);
       r(4, 10 + bob, 3, 8, bodyColor);
       r(17, 10 + bob, 3, 8, bodyColor);
     }
@@ -786,7 +1040,7 @@ export class Battlefield {
     // Overhead HP Bar
     const hpRatio = Math.max(0, Math.min(1, summon.hp / summon.maxHp));
     const barW = 20;
-    const barX = x - barW / 2;
+    const barX = sx - barW / 2;
     const barY = baseline - 28 + bob;
     g.fillStyle = C[0]; g.fillRect(barX - 1, barY - 1, barW + 2, 4);
     g.fillStyle = C[18]; g.fillRect(barX, barY, barW, 2);
@@ -1494,6 +1748,106 @@ export class Battlefield {
           }
         }
         this.drawFloatingPopup(75, 94 - Math.round(fraction * 10), fizzleLabel(event.cost), C[9], C[18]);
+      }
+
+      if (event.type === 'summon' || event.type === 'summon_invoke') {
+        const elem = event.element || 'fire';
+        const pal = ELEMENT_IMPACT[elem] || ELEMENT_IMPACT.fire;
+        const frac = this.settings.reducedMotion ? 1 : progress;
+        const circleR = Math.round(14 + frac * 8);
+        this.pixelEllipse(88, 147, circleR, Math.round(circleR * 0.35), pal.primary, false);
+        this.pixelEllipse(88, 147, Math.max(4, circleR - 4), Math.max(2, Math.round((circleR - 4) * 0.35)), pal.core, false);
+        if (!this.settings.reducedMotion) {
+          const pillarH = Math.round(Math.sin(frac * Math.PI) * 36);
+          g.save();
+          g.globalAlpha = 0.45 * Math.sin(frac * Math.PI);
+          g.fillStyle = pal.primary;
+          g.fillRect(88 - 12, 147 - pillarH, 24, pillarH);
+          g.fillStyle = pal.core;
+          g.fillRect(88 - 6, 147 - pillarH, 12, pillarH);
+          g.restore();
+          for (let i = 0; i < 6; i++) {
+            const ang = frac * 4 + i * 1.05;
+            const dist = 10 + i * 2;
+            const px = Math.round(88 + Math.cos(ang) * dist);
+            const py = Math.round(140 - frac * 20 + Math.sin(ang) * 4);
+            this.pixelDiamond(px, py, 2, pal.core, pal.primary);
+          }
+        }
+        if (event.name || event.creature) {
+          this.drawFloatingPopup(88, 108 - Math.round(frac * 16), `✨ อัญเชิญ ${event.name || event.creature}`, pal.core, pal.primary);
+        }
+      }
+
+      if (event.type === 'summon_strike' || event.type === 'summon_relay') {
+        const elem = event.element || 'strike';
+        const pal = ELEMENT_IMPACT[elem] || ELEMENT_IMPACT.blast;
+        const targetIndex = this.state.enemies.findIndex(e => e.id === event.target);
+        const targetX = positions[targetIndex] ?? 180;
+        const frac = this.settings.reducedMotion ? 1 : progress;
+        if (!this.settings.reducedMotion && frac > 0.25) {
+          const strikeFrac = (frac - 0.25) / 0.75;
+          this.drawElementalImpactFlash(targetX, 124, elem, strikeFrac, 1.2);
+          this.drawHitBurstVfx(targetX, 124, pal.primary, strikeFrac, elem, now, 1.2);
+          g.save();
+          g.strokeStyle = pal.core;
+          g.lineWidth = 2;
+          g.beginPath();
+          g.moveTo(targetX - 10, 114);
+          g.lineTo(targetX + 8, 134);
+          g.moveTo(targetX - 6, 112);
+          g.lineTo(targetX + 12, 132);
+          g.stroke();
+          g.restore();
+        }
+        if (event.amount > 0) {
+          const label = event.type === 'summon_relay' ? `🔄 สตรีคส่งไม้ต่อ −${event.amount}` : `⚔️ หมัดประสาน −${event.amount}`;
+          this.drawFloatingPopup(targetX, 98 - Math.round(frac * 14), label, pal.core, pal.primary);
+        }
+      }
+
+      if (event.type === 'summon_counter') {
+        const elem = event.element || 'strike';
+        const pal = ELEMENT_IMPACT[elem] || ELEMENT_IMPACT.blast;
+        const targetIndex = this.state.enemies.findIndex(e => e.id === event.target);
+        const targetX = positions[targetIndex] ?? 180;
+        const frac = this.settings.reducedMotion ? 1 : progress;
+        if (!this.settings.reducedMotion) {
+          this.pixelDiamond(88, 135, 3, pal.core, pal.primary);
+          if (frac > 0.2) {
+            this.drawHitBurstVfx(targetX, 124, pal.primary, frac, elem, now, 1);
+          }
+        }
+        if (event.amount > 0) {
+          this.drawFloatingPopup(targetX, 96 - Math.round(frac * 14), `⚡ ตีสวน −${event.amount}`, pal.core, pal.primary);
+        }
+      }
+
+      if (event.type === 'summon_break') {
+        const elem = event.element || 'earth';
+        const pal = ELEMENT_IMPACT[elem] || ELEMENT_IMPACT.earth;
+        const frac = this.settings.reducedMotion ? 1 : progress;
+        if (!this.settings.reducedMotion) {
+          for (let i = 0; i < 8; i++) {
+            const ang = (i / 8) * Math.PI * 2;
+            const dist = Math.round(frac * 24);
+            const px = Math.round(88 + Math.cos(ang) * dist);
+            const py = Math.round(135 + Math.sin(ang) * (dist * 0.6));
+            this.pixelDiamond(px, py, 2, pal.core, pal.primary);
+          }
+        }
+        this.drawFloatingPopup(88, 110 - Math.round(frac * 16), 'แตกสลาย!', pal.primary, pal.secondary);
+      }
+
+      if (event.type === 'summon_depart') {
+        const frac = this.settings.reducedMotion ? 1 : progress;
+        if (!this.settings.reducedMotion) {
+          for (let i = 0; i < 4; i++) {
+            const sx = 84 + i * 3;
+            const sy = 140 - Math.round(frac * 24 + i * 4);
+            this.pixelDiamond(sx, sy, 2, C[31], C[27]);
+          }
+        }
       }
     }
     g.restore();

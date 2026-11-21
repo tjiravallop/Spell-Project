@@ -549,6 +549,74 @@ export class GameAudio {
         this.subThump(0.22, 100 - i * 15, 28, 0.48 - i * 0.06);
       });
     }
+    else if (name === 'summon-invoke') {
+      [220.00, 329.63, 440.00, 659.25, 880.00].forEach((f, i) => {
+        this.tone(f, 0.30, 'sfx', 'triangle', i * 0.045, f * 1.02, { gain: 0.24 });
+        this.tone(f * 1.5, 0.18, 'sfx', 'sine', i * 0.045 + 0.015, f * 1.5, { gain: 0.12 });
+      });
+      this.noise(0.18, { bus: 'sfx', filterType: 'bandpass', filterFreq: 1400, filterQ: 2, gain: 0.20 });
+    }
+    else if (name === 'summon-strike') {
+      this.subThump(0.24, 115, 30, 0.52);
+      this.tone(320, 0.14, 'sfx', 'sawtooth', 0, 110, { gain: 0.28 });
+      this.noise(0.12, { bus: 'sfx', filterType: 'bandpass', filterFreq: 750, gain: 0.30 });
+    }
+    else if (name === 'summon-counter') {
+      this.tone(880, 0.10, 'sfx', 'triangle', 0, 440, { gain: 0.28 });
+      this.tone(1320, 0.08, 'sfx', 'sine', 0.015, 660, { gain: 0.22 });
+      this.noise(0.08, { bus: 'sfx', filterType: 'highpass', filterFreq: 2400, gain: 0.24 });
+    }
+    else if (name === 'summon-break') {
+      this.subThump(0.18, 90, 25, 0.40);
+      [440.00, 329.63, 246.94].forEach((f, i) => {
+        this.tone(f, 0.25, 'sfx', 'triangle', i * 0.04, f * 0.95, { gain: 0.22 });
+      });
+      this.noise(0.14, { bus: 'sfx', filterType: 'bandpass', filterFreq: 900, gain: 0.26 });
+    }
+    else if (name === 'summon-depart') {
+      [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+        this.tone(f, 0.24, 'sfx', 'sine', i * 0.035, f, { gain: 0.14 });
+      });
+    }
+    else if (name === 'summon-relay') {
+      [349.23, 440.00, 523.25, 698.46, 880.00, 1046.50].forEach((f, i) => {
+        this.tone(f, 0.32, 'sfx', 'triangle', i * 0.04, f, { gain: 0.22 });
+      });
+      this.noise(0.10, { bus: 'sfx', filterType: 'highpass', filterFreq: 2200, gain: 0.16 });
+    }
+  }
+
+  playElementalBurst(elem) {
+    if (!this.context || !elem) return;
+    const fam = elementFamily(elem);
+    switch (fam) {
+      case 'fire':
+        this.tone(260, 0.15, 'sfx', 'sawtooth', 0, 95, { gain: 0.28 });
+        this.noise(0.16, { bus: 'sfx', filterType: 'lowpass', filterFreq: 800, gain: 0.22 });
+        break;
+      case 'ice':
+        this.tone(780, 0.18, 'sfx', 'sine', 0, 1170, { gain: 0.26 });
+        this.noise(0.10, { bus: 'sfx', filterType: 'highpass', filterFreq: 2400, gain: 0.18 });
+        break;
+      case 'lightning':
+        this.tone(1150, 0.12, 'sfx', 'square', 0, 380, { gain: 0.32 });
+        this.noise(0.10, { bus: 'sfx', filterType: 'bandpass', filterFreq: 1800, gain: 0.24 });
+        break;
+      case 'earth':
+        this.subThump(0.22, 85, 28, 0.45);
+        this.tone(200, 0.15, 'sfx', 'triangle', 0, 80, { gain: 0.28 });
+        break;
+      case 'water':
+        this.tone(480, 0.16, 'sfx', 'sine', 0, 680, { gain: 0.24 });
+        this.noise(0.14, { bus: 'sfx', filterType: 'bandpass', filterFreq: 700, gain: 0.20 });
+        break;
+      case 'wind':
+        this.tone(320, 0.16, 'sfx', 'triangle', 0, 160, { gain: 0.24 });
+        this.noise(0.20, { bus: 'sfx', filterType: 'bandpass', filterFreq: 950, filterEndFreq: 1600, gain: 0.22 });
+        break;
+      default:
+        this.tone(340, 0.12, 'sfx', 'triangle', 0, 170, { gain: 0.22 });
+    }
   }
 
   combat(event = {}) {
@@ -888,6 +956,28 @@ export class GameAudio {
     else if (event.type === 'fizzle') {
       this.tone(210, 0.16, 'sfx', 'sawtooth', 0, 65, { gain: 0.28 });
       this.tone(135, 0.20, 'sfx', 'triangle', 0.08, 45, { gain: 0.28 });
+    }
+    else if (event.type === 'summon' || event.type === 'summon_invoke') {
+      this.play('summon-invoke');
+      if (event.element) this.playElementalBurst(event.element);
+    }
+    else if (event.type === 'summon_strike') {
+      this.play('summon-strike');
+      if (event.element) this.playElementalBurst(event.element);
+    }
+    else if (event.type === 'summon_counter') {
+      this.play('summon-counter');
+      if (event.element) this.playElementalBurst(event.element);
+    }
+    else if (event.type === 'summon_relay') {
+      this.play('summon-relay');
+      if (event.newElement || event.element) this.playElementalBurst(event.newElement || event.element);
+    }
+    else if (event.type === 'summon_break') {
+      this.play('summon-break');
+    }
+    else if (event.type === 'summon_depart') {
+      this.play('summon-depart');
     }
   }
 

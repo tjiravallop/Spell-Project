@@ -1861,6 +1861,89 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     events.push({ type: 'fizzle', ids: rawIds, cost, expression });
     summary.sequence.push(`คาถาล้มเหลว (${expression}) · เสีย ${cost} มานาฟรีโดยไม่มีผล`);
   } else if (spell.form === 'summon') {
+    const prevSummon = state.player.summon;
+    let resonanceWard = 0;
+    if (prevSummon && prevSummon.turnCreated < turn && prevSummon.hp > 0) {
+      // "พันธสัญญาผลัดเปลี่ยน (Summon Succession Relay Strike)"
+      // หากผู้เล่นร่ายอัญเชิญซ้ำในเทิร์นถัดไป ตัวเก่าจะออกหมัดประสานส่งท้ายก่อนส่งไม้ต่อให้ตัวใหม่!
+      const strikeTarget = (target && target.hp > 0 ? enemyById(target.id) : null) ?? live()[0];
+      if (strikeTarget) {
+        let strikeDmg = prevSummon.strike;
+        const towerBonus = getTowerSpellBonus(state.room);
+        strikeDmg = Math.round(strikeDmg * (1 + towerBonus));
+
+        const targetAffinity = strikeTarget.affinity ?? ENEMIES[strikeTarget.kind]?.affinity;
+        if (prevSummon.element && targetAffinity) {
+          const weak = getWeaknessReaction(prevSummon.element, targetAffinity);
+          if (weak.isWeak) {
+            strikeDmg += Math.ceil(strikeDmg * 0.25);
+          }
+        }
+
+        const creatureLv = upgrades[prevSummon.creatureId] ?? 0;
+        if (prevSummon.creatureId === 'golem' && creatureLv >= 10) {
+          const sunderDmg = prevSummon.isGrand ? 68 : 45;
+          strikeTarget.armor = 0;
+          strikeTarget.sealed = true;
+          damage(strikeTarget, sunderDmg, 'strike', 0);
+          for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
+            damage(ally, 15, 'strike', 0);
+          }
+          summary.sequence.push(`ไททันทลายปฐพี! สตรีคทำลายล้าง ${sunderDmg} ดาเมจแท้ ลบเกราะเหลือ 0 และสตั๊นเป้าหมาย!`);
+        } else if (prevSummon.creatureId === 'dragon' && creatureLv >= 10) {
+          damage(strikeTarget, strikeDmg, prevSummon.element || 'strike', 0);
+          summary.sequence.push(`มหาวินาศเพลิงกัลป์ ${strikeDmg} ดาเมจแท้ข้ามม่านและเกราะ!`);
+        } else {
+          const pierceAmt = prevSummon.element === 'lightning' || prevSummon.element === 'asani' ? 2 : 0;
+          damage(strikeTarget, strikeDmg, prevSummon.element || 'strike', Math.max(0, strikeTarget.armor - pierceAmt));
+          summary.sequence.push(`🔄 พันธสัญญาผลัดเปลี่ยน! ${prevSummon.name} ออกหมัดประสานส่งท้าย ${strikeDmg} ดาเมจใส่ ${strikeTarget.name || strikeTarget.kind}`);
+        }
+
+        events.push({
+          type: 'summon_strike',
+          source: 'summon',
+          creature: prevSummon.creatureId,
+          element: prevSummon.element,
+          target: strikeTarget.id,
+          amount: strikeDmg,
+        });
+
+        // Elemental relay reaction between prior summon and incoming summon
+        if (spell.element && prevSummon.element) {
+          if (spell.element === prevSummon.element) {
+            resonanceWard = 1;
+            summary.sequence.push(`✨ เรโซแนนซ์ธาตุ${ELEMENT_LABELS[spell.element] || spell.element}! มอบม่านป้องกัน +1 ชั้นแก่ผู้สืบทอด`);
+            events.push({ type: 'ward-grant', target: 'player' });
+          } else {
+            const pElem = spell.element;
+            const sElem = prevSummon.element;
+            if ((pElem === 'fire' && sElem === 'ice') || (pElem === 'ice' && sElem === 'fire') || (pElem === 'fire' && sElem === 'water') || (pElem === 'water' && sElem === 'fire')) {
+              applyEarthArmorShred(strikeTarget, 2);
+              summary.sequence.push('ไอเดือด (Scald) ระเหยฉับพลัน! ละลายเกราะเป้าหมาย -2 ถาวร!');
+            } else if ((pElem === 'water' && sElem === 'lightning') || (pElem === 'lightning' && sElem === 'water') || (pElem === 'ice' && sElem === 'lightning') || (pElem === 'lightning' && sElem === 'ice')) {
+              for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
+                damage(ally, Math.ceil(strikeDmg / 2), 'lightning', ally.armor);
+              }
+              summary.sequence.push('กระแสคลื่นตัวนำยวดยิ่ง! ช็อตสายฟ้ากระจายทั่วสนาม!');
+            } else if ((pElem === 'water' && sElem === 'ice') || (pElem === 'ice' && sElem === 'water')) {
+              strikeTarget.sealed = true;
+              summary.sequence.push('เยือกแข็งสมบูรณ์ แช่แข็งเป้าหมาย 1 เทิร์น!');
+            }
+          }
+        }
+      }
+
+      events.push({
+        type: 'summon_relay',
+        oldCreature: prevSummon.creatureId,
+        newCreature: spell.creature,
+        oldElement: prevSummon.element,
+        newElement: spell.element,
+      });
+      events.push({ type: 'summon_depart', creature: prevSummon.creatureId });
+      summary.sequence.push(`${prevSummon.name} ส่งไม้ต่อพันธสัญญาให้ ${WORDS[spell.creature]?.label || spell.creature} แล้วสลายตัว`);
+    }
+
     if (state.player.summon) {
       delete state.player.summon;
       delete state.summon;
@@ -1908,7 +1991,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     let armor = cStats.armor ?? 0;
     if (elem === 'pathaphi') armor += 2;
 
-    let ward = cStats.ward ?? 0;
+    let ward = (cStats.ward ?? 0) + resonanceWard;
     if (secondaryActive('summon') && summonLv >= 9) ward += 1;
 
     if (secondaryActive('summon') && summonLv >= 7) {
@@ -1954,6 +2037,15 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     events.push({
       type: 'summon',
       creature: spell.creature,
+      element: spell.element,
+      hp: maxHp,
+      maxHp,
+      isGrand: Boolean(spell.grand),
+    });
+    events.push({
+      type: 'summon_invoke',
+      creature: spell.creature,
+      name: cStats.name,
       element: spell.element,
       hp: maxHp,
       maxHp,
@@ -2566,10 +2658,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         const pElem = spell.element;
         const sElem = sUnit.element;
         if ((pElem === 'fire' && sElem === 'ice') || (pElem === 'ice' && sElem === 'fire')) {
-          if (strikeTarget.hp > 0 && strikeTarget.armor > 0) {
-            strikeTarget.armor = Math.max(0, strikeTarget.armor - 2);
-            summary.sequence.push('ไอเดือด (Scald) ละลายเกราะเป้าหมาย -2 ถาวร!');
-          }
+          applyEarthArmorShred(strikeTarget, 2);
+          summary.sequence.push('ไอเดือด (Scald) ละลายเกราะเป้าหมาย -2 ถาวร!');
         } else if ((pElem === 'water' && sElem === 'lightning') || (pElem === 'lightning' && sElem === 'water')) {
           for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
             damage(ally, Math.ceil(strikeDmg / 2), 'lightning', ally.armor);
