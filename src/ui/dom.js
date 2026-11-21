@@ -5,6 +5,8 @@ import {
   hasCardSecondaryUpgrade,
   getCardSecondaryEffect,
   describeCardUpgradeEffect,
+  isAscensionActive,
+  MAX_CARD_UPGRADE,
 } from '../run.js';
 import { icon } from '../icons.js';
 
@@ -30,6 +32,11 @@ export function restLocationLabel(checkpoint) {
 export const CARD_META = Object.freeze({
   shot: { roleClass: 'role-form' },
   spear: { roleClass: 'role-form' },
+  axe: { roleClass: 'role-form' },
+  timestop: { roleClass: 'role-support' },
+  ascension: { roleClass: 'role-support' },
+  light: { roleClass: 'role-mod' },
+  delay: { roleClass: 'role-defense' },
   chakram: { roleClass: 'role-form' },
   beam: { roleClass: 'role-form' },
   wave: { roleClass: 'role-form' },
@@ -81,13 +88,14 @@ export function rarityBadge(word) {
   return `<small class="rarity-badge">${RARITIES[word.rarity ?? 'common']}</small>`;
 }
 
-export function playingCardFace(state, id, { headerRight = '', footerSub = '', bodyExtra = '' } = {}) {
+export function playingCardFace(state, id, { headerRight = '', footerSub = '', bodyExtra = '', battle = false } = {}) {
   const word = WORDS[id];
-  const upgLv = getCardUpgradeLevel(state, id);
-  const hasSec = hasCardSecondaryUpgrade(state, id);
+  const ascended = battle && isAscensionActive(state);
+  const upgLv = ascended ? MAX_CARD_UPGRADE : getCardUpgradeLevel(state, id);
+  const hasSec = ascended || hasCardSecondaryUpgrade(state, id);
   const secEffect = hasSec ? getCardSecondaryEffect(id, Math.max(7, upgLv)) : null;
   const upgTags = [];
-  if (upgLv > 0) upgTags.push(`<span class="card-upg-pip stat-pip" title="${escape(describeCardUpgradeEffect(id, upgLv))}">+${upgLv}</span>`);
+  if (upgLv > 0) upgTags.push(`<span class="card-upg-pip stat-pip" title="${escape(describeCardUpgradeEffect(id, upgLv))}">+${upgLv}${ascended ? ' จุติ' : ''}</span>`);
   if (hasSec && secEffect) upgTags.push(`<span class="card-upg-pip sec-pip" title="${escape(secEffect.description)}">${escape(secEffect.badge)}</span>`);
   const upgRow = upgTags.length ? `<span class="card-upg-row">${upgTags.join('')}</span>` : '';
   return `<span class="playing-card-inner ${upgLv > 0 || hasSec ? 'is-upgraded-card' : ''}"><span class="card-corner card-corner-top"><span class="corner-index"><span class="corner-icon">${icon(id)}</span><span class="corner-name">${word.label}${upgLv > 0 ? ` +${upgLv}` : ''}</span></span>${headerRight}</span><span class="card-art-frame"><span class="card-art-ring" aria-hidden="true"></span><span class="card-emblem">${icon(id)}</span></span><span class="card-nameplate"><strong class="card-title">${word.label}${upgLv > 0 ? ` <em class="card-plus">+${upgLv}</em>` : ''}</strong>${rarityBadge(word)}${upgRow}${footerSub}</span>${bodyExtra}<span class="card-corner card-corner-bottom" aria-hidden="true"><span class="corner-index"><span class="corner-icon">${icon(id)}</span><span class="corner-name">${word.label}</span></span></span></span>`;

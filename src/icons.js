@@ -1,4 +1,9 @@
 const paths = {
+  axe: 'M6 1h7v2h2v5h-2v2H9V8H7l-5 7H0v-2l6-7z',
+  timestop: 'M5 1h6l4 4v6l-4 4H5l-4-4V5zm1 2L3 6v4l3 3h4l3-3V6l-3-3zm1 1h2v4h3v2H7z',
+  ascension: 'M7 0h2v3h3v3h3v2h-3v3H9v4H7v-4H4V8H1V6h3V3h3zm1 4L5 7l3 3 3-3z',
+  light: 'M12 1h3v4h-2v2h-2v2H9v2H6v2H4v2H1v-2h2v-2h2V8h2V5h2V3h3z M6 11h3v2H6z',
+  delay: 'M3 1h10v2h-1v3l-3 2 3 2v3h1v2H3v-2h1v-3l3-2-3-2V3H3zm3 2v2l2 2 2-2V3zm2 7-2 2v1h4v-1z',
   shot: 'M5 2h6v2h2v2h2v4h-2v2h-2v2H5v-2H3v-2H1V6h2V4h2z',
   chakram: 'M6 0h4v2h2v1l3-1v4h-1v4h1v4l-3-1v1h-2v2H6v-2H4v-1l-3 1v-4h1V6H1V2l3 1V2h2zm0 5v6h4V5z',
   beam: 'M1 7h14v2H1z',

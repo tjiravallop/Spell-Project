@@ -209,7 +209,7 @@ export class Battlefield {
     const victoryHold = Math.round((lastEvent?.type === 'room-clear' ? 900 : 0) / speed);
     const actionEvents = victoryHold ? events.slice(0, -1) : events;
     const rawEnds = actionEvents.map(event => {
-      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'fizzle', 'blackhole-open', 'boss-phase'].includes(event.type)
+      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'shield-delay', 'fizzle', 'blackhole-open', 'boss-phase', 'timestop', 'ascension', 'ascension-ready'].includes(event.type)
         || Boolean(event.specialBoss && event.type === 'charge');
       const ultBonus = (event.ultimate && event.type === 'attack') ? 180 : event.type === 'boss-phase' ? 280 : 0;
       const wardHold = event.type === 'projectile' && event.blocked ? 160 : 0;
@@ -803,7 +803,7 @@ export class Battlefield {
       this.pixelEllipse(this.puddleX(Number(this.target.at(-1))), 150, 15, 4, elementColor.blackhole, false);
     }
 
-    const isCastingEvent = ['projectile', 'shield', 'heal', 'blast', 'fizzle', 'blackhole-open'].includes(event?.type)
+    const isCastingEvent = ['projectile', 'shield', 'shield-delay', 'heal', 'blast', 'fizzle', 'blackhole-open', 'timestop', 'ascension'].includes(event?.type)
       || (event?.type === 'damage' && event.element === 'death');
     const playerPose = isCastingEvent ? 'cast' : event?.type === 'attack' && impact && event.amount > 0 ? 'hurt' : this.state?.player.hp === 0 ? 'dead' : 'idle';
     g.fillStyle = C[0]; g.fillRect(38, 146, 27, 3);
@@ -1016,6 +1016,12 @@ export class Battlefield {
     if (event) {
       const fraction = this.settings.reducedMotion ? 1 : progress;
       const x = eventX;
+      if (event.type === 'shield-delay' || (event.type === 'shield' && event.delayed)) {
+        this.drawDelaySigil(51, event.delayed ? 91 : 109, progress, event.delayed);
+      }
+      if (['timestop', 'ascension', 'ascension-ready'].includes(event.type)) {
+        this.drawLegendarySigil(event.type, progress);
+      }
       if (event.type === 'seal' || event.type === 'ward-grant') {
         const targetIndex = this.state.enemies.findIndex(enemy => enemy.id === event.target);
         const targetX = positions[targetIndex] ?? x;
@@ -1027,7 +1033,7 @@ export class Battlefield {
         const travel = Math.min(1, fraction / 0.65);
         const startX = 76;
         const startY = 120;
-        const target = event.blocked && (event.form === 'shot' || event.form === 'chakram' || event.form === 'spear')
+        const target = event.blocked && ['shot', 'chakram', 'spear', 'axe'].includes(event.form)
           ? x - this.enemyWardWidth(this.state.enemies[eventTargetIndex]) / 2 + 3 : x;
         const px = Math.round(startX + (target - startX) * travel);
         const arcLift = event.form === 'shot' ? Math.sin(travel * Math.PI) * 16 : 0;
@@ -1049,10 +1055,16 @@ export class Battlefield {
           this.drawChakramVfx(startX, startY, target, px, py, travel, fraction, event, secondColor, now);
         } else if (event.form === 'spear') {
           this.drawSpearVfx(startX, startY, target, px, py, travel, fraction, event, secondColor, now);
+        } else if (event.form === 'axe') {
+          this.drawAxeVfx(px, py, color, impact, fraction, event.blocked);
         } else {
           this.drawShotVfx(startX, startY, target, px, py, travel, fraction, event, secondColor, now);
         }
         if (!this.settings.reducedMotion) {
+          if (event.lightPenalty && !impact) this.drawLightTrail(px, py, fraction);
+          if (event.lightPierce && impact && !event.blocked && event.damage?.amount > 0) {
+            this.drawLightTrail(target, 120, fraction, event.lightPierce);
+          }
           for (const modifier of event.visualModifiers ?? []) {
             if (travel < 1) this.drawModifierVfx(modifier, event.form === 'storm' ? x : px, event.form === 'storm' ? 110 : py, fraction, false);
           }
@@ -3254,6 +3266,103 @@ export class Battlefield {
 
   barrierLabel(x, y, label, color) {
     this.drawFloatingPopup(x, y, label, C[9], color);
+  }
+
+  drawLightTrail(x, y, progress, pierce = 0) {
+    const g = this.ctx;
+    g.save();
+    g.globalAlpha = pierce ? Math.max(0, (1 - progress) / 0.35) : 0.9;
+    if (pierce) {
+      for (let i = 0; i < pierce; i++) {
+        this.pixelDiamond(x + 6 + i * 5, y - 6 - i * 3, 2, '#93e6cc', '#edfff3');
+      }
+    } else {
+      g.fillStyle = '#edfff3';
+      g.fillRect(Math.round(x - 12), Math.round(y - 3), 9, 1);
+      g.fillStyle = '#93e6cc';
+      g.fillRect(Math.round(x - 18), Math.round(y + 2), 12, 1);
+      this.pixelDiamond(x - 5, y - 6, 2, '#93e6cc', '#edfff3');
+    }
+    g.restore();
+  }
+
+  drawAxeVfx(x, y, color, impact, progress, blocked) {
+    const g = this.ctx;
+    const stationary = this.settings.reducedMotion;
+    const drop = stationary ? 0 : Math.round(Math.sin(Math.min(1, progress / 0.65) * Math.PI) * 14);
+    x = Math.round(x);
+    y = Math.round(y) - drop;
+    if (impact && blocked) return;
+    g.save();
+    if (impact && !stationary) g.globalAlpha = Math.max(0, (1 - progress) / 0.35);
+    g.fillStyle = C[13];
+    for (let i = 0; i <= 11; i++) g.fillRect(x - 10 + i, y + 7 - i, 3, 2);
+    g.fillStyle = color;
+    g.fillRect(x - 3, y - 10, 9, 10);
+    g.fillRect(x + 6, y - 8, 3, 6);
+    g.fillStyle = C[9];
+    g.fillRect(x + 7, y - 7, 2, 4);
+    if (impact && !stationary) {
+      this.pixelCircle(x, y, Math.round(5 + (progress - 0.65) * 38), color, false);
+      this.pixelDiamond(x + 5, y + 2, 3, color, C[9]);
+    }
+    g.restore();
+  }
+
+  drawLegendarySigil(kind, progress) {
+    const g = this.ctx;
+    const still = this.settings.reducedMotion;
+    const stopped = kind === 'timestop';
+    const ready = kind === 'ascension-ready';
+    const color = stopped ? '#b8deff' : ready ? '#fff3af' : '#e5b7ff';
+    const x = stopped ? 165 : 51;
+    const y = stopped ? 83 : 103;
+    g.save();
+    if (stopped && !still) {
+      g.globalAlpha = 0.23 * Math.sin(progress * Math.PI);
+      g.fillStyle = '#76b3fc';
+      g.fillRect(0, 0, 320, 180);
+    }
+    g.globalAlpha = 1;
+    const radius = stopped ? 19 : 18;
+    this.pixelCircle(x, y, radius, color, false);
+    if (stopped) {
+      g.fillStyle = color;
+      g.fillRect(x - 1, y - 12, 2, 13);
+      g.fillRect(x, y - 1, 9, 2);
+    } else {
+      this.pixelDiamond(x, y, 7, color, C[9]);
+    }
+    const spread = still ? 2 : Math.round(progress * (ready ? 16 : 7));
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4;
+      this.pixelDiamond(Math.round(x + Math.cos(angle) * (radius + spread)), Math.round(y + Math.sin(angle) * (radius + spread)), 2, color, C[9]);
+    }
+    g.restore();
+  }
+
+  drawDelaySigil(x, y, progress, activated) {
+    const g = this.ctx;
+    const still = this.settings.reducedMotion;
+    const color = activated ? '#ecffe8' : '#ddbcff';
+    g.save();
+    g.fillStyle = '#252139';
+    g.fillRect(x - 7, y - 8, 14, 16);
+    g.fillStyle = color;
+    g.fillRect(x - 6, y - 7, 12, 2);
+    g.fillRect(x - 6, y + 5, 12, 2);
+    for (let i = 0; i < 5; i++) {
+      g.fillRect(x - i - 1, y - i - 1, 1, 1);
+      g.fillRect(x + i, y - i - 1, 1, 1);
+      g.fillRect(x - i - 1, y + i, 1, 1);
+      g.fillRect(x + i, y + i, 1, 1);
+    }
+    if (!activated) g.fillRect(x, y + (still ? 2 : Math.floor(progress * 4)), 1, 1);
+    if (!still) {
+      g.globalAlpha = Math.sin(progress * Math.PI);
+      this.pixelCircle(x, y, 12 + Math.floor(progress * (activated ? 12 : 4)), color, false);
+    }
+    g.restore();
   }
 
   enemyWardWidth(enemy) {

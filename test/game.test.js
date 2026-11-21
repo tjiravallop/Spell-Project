@@ -4301,8 +4301,8 @@ test('new cards (spear, empower, bless, fill, blood, mana) respect rarities, gra
     acc[r] = (acc[r] ?? 0) + 1;
     return acc;
   }, {});
-  assert.equal(Object.keys(WORDS).length, 59);
-  assert.deepEqual(byRarity, { common: 14, rare: 9, special: 13, epic: 19, legendary: 4 });
+  assert.equal(Object.keys(WORDS).length, 64);
+  assert.deepEqual(byRarity, { common: 17, rare: 9, special: 13, epic: 19, legendary: 6 });
   assert.equal(WORDS.spear.rarity ?? 'common', 'common');
   assert.equal(WORDS.empower.rarity, 'rare');
   assert.equal(WORDS.bless.rarity, 'special');

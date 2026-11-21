@@ -391,8 +391,21 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         } else {
           status.textContent = `ร่าย ${[form, element].filter(Boolean).join(' ')}`;
         }
+        if (event.lightPenalty) {
+          status.textContent += ` · เบา${event.lightPierce && !event.blocked ? ` · เจาะ +${event.lightPierce}` : ''}`;
+        }
+        if (event.form === 'axe' && !event.blocked) status.textContent += ' · จามข้ามเกราะ';
         break;
       }
+      case 'timestop':
+        status.textContent = 'หยุดเวลา · ข้ามการกระทำของศัตรูทั้งหมด';
+        break;
+      case 'ascension':
+        status.textContent = 'เริ่มจุติ · การ์ดจะเป็น +10 เมื่อถึงเทิร์นหน้า';
+        break;
+      case 'ascension-ready':
+        status.textContent = 'จุติสำเร็จ · การ์ด +10 · ร่ายฟรีในเทิร์นนี้';
+        break;
       case 'damage': {
         if (event.element === 'death' && event.amount > 0) {
           const { x, y } = enemyImpactCoords(event.target);
@@ -497,6 +510,9 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         pulsePlayerHud('shield');
         pulseElementalOverlay('brace', 16, 66);
         break;
+      case 'shield-delay':
+        status.textContent = 'ตั้งหน่วงโล่ · กางต้นเทิร์นถัดไป';
+        break;
       case 'shield': {
         pulseSpellSlotsElem(event.elements?.[0] ?? 'shield');
         pulsePlayerHud('shield');
@@ -516,7 +532,9 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
             withVignette: Boolean(event.grand),
           });
         }
-        status.textContent = event.restored ? `ต้นเทิร์นถัดไปเติมโล่ +${event.restored}` : `กางโล่ +${event.amount}`;
+        status.textContent = event.delayed
+          ? `ถึงเทิร์นถัดไป · หน่วงโล่กาง +${event.amount}`
+          : event.restored ? `ต้นเทิร์นถัดไปเติมโล่ +${event.restored}` : `กางโล่ +${event.amount}`;
         break;
       }
       case 'heal': {

@@ -1,5 +1,5 @@
 import { makeShield, shieldLayers } from './shields.js';
-import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS } from './words.js';
+import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS, lightDamagePenalty, ascensionCost } from './words.js';
 import { RIFT_ENEMIES, RIFT_TOWER, SPACED_FLOORS } from './upper-tower.js';
 import { MIDDLE_BATTLES, MIDDLE_ENEMIES } from './middle-tower.js';
 import {
@@ -231,6 +231,15 @@ export function hasCardSecondaryUpgrade(state, wordId) {
   return lv >= CARD_SECONDARY_UNLOCK_LEVEL || Boolean(state?.player?.cardSecondaryUpgrades?.[wordId]);
 }
 
+export const isAscensionActive = state => state?.phase === 'battle' && state.legendaryTurns?.ascension === state.turn - 1;
+export const isBattleWordSpent = (state, id) => id === 'death' ? Boolean(state.deathSpent) : Object.hasOwn(state.legendaryTurns ?? {}, id);
+
+export function battleSpellCost(state, parsed) {
+  const { form, resource } = parsed.spell;
+  if (isAscensionActive(state) || (form === 'fill' && resource === 'mana' && hasCardSecondaryUpgrade(state, 'mana'))) return 0;
+  return form === 'ascension' ? ascensionCost(getCardUpgradeLevel(state, 'ascension')) : parsed.cost;
+}
+
 export function getCardUpgradeCost(currentLevel = 0) {
   return CARD_UPGRADE_COSTS[currentLevel] ?? 999;
 }
@@ -280,6 +289,60 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
     healBonus: 0,
     pierceBonus: 0,
   };
+
+  if (wordId === 'axe') {
+    return {
+      ...base,
+      id: 'axe_sunder',
+      badge: `ขวานทุบเกราะ −${tier}`,
+      label: `จามเกราะแตก ${tier} หน่วย`,
+      description: `ขวานที่จามโดนเป้าลดเกราะถาวร ${tier} หน่วย · ปลดที่ +7 และแรงขึ้นที่ +9/+10`,
+      axeArmorShred: tier,
+    };
+  }
+  if (wordId === 'timestop') {
+    const heal = tier * 2;
+    return {
+      ...base,
+      id: 'timestop_recovery',
+      badge: `ฟื้น ${heal} HP`,
+      label: `พักกาลเวลา · ฟื้น ${heal} HP`,
+      description: `ฟื้น ${heal} HP เมื่อหยุดเวลาสำเร็จ · ปลดที่ +7 และแรงขึ้นที่ +9/+10`,
+      timestopHeal: heal,
+    };
+  }
+  if (wordId === 'ascension') {
+    const shield = [3, 5, 8][idx];
+    return {
+      ...base,
+      id: 'ascension_aegis',
+      badge: `เทิร์นจุติ โล่ +${shield}`,
+      label: `โล่จุติ ${shield} หน่วย`,
+      description: `กางโล่ ${shield} หน่วยต้นเทิร์นจุติ · ปลดที่ +7 และแรงขึ้นที่ +9/+10`,
+      ascensionShield: shield,
+    };
+  }
+  if (wordId === 'light') {
+    return {
+      ...base,
+      id: 'light_focus',
+      badge: `↠ เจาะเกราะ +${tier}`,
+      label: `เวทเบาเจาะเกราะเพิ่ม ${tier} หน่วย`,
+      description: `ปลดล็อกที่ +7 และแรงขึ้นที่ +9/+10 · เวทที่ลงท้ายด้วย “เบา” ข้ามเกราะเพิ่ม ${tier} หน่วย`,
+      pierceBonus: tier,
+    };
+  }
+  if (wordId === 'delay') {
+    const heal = tier * 2;
+    return {
+      ...base,
+      id: 'delayed_mend',
+      badge: `⌛ เทิร์นหน้า +${heal} HP`,
+      label: `หน่วงโล่ฟื้นกาย +${heal} HP`,
+      description: `ปลดล็อกที่ +7 และแรงขึ้นที่ +9/+10 · ฟื้น ${heal} HP ตอนโล่จาก “หน่วง” กางต้นเทิร์นหน้า`,
+      delayedHeal: heal,
+    };
+  }
 
   // === Batch 1: Tailored Common (ธรรมดา) Cards ===
   if (wordId === 'shot') {
@@ -1302,6 +1365,11 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
 
 export function describeCardUpgradeEffect(wordId, level = 0) {
   const nextLv = Math.max(1, level);
+  if (wordId === 'light') return `ค่าร่าย −1 มานา · โทษพลังเหลือ −${lightDamagePenalty(nextLv)}%`;
+  if (wordId === 'delay') return `โล่เทิร์นหน้า ${WORDS.delay.shieldHp + nextLv} หน่วย (+${nextLv})`;
+  if (wordId === 'axe') return `พลังขวานพื้นฐาน +${nextLv} ก่อนคิดตัวคูณ 80%`;
+  if (wordId === 'timestop') return `ต้นเทิร์นหลังหยุดเวลา ฟื้นมานาเพิ่ม ${nextLv} หน่วย (สูงสุด Max MP)`;
+  if (wordId === 'ascension') return `เปิดจุติใช้ ${ascensionCost(nextLv)} มานา · เทิร์นจุติร่ายฟรี`;
   if (wordId === 'veil') return `ความจุม่าน +${nextLv * 3} · กันส่วนล้น +${nextLv * 2}`;
   if (wordId === 'blackhole') return `แรงยุบหลุมดำ +${nextLv * 15} · กระแทกดูดชน +${nextLv * 5}`;
   if (wordId === 'meteor') return `แรงหลักอุกกาบาต +${nextLv * 3} · กระจาย +${nextLv * 2}`;
@@ -1925,8 +1993,10 @@ export const MAX_MANA = 12;
 export const HAND_LIMIT = 10;
 export const TURN_DRAW = 3;
 
+const activeBattleDeck = state => state.player.words.filter(id => !isBattleWordSpent(state, id));
+
 export function openHand(state) {
-  const deck = state.player.words.filter(id => id !== 'death' || !state.deathSpent);
+  const deck = activeBattleDeck(state);
   const draw = { rng: seedNumber(JSON.stringify([state.seed, state.room, state.turn])) };
   const form = pick(draw, deck.filter(id => ATTACK_FORMS.includes(id)));
   const element = pick(draw, deck.filter(id => ELEMENTS.includes(id)));
@@ -1946,8 +2016,8 @@ export function openHand(state) {
 }
 
 export function drawCards(state, count = TURN_DRAW) {
-  const { hand, words } = state.player;
-  const deck = state.deathSpent ? words.filter(id => id !== 'death') : words;
+  const { hand } = state.player;
+  const deck = activeBattleDeck(state);
   const draw = { rng: state.handRng };
   for (let i = 0; i < count; i++) hand.push(pick(draw, deck));
   state.handRng = draw.rng;
@@ -2302,6 +2372,7 @@ export function enterRoom(state) {
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
+  delete state.legendaryTurns;
   delete state.krakenPhase;
   delete state.netherPhase;
   delete state.eternityPhase;
@@ -2694,6 +2765,7 @@ export function resolveRiftBattleVictory(state, summary, events) {
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
+  delete state.legendaryTurns;
 
   if (rift.stage < rift.stageRooms.length - 1) {
     const healAmount = Math.max(12, Math.round(state.player.maxHp * 0.2));
@@ -3024,6 +3096,7 @@ function resetPlayerForSanctuaryFallback(state) {
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
+  delete state.legendaryTurns;
   state.turn = 1;
   state.player.hp = Math.max(10, Math.ceil(state.player.maxHp * 0.5));
   state.player.mana = getMaxMana(state.player);
@@ -3246,6 +3319,7 @@ export function enterSanctuary(original, options = {}) {
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
+  delete state.legendaryTurns;
   return state;
 }
 
@@ -3549,6 +3623,7 @@ export function completeRevisitVictoryToSanctuary(state, summary = null) {
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
+  delete state.legendaryTurns;
   state.room = Math.min((state.rooms?.length ?? TOTAL_TOWER_ROOMS) - 1, Math.max(0, targetRoom));
   state.sanctuaryUnlocked = true;
   state.sanctuaryFloor = targetFloor;
@@ -3677,6 +3752,7 @@ export function useBattleItem(original, beltIndex) {
       delete state.magmaPuddles;
       delete state.blackhole;
       delete state.deathSpent;
+      delete state.legendaryTurns;
       delete state.krakenPhase;
       delete state.netherPhase;
       delete state.eternityPhase;
@@ -3738,7 +3814,7 @@ export function useBattleItem(original, beltIndex) {
     if (!manaGain && !drawCount) throw new Error('มานาและการ์ดในมือเต็มอยู่แล้ว');
     p.mana += manaGain;
     if (drawCount > 0) {
-      const deck = state.deathSpent ? p.words.filter(id => id !== 'death') : p.words;
+      const deck = activeBattleDeck(state);
       const draw = { rng: state.handRng };
       for (let i = 0; i < drawCount; i++) p.hand.push(pick(draw, deck));
       state.handRng = draw.rng;
@@ -3770,7 +3846,7 @@ export function useBattleItem(original, beltIndex) {
   } else if (itemId === 'draw_pages') {
     const amount = Math.min(2, Math.max(0, handLimit - p.hand.length));
     if (!amount) throw new Error('มือเต็มแล้ว ต้องมีที่ว่างก่อนจั่ว');
-    const deck = state.deathSpent ? p.words.filter(id => id !== 'death') : p.words;
+    const deck = activeBattleDeck(state);
     const draw = { rng: state.handRng };
     for (let i = 0; i < amount; i++) p.hand.push(pick(draw, deck));
     state.handRng = draw.rng;

@@ -9,7 +9,7 @@ import {
   equipRelic,
   unequipRelic,
   getCardUpgradeLevel,
-  hasCardSecondaryUpgrade,
+  battleSpellCost,
   deckCapacity,
   ownsRewardWord,
   nextExpForLevel,
@@ -562,11 +562,10 @@ function renderBattle() {
   $('seed-label').textContent = `SEED ${state.seed}`;
   const parsed = parseSpell(words, p.words);
   const knownSpell = isKnownValidSpell(words);
-  const manaFreeCast = Boolean(parsed.ok && parsed.spell.form === 'fill' && parsed.spell.resource === 'mana' && hasCardSecondaryUpgrade(state, 'mana'));
   const pendingCost = busy || !words.length
     ? 0
     : parsed.ok
-      ? (manaFreeCast ? 0 : parsed.cost)
+      ? battleSpellCost(state, parsed)
       : estimateWordCost(words, p.words);
   syncManaPipsPreview(state, pendingCost);
   if (!knownSpell || parsed.ids.join(' ') !== lastJustUnlockedKey) lastJustUnlockedKey = null;
@@ -776,7 +775,7 @@ function commit(guard = false) {
         setCastFx({
           type: 'discover',
           badge: '★ ค้นพบสูตรใหม่!',
-          title: `${parsed.expression} (${parsed.cost} มานา)`,
+          title: `${parsed.expression} (${result.summary.cost} มานา)`,
           detail: `${impactDetail} · บันทึกสูตรเข้าตำราคาถาแล้ว`,
         });
       } else {
@@ -784,7 +783,7 @@ function commit(guard = false) {
         setCastFx({
           type: 'success',
           badge: '✦ ร่ายคาถาสำเร็จ',
-          title: `${parsed.expression} (${parsed.cost} มานา)`,
+          title: `${parsed.expression} (${result.summary.cost} มานา)`,
           detail: impactDetail,
         });
       }

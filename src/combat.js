@@ -1,5 +1,5 @@
 import { makeShield, shieldLayers, shieldProtection } from './shields.js';
-import { ATTACK_FORMS, FUSED_ELEMENTS, WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS } from './words.js';
+import { ATTACK_FORMS, BATTLE_LIMITED_WORDS, FUSED_ELEMENTS, WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS, lightDamagePenalty } from './words.js';
 import { RIFT_EXPOSED_BONUS, isRiftBossExposed, getTowerSpellBonus, getTurnManaRegen } from './upper-tower.js';
 import {
   ENEMIES,
@@ -27,6 +27,10 @@ import {
   fallBackToFloor19Sanctuary,
   fallBackToUpperSanctuary,
   getCardSecondaryEffect,
+  battleSpellCost,
+  isAscensionActive,
+  isBattleWordSpent,
+  MAX_CARD_UPGRADE,
   getEquippedRelics,
   getHandLimit,
   getMaxMana,
@@ -64,12 +68,15 @@ import {
 export const WORD_BASE_COST = Object.freeze({
   shot: 1,
   spear: 1,
+  axe: 1,
   chakram: WORDS.chakram.cost,
   beam: 2,
   wave: 3,
   storm: WORDS.storm.cost,
   blackhole: WORDS.blackhole.cost,
   death: WORDS.death.cost,
+  timestop: WORDS.timestop.cost,
+  ascension: WORDS.ascension.cost,
   meteor: WORDS.meteor.cost,
   veil: WORDS.veil.cost,
   fire: 2,
@@ -156,16 +163,16 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (detonateInvalid) return { ok: false, error: `ต้องมีโล่${WORDS[parsed.spell.element].label}อยู่ก่อนจึงระเบิดได้` };
   }
   const spell = !fizzled ? parsed?.spell : null;
-  const manaFreeCast = Boolean(spell?.form === 'fill' && spell.resource === 'mana' && hasCardSecondaryUpgrade(original, 'mana'));
-  const cost = guard ? 0 : !fizzled ? (manaFreeCast ? 0 : parsed.cost) : estimateWordCost(rawIds, original.player.words);
+  if (spell && isBattleWordSpent(original, spell.form)) return { ok: false, error: `ใช้ “${WORDS[spell.form].label}” ในศึกนี้ไปแล้ว` };
+  const ascended = isAscensionActive(original);
+  const cost = guard ? 0 : !fizzled ? battleSpellCost(original, parsed) : estimateWordCost(rawIds, original.player.words);
+  const manaFreeCast = Boolean(spell?.form === 'fill' && spell.resource === 'mana' && cost === 0);
+  const timeStopped = spell?.form === 'timestop';
   if (cost > original.player.mana) return { ok: false, error: `ต้องใช้ ${cost} มานา ขณะนี้มี ${original.player.mana}` };
   const target = original.enemies.find(enemy => enemy.id === targetId && enemy.hp > 0);
   const slotTarget = typeof targetId === 'string' && /^slot-[0-4]$/.test(targetId) ? Number(targetId.at(-1)) : null;
   if (spell?.form === 'blackhole' && (slotTarget ?? target?.slot) === undefined) return { ok: false, error: 'เลือกช่องที่จะเปิดหลุมดำ' };
   if (spell?.type === 'attack' && !['wave', 'blackhole', 'meteor'].includes(spell.form) && !target) return { ok: false, error: 'เลือกศัตรูเป้าหมาย' };
-  if (spell?.form === 'death') {
-    if (original.deathSpent) return { ok: false, error: 'ใช้คำสั่งตายในศึกนี้ไปแล้ว' };
-  }
   if (spell?.shots === 2 && spell.form !== 'meteor' && !original.enemies.some(enemy => enemy.id === secondTargetId && enemy.hp > 0)) return { ok: false, error: 'เลือกเป้าหมายสำหรับการโจมตีครั้งที่สอง' };
 
   const remainingHand = [...original.player.hand];
@@ -196,7 +203,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const revisit = isRoomRevisit(state, state.room);
   const dropsCardReward = hasCardReward(state);
   const skipBossBounty = dropsCardReward && cardRewardReplacesBounty(state);
-  const upgrades = player.cardUpgrades;
+  const upgrades = ascended
+    ? { ...player.cardUpgrades, ...Object.fromEntries(rawIds.map(id => [id, MAX_CARD_UPGRADE])) }
+    : player.cardUpgrades;
   const secondaryUpgrades = player.cardSecondaryUpgrades;
   const blessings = player.blessings;
   const equippedRelics = getEquippedRelics(player);
@@ -215,9 +224,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   // Calculate card upgrade bonuses from the words placed in this spell phrase
   const uniquePhraseIds = [...new Set(rawIds)];
   const phraseUpgradeSum = filterFn => uniquePhraseIds.filter(filterFn).reduce((sum, id) => sum + (upgrades[id] ?? 0), 0);
+  const secondaryActive = id => (ascended && uniquePhraseIds.includes(id)) || hasCardSecondaryUpgrade(state, id);
   const unlockedSecondaryEffects = !guard && !fizzled
     ? uniquePhraseIds
-        .filter(id => hasCardSecondaryUpgrade(state, id))
+        .filter(secondaryActive)
         .map(id => getCardSecondaryEffect(id, Math.max(7, upgrades[id] ?? 0)))
     : [];
   const initialLiveCount = state.enemies.filter(enemy => enemy.hp > 0).length;
@@ -386,6 +396,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const spearMainPierce = rawIds.includes('spear') ? Math.floor((upgrades.spear ?? 0) / 3) : 0;
   const pierceMainPierce = rawIds.includes('pierce') ? Math.floor((upgrades.pierce ?? 0) / 2) : 0;
   const pierceUpgradeBonus = pierceMainPierce + beamMainPierce + spearMainPierce + secondaryPierceBonus;
+  const lightPenalty = spell?.lightened ? lightDamagePenalty(upgrades.light) : 0;
+  const lightPierce = unlockedSecondaryEffects.find(eff => eff.id === 'light_focus')?.pierceBonus ?? 0;
+  const axeArmorShred = unlockedSecondaryEffects.find(eff => eff.id === 'axe_sunder')?.axeArmorShred ?? 0;
   const burnUpgradeBonus = rawIds.includes('burn') ? (upgrades.burn ?? 0) * 2 : 0;
   const blastUpgradeBonus = phraseUpgradeSum(id => id === 'blast') * 2;
   const devastationUpgradeBonus = phraseUpgradeSum(id => id === 'devastation') * 3;
@@ -444,6 +457,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     revisit,
     sequence: [],
     fizzled,
+    ...(lightPenalty ? { lightPenalty, lightPierce } : {}),
+    ...(ascended && !guard && !fizzled ? { ascended: true } : {}),
   };
   const live = () => state.enemies.filter(enemy => enemy.hp > 0).sort((a, b) => a.slot - b.slot);
   const enemyById = id => state.enemies.find(enemy => enemy.id === id);
@@ -713,7 +728,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       finalStrength = Math.round(finalStrength * (100 + secondaryHailFreezeDmgPct) / 100);
     }
     const conductivity = families.includes('lightning') && (wasWet || families.includes('water')) ? 2 : 0;
-    damage(enemy, finalStrength + conductivity, elements.length > 1 ? elements : (elements[0] ?? spell.form), pierce, spell.form);
+    const effectivePierce = spell.form === 'axe' ? Math.max(enemy.armor, pierce) : pierce;
+    damage(enemy, finalStrength + conductivity, elements.length > 1 ? elements : (elements[0] ?? spell.form), effectivePierce, spell.form);
     if (elements.includes('mist') && secondaryMistWetScaldDmg > 0 && wasWet && enemy.hp > 0) {
       damage(enemy, secondaryMistWetScaldDmg, 'mist', enemy.armor);
       summary.sequence.push(`หมอกไอร้อนลวกเป้าเปียก +${secondaryMistWetScaldDmg} ดาเมจแท้`);
@@ -1325,7 +1341,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const effects = new Set();
     const explosions = [];
     const braceLv = upgrades.brace ?? 0;
-    const braceSec = hasCardSecondaryUpgrade(state, 'brace') ? getCardSecondaryEffect('brace', Math.max(7, braceLv)) : null;
+    const braceSec = secondaryActive('brace') ? getCardSecondaryEffect('brace', Math.max(7, braceLv)) : null;
     const braceThreshold = braceSec?.braceThreshold ?? 10;
     const braceBonus = 6 + braceLv * 2;
     const triggerBraceLayer = layer => {
@@ -1374,7 +1390,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
     if (triggerShieldEffects && veilBroke) {
       const veilLv = upgrades.veil ?? 0;
-      const veilSec = hasCardSecondaryUpgrade(state, 'veil') ? getCardSecondaryEffect('veil', Math.max(7, veilLv)) : null;
+      const veilSec = secondaryActive('veil') ? getCardSecondaryEffect('veil', Math.max(7, veilLv)) : null;
       const overflowCap = 8 + veilLv * 2;
       if (remaining > 0) {
         const extra = Math.min(remaining, overflowCap);
@@ -1458,7 +1474,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       + (hasVoidAnnihilator ? 4 : 0)
       + (families.includes('lightning') || elements.some(id => ['plasma', 'shockstream', 'frostvolt', 'magnet', 'thunderstorm'].includes(id)) ? 2 : 0)
       + (blessings.includes('blessing_thunder') ? 1 : 0);
-    return { strength, pierce };
+    return { strength: strength * (1 - lightPenalty / 100), pierce };
   }
 
   function pullNeighborsToward(enemy) {
@@ -1547,6 +1563,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       size: spell.multiplier,
       element,
       elements: uniqueElements,
+      ...(lightPenalty ? { lightPenalty, lightPierce } : {}),
       grand: Boolean(spell.grand),
       large: Boolean(spell.large),
       shellBlast: Boolean(spell.shellBlast),
@@ -1602,6 +1619,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const beamPiercedWard = spell.form === 'beam' && enemy.ward > 0;
     const beamWardBonus = beamPiercedWard ? secondaryBeamWardBonusDmg : 0;
     hit(enemy, strength + beamWardBonus, pierce, elements);
+    if (spell.form === 'axe' && axeArmorShred && enemy.hp > 0) applyEarthArmorShred(enemy, axeArmorShred);
     if (beamPiercedWard && secondaryBeamStripWard > 0 && enemy.hp > 0 && enemy.ward > 0) {
       const stripped = Math.min(enemy.ward, secondaryBeamStripWard);
       enemy.ward -= stripped;
@@ -1777,6 +1795,51 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     return shieldProtection(player.shield, block);
   }
 
+  function castShield(activationTurn) {
+    const baseLayerCap = (spell.layerHp ?? 6) + shieldUpgradeBonus + (spell.delayed ? (upgrades.delay ?? 0) : 0);
+    const defenseScaleBonus = Math.min(100, getTowerSpellBonus(state.room));
+    const riftDefenseBonus = inRift ? Math.ceil(baseLayerCap * defenseScaleBonus / 100) + Math.floor((player.maxHp ?? 36) * 0.025) : 0;
+    const layerCap = baseLayerCap + riftDefenseBonus + (hasWorldloom ? 3 : 0);
+    const created = Array.from({ length: spell.layers }, (_, index) => ({
+      hp: layerCap,
+      expires: activationTurn + 1,
+      effect: spell.effect,
+      triggered: false,
+      ...(spell.layerEffects && { elements: spell.layerEffects[index] }),
+      ...(spell.grand && { grand: true }),
+      ...(spell.large && { large: true }),
+    }));
+    player.shield = makeShield([...shieldLayers(player.shield), ...created]);
+    events.push({
+      type: 'shield',
+      amount: spell.layers * layerCap + secondaryShieldBonus,
+      layers: spell.layers,
+      element: spell.effect,
+      shieldKind: spell.effect ?? 'shield',
+      grand: Boolean(spell.grand),
+      large: Boolean(spell.large),
+      elements: spell.elements ?? [],
+      protection: protection(),
+      ...(spell.delayed && { delayed: true }),
+    });
+    const delayedHeal = unlockedSecondaryEffects.find(eff => eff.id === 'delayed_mend')?.delayedHeal ?? 0;
+    const healedBefore = summary.healed;
+    if (spell.healing || secondaryHealBonus > 0 || delayedHeal > 0) {
+      const rawHeal = (spell.healing ?? 0) + healUpgradeBonus + secondaryHealBonus;
+      const riftHealBonus = inRift && rawHeal > 0 ? Math.ceil(rawHeal * defenseScaleBonus / 100) + Math.floor((player.maxHp ?? 36) * 0.03) : 0;
+      heal(rawHeal + riftHealBonus + delayedHeal, Boolean(spell.delayed), 'shield-heal');
+    }
+    if (hasGaiaEmblem) {
+      heal(4, Boolean(spell.delayed), 'gaia');
+      summary.sequence.push('ตราพระแม่ธรณีฟื้นฟู +4 HP จากการกางโล่');
+    }
+    if (spell.delayed) {
+      const healed = summary.healed - healedBefore;
+      summary.delayedShield = { amount: layerCap, healed };
+      summary.sequence.push(`ต้นเทิร์นถัดไปกางโล่ ${layerCap} หน่วย${healed ? ` · ฟื้น ${healed} HP` : ''}`);
+    }
+  }
+
   function shieldBlast(count, element = 'fire') {
     summary.sequence.push(`โล่ระเบิด ${count} ครั้ง`);
     for (let i = 0; i < count; i++) {
@@ -1795,6 +1858,19 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const expression = rawIds.map(id => WORDS[id].label).join(' ');
     events.push({ type: 'fizzle', ids: rawIds, cost, expression });
     summary.sequence.push(`คาถาล้มเหลว (${expression}) · เสีย ${cost} มานาฟรีโดยไม่มีผล`);
+  } else if (BATTLE_LIMITED_WORDS.includes(spell.form)) {
+    state.legendaryTurns ??= {};
+    state.legendaryTurns[spell.form] = turn;
+    player.hand = player.hand.filter(id => id !== spell.form);
+    events.push({ type: spell.form });
+    if (timeStopped) {
+      summary.timeStopped = true;
+      summary.sequence.push('หยุดเวลา · ข้ามรอบศัตรูทุกตัว');
+      const recovery = unlockedSecondaryEffects.find(eff => eff.id === 'timestop_recovery')?.timestopHeal ?? 0;
+      if (recovery > 0 && player.hp < player.maxHp) heal(recovery);
+    } else {
+      summary.sequence.push('เริ่มจุติ · รอดถึงเทิร์นหน้าเพื่อร่ายฟรีพร้อมการ์ด +10');
+    }
   } else if (spell.form === 'death') {
     state.deathSpent = true;
     player.hand = player.hand.filter(id => id !== 'death');
@@ -1919,40 +1995,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     player.shield = makeShield(shieldLayers(player.shield).filter((_, index) => !detonated.includes(index)));
     shieldBlast(detonated.length, spell.element);
   } else if (spell.form === 'shield') {
-    const baseLayerCap = (spell.layerHp ?? 6) + shieldUpgradeBonus;
-    const defenseScaleBonus = Math.min(100, getTowerSpellBonus(state.room));
-    const riftDefenseBonus = inRift ? Math.ceil(baseLayerCap * defenseScaleBonus / 100) + Math.floor((player.maxHp ?? 36) * 0.025) : 0;
-    const layerCap = baseLayerCap + riftDefenseBonus + (hasWorldloom ? 3 : 0);
-    const created = Array.from({ length: spell.layers }, (_, index) => ({
-      hp: layerCap,
-      expires: turn + 1,
-      effect: spell.effect,
-      triggered: false,
-      ...(spell.layerEffects && { elements: spell.layerEffects[index] }),
-      ...(spell.grand && { grand: true }),
-      ...(spell.large && { large: true }),
-    }));
-    player.shield = makeShield([...shieldLayers(player.shield), ...created]);
-    events.push({
-      type: 'shield',
-      amount: spell.layers * layerCap + secondaryShieldBonus,
-      layers: spell.layers,
-      element: spell.effect,
-      shieldKind: spell.effect ?? 'shield',
-      grand: Boolean(spell.grand),
-      large: Boolean(spell.large),
-      elements: spell.elements ?? [],
-      protection: protection(),
-    });
-    if (spell.healing || secondaryHealBonus > 0) {
-      const rawHeal = (spell.healing ?? 0) + healUpgradeBonus + secondaryHealBonus;
-      const riftHealBonus = inRift && rawHeal > 0 ? Math.ceil(rawHeal * defenseScaleBonus / 100) + Math.floor((player.maxHp ?? 36) * 0.03) : 0;
-      heal(rawHeal + riftHealBonus, false, 'shield-heal');
-    }
-    if (hasGaiaEmblem) {
-      heal(4, false, 'gaia');
-      summary.sequence.push('ตราพระแม่ธรณีฟื้นฟู +4 HP จากการกางโล่');
-    }
+    if (spell.delayed) {
+      events.push({ type: 'shield-delay' });
+      summary.sequence.push('ตั้งหน่วงโล่ · กางต้นเทิร์นถัดไป');
+    } else castShield(turn);
   } else if (spell.form === 'heal') {
     const rawHeal = spell.healing + healUpgradeBonus + secondaryHealBonus;
     const healScaleBonus = Math.min(100, getTowerSpellBonus(state.room));
@@ -2380,8 +2426,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     netherPurgeUntil: enemy.netherPurgeUntil, netherExposedTurn: enemy.netherExposedTurn,
     eternityShatterUntil: enemy.eternityShatterUntil,
   }]));
-  summary.enemyActions = {};
-  for (const enemy of live()) {
+  summary.enemyActions = timeStopped
+    ? Object.fromEntries(live().map(enemy => [enemy.id, { type: 'timestop', amount: 0, label: 'หยุดเวลา' }]))
+    : {};
+  for (const enemy of timeStopped ? [] : live()) {
     if (!enemy.hp || !player.hp) continue;
     if (enemy.burn && enemy.burnTurn <= turn) {
       const tickBurn = enemy.burn;
@@ -2661,6 +2709,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   if (player.hp <= 0) {
     delete state.blackhole;
     delete state.deathSpent;
+    delete state.legendaryTurns;
     delete state.krakenPhase;
     delete state.netherPhase;
     delete state.eternityPhase;
@@ -2685,6 +2734,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     } else {
       delete state.blackhole;
       delete state.deathSpent;
+      delete state.legendaryTurns;
       delete state.krakenPhase;
       delete state.netherPhase;
       delete state.eternityPhase;
@@ -2739,6 +2789,20 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
   } else {
     state.turn++;
+    if (spell?.form === 'ascension') {
+      summary.ascensionReady = true;
+      events.push({ type: 'ascension-ready' });
+      const amount = unlockedSecondaryEffects.find(eff => eff.id === 'ascension_aegis')?.ascensionShield ?? 0;
+      if (amount) {
+        player.shield = makeShield([...shieldLayers(player.shield), { hp: amount, expires: state.turn + 1, effect: null, triggered: false }]);
+        events.push({ type: 'shield', shieldKind: 'shield', amount, layers: 1, protection: shieldProtection(player.shield) });
+        summary.sequence.push(`โล่จุติ +${amount}`);
+      }
+    }
+    if (spell?.delayed) {
+      block = 0;
+      castShield(state.turn);
+    }
     const totalNextHealing = (spell?.nextHealing ?? 0)
       + (spell?.nextHealing ? secondaryGrandNextTurnBonus : 0)
       + ((spell?.form === 'heal' || (spell?.form === 'shield' && spell?.healing) || (spell?.form === 'fill' && spell?.resource === 'blood')) ? secondaryNextTurnHealBonus : 0);
@@ -2749,7 +2813,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
     const totalShieldRenewal = (spell?.shieldRenewal ?? 0)
       + (spell?.shieldRenewal ? secondaryGrandNextTurnBonus : 0)
-      + (spell?.form === 'shield' ? secondaryShieldRenewal : 0);
+      + (spell?.form === 'shield' && !spell.delayed ? secondaryShieldRenewal : 0);
     if (totalShieldRenewal > 0 && player.shield) {
       const layer = player.shield.layers[0];
       const renewal = Math.max(0, Math.min(totalShieldRenewal, (spell.layerHp ?? 6) + shieldUpgradeBonus + (hasWorldloom ? 3 : 0) - layer));
@@ -2762,7 +2826,14 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (nextMagmaPuddles.size) state.magmaPuddles = [...nextMagmaPuddles];
     drawCards(state);
     player.mana = Math.min(getMaxMana(player), player.mana + getTurnManaRegen(state.room));
-    prepareEnemies(state);
+    if (timeStopped) {
+      const amount = Math.min(getMaxMana(player) - player.mana, upgrades.timestop ?? 0);
+      if (amount) {
+        player.mana += amount;
+        events.push({ type: 'mana-refund', amount });
+        summary.sequence.push(`มานาจากหยุดเวลา +${amount}`);
+      }
+    } else prepareEnemies(state);
   }
   summary.hp = player.hp;
   summary.nextMana = player.mana;

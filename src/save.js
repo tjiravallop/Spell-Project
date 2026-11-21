@@ -1,4 +1,4 @@
-import { ATTACK_FORMS, ELEMENTS, WORDS, START_WORDS, LARGE_SHIELD_HP, getSpellCatalog } from './words.js';
+import { ATTACK_FORMS, BATTLE_LIMITED_WORDS, ELEMENTS, WORDS, START_WORDS, LARGE_SHIELD_HP, getSpellCatalog } from './words.js';
 import {
   ENEMIES,
   getHandLimit,
@@ -241,6 +241,9 @@ export function validateRun(state) {
   if (!integer(state.handRng, 1, 4294967295) || !Array.isArray(p.hand) || p.hand.length > getHandLimit(p) + (state.phase === 'battle' ? TURN_DRAW : 0) || p.hand.some(id => !p.words.includes(id))) invalid();
   if (state.deathSpent !== undefined && (state.deathSpent !== true || state.phase !== 'battle'
       || !p.words.includes('death') || p.hand.includes('death'))) invalid();
+  if (state.legendaryTurns !== undefined && (state.phase !== 'battle' || !object(state.legendaryTurns)
+      || Object.entries(state.legendaryTurns).some(([id, castTurn]) =>
+        !BATTLE_LIMITED_WORDS.includes(id) || !integer(castTurn, 1, state.turn - 1) || !p.words.includes(id) || p.hand.includes(id)))) invalid();
   if (p.maxMana === 10) {
     p.mana += MAX_MANA - p.maxMana;
     p.maxMana = MAX_MANA;
@@ -341,7 +344,8 @@ export function loadRun(storage) {
         }
         for (const enemy of state.enemies) {
           const rotates = enemy.kind === 'eternity_reborn' || (enemy.kind === 'eternity_overlord' && state.eternityPhase === 2);
-          enemy.affinity = rotates ? getEternityShiftAffinity(state.turn) : ENEMIES[enemy.kind]?.affinity ?? null;
+          const frozenTurn = state.legendaryTurns?.timestop === state.turn - 1;
+          enemy.affinity = rotates ? getEternityShiftAffinity(state.turn - (frozenTurn ? 1 : 0)) : ENEMIES[enemy.kind]?.affinity ?? null;
           const maxHp = encounterMaxHp(enemy.kind, state.room);
           if (enemy.maxHp === maxHp) continue;
           if (enemy.kind === 'eternity_overlord' && state.room === FLOOR100_BOSS_ROOM && [10000, 6500].includes(enemy.maxHp) && enemy.hp > 0) {

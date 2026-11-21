@@ -8,9 +8,14 @@ export const RARITIES = Object.freeze({
   legendary: 'ตำนาน',
 });
 
+export const lightDamagePenalty = (level = 0) => 25 - 2 * level;
+
 export const WORDS = Object.freeze({
   shot: { label: 'ลูก', glyph: '●', description: 'ยิงกระสุนใส่ศัตรูที่เลือก ต่อกับธาตุหรือ “ระเบิด” ได้', formula: '1 มานา + ค่าธาตุ' },
   spear: { label: 'หอก', glyph: '➶', description: 'แทงทะลุ 2 ช่อง · เป้าหลักรับพลัง 80% และตัวข้างหลังรับ 50% (ม่านกันแยกแต่ละตัว)', formula: '1 มานา + ค่าธาตุ · เป้าหลัก 80% / ตัวหลัง 50%' },
+  axe: { label: 'ขวาน', glyph: '⚒', description: 'จามเป้าเดียวด้วยพลัง 80% ของลูก ข้ามเกราะทั้งหมด แต่ม่านยังกันได้', formula: '1 มานา + ค่าธาตุ · พลัง 80% · ข้ามเกราะ' },
+  light: { label: 'เบา', glyph: '⌁', description: 'วางท้ายรูปทรงโจมตีและธาตุหนึ่งคำ ลดค่าร่าย 1 มานา (ขั้นต่ำ 1) แลกกับพลังโจมตีลดลง 25% ก่อนคิดเกราะ ตีบวกช่วยลดโทษนี้', formula: 'รูปทรง ธาตุ เบา · −1 มานา · พลัง −25%' },
+  delay: { label: 'หน่วง', glyph: '⌛', cost: 2, shieldHp: 4, description: 'วางหน้า “โล่” แล้วรอดจนถึงต้นเทิร์นหน้าเพื่อกางโล่ 4 หน่วยหนึ่งชั้น อยู่สองเทิร์นนับจากตอนกาง', formula: 'หน่วง โล่ · 2 มานา · เทิร์นหน้ากางโล่ 4' },
   fire: { label: 'ไฟ', glyph: '♨', damage: 10, cost: 2, description: 'ทำความเสียหายทันที', formula: 'พลัง 10 · 2 มานา' },
   ice: { label: 'น้ำแข็ง', glyph: '❄', damage: 6, cost: 2, description: 'ลดพลังโจมตีครั้งถัดไป 4 ต่อครั้งที่โดน', formula: 'พลัง 6 · 2 มานา' },
   lightning: { rarity: 'common', label: 'สายฟ้า', glyph: 'ϟ', damage: 8, cost: 2, description: 'ข้ามเกราะ 2 หน่วย', formula: 'พลัง 8 · 2 มานา' },
@@ -44,6 +49,8 @@ export const WORDS = Object.freeze({
   devastation: { rarity: 'legendary', label: 'ทำลายล้าง', glyph: '✷', cost: 5, description: 'ใช้เป็นคำสุดท้ายของคาถาโจมตีเท่านั้น เพิ่มแรงโจมตีเป็น 2 เท่าและระเบิดซ้ำหนึ่งครั้งด้วยครึ่งพลังในรัศมี 2 ช่องเมื่อโจมตีโดน', formula: '+5 มานา · พลัง ×2 · ระเบิดรัศมี 2 ช่อง' },
   blackhole: { rarity: 'legendary', label: 'หลุมดำ', glyph: '◉', cost: 20, description: 'เลือกช่องบนสนาม ดูดศัตรูทั้งหมดเข้าหาจุดศูนย์กลาง ชนกันทำดาเมจกระแทก 100 ต่อตัว (ทับซ้อนได้) ยุบตัวเทิร์นถัดไป จุดกลาง 300 / รอบข้าง 150 · ข้ามม่านและเกราะทั้งหมด', formula: '20 มานา · กระแทก 100/ตัว · ยุบ 300 / 150 · ข้ามม่าน/เกราะ' },
   death: { rarity: 'legendary', label: 'ตาย', glyph: '†', cost: 10, description: 'ปราบศัตรูธรรมดาหนึ่งตัวทันที (หากใช้กับบอสจะสร้างดาเมจแท้ 100+ ทะลุเกราะและม่าน) ใช้สำเร็จได้ครั้งเดียวต่อศึก แล้วการ์ดจะหายจากมือและกองจั่วจนจบศึก', formula: '10 มานา · ปลิดชีพทันที / บอส 100+ แท้ · ข้ามม่านและเกราะ' },
+  timestop: { rarity: 'legendary', label: 'หยุดเวลา', glyph: '◷', cost: 10, description: 'ร่ายเดี่ยวเพื่อข้ามการกระทำของศัตรูทุกตัวหนึ่งรอบ แล้วเริ่มเทิร์นของผู้เล่นทันที ใช้ได้หนึ่งครั้งต่อศึก', formula: '10 มานา · ข้ามรอบศัตรู 1 ครั้ง · ครั้งเดียวต่อศึก' },
+  ascension: { rarity: 'legendary', label: 'จุติ', glyph: '✺', cost: 8, description: 'ร่ายเดี่ยว เมื่อรอดถึงเทิร์นถัดไป การ์ดบนมือเป็น +10 ชั่วคราวและร่ายฟรีหนึ่งเทิร์น รวมเอฟเฟกต์รอง ใช้ได้หนึ่งครั้งต่อศึก', formula: '8 มานา · เทิร์นถัดไปการ์ด +10 และร่าย 0 มานา · ครั้งเดียวต่อศึก' },
   meteor: { rarity: 'epic', label: 'อุกกาบาต', glyph: '✹', cost: 9, description: 'อุกกาบาตตกแบบสุ่มตำแหน่ง 3 ครั้ง ทำดาเมจเป้าหลัก 24 และกระจายช่องติดกัน 12 ต่อลูก ข้ามม่านแล้วหักเกราะตามปกติ', formula: '9 มานา · สุ่มตก 3 ครั้ง · หลัก 24 / กระจาย 12 · ข้ามม่าน' },
   veil: { rarity: 'epic', label: 'ม่าน', glyph: '▣', cost: 7, description: 'กางม่านรับความเสียหาย 14 อยู่ถึงจบเทิร์นถัดไป เมื่อการโจมตีทำให้ม่านแตก กันส่วนที่ล้นเพิ่มได้อีกสูงสุด 8', formula: '7 มานา · กัน 14 + กันส่วนล้นสูงสุด 8' },
   shield: { label: 'โล่', glyph: '⬡', description: 'กันความเสียหาย 6 ใช้ส่วนที่เหลือได้อีกหนึ่งเทิร์น', formula: '3 มานา' },
@@ -209,21 +216,27 @@ export const ELEMENTS = [
   ...Object.keys(SECOND_TIER_ELEMENTS),
   ...Object.keys(FUSED_ELEMENTS),
 ];
-export const ATTACK_FORMS = ['shot', 'spear', 'chakram', 'beam', 'wave', 'storm'];
-export const STANDALONE_WORDS = ['blackhole', 'death', 'meteor', 'veil'];
+export const ATTACK_FORMS = ['shot', 'spear', 'axe', 'chakram', 'beam', 'wave', 'storm'];
+export const BATTLE_LIMITED_WORDS = ['timestop', 'ascension'];
+export const STANDALONE_WORDS = ['blackhole', 'death', 'meteor', 'veil', ...BATTLE_LIMITED_WORDS];
+export const ascensionCost = (level = 0) => Math.max(1, WORDS.ascension.cost - level);
 const SPELL_STARTS = {
   shot: [...ELEMENTS, 'blast'],
   spear: [...ELEMENTS],
+  axe: [...ELEMENTS],
   chakram: [...ELEMENTS],
   beam: [...ELEMENTS, 'pair'],
   wave: [...ELEMENTS, 'pair'],
   storm: ELEMENTS,
   blackhole: ['large', 'devastation'],
   death: [],
+  timestop: [],
+  ascension: [],
   meteor: ['large', 'pair', 'devastation', 'barrage'],
   veil: ['large', 'pair'],
   shield: [...ELEMENTS, 'pair', 'large', 'heal', 'brace'],
   heal: ['self', 'large', 'pair'],
+  delay: ['shield'],
   empower: [...ELEMENTS],
   bless: [...ELEMENTS],
   fill: ['blood', 'mana'],
@@ -295,7 +308,21 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     if (!Object.hasOwn(WORDS, id)) return fail(index, 'ไม่รู้จักคำนี้');
     if (!library.includes(id)) return fail(index, `ยังไม่มีคำ “${WORDS[id].label}” ในชุดที่พก`);
   }
+  const limited = ids.find(id => BATTLE_LIMITED_WORDS.includes(id));
+  if (limited) {
+    if (ids.length !== 1) return fail(ids[0] === limited ? 1 : ids.indexOf(limited), `ร่าย “${WORDS[limited].label}” เดี่ยวเท่านั้น`);
+    const cost = WORDS[limited].cost;
+    return { ok: true, spell: { type: 'self', form: limited, cost }, cost, ids, expression: WORDS[limited].label };
+  }
 
+  if (ids.includes('delay') && (ids[0] !== 'delay' || ids[1] !== 'shield' || ids.length !== 2)) {
+    return fail(ids[0] === 'delay' ? (ids[1] === 'shield' ? 2 : 1) : ids.indexOf('delay'), 'ใช้วลี “หน่วง โล่” สองคำตามลำดับนี้');
+  }
+  const lightIndex = ids.indexOf('light');
+  const lightened = lightIndex !== -1;
+  if (lightened && (ids.length !== 3 || lightIndex !== 2 || !ATTACK_FORMS.includes(ids[0]) || !ELEMENTS.includes(ids[1]))) {
+    return fail(lightIndex, 'ใช้ “เบา” ต่อท้ายรูปทรงโจมตีและธาตุหนึ่งคำ เช่น หอก ไฟ เบา');
+  }
   const suffixIndex = ids.indexOf('devastation');
   const devastating = suffixIndex !== -1;
   if (devastating && suffixIndex !== ids.length - 1) return fail(suffixIndex, 'วาง “ทำลายล้าง” ไว้ท้ายสุดเท่านั้น');
@@ -303,7 +330,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   const barraging = barrageIndex !== -1;
   if (barraging && barrageIndex !== ids.length - 1) return fail(barrageIndex, 'วาง “กระหน่ำ” ไว้ท้ายสุดเท่านั้น');
   if (devastating && barraging) return fail(barrageIndex, 'ใช้ “กระหน่ำ” ร่วมกับ “ทำลายล้าง” ไม่ได้');
-  const baseIds = (devastating || barraging) ? ids.slice(0, -1) : ids;
+  const baseIds = (devastating || barraging || lightened) ? ids.slice(0, -1) : ids;
   if (baseIds[0] === 'blood') return fail(0, 'ใช้ “เลือด” เดี่ยวไม่ได้ ต้องวางหลัง “เติม” เช่น เติม เลือด');
   if (baseIds[0] === 'mana') return fail(0, 'ใช้ “มานา” เดี่ยวไม่ได้ ต้องวางหลัง “เติม” เช่น เติม มานา');
   if (baseIds.includes('fill') && baseIds.includes('grand')) {
@@ -350,7 +377,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     if (ids.includes('large')) spell = { ...spell, large: true };
     if (devastating) spell = { ...spell, devastation: true, multiplier: spell.multiplier * 2, cost: spell.cost + WORDS.devastation.cost };
     if (barraging) {
-      const multiShotForm = ['shot', 'spear', 'chakram', 'beam', 'meteor'].includes(spell.form) || (spell.form === 'blast' && spell.blastShot);
+      const multiShotForm = ['shot', 'spear', 'axe', 'chakram', 'beam', 'meteor'].includes(spell.form) || (spell.form === 'blast' && spell.blastShot);
       spell = {
         ...spell,
         barrage: true,
@@ -359,9 +386,11 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
         cost: Math.round(spell.cost * 3.5),
       };
     }
+    if (lightened) spell = { ...spell, lightened: true, cost: Math.max(1, spell.cost - 1) };
     return { ok: true, spell, cost: spell.cost, ids, expression: ids.map(id => WORDS[id].label).join(' ') };
   };
   const invalid = index => fail(index, 'คำนี้ต่อกับวลีตรงนี้ไม่ได้');
+  if (head === 'delay') return finish({ type: 'self', form: 'shield', delayed: true, layers: 1, layerHp: WORDS.delay.shieldHp, effect: null, cost: WORDS.delay.cost });
   if (head === 'veil') {
     const finishVeil = spec => finish(grand ? { ...spec, layerHp: spec.layerHp + 4, shieldRenewal: 4, cost: spec.cost + 3 * spec.layers } : spec);
     if (!second) return finishVeil({ type: 'self', form: 'shield', layers: 1, layerHp: 14, effect: 'veil', cost: WORDS.veil.cost });
@@ -722,8 +751,8 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     return invalid(2);
   }
   if (!ELEMENTS.includes(element)) return fail(grand ? 2 : 1, 'เติมธาตุหลังรูปทรง');
-  const baseCost = { shot: 1, spear: 1, chakram: 3, beam: 2, wave: 3 }[form] + WORDS[element].cost;
-  const baseMult = form === 'chakram' ? 1.8 : 1;
+  const baseCost = { shot: 1, spear: 1, axe: 1, chakram: 3, beam: 2, wave: 3 }[form] + WORDS[element].cost;
+  const baseMult = form === 'chakram' ? 1.8 : form === 'axe' ? 0.8 : 1;
   const spell = { type: 'attack', form, elements: [element], shots: 1, blasts: 0, multiplier: baseMult, cost: baseCost };
   if (!third) return finish(spell);
   if (fused) {
@@ -732,10 +761,10 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   if (split) {
     return finish({ ...spell, secondElement: third, shots: form === 'wave' ? 1 : 2, cost: 2 * baseCost + WORDS[third].cost - WORDS[element].cost });
   }
-  if (third === 'pull' && !fourth && ['shot', 'spear', 'chakram', 'beam', 'wave'].includes(form)) {
+  if (third === 'pull' && !fourth && ['shot', 'spear', 'axe', 'chakram', 'beam', 'wave'].includes(form)) {
     return finish({ ...spell, pull: true, cost: baseCost + 1 });
   }
-  if (form !== 'shot' && form !== 'spear' && form !== 'chakram') {
+  if (!['shot', 'spear', 'axe', 'chakram'].includes(form)) {
     if (third === 'large' && fourth === 'pair') {
       return finish(form === 'wave'
         ? { ...spell, wavePair: true, multiplier: 1.5, cost: 2 * (baseCost + 2) }
@@ -825,7 +854,7 @@ export const BARRAGE_FORMULAS = [
 const TAIL_CANDIDATES = Object.freeze([
   ...ELEMENTS,
   'pair', 'blast', 'pierce', 'large', 'push', 'pull', 'burn', 'freeze',
-  'seal', 'dispel', 'heal', 'self', 'brace', 'shield', 'shot', 'spear', 'blood', 'mana', 'devastation', 'barrage',
+  'seal', 'dispel', 'heal', 'self', 'brace', 'shield', 'shot', 'spear', 'blood', 'mana', 'devastation', 'barrage', 'light',
 ]);
 
 let spellCatalog;
@@ -839,7 +868,7 @@ export function getSpellCatalog() {
     const len = phrase.length;
     if (len >= 4) return;
     const last = phrase[len - 1];
-    if (last === 'devastation' || last === 'barrage') return;
+    if (last === 'devastation' || last === 'barrage' || BATTLE_LIMITED_WORDS.includes(last)) return;
     let candidates;
     if (len === 1) {
       candidates = parsed.ok
