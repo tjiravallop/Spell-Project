@@ -72,6 +72,7 @@ const paths = {
   bless: 'M7 0h2v3h1v1h2V3h1v3h3v2h-3v1h-1v2h1v1h-3v4H7v-4H4v-1h1V9H4V8H1V6h3V3h1v1h2V3h0zm0 6v3h2V6z',
   fill: 'M5 1h6v2H9v2h3v2h2v6h-2v2H4v-2H2V7h2V5h3V3H5zm-1 7v5h8V8z',
   blood: 'M7 1h2v3h2v3h2v4l-2 3H5l-2-3V7h2V4h2zm-1 8v2h2V9z',
+  summon: 'M8 0l2 5h5l-4 3 2 6-5-3-5 3 2-6-4-3h5z',
 };
 export function icon(id, extra = '') {
   return `<svg class="icon ${extra}" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="${paths[id] || paths.mana}"/></svg>`;

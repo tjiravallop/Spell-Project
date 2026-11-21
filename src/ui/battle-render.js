@@ -513,9 +513,15 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     if (status.sealed) badges.push('<span class="enemy-badge badge-ward badge-sealed">ผนึก</span>');
     if (status.slot !== enemy.slot) badges.push(`<span class="enemy-badge badge-push">↪ ไปช่อง ${status.slot + 1}</span>`);
 
+    const activeSummon = state.player?.summon && state.player.summon.hp > 0;
+    const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind);
+    const isUltimateSkill = Boolean(isSpecialBoss && state.turn % 4 === 0);
+    const isAoE = Boolean(action.aoe || isUltimateSkill);
+    const targetLabel = (activeSummon && action.type === 'attack') ? (isAoE ? ' <small class="text-danger">(AoE)</small>' : ` <small class="text-warning">🎯แนวหน้า</small>`) : '';
+
     const intentClass = action.type === 'attack' && action.amount >= 6 ? 'heavy' : action.type;
     const baseIntentLabel = action.shortLabel ?? (action.type === 'attack' ? `${icon('sword')} ${action.amount}` : action.type === 'heal' ? `${icon('heal')} ${action.amount}` : action.type === 'charge' ? 'ชาร์จ' : action.type === 'sealed' ? 'ติดผนึก' : action.type === 'recover' ? 'เปิดช่อง' : 'แช่แข็ง');
-    const intentLabel = String(baseIntentLabel).includes('<svg') ? baseIntentLabel : `${intentIconHtml(action)} ${baseIntentLabel}`;
+    const intentLabel = String(baseIntentLabel).includes('<svg') ? `${baseIntentLabel}${targetLabel}` : `${intentIconHtml(action)} ${baseIntentLabel}${targetLabel}`;
     const description = [base.name, `ช่อง ${enemy.slot + 1}`, `HP ${enemy.hp}/${enemy.maxHp}`, enemyAffinity && weakNames && `ธาตุ ${ELEMENT_LABELS[enemyAffinity]} (แพ้ ${weakNames})`, action.label, exposedHint, readLabel && `รูปเวทที่จำ ${readLabel}`, readHint, bossHint, trait?.passive(state.turn), trait?.counter].filter(Boolean).join(' · ');
     const predicted = finalHp ?? after;
     const projectedLabel = projectedAction.type === 'dead' ? ' → 0'
@@ -529,6 +535,21 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const hpPct = `${Math.max(0, Math.min(100, enemy.hp / enemy.maxHp * 100))}%`;
     return `<button type="button" id="target-${enemy.id}" class="enemy-card enemy-kind-${enemy.kind} ${targetId === enemy.id ? 'target' : ''}" style="--enemy-x:${positions.get(enemy.id) / 3.2}%;--enemy-y:${ENEMIES[enemy.kind]?.isBoss ? 42 : 56}%" data-target="${enemy.id}"${middleLane}${crowdLane} aria-pressed="${targetId === enemy.id}" ${busy ? 'disabled' : ''} title="${escape(description)}" aria-label="${escape(description)}${escape(projectedLabel)} เกราะ ${armorText} ม่าน ${enemy.ward}"><span class="enemy-mobile-heading"><strong>${escape(base.name)}</strong><small data-enemy-slot-label>ช่อง ${enemy.slot + 1}</small></span><span class="enemy-intent intent-${intentClass}">${intentLabel}${projectedLabel}</span><span class="enemy-hp-text">${enemy.hp}/${enemy.maxHp}${predicted !== null && predicted !== enemy.hp ? ` <em>→ ${predicted}</em>` : ''}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${hpPct}"></i><i class="enemy-hp-fill" style="width:${hpPct}"></i></span><span class="enemy-info">${badges.join('')}</span></button>`;
   }).join('');
+
+  if (state.player?.summon && state.player.summon.hp > 0) {
+    const s = state.player.summon;
+    const elemLabel = s.element ? (ELEMENT_LABELS[s.element] || s.element) : 'ไร้ธาตุ';
+    const summonBadges = [
+      `<span class="enemy-badge badge-affinity">ธาตุ ${elemLabel}</span>`,
+      s.armor > 0 ? `<span class="enemy-badge badge-armor">🛡 เกราะ ${s.armor}</span>` : '',
+      s.ward > 0 ? `<span class="enemy-badge badge-ward">🔮 ม่าน ${s.ward}</span>` : '',
+      `<span class="enemy-badge badge-burn">⚔ สวน ${s.counter}</span>`,
+      `<span class="enemy-badge badge-push">⚡ หมัด ${s.strike}</span>`,
+    ].filter(Boolean).join('');
+    const sHpPct = `${Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100))}%`;
+    const summonCardHtml = `<div class="enemy-card summon-card" style="--enemy-x:17%;--enemy-y:56%;border:1px solid #ffd700;box-shadow:0 0 8px rgba(255,215,0,0.3);pointer-events:none;" title="${escape(s.name)} · แนวหน้าคุ้มกัน"><span class="enemy-mobile-heading"><strong>⭐ ${escape(s.name)}</strong><small>แนวหน้า</small></span><span class="enemy-intent intent-attack">🛡️ คุ้มกันผู้เล่น</span><span class="enemy-hp-text">${s.hp}/${s.maxHp}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${sHpPct}"></i><i class="enemy-hp-fill" style="width:${sHpPct};background:#4ade80;"></i></span><span class="enemy-info">${summonBadges}</span></div>`;
+    $('enemy-list').innerHTML = summonCardHtml + $('enemy-list').innerHTML;
+  }
 }
 
 let lastRenderedSlotState = { room: null, words: [] };

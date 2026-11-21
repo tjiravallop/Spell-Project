@@ -144,7 +144,7 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: 'เติม 8 MP เต็มพลัง', manaRestore: 8, description: 'หลั่งไหลมานามหาศาล ฟื้นฟู 8 MP ทันที',
   },
   smithing_crystal: {
-    id: 'smithing_crystal', name: 'ผลึกตีบวกชั้นกลาง', icon: '💎', cost: 150, minFloor: 50, vaultOnly: true,
+    id: 'smithing_crystal', name: 'ผลึกตีบวกชั้นกลาง', icon: '💎', cost: 750, minFloor: 50, vaultOnly: true,
     badge: 'อัตราสำเร็จ +20%', description: 'วัตถุดิบตีบวกชั้นยอด เพิ่มโอกาสสำเร็จ 20 จุดเปอร์เซ็นต์ที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   oceanic_bubble: {
@@ -174,7 +174,7 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: 'ล้างม่านศัตรูทั้งหมด', description: 'เผาทำลายม่านเวท (Ward) ของศัตรูทุกตัวในสนามทันที',
   },
   superior_smithing_stone: {
-    id: 'superior_smithing_stone', name: 'หินตีบวกชั้นสูง', icon: '⚒️', cost: 280, minFloor: 60, vaultOnly: true,
+    id: 'superior_smithing_stone', name: 'หินตีบวกชั้นสูง', icon: '⚒️', cost: 1400, minFloor: 60, vaultOnly: true,
     badge: 'อัตราสำเร็จ +30%', description: 'หินแร่ร้อนระอุ เพิ่มโอกาสสำเร็จ 30 จุดเปอร์เซ็นต์ที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   obsidian_armor_flask: {
@@ -208,7 +208,7 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: '18 ดาเมจชิ่งสายฟ้า', description: 'สร้าง 18 ดาเมจสายฟ้าใส่เป้าหมายและชิ่งใส่ตัวข้างเคียง',
   },
   hyper_smithing_cluster: {
-    id: 'hyper_smithing_cluster', name: 'กลุ่มแร่ตีบวกไฮเปอร์', icon: '💠', cost: 450, minFloor: 70, vaultOnly: true,
+    id: 'hyper_smithing_cluster', name: 'กลุ่มแร่ตีบวกไฮเปอร์', icon: '💠', cost: 2250, minFloor: 70, vaultOnly: true,
     badge: 'อัตราสำเร็จ +40%', description: 'ผลึกไฟฟ้าบริสุทธิ์ เพิ่มโอกาสสำเร็จ 40 จุดเปอร์เซ็นต์ที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   tempest_elixir: {
@@ -242,7 +242,7 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: '+60 HP & +5 MP', description: 'พลังแห่งแผ่นดิน ฟื้นฟู 60 HP และ 5 MP',
   },
   abyssal_smithing_core: {
-    id: 'abyssal_smithing_core', name: 'แกนตีบวกโลกันตร์', icon: '💎', cost: 700, minFloor: 80, vaultOnly: true,
+    id: 'abyssal_smithing_core', name: 'แกนตีบวกโลกันตร์', icon: '💎', cost: 3500, minFloor: 80, vaultOnly: true,
     badge: 'อัตราสำเร็จ +50%', description: 'แกนตีบวกไร้ที่ติ เพิ่มโอกาสสำเร็จ 50 จุดเปอร์เซ็นต์ที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   frost_shield_rune: {
@@ -268,7 +268,7 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: 'โล่โอเมก้า +50', description: 'สร้างมหาโล่ครอบคลุมร่างกาย มอบเกราะ 50 หน่วยทันทีในเทิร์นนี้',
   },
   godly_smithing_essence: {
-    id: 'godly_smithing_essence', name: 'แก่นแท้ตีบวกเทวะ', icon: '👑', cost: 1000, minFloor: 90, vaultOnly: true,
+    id: 'godly_smithing_essence', name: 'แก่นแท้ตีบวกเทวะ', icon: '👑', cost: 5000, minFloor: 90, vaultOnly: true,
     badge: 'ตีบวกสำเร็จ 100% แน่นอน', description: 'แก่นแท้แห่งเทพเจ้า รับประกันการตีบวกสำเร็จ 100% ทันทีที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   zenith_blade_sigil: {

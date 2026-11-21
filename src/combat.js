@@ -1,5 +1,5 @@
 import { makeShield, shieldLayers, shieldProtection } from './shields.js';
-import { ATTACK_FORMS, BATTLE_LIMITED_WORDS, FUSED_ELEMENTS, WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS, lightDamagePenalty } from './words.js';
+import { ATTACK_FORMS, BATTLE_LIMITED_WORDS, FUSED_ELEMENTS, WORDS, CREATURE_STATS, CREATURE_WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS, lightDamagePenalty } from './words.js';
 import { RIFT_EXPOSED_BONUS, isRiftBossExposed, getTowerSpellBonus, getTurnManaRegen } from './upper-tower.js';
 import {
   ENEMIES,
@@ -128,6 +128,8 @@ export const WORD_BASE_COST = Object.freeze({
   seal: 2,
   dispel: 2,
   brace: 1,
+  summon: 1,
+  ...Object.fromEntries(CREATURE_WORDS.map(id => [id, CREATURE_STATS[id]?.cost ?? 1])),
 });
 
 export function estimateWordCost(wordIds, library = Object.keys(WORDS)) {
@@ -1858,6 +1860,106 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const expression = rawIds.map(id => WORDS[id].label).join(' ');
     events.push({ type: 'fizzle', ids: rawIds, cost, expression });
     summary.sequence.push(`คาถาล้มเหลว (${expression}) · เสีย ${cost} มานาฟรีโดยไม่มีผล`);
+  } else if (spell.form === 'summon') {
+    if (state.player.summon) {
+      delete state.player.summon;
+      delete state.summon;
+    }
+    const cStats = CREATURE_STATS[spell.creature] || {
+      name: WORDS[spell.creature]?.label || spell.creature,
+      cost: 1,
+      baseHp: 15,
+      baseCounter: 4,
+      baseStrike: 12,
+      armor: 0,
+      ward: 0,
+      growthHp: 1.5,
+      growthDmg: 1.0,
+      glyph: '⛧',
+    };
+    const summonLv = upgrades.summon ?? 0;
+    const creatureLv = upgrades[spell.creature] ?? 0;
+    const globalHpBonus = summonLv * 2;
+    const creatureHpBonus = Math.round(cStats.growthHp * creatureLv);
+    let baseHp = cStats.baseHp + globalHpBonus + creatureHpBonus;
+
+    const elem = spell.element;
+    if (elem === 'earth' || elem === 'magma') {
+      baseHp = Math.round(baseHp * 1.20);
+    } else if (elem === 'pathaphi') {
+      baseHp = Math.round(baseHp * 1.35);
+    }
+    const maxHp = spell.grand ? Math.round(baseHp * 1.5) : baseHp;
+
+    const globalDmgMult = 1 + (summonLv * 0.02);
+    const creatureDmgBonus = creatureLv * cStats.growthDmg;
+    let baseCounter = Math.round((cStats.baseCounter + creatureDmgBonus) * globalDmgMult);
+    let baseStrike = Math.round((cStats.baseStrike + creatureDmgBonus) * globalDmgMult);
+
+    if (elem === 'fire' || elem === 'magma' || elem === 'scald' || elem === 'plasma') {
+      baseCounter = Math.round(baseCounter * 1.25);
+    } else if (elem === 'akki') {
+      baseCounter = Math.round(baseCounter * 1.40);
+    }
+
+    const counter = spell.grand ? Math.round(baseCounter * 1.5) : baseCounter;
+    const strike = spell.grand ? Math.round(baseStrike * 1.5) : baseStrike;
+
+    let armor = cStats.armor ?? 0;
+    if (elem === 'pathaphi') armor += 2;
+
+    let ward = cStats.ward ?? 0;
+    if (secondaryActive('summon') && summonLv >= 9) ward += 1;
+
+    if (secondaryActive('summon') && summonLv >= 7) {
+      const refund = 1;
+      player.mana = Math.min(getMaxMana(player), player.mana + refund);
+      summary.manaRefunded = (summary.manaRefunded ?? 0) + refund;
+      summary.sequence.push('พันธสัญญาเร่งรัด คืน +1 มานา');
+    }
+
+    if (spell.creature === 'dog' && (upgrades.dog ?? 0) >= 7) {
+      drawCards(state, 1);
+      summary.sequence.push('จ่าฝูงนักล่า จั่วการ์ด +1 ใบ');
+    }
+    if (spell.creature === 'turtle') {
+      const turtleShield = 6 + (upgrades.turtle ?? 0);
+      block += turtleShield;
+      events.push({ type: 'shield', amount: turtleShield, shieldKind: 'bonus', protection: protection() });
+      summary.sequence.push(`กระดองเต่าศิลา มอบโล่ป้องกัน +${turtleShield} หน่วย`);
+    }
+    if (elem === 'water') {
+      heal(2, false, 'summon-water');
+    } else if (elem === 'wari') {
+      heal(4, false, 'summon-wari');
+    }
+
+    const summonUnit = {
+      creatureId: spell.creature,
+      name: cStats.name,
+      element: spell.element,
+      isGrand: Boolean(spell.grand),
+      maxHp,
+      hp: maxHp,
+      armor,
+      ward,
+      counter,
+      strike,
+      turnCreated: turn,
+      aoeIntercept: Boolean(cStats.aoeIntercept),
+    };
+
+    state.player.summon = summonUnit;
+    state.summon = summonUnit;
+    events.push({
+      type: 'summon',
+      creature: spell.creature,
+      element: spell.element,
+      hp: maxHp,
+      maxHp,
+      isGrand: Boolean(spell.grand),
+    });
+    summary.sequence.push(`อัญเชิญ ${cStats.name}${spell.element ? `ธาตุ${ELEMENT_LABELS[spell.element] || spell.element}` : ''} (${maxHp} HP) ยืนแนวหน้า`);
   } else if (BATTLE_LIMITED_WORDS.includes(spell.form)) {
     state.legendaryTurns ??= {};
     state.legendaryTurns[spell.form] = turn;
@@ -2416,6 +2518,84 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     checkNetherPhase2(state, summary, events);
     checkEternityPhase2(state, summary, events);
   }
+
+  // Handle Proactive Strike for summons existing from prior turn ("ตีด้วยความตั้งใจของมันเองที่เทิร์นถัดไป = หาย")
+  if (state.player.summon && state.player.summon.turnCreated < turn && state.player.summon.hp > 0) {
+    const sUnit = state.player.summon;
+    const strikeTarget = target && target.hp > 0 ? target : live()[0];
+    if (strikeTarget) {
+      let strikeDmg = sUnit.strike;
+      const towerBonus = getTowerSpellBonus(state.room);
+      strikeDmg = Math.round(strikeDmg * (1 + towerBonus));
+
+      const targetAffinity = strikeTarget.affinity ?? ENEMIES[strikeTarget.kind]?.affinity;
+      if (sUnit.element && targetAffinity) {
+        const weak = getWeaknessReaction(sUnit.element, targetAffinity);
+        if (weak.isWeak) {
+          strikeDmg += Math.ceil(strikeDmg * 0.25);
+        }
+      }
+
+      const creatureLv = upgrades[sUnit.creatureId] ?? 0;
+      if (sUnit.creatureId === 'golem' && creatureLv >= 10) {
+        const sunderDmg = sUnit.isGrand ? 68 : 45;
+        strikeTarget.armor = 0;
+        strikeTarget.sealed = true;
+        damage(strikeTarget, sunderDmg, 'strike', 0);
+        for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
+          damage(ally, 15, 'strike', 0);
+        }
+        summary.sequence.push(`หมัดกัมปนาทล้างพิภพ (Titan Sunder) ${sunderDmg} ดาเมจแท้ ลบเกราะเหลือ 0 และสตั๊นเป้าหมาย!`);
+      } else if (sUnit.creatureId === 'dragon' && creatureLv >= 10) {
+        damage(strikeTarget, strikeDmg, sUnit.element || 'strike', 0);
+        summary.sequence.push(`มหาวินาศเพลิงกัลป์ ${strikeDmg} ดาเมจแท้ข้ามม่านและเกราะ!`);
+      } else {
+        const pierceAmt = sUnit.element === 'lightning' || sUnit.element === 'asani' ? 2 : 0;
+        damage(strikeTarget, strikeDmg, sUnit.element || 'strike', Math.max(0, strikeTarget.armor - pierceAmt));
+        summary.sequence.push(`${sUnit.name} ออกหมัดประสาน ${strikeDmg} ดาเมจใส่ ${strikeTarget.name || strikeTarget.kind}`);
+      }
+      events.push({
+        type: 'summon_strike',
+        creature: sUnit.creatureId,
+        element: sUnit.element,
+        target: strikeTarget.id,
+        amount: strikeDmg,
+      });
+
+      if (spell?.element && sUnit.element && spell.element !== sUnit.element) {
+        const pElem = spell.element;
+        const sElem = sUnit.element;
+        if ((pElem === 'fire' && sElem === 'ice') || (pElem === 'ice' && sElem === 'fire')) {
+          if (strikeTarget.hp > 0 && strikeTarget.armor > 0) {
+            strikeTarget.armor = Math.max(0, strikeTarget.armor - 2);
+            summary.sequence.push('ไอเดือด (Scald) ละลายเกราะเป้าหมาย -2 ถาวร!');
+          }
+        } else if ((pElem === 'water' && sElem === 'lightning') || (pElem === 'lightning' && sElem === 'water')) {
+          for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
+            damage(ally, Math.ceil(strikeDmg / 2), 'lightning', ally.armor);
+          }
+          summary.sequence.push('กระแสช็อตน้ำ-สายฟ้า ชิ่งสายฟ้ากระจายทั่วสนาม!');
+        } else if ((pElem === 'water' && sElem === 'ice') || (pElem === 'ice' && sElem === 'water')) {
+          strikeTarget.sealed = true;
+          summary.sequence.push('เยือกแข็งสมบูรณ์ แช่แข็งเป้าหมาย 1 เทิร์น!');
+        }
+      }
+    }
+
+    const sLv = upgrades.summon ?? 0;
+    if (secondaryActive('summon') && sLv >= 10) {
+      const refund = 2;
+      player.mana = Math.min(getMaxMana(player), player.mana + refund);
+      summary.manaRefunded = (summary.manaRefunded ?? 0) + refund;
+      summary.sequence.push('พันธสัญญาเทวาคุ้มเกล้า ฟื้นคืน +2 มานา');
+    }
+
+    events.push({ type: 'summon_depart', creature: sUnit.creatureId });
+    summary.sequence.push(`${sUnit.name} ปฏิบัติหน้าที่เสร็จสิ้น สลายตัวออกจากสนามรบ`);
+    delete state.player.summon;
+    delete state.summon;
+  }
+
   summary.enemyHp = Object.fromEntries(enemies.map(enemy => [enemy.id, enemy.hp]));
   summary.enemyStatus = Object.fromEntries(enemies.map(enemy => [enemy.id, {
     chill: enemy.chill, freeze: enemy.freeze, burn: enemy.burn + (newBurn.get(enemy.id) ?? 0),
@@ -2458,7 +2638,6 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       enemy.chill = enemy.lastingChill ? 4 : 0;
       delete enemy.lastingChill;
       delete enemy.obscured;
-      const { actual, absorbed, effects, explosions } = applyIncomingToPlayer(action.amount, true, enemy);
       const attackerBase = ENEMIES[enemy.kind];
       const isBossAttacker = Boolean(attackerBase?.isBoss || isBossRoom(state));
       const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind);
@@ -2472,17 +2651,291 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           (['mirror_mage', 'eclipse_mage'].includes(enemy.kind) && turn % 3 !== 1)
         ))
       );
+      const isAoE = Boolean(action.aoe || isUltimateSkill);
+
+      function triggerSummonCounter(sUnit, targetEnemy) {
+        if (!targetEnemy || targetEnemy.hp <= 0) return;
+        let counterDmg = sUnit.counter || 0;
+        if (sUnit.element === 'fire') counterDmg = Math.ceil(counterDmg * 1.25);
+        if (sUnit.element === 'akki') counterDmg = Math.ceil(counterDmg * 1.40);
+        const pierce = (sUnit.element === 'lightning' ? 2 : sUnit.element === 'asani' ? 4 : 0);
+        damage(targetEnemy, counterDmg, sUnit.element || 'physical', pierce);
+        summary.sequence.push(`⚔️ ${sUnit.name} สวนกลับใส่ ${ENEMIES[targetEnemy.kind]?.name || targetEnemy.kind} ทำดาเมจ ${counterDmg} หน่วย!`);
+        events.push({ type: 'summon_counter', source: 'summon', target: targetEnemy.id, amount: counterDmg, element: sUnit.element });
+
+        const elem = sUnit.element;
+        if (elem === 'fire') {
+          newBurn.set(targetEnemy.id, (newBurn.get(targetEnemy.id) ?? 0) + 3);
+        } else if (elem === 'akki') {
+          newBurn.set(targetEnemy.id, (newBurn.get(targetEnemy.id) ?? 0) + 5);
+          targetEnemy.healCutUntil = turn + 2;
+        } else if (elem === 'ice') {
+          targetEnemy.chill += 4;
+          if (targetEnemy.wetUntil >= turn) {
+            targetEnemy.freeze = Math.max(targetEnemy.freeze || 0, 1);
+            delete targetEnemy.wetUntil;
+            summary.sequence.push(`❄️ ไอเย็นปะทะเป้าเปียก แช่แข็ง ${ENEMIES[targetEnemy.kind]?.name || targetEnemy.kind} 1 เทิร์น!`);
+          }
+        } else if (elem === 'heman') {
+          targetEnemy.chill += 6;
+          targetEnemy.lastingChill = true;
+          if (targetEnemy.chill >= 6 || targetEnemy.wetUntil >= turn) {
+            targetEnemy.freeze = Math.max(targetEnemy.freeze || 0, 1);
+            summary.sequence.push(`❄️ มหาเหมันต์แช่แข็ง ${ENEMIES[targetEnemy.kind]?.name || targetEnemy.kind} 1 เทิร์น!`);
+          }
+        } else if (elem === 'lightning') {
+          if (targetEnemy.wetUntil >= turn) {
+            chainLightning(targetEnemy, counterDmg + 2, 2);
+          }
+        } else if (elem === 'asani') {
+          chainLightning(targetEnemy, counterDmg, 2);
+        } else if (elem === 'earth') {
+          applyEarthArmorShred(targetEnemy, 1);
+        } else if (elem === 'pathaphi') {
+          applyEarthArmorShred(targetEnemy, 3);
+          if (targetEnemy.armor <= 0) damage(targetEnemy, 8, 'true');
+        } else if (elem === 'water') {
+          targetEnemy.wetUntil = Math.max(targetEnemy.wetUntil ?? 0, turn + 2);
+          heal(2, false, 'water');
+        } else if (elem === 'wari') {
+          targetEnemy.wetUntil = Math.max(targetEnemy.wetUntil ?? 0, turn + 3);
+          heal(5, false, 'water');
+          if (targetEnemy.ward > 0) targetEnemy.ward--;
+        } else if (elem === 'wind') {
+          pushEnemy(targetEnemy, 1, { sourceElement: 'wind' });
+        } else if (elem === 'vayu') {
+          pushEnemy(targetEnemy, 2, { sourceElement: 'vayu' });
+        }
+      }
+
+      function triggerSummonOnBreak(sUnit, attackerEnemy) {
+        const elem = sUnit.element;
+        events.push({ type: 'summon_break', element: elem, creature: sUnit.creatureId });
+        if (sUnit.creatureId === 'turtle') {
+          player.shield = addShieldLayer(player.shield, { hp: 8, effect: 'turtle_shell', expires: turn + 2 });
+          summary.sequence.push('🐢 กระดองเต่าแตกสลาย มอบโล่ป้องกัน +8 ให้ผู้เล่น!');
+        }
+        if (elem === 'fire') {
+          const mainDmg = sUnit.creatureId === 'golem' ? 10 : 8;
+          const splashDmg = sUnit.creatureId === 'golem' ? 5 : 4;
+          if (attackerEnemy && attackerEnemy.hp > 0) damage(attackerEnemy, mainDmg, 'fire');
+          for (const other of live()) {
+            if (attackerEnemy && other.id !== attackerEnemy.id && Math.abs(other.slot - attackerEnemy.slot) === 1) {
+              damage(other, splashDmg, 'fire');
+            }
+          }
+          summary.sequence.push(`🔥 แกนเพลิงระเบิด! ทำความเสียหาย ${mainDmg} (สะเก็ดไฟข้างเคียง ${splashDmg})`);
+        } else if (elem === 'akki') {
+          if (attackerEnemy && attackerEnemy.hp > 0) damage(attackerEnemy, 14, 'fire', attackerEnemy.armor);
+          for (const other of live()) {
+            if (!attackerEnemy || other.id !== attackerEnemy.id) damage(other, 5, 'fire');
+          }
+          summary.sequence.push('🔥 ระเบิดมหาอัคคี! 14 ดาเมจแท้ใส่ตัวการ และ 5 ดาเมจใส่ศัตรูทุกคน!');
+        } else if (elem === 'ice') {
+          if (attackerEnemy && attackerEnemy.hp > 0) {
+            attackerEnemy.chill += 4;
+            if (attackerEnemy.wetUntil >= turn) {
+              attackerEnemy.freeze = Math.max(attackerEnemy.freeze || 0, 1);
+              delete attackerEnemy.wetUntil;
+              summary.sequence.push('❄️ ผลึกน้ำแข็งแตก แช่แข็งตัวการทันที!');
+            }
+          }
+        } else if (elem === 'heman') {
+          for (const target of live()) {
+            damage(target, 12, 'ice');
+            target.chill += 6;
+          }
+          summary.sequence.push('❄️ ระเบิดมหาเหมันต์! 12 ดาเมจ + หนาว 6 หน่วยใส่ศัตรูทุกคน!');
+        } else if (elem === 'lightning') {
+          if (attackerEnemy && attackerEnemy.hp > 0) damage(attackerEnemy, 8, 'lightning', 2);
+          for (const other of live()) {
+            if (attackerEnemy && other.id !== attackerEnemy.id && Math.abs(other.slot - attackerEnemy.slot) === 1) {
+              damage(other, 4, 'lightning', 2);
+              break;
+            }
+          }
+          summary.sequence.push('⚡ สายฟ้าปะทุ! ช็อต 8 เจาะเกราะ และชิ่งข้างเคียง 4 ดาเมจ');
+        } else if (elem === 'asani') {
+          if (attackerEnemy && attackerEnemy.hp > 0) damage(attackerEnemy, 14, 'asani', 4);
+          for (const other of live()) {
+            if (!attackerEnemy || other.id !== attackerEnemy.id) damage(other, 7, 'asani', 2);
+          }
+          summary.sequence.push('⚡ มหาอสุนีบาตแตกสลาย! 14 เจาะเกราะใส่ตัวการ และ 7 ดาเมจใส่รอบข้าง!');
+        } else if (elem === 'earth') {
+          if (attackerEnemy && attackerEnemy.hp > 0) applyEarthArmorShred(attackerEnemy, 2);
+          summary.sequence.push('⛰️ เศษศิลาถล่ม! ทุบเกราะตัวการถาวร -2');
+        } else if (elem === 'pathaphi') {
+          for (const target of live()) applyEarthArmorShred(target, 3);
+          summary.sequence.push('⛰️ มหาปฐพีถล่ม! ทุบเกราะศัตรูทุกคนถาวร -3');
+        } else if (elem === 'water') {
+          for (const target of live()) target.wetUntil = Math.max(target.wetUntil ?? 0, turn + 2);
+          heal(2, false, 'water');
+          summary.sequence.push('💧 คลื่นวารีแตกกระจาย! สาดเปียกศัตรูทุกคน 2 เทิร์น + ฮีล 2 HP');
+        } else if (elem === 'wari') {
+          for (const target of live()) target.wetUntil = Math.max(target.wetUntil ?? 0, turn + 3);
+          heal(10, false, 'water');
+          summary.sequence.push('💧 มหาสึนามิแตกกระจาย! สาดเปียกศัตรูทุกคน 3 เทิร์น + ฟื้นฟู +10 HP!');
+        } else if (elem === 'wind') {
+          for (const target of live()) pushEnemy(target, 1, { sourceElement: 'wind' });
+          summary.sequence.push('🌪️ พายุหมุนแตกสลาย! ผลักศัตรูทุกคนถอยหลัง 1 ช่อง!');
+        } else if (elem === 'vayu') {
+          for (const target of live()) pushEnemy(target, 2, { sourceElement: 'vayu' });
+          summary.sequence.push('🌪️ มหาทอร์นาโดแตกสลาย! ผลักศัตรูทุกคนถอยหลัง 2 ช่อง!');
+        }
+      }
+
+      let actual = 0;
+      let absorbed = 0;
+      let effects = new Set();
+      let explosions = [];
       let manaDrained = 0;
-      if (action.manaDrain && player.hp > 0) {
-        manaDrained = Math.min(player.mana, action.manaDrain);
-        if (manaDrained > 0) {
-          player.mana -= manaDrained;
-          summary.manaDrained = (summary.manaDrained ?? 0) + manaDrained;
-          summary.sequence.push(
-            enemy.kind === 'eternity_reborn'
-              ? `🌌 มหาเทพอนันตกาลกัดกร่อนมานา −${manaDrained} MP`
-              : `หนวดหมึกดำสูบมานา −${manaDrained} MP`,
-          );
+      const summon = state.player.summon;
+
+      if (summon && summon.hp > 0 && !isAoE) {
+        let hitSummon = true;
+        if ((summon.element === 'wind' || summon.element === 'vayu') && !summon.hasDodged) {
+          const dodgeChance = summon.element === 'vayu' ? 0.40 : 0.25;
+          if (random(state) < dodgeChance) {
+            hitSummon = false;
+            summon.hasDodged = true;
+            events.push({ type: 'dodge', target: 'summon', source: enemy.id });
+            summary.sequence.push(`💨 ${summon.name} พลิ้วกายหลบการโจมตีของ ${attackerBase?.name || enemy.kind} ได้อย่างสมบูรณ์แบบ!`);
+          }
+        }
+
+        if (hitSummon && summon.ward > 0) {
+          summon.ward--;
+          hitSummon = false;
+          events.push({ type: 'ward_absorb', target: 'summon', source: enemy.id });
+          summary.sequence.push(`🛡️ ${summon.name} ใช้ม่านคุ้มภัยสลายการโจมตีทั้งหมด! (เหลือม่าน ${summon.ward} ชั้น)`);
+        }
+
+        if (hitSummon) {
+          let summonDmg = action.amount;
+          if (summon.element === 'ice') summonDmg = Math.max(1, summonDmg - 1);
+          if (summon.element === 'heman') summonDmg = Math.max(1, summonDmg - 2);
+          const armorReduction = Math.min(summon.armor || 0, Math.max(0, summonDmg - 1));
+          summonDmg -= armorReduction;
+
+          const creatureLv = upgrades[summon.creatureId] ?? 0;
+          if (summon.creatureId === 'dragon' && creatureLv >= 7) {
+            const reflectDmg = Math.floor(action.amount * 0.5);
+            if (reflectDmg > 0 && enemy.hp > 0) {
+              damage(enemy, reflectDmg, 'dragon_reflect');
+              summary.sequence.push(`🐉 มังกรสะท้อนเกล็ดเพลิง ${reflectDmg} ดาเมจใส่ ${attackerBase?.name || enemy.kind}!`);
+            }
+          } else if (summon.creatureId === 'golem' && creatureLv >= 7) {
+            if (enemy.hp > 0) {
+              damage(enemy, 8, 'golem_reflect');
+              summary.sequence.push(`🗿 โกเลมสะท้อนแรงกระแทกศิลา 8 ดาเมจใส่ ${attackerBase?.name || enemy.kind}!`);
+            }
+          }
+
+          if (summonDmg >= summon.hp) {
+            // Overkill Shield-Gate: Excess damage completely absorbed
+            const actualTaken = summon.hp;
+            const overkillBlocked = summonDmg - actualTaken;
+            summon.hp = 0;
+            absorbed = action.amount;
+            summary.blocked += overkillBlocked;
+            events.push({ type: 'summon_break', source: enemy.id, target: 'summon', damage: actualTaken, overkillBlocked });
+            summary.sequence.push(`🛡️💥 ${summon.name} สละชีพรับการโจมตี ${action.amount} หน่วย! (Overkill Shield-Gate สลายดาเมจส่วนเกิน ${overkillBlocked} หน่วย ผู้เล่นปลอดภัย 0 ดาเมจ!)`);
+            triggerSummonOnBreak(summon, enemy);
+            delete state.player.summon;
+            delete state.summon;
+          } else {
+            summon.hp -= summonDmg;
+            absorbed = action.amount;
+            events.push({ type: 'summon_hit', source: enemy.id, target: 'summon', damage: summonDmg, hpRemaining: summon.hp });
+            summary.sequence.push(`🛡️ ${summon.name} ยืนหยัดรับการโจมตี ${summonDmg} หน่วย (เหลือ ${summon.hp}/${summon.maxHp} HP)`);
+            if (!summon.countered && enemy.hp > 0) {
+              summon.countered = true;
+              triggerSummonCounter(summon, enemy);
+            }
+          }
+        } else {
+          absorbed = action.amount;
+        }
+
+        if (action.manaDrain && player.hp > 0) {
+          if (hitSummon) {
+            manaDrained = Math.min(player.mana, action.manaDrain);
+            if (manaDrained > 0) {
+              player.mana -= manaDrained;
+              summary.manaDrained = (summary.manaDrained ?? 0) + manaDrained;
+              summary.sequence.push(
+                enemy.kind === 'eternity_reborn'
+                  ? `🌌 มหาเทพอนันตกาลกัดกร่อนมานา −${manaDrained} MP`
+                  : `หนวดหมึกดำสูบมานา −${manaDrained} MP`,
+              );
+            }
+          } else {
+            summary.sequence.push('ม่านคุ้มภัยสลายคลื่นสูบมานาสำเร็จ!');
+          }
+        }
+      } else if (summon && summon.hp > 0 && isAoE && summon.aoeIntercept) {
+        const absorbedBySummon = Math.min(summon.hp, action.amount);
+        summon.hp -= absorbedBySummon;
+        const overflow = action.amount - absorbedBySummon;
+        summary.sequence.push(`🛡️ ${summon.name} สกัดกั้นรับท่ากวาดล้าง AoE แทนผู้เล่น! (รับไว้ ${absorbedBySummon} HP, ทะลุสู่ผู้เล่น ${overflow} ดาเมจ)`);
+        if (summon.hp <= 0) {
+          triggerSummonOnBreak(summon, enemy);
+          delete state.player.summon;
+          delete state.summon;
+        }
+        if (overflow > 0) {
+          const res = applyIncomingToPlayer(overflow, true, enemy);
+          actual = res.actual;
+          absorbed = absorbedBySummon + res.absorbed;
+          effects = res.effects;
+          explosions = res.explosions;
+        } else {
+          actual = 0;
+          absorbed = absorbedBySummon;
+        }
+        if (action.manaDrain && player.hp > 0) {
+          manaDrained = Math.min(player.mana, action.manaDrain);
+          if (manaDrained > 0) {
+            player.mana -= manaDrained;
+            summary.manaDrained = (summary.manaDrained ?? 0) + manaDrained;
+            summary.sequence.push(`หนวดหมึกดำสูบมานา −${manaDrained} MP`);
+          }
+        }
+      } else {
+        const res = applyIncomingToPlayer(action.amount, true, enemy);
+        actual = res.actual;
+        absorbed = res.absorbed;
+        effects = res.effects;
+        explosions = res.explosions;
+        if (action.manaDrain && player.hp > 0) {
+          manaDrained = Math.min(player.mana, action.manaDrain);
+          if (manaDrained > 0) {
+            player.mana -= manaDrained;
+            summary.manaDrained = (summary.manaDrained ?? 0) + manaDrained;
+            summary.sequence.push(
+              enemy.kind === 'eternity_reborn'
+                ? `🌌 มหาเทพอนันตกาลกัดกร่อนมานา −${manaDrained} MP`
+                : `หนวดหมึกดำสูบมานา −${manaDrained} MP`,
+            );
+          }
+        }
+      }
+
+      if (player.hp <= 0) {
+        const activeS = state.player.summon || state.summon;
+        if (activeS && activeS.creatureId === 'phoenix' && (upgrades.phoenix ?? 0) >= 10) {
+          player.hp = player.maxHp;
+          player.mana = getMaxMana(player);
+          delete state.player.summon;
+          delete state.summon;
+          events.push({ type: 'phoenix_revive', target: 'player', hp: player.hp, mana: player.mana });
+          summary.sequence.push(`🔥🕊️ นิพพานฟีนิกซ์ขั้นสูงสุด (+10)! ฟีนิกซ์สละชีพชุบชีวิตผู้เล่นคืนสู่พลังเต็มเปี่ยม (HP ${player.hp}/${player.maxHp}, MP ${player.mana})!`);
+        } else if (activeS && activeS.hp > 0 && (hasCardSecondaryUpgrade(state, 'summon', 'sovereign_soul_aegis') || (upgrades.summon ?? 0) >= 10)) {
+          player.hp = 1;
+          delete state.player.summon;
+          delete state.summon;
+          events.push({ type: 'cheat_death', target: 'player', hp: 1 });
+          summary.sequence.push(`👑 Sovereign Soul Aegis (+10 อัญเชิญ)! ดวงจิตสิ่งอัญเชิญสละชีพรับความตายแทนผู้เล่น! (ฟื้นคืนสติที่ 1 HP)`);
         }
       }
       events.push({

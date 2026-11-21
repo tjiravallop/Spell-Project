@@ -728,6 +728,71 @@ export class Battlefield {
     this.pixelDiamond(orbX, orbY, orbR, color, C[9]);
   }
 
+  drawSummonSprite(summon, x, baseline, frame, event, progress) {
+    const g = this.ctx;
+    const r = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(x + a - 12, baseline + b - 24, w, h); };
+    const bob = this.settings.reducedMotion ? 0 : [0, -1, 0, 1][frame % 4];
+    const elem = summon.element;
+    const bodyColor = elem === 'fire' || elem === 'akki' ? C[20]
+      : elem === 'ice' || elem === 'heman' ? C[26]
+      : elem === 'lightning' || elem === 'asani' ? C[30]
+      : elem === 'earth' || elem === 'pathaphi' ? C[13]
+      : elem === 'water' || elem === 'wari' ? C[24]
+      : elem === 'wind' || elem === 'vayu' ? C[16]
+      : C[12];
+    const highlight = elem === 'fire' || elem === 'akki' ? C[21]
+      : elem === 'ice' || elem === 'heman' ? C[27]
+      : elem === 'lightning' || elem === 'asani' ? C[31]
+      : elem === 'earth' || elem === 'pathaphi' ? C[14]
+      : elem === 'water' || elem === 'wari' ? C[25]
+      : elem === 'wind' || elem === 'vayu' ? C[17]
+      : C[14];
+
+    // Summon shadow and aura
+    g.fillStyle = C[0]; g.fillRect(x - 12, baseline - 1, 24, 3);
+    const auraColor = elementColor[elem] ?? C[28];
+    this.pixelEllipse(x, baseline - 1, 12, 3, auraColor, false);
+
+    // Creature body silhouette
+    if (summon.creatureId === 'golem' || summon.creatureId === 'gargoyle' || summon.creatureId === 'behemoth') {
+      r(4, 2 + bob, 16, 18, bodyColor);
+      r(6, 4 + bob, 12, 14, highlight);
+      r(7, 6 + bob, 3, 3, C[31]);
+      r(14, 6 + bob, 3, 3, C[31]);
+      r(2, 6 + bob, 4, 12, bodyColor);
+      r(18, 6 + bob, 4, 12, bodyColor);
+    } else if (summon.creatureId === 'dragon' || summon.creatureId === 'phoenix') {
+      r(6, 4 + bob, 12, 14, bodyColor);
+      r(8, 6 + bob, 8, 10, highlight);
+      r(1, 2 + bob, 6, 8, bodyColor);
+      r(17, 2 + bob, 6, 8, bodyColor);
+      r(9, 7 + bob, 2, 2, C[31]);
+      r(13, 7 + bob, 2, 2, C[31]);
+    } else if (summon.creatureId === 'dog' || summon.creatureId === 'wolf') {
+      r(4, 8 + bob, 16, 12, bodyColor);
+      r(14, 4 + bob, 8, 8, bodyColor);
+      r(18, 5 + bob, 2, 2, C[31]);
+      r(15, 2 + bob, 3, 3, highlight);
+      r(2, 6 + bob, 4, 4, highlight);
+    } else {
+      r(6, 4 + bob, 12, 16, bodyColor);
+      r(8, 6 + bob, 8, 12, highlight);
+      r(9, 8 + bob, 2, 2, C[31]);
+      r(13, 8 + bob, 2, 2, C[31]);
+      r(4, 10 + bob, 3, 8, bodyColor);
+      r(17, 10 + bob, 3, 8, bodyColor);
+    }
+
+    // Overhead HP Bar
+    const hpRatio = Math.max(0, Math.min(1, summon.hp / summon.maxHp));
+    const barW = 20;
+    const barX = x - barW / 2;
+    const barY = baseline - 28 + bob;
+    g.fillStyle = C[0]; g.fillRect(barX - 1, barY - 1, barW + 2, 4);
+    g.fillStyle = C[18]; g.fillRect(barX, barY, barW, 2);
+    g.fillStyle = C[20]; g.fillRect(barX, barY, Math.round(barW * hpRatio), 2);
+  }
+
   draw(now) {
     const g = this.ctx;
     g.imageSmoothingEnabled = false;
@@ -855,6 +920,11 @@ export class Battlefield {
       }
       const shieldName = protection.element === 'veil' ? 'ม่าน' : protection.element === 'brace' ? 'โล่ยืนหยัด' : shieldOpts.grand ? 'มหาโล่' : 'โล่';
       this.barrierLabel(51, 79, shieldHit ? `กัน ${event.absorbed}${shieldBroke ? ` · ${shieldName}แตก` : ''}` : `${shieldName} ${protection.amount}`, shieldHit ? C[9] : C[8]);
+    }
+
+    const activeSummon = this.state?.player?.summon || this.state?.summon;
+    if (activeSummon && activeSummon.hp > 0) {
+      this.drawSummonSprite(activeSummon, 88, 147, frame, event, progress);
     }
 
     if (this.state) this.state.enemies.forEach((enemy, index) => {

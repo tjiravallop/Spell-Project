@@ -1773,13 +1773,13 @@ test('card upgrade rarity scaling, smithing materials pricing, and gold cost enf
   assert.equal(getCardUpgradeSuccessRate(9, true, 15, 'ascension'), 22); // 7 + 15 = 22%
   assert.equal(getCardUpgradeSuccessRate(9, true, 100, 'ascension'), 100); // Godly essence guarantees 100%
 
-  // 3. Shop items pricing and badges
-  assert.equal(SHOP_ITEMS.smithing_stone.cost, 70);
-  assert.equal(SHOP_ITEMS.smithing_crystal.cost, 150);
-  assert.equal(SHOP_ITEMS.superior_smithing_stone.cost, 280);
-  assert.equal(SHOP_ITEMS.hyper_smithing_cluster.cost, 450);
-  assert.equal(SHOP_ITEMS.abyssal_smithing_core.cost, 700);
-  assert.equal(SHOP_ITEMS.godly_smithing_essence.cost, 1000);
+  // 3. Shop items pricing and badges (increased 5x per rebalance)
+  assert.equal(SHOP_ITEMS.smithing_stone.cost, 350);
+  assert.equal(SHOP_ITEMS.smithing_crystal.cost, 750);
+  assert.equal(SHOP_ITEMS.superior_smithing_stone.cost, 1400);
+  assert.equal(SHOP_ITEMS.hyper_smithing_cluster.cost, 2250);
+  assert.equal(SHOP_ITEMS.abyssal_smithing_core.cost, 3500);
+  assert.equal(SHOP_ITEMS.godly_smithing_essence.cost, 5000);
 
   // 4. In-game upgrade: Smithing materials DO NOT waive gold fee
   const rawRun = createRun('forge-material-test', true);
@@ -4404,8 +4404,8 @@ test('new cards (spear, empower, bless, fill, blood, mana) respect rarities, gra
     acc[r] = (acc[r] ?? 0) + 1;
     return acc;
   }, {});
-  assert.equal(Object.keys(WORDS).length, 64);
-  assert.deepEqual(byRarity, { common: 17, rare: 9, special: 13, epic: 19, legendary: 6 });
+  assert.equal(Object.keys(WORDS).length, 92);
+  assert.deepEqual(byRarity, { common: 28, rare: 16, special: 18, epic: 22, legendary: 8 });
   assert.equal(WORDS.spear.rarity ?? 'common', 'common');
   assert.equal(WORDS.empower.rarity, 'rare');
   assert.equal(WORDS.bless.rarity, 'special');

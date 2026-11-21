@@ -10,6 +10,47 @@ export const RARITIES = Object.freeze({
 
 export const lightDamagePenalty = (level = 0) => 25 - 2 * level;
 
+export const CREATURE_STATS = Object.freeze({
+  // 10 Common (1-2 MP)
+  dog: { name: 'สุนัข', rarity: 'common', cost: 1, baseHp: 14, baseCounter: 4, baseStrike: 12, growthHp: 1.5, growthDmg: 1.0, glyph: '🐕', description: 'สายฝูงนักล่า · HP 14 สวนกลับ 4 ออกหมัดประสาน 12 เจาะเกราะ · เสริมทัพรวดเร็ว', formula: '1 MP · สถิต 14 HP / สวน 4 / ตีตาม 12' },
+  bird: { name: 'นก', rarity: 'common', cost: 1, baseHp: 12, baseCounter: 3, baseStrike: 10, growthHp: 1.4, growthDmg: 0.9, glyph: '🦅', description: 'สายเวหาหลบหลีก · HP 12 สวนกลับ 3 ออกหมัดประสาน 10 ข้ามม่าน · โอกาสหลบ 20%', formula: '1 MP · สถิต 12 HP / สวน 3 / ตีตาม 10' },
+  cat: { name: 'แมว', rarity: 'common', cost: 1, baseHp: 14, baseCounter: 4, baseStrike: 11, growthHp: 1.5, growthDmg: 1.0, glyph: '🐈', description: 'สายกรงเล็บคล่องแคล่ว · HP 14 สวนกลับ 4 ออกหมัดประสาน 11 ติดคริติคอล 100% ต่อเป้ามีดีบัฟ', formula: '1 MP · สถิต 14 HP / สวน 4 / ตีตาม 11' },
+  snake: { name: 'งู', rarity: 'common', cost: 1, baseHp: 13, baseCounter: 5, baseStrike: 12, growthHp: 1.4, growthDmg: 1.1, glyph: '🐍', description: 'สายพิษกัดกร่อน · HP 13 สวนกลับ 5 ออกหมัดประสาน 12 พิษกัดกร่อน 4 หน่วยข้ามเกราะ', formula: '1 MP · สถิต 13 HP / สวน 5 / ตีตาม 12' },
+  slime: { name: 'สไลม์', rarity: 'common', cost: 2, baseHp: 18, baseCounter: 3, baseStrike: 10, growthHp: 2.0, growthDmg: 0.8, glyph: '🫧', description: 'สายสสารกลืนกิน · HP 18 สวนกลับ 3 ดูดซับดาเมจ แตกแล้วลดพลังโจมตีศัตรู -4', formula: '2 MP · สถิต 18 HP / สวน 3 / ตีตาม 10' },
+  bat: { name: 'ค้างคาว', rarity: 'common', cost: 1, baseHp: 11, baseCounter: 4, baseStrike: 10, growthHp: 1.3, growthDmg: 1.0, glyph: '🦇', description: 'สายดูดกลืนโลหิต · HP 11 สวนกลับ 4 ฟื้นเลือดผู้เล่น 2 HP ออกหมัดประสาน 10', formula: '1 MP · สถิต 11 HP / สวน 4 / ตีตาม 10' },
+  turtle: { name: 'เต่า', rarity: 'common', cost: 2, baseHp: 20, baseCounter: 3, baseStrike: 8, armor: 1, growthHp: 2.2, growthDmg: 0.7, glyph: '🐢', description: 'สายกระดองศิลา · HP 20 เกราะ 1 สวนกลับ 3 มอบโล่ 6 หน่วยให้ผู้เล่นตอนร่าย', formula: '2 MP · สถิต 20 HP / เกราะ 1 / สวน 3' },
+  frog: { name: 'กบ', rarity: 'common', cost: 1, baseHp: 13, baseCounter: 4, baseStrike: 11, growthHp: 1.4, growthDmg: 1.0, glyph: '🐸', description: 'สายกระโดดจู่โจมวารี · HP 13 สวนกลับ 4 ติดเปียก ออกหมัดประสาน 11 ข้ามเกราะ 2', formula: '1 MP · สถิต 13 HP / สวน 4 / ตีตาม 11' },
+  spider: { name: 'แมงมุม', rarity: 'common', cost: 1, baseHp: 13, baseCounter: 4, baseStrike: 12, growthHp: 1.4, growthDmg: 1.1, glyph: '🕷️', description: 'สายใยตรึงวิญญาณ · HP 13 สวนกลับ 4 พ่นใยลดดาเมจศัตรู -3 ออกหมัดประสาน 12', formula: '1 MP · สถิต 13 HP / สวน 4 / ตีตาม 12' },
+  rat: { name: 'หนู', rarity: 'common', cost: 1, baseHp: 12, baseCounter: 4, baseStrike: 12, growthHp: 1.3, growthDmg: 1.1, glyph: '🐀', description: 'สายกัดแทะทุบเกราะ · HP 12 สวนกลับ 4 ทุบเกราะ -1 ตัดฮีลศัตรูตอนแตก 50%', formula: '1 MP · สถิต 12 HP / สวน 4 / ตีตาม 12' },
+
+  // 7 Rare (2-3 MP)
+  wolf: { name: 'หมาป่า', rarity: 'rare', cost: 2, baseHp: 24, baseCounter: 8, baseStrike: 20, growthHp: 2.2, growthDmg: 1.4, glyph: '🐺', description: 'สายจ่าฝูงคำราม · HP 24 สวนกลับ 8 ติดเลือดไหล แตกแล้วหอนมอบบัฟดาเมจเวทผู้เล่น +20%', formula: '2 MP · สถิต 24 HP / สวน 8 / ตีตาม 20' },
+  bear: { name: 'หมี', rarity: 'rare', cost: 3, baseHp: 28, baseCounter: 8, baseStrike: 20, armor: 1, growthHp: 2.8, growthDmg: 1.6, glyph: '🐻', description: 'สายมหาแทงก์พงไพร · HP 28 เกราะ 1 สวนกลับ 8 ผลัก 1 ช่อง ออกหมัดทุบปฐพี 20 ทุบเกราะ -2', formula: '3 MP · สถิต 28 HP / เกราะ 1 / สวน 8' },
+  eagle: { name: 'อินทรี', rarity: 'rare', cost: 2, baseHp: 22, baseCounter: 7, baseStrike: 20, growthHp: 2.0, growthDmg: 1.5, glyph: '🦅', description: 'สายเวหาสะท้อนกระสุน · HP 22 สวนกลับ 7 ข้ามม่าน ออกหมัดประสาน 20 ชิ่งสายฟ้า', formula: '2 MP · สถิต 22 HP / สวน 7 / ตีตาม 20' },
+  boar: { name: 'หมูป่า', rarity: 'rare', cost: 2, baseHp: 25, baseCounter: 8, baseStrike: 20, growthHp: 2.2, growthDmg: 1.6, glyph: '🐗', description: 'สายพุ่งชนทะลวงแนวรบ · HP 25 สวนกลับ 8 เจาะเกราะ 4 ออกหมัดประสาน 20 ข้ามเกราะ 100%', formula: '2 MP · สถิต 25 HP / สวน 8 / ตีตาม 20' },
+  croc: { name: 'จระเข้', rarity: 'rare', cost: 3, baseHp: 26, baseCounter: 8, baseStrike: 22, armor: 1, growthHp: 2.4, growthDmg: 1.6, glyph: '🐊', description: 'สายหนังหนาเดธโรล · HP 26 เกราะ 1 หนังหนาลดดาเมจ -2 สวนกลับ 8 งับเป้าเปียกแรง 1.5 เท่า', formula: '3 MP · สถิต 26 HP / เกราะ 1 / สวน 8' },
+  skeleton: { name: 'โครงกระดูก', rarity: 'rare', cost: 2, baseHp: 20, baseCounter: 6, baseStrike: 18, growthHp: 2.0, growthDmg: 1.7, glyph: '💀', description: 'สายนับรบคืนชีพ · HP 20 สวนกลับ 6 เจาะเกราะ 3 แตกแล้วระเบิดกระดูก 14 แท้', formula: '2 MP · สถิต 20 HP / สวน 6 / ตีตาม 18' },
+  hornet: { name: 'ผึ้งยักษ์', rarity: 'rare', cost: 2, baseHp: 18, baseCounter: 6, baseStrike: 22, growthHp: 1.8, growthDmg: 1.7, glyph: '🐝', description: 'สายลอบสังหารเจาะเกราะ 100% · HP 18 สวนกลับ 6 พิษ 6 ออกหมัดประสาน 22 ข้ามเกราะทั้งหมด', formula: '2 MP · สถิต 18 HP / สวน 6 / ตีตาม 22' },
+
+  // 5 Special (4-5 MP)
+  golem: { name: 'โกเลม', rarity: 'special', cost: 5, baseHp: 30, baseCounter: 10, baseStrike: 26, armor: 2, growthHp: 3.0, growthDmg: 1.8, glyph: '🗿', description: 'สายมหาปราการไททัน · HP 30 เกราะ 2 สวนกลับ 10 ออกหมัดไททัน 26 ทลายเกราะ -2', formula: '5 MP · สถิต 30 HP / เกราะ 2 / สวน 10' },
+  lion: { name: 'สิงโต', rarity: 'special', cost: 4, baseHp: 28, baseCounter: 10, baseStrike: 26, growthHp: 2.6, growthDmg: 2.0, glyph: '🦁', description: 'สายราชสีห์สะท้อนคม · HP 28 สวนกลับ 10 แผงคอลดดาเมจ -3 ออกหมัดประสาน 26 คริติคอล 100%', formula: '4 MP · สถิต 28 HP / สวน 10 / ตีตาม 26' },
+  siren: { name: 'ไซเรน', rarity: 'special', cost: 4, baseHp: 24, baseCounter: 8, baseStrike: 22, ward: 1, growthHp: 2.2, growthDmg: 1.6, glyph: '🧜‍♀️', description: 'สายสะกดจิตคลื่นสมุทร · HP 24 ม่าน 1 ร้องเพลงสวนกลับ 8 สาดเปียก ออกหมัดสึนามิ 22 ลบม่านศัตรู', formula: '4 MP · สถิต 24 HP / ม่าน 1 / สวน 8' },
+  gargoyle: { name: 'การ์กอยล์', rarity: 'special', cost: 5, baseHp: 32, baseCounter: 10, baseStrike: 24, armor: 3, aoeIntercept: true, growthHp: 3.0, growthDmg: 1.9, glyph: '🦇', description: 'สายศิลาบินสกัด AoE แทนผู้เล่น · HP 32 เกราะ 3 รับดาเมจหมู่แทนผู้เล่น (Overflow) สวนกลับ 10', formula: '5 MP · สถิต 32 HP / เกราะ 3 / สวน 10' },
+  sprite: { name: 'ภูตพราย', rarity: 'special', cost: 4, baseHp: 22, baseCounter: 6, baseStrike: 20, growthHp: 2.0, growthDmg: 1.5, glyph: '🧚', description: 'สายคืนมานาจั่วการ์ด · HP 22 สวนกลับ 6 แท้ คืน 2 MP จั่ว 1 ใบ แตกแล้วฮีลผู้เล่น 12 HP', formula: '4 MP · สถิต 22 HP / สวน 6 / ตีตาม 20' },
+
+  // 3 Epic (6-7 MP)
+  hydra: { name: 'ไฮดรา', rarity: 'epic', cost: 6, baseHp: 45, baseCounter: 14, baseStrike: 35, growthHp: 4.0, growthDmg: 2.5, glyph: '🐉', description: 'สายอมตะหลายเศียร · HP 45 สวนกลับ 14 แทง 3 ครั้ง ฟื้นฟู 6 HP ทุกเทิร์น ออกหมัด 35 พิษรุนแรง', formula: '6 MP · สถิต 45 HP / สวน 14 / ตีตาม 35' },
+  behemoth: { name: 'เบฮีมอธ', rarity: 'epic', cost: 7, baseHp: 55, baseCounter: 16, baseStrike: 40, armor: 4, aoeIntercept: true, growthHp: 5.0, growthDmg: 3.0, glyph: '🦏', description: 'สายมหาอสูรแผ่นดินไหว · HP 55 เกราะ 4 รับ AoE แทนผู้เล่น สวนกลับ 16 ทุบเกราะทุกคน -2 ออกหมัด 40', formula: '7 MP · สถิต 55 HP / เกราะ 4 / สวน 16' },
+  kraken: { name: 'คราเคน', rarity: 'epic', cost: 6, baseHp: 50, baseCounter: 15, baseStrike: 38, growthHp: 4.5, growthDmg: 2.8, glyph: '🐙', description: 'สายหมึกดำห้วงบาดาล · HP 50 สวนกลับ 15 พ่นหมึกทำให้ศัตรูโจมตีวืด ออกหมัดหนวดทะลวง 38 สลายม่าน', formula: '6 MP · สถิต 50 HP / สวน 15 / ตีตาม 38' },
+
+  // 2 Legendary (8-9 MP)
+  dragon: { name: 'มังกร', rarity: 'legendary', cost: 8, baseHp: 60, baseCounter: 20, baseStrike: 45, armor: 3, ward: 1, growthHp: 6.0, growthDmg: 4.0, glyph: '🐲', description: 'สายราชันเพลิงกัลป์สะท้อน · HP 60 เกราะ 3 ม่าน 1 สะท้อนดาเมจ 50% สวนกลับ 20 ออกหมัดมหาวินาศ 45 ดาเมจแท้', formula: '8 MP · สถิต 60 HP / เกราะ 3 / ม่าน 1 / สวน 20' },
+  phoenix: { name: 'ฟีนิกซ์', rarity: 'legendary', cost: 9, baseHp: 50, baseCounter: 18, baseStrike: 42, ward: 2, growthHp: 5.0, growthDmg: 3.5, glyph: '🪶', description: 'สายจุตินิรันดร์ชุบชีวิต · HP 50 ม่าน 2 สวนกลับ 18 เพลิงชำระล้าง ชุบชีวิตผู้เล่นหากพลาดท่าถึงตาย เกิดใหม่จากไข่', formula: '9 MP · สถิต 50 HP / ม่าน 2 / สวน 18' },
+});
+
+export const CREATURE_WORDS = Object.freeze(Object.keys(CREATURE_STATS));
+
 export const WORDS = Object.freeze({
   shot: { label: 'ลูก', glyph: '●', description: 'ยิงกระสุนใส่ศัตรูที่เลือก ต่อกับธาตุหรือ “ระเบิด” ได้', formula: '1 มานา + ค่าธาตุ' },
   spear: { label: 'หอก', glyph: '➶', description: 'แทงทะลุ 2 ช่อง · เป้าหลักรับพลัง 80% และตัวข้างหลังรับ 50% (ม่านกันแยกแต่ละตัว)', formula: '1 มานา + ค่าธาตุ · เป้าหลัก 80% / ตัวหลัง 50%' },
@@ -75,6 +116,29 @@ export const WORDS = Object.freeze({
   seal: { rarity: 'special', label: 'ผนึก', glyph: '⌑', description: 'ต่อท้ายลูกธาตุเพื่อหยุดการฮีล เติมม่าน หรือสลับช่องครั้งถัดไปเมื่อโดนเป้า', formula: '+2 มานา' },
   dispel: { rarity: 'special', label: 'สลาย', glyph: '✧', description: 'ต่อท้ายลูกธาตุเพื่อสลายม่านทั้งหมดก่อนลูกนี้กระทบ', formula: '+2 มานา' },
   brace: { rarity: 'special', label: 'ยืนหยัด', glyph: '▣', description: 'ต่อท้ายโล่เพื่อให้กันเพิ่ม 6 เมื่อรับการโจมตีแรง 10 ขึ้นไปครั้งแรก', formula: 'โล่ ยืนหยัด · 4 มานา' },
+  summon: {
+    rarity: 'common',
+    label: 'อัญเชิญ',
+    glyph: '⛧',
+    cost: 1,
+    role: 'summon',
+    description: 'เปิดประตูมิติอัญเชิญสิ่งมีชีวิตมายืนแนวหน้า 2 เทิร์นเพื่อรับดาเมจเดี่ยวแทนผู้เล่น สวนกลับ และออกหมัดประสาน ต่อด้วยสัตว์อัญเชิญและธาตุได้',
+    formula: '1 มานา + ค่าสัตว์ + ค่าธาตุ · ทวิเทิร์น',
+  },
+  ...Object.fromEntries(
+    Object.entries(CREATURE_STATS).map(([id, stats]) => [
+      id,
+      {
+        rarity: stats.rarity,
+        label: stats.name,
+        glyph: stats.glyph,
+        cost: stats.cost,
+        role: 'creature',
+        description: stats.description,
+        formula: stats.formula,
+      },
+    ]),
+  ),
 });
 
 export const ASCENDED_ELEMENTS = Object.freeze({ akki: 'fire', heman: 'ice', asani: 'lightning' });
@@ -241,7 +305,9 @@ const SPELL_STARTS = {
   bless: [...ELEMENTS],
   fill: ['blood', 'mana'],
   blast: ['shield', 'shot', ...ELEMENTS, 'pair', 'large'],
-  grand: [...ATTACK_FORMS, 'blast', 'heal', 'shield', 'veil', 'meteor', 'blackhole', 'empower', 'bless'],
+  summon: [...CREATURE_WORDS],
+  ...Object.fromEntries(CREATURE_WORDS.map(id => [id, [...ELEMENTS]])),
+  grand: [...ATTACK_FORMS, 'blast', 'heal', 'shield', 'veil', 'meteor', 'blackhole', 'empower', 'bless', 'summon'],
 };
 export const STORM_FORMULAS = [
   ['storm'],
@@ -347,7 +413,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   }
   const grand = baseIds[0] === 'grand';
   const [head, ...tail] = grand ? baseIds.slice(1) : baseIds;
-  if (grand && !SPELL_STARTS.grand.includes(head)) return fail(1, 'วางรูปเวท เสริม อวยพร ฮีล โล่ ม่าน อุกกาบาต หรือหลุมดำหลัง “มหา”');
+  if (grand && !SPELL_STARTS.grand.includes(head)) return fail(1, 'วางรูปเวท เสริม อวยพร ฮีล โล่ ม่าน อุกกาบาต หลุมดำ หรืออัญเชิญหลัง “มหา”');
   const [second, third, fourth] = ['beam', 'wave', 'shield'].includes(head) && tail[0] === 'pair' &&
     ELEMENTS.includes(tail[1]) && ELEMENTS.includes(tail[2])
     ? [tail[1], tail[2], 'pair'] : tail;
@@ -391,6 +457,27 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   };
   const invalid = index => fail(index, 'คำนี้ต่อกับวลีตรงนี้ไม่ได้');
   if (head === 'delay') return finish({ type: 'self', form: 'shield', delayed: true, layers: 1, layerHp: WORDS.delay.shieldHp, effect: null, cost: WORDS.delay.cost });
+  if (head === 'summon') {
+    if (!second || !CREATURE_WORDS.includes(second)) {
+      return fail(grand ? 2 : 1, 'เลือกสัตว์อัญเชิญหลัง “อัญเชิญ” เช่น อัญเชิญ สุนัข ไฟ');
+    }
+    if (third && !ELEMENTS.includes(third)) {
+      return fail(grand ? 3 : 2, 'ต่อท้ายสัตว์อัญเชิญด้วยธาตุ เช่น ไฟ หรือ น้ำแข็ง');
+    }
+    if (fourth) {
+      return fail(grand ? 4 : 3, 'คาถาอัญเชิญใช้สูงสุด 3 คำ (หรือ 4 คำเมื่อขึ้นต้นด้วย “มหา”)');
+    }
+    const elemCost = third ? (WORDS[third]?.cost ?? 0) : 0;
+    const baseCost = WORDS.summon.cost + WORDS[second].cost + elemCost;
+    const spellCost = grand ? Math.ceil(baseCost * 1.5) : baseCost;
+    return finish({
+      type: 'summon',
+      form: 'summon',
+      creature: second,
+      element: third ?? null,
+      cost: spellCost,
+    });
+  }
   if (head === 'veil') {
     const finishVeil = spec => finish(grand ? { ...spec, layerHp: spec.layerHp + 4, shieldRenewal: 4, cost: spec.cost + 3 * spec.layers } : spec);
     if (!second) return finishVeil({ type: 'self', form: 'shield', layers: 1, layerHp: 14, effect: 'veil', cost: WORDS.veil.cost });

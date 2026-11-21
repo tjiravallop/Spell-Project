@@ -102,6 +102,7 @@ export function validateRun(state) {
   if (state.krakenPhase !== undefined && (state.phase !== 'battle' || state.krakenPhase !== 2)) invalid();
   if (state.netherPhase !== undefined && (state.phase !== 'battle' || state.netherPhase !== 2)) invalid();
   if (state.eternityPhase !== undefined && (state.phase !== 'battle' || state.room !== FLOOR100_BOSS_ROOM || state.rift || ![2, 3].includes(state.eternityPhase))) invalid();
+  if (state.summon !== undefined && state.summon !== null && (state.phase !== 'battle' || !object(state.summon) || typeof state.summon.creatureId !== 'string' || !integer(state.summon.hp, 0, 10000))) invalid();
   if (!Array.isArray(state.rooms) || state.rooms.length < 1 || state.room >= state.rooms.length || state.rooms.some(room => !Array.isArray(room) || room.length < 1 || room.length > 4 || room.some(kind => !Object.hasOwn(ENEMIES, kind)))) invalid();
   const words = (list, min, max) => Array.isArray(list) && integer(list.length, min, max) && new Set(list).size === list.length && list.every(id => Object.hasOwn(WORDS, id));
   const maxUnlockableWords = Object.keys(WORDS).length - START_WORDS.length;
@@ -109,6 +110,7 @@ export function validateRun(state) {
   if (!words(state.learned, 0, maxUnlockableWords) || state.learned.some(id => !state.collection.includes(id))) invalid();
   const p = state.player;
   if (!object(p) || !integer(p.maxHp, 36, 5000) || !integer(p.hp, 0, p.maxHp) || !integer(p.maxMana, 10, 412) || !integer(p.mana, 0, getMaxMana(p))) invalid();
+  if (p.summon !== undefined && p.summon !== null && (state.phase !== 'battle' || !object(p.summon) || typeof p.summon.creatureId !== 'string' || !integer(p.summon.hp, 0, 10000))) invalid();
   if (!words(p.words, 5, 7) || p.words.some(id => !START_WORDS.includes(id) && !state.collection.includes(id))) invalid();
   if (p.level !== undefined && !integer(p.level, 1, 1000)) invalid();
   if (p.exp !== undefined && !integer(p.exp, 0, 1000000)) invalid();

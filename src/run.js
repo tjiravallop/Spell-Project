@@ -1,5 +1,5 @@
 import { makeShield, shieldLayers } from './shields.js';
-import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS, lightDamagePenalty, ascensionCost } from './words.js';
+import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS, CREATURE_WORDS, CREATURE_STATS, lightDamagePenalty, ascensionCost } from './words.js';
 import { RIFT_ENEMIES, RIFT_TOWER, SPACED_FLOORS } from './upper-tower.js';
 import { MIDDLE_BATTLES, MIDDLE_ENEMIES } from './middle-tower.js';
 import {
@@ -121,7 +121,7 @@ export const SHOP_ITEMS = Object.freeze({
     id: 'smithing_stone',
     name: 'หินตีบวกอักษร',
     icon: '⚒️',
-    cost: 70,
+    cost: 350,
     oneTime: false,
     vaultOnly: true,
     badge: 'เพิ่มโอกาสสำเร็จ +15%',
@@ -1358,6 +1358,99 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
       manaOverflowShieldMult: overflowShieldMult,
     };
   }
+  if (wordId === 'summon') {
+    const refund = 1;
+    const startWard = tier >= 2 ? 1 : 0;
+    const cheatDeath = tier === 3;
+    const strikeRefund = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'summon_sovereign_covenant',
+      badge: `⛧ คืน +1 MP${startWard ? ' · ม่าน 1' : ''}${cheatDeath ? ' · สายใยรับแทนตาย/+2 MP' : ''}`,
+      label: `พันธสัญญาเทวาคุ้มเกล้า คืน 1 MP${startWard ? ' & ม่าน 1 ชั้น' : ''}${cheatDeath ? ' & สละชีพรับแทนตาย & หมัดประสานคืน +2 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อร่ายอัญเชิญ คืน +1 มานาทันที${startWard ? ' · สิ่งอัญเชิญเกิดพร้อมม่านคุ้มภัย (Ward) 1 ชั้น' : ''}${cheatDeath ? ' · สายใยผูกวิญญาณสละชีพรับแทน 100% หากผู้เล่นกำลังจะได้รับความเสียหายถึงชีวิต และหมัดประสานเทิร์น 2 คืน +2 มานา' : ''}`,
+      summonRefundMana: refund,
+      summonStartWard: startWard,
+      summonCheatDeath: cheatDeath,
+      summonStrikeRefundMana: strikeRefund,
+    };
+  }
+  if (CREATURE_STATS[wordId]) {
+    const c = CREATURE_STATS[wordId];
+    if (wordId === 'golem') {
+      const reflect = [8, 12, 16][idx];
+      const breakShield = tier >= 2 ? 15 : 0;
+      const titanSunder = tier === 3;
+      return {
+        ...base,
+        id: 'golem_colossus_core',
+        badge: `🗿 สะท้อน ${reflect}${breakShield ? ' · แตกให้โล่ 15/ม่าน 1' : ''}${titanSunder ? ' · หมัด 45 แท้/เกราะ 0/สตั๊น' : ''}`,
+        label: `แกนศิลาไททัน สะท้อน ${reflect} แท้${breakShield ? ' & แตกมอบโล่ 15/ม่าน 1' : ''}${titanSunder ? ' & หมัดกัมปนาท 45 แท้ ลบเกราะ 0 สตั๊น 1 เทิร์น' : ''}`,
+        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): โดนตีสะท้อน ${reflect} ดาเมจแท้${breakShield ? ' · เมื่อแตกโอนพลังเป็นโล่ 15 หน่วยและม่าน 1 ชั้นให้ผู้เล่น' : ''}${titanSunder ? ' · หมัดประสานกัมปนาท 45 ดาเมจแท้ ลบเกราะเป้าหมายเป็น 0 ถาวร และสตั๊น 1 เทิร์น' : ''}`,
+        golemReflectDmg: reflect,
+        golemBreakShield: breakShield,
+        golemTitanSunder: titanSunder,
+      };
+    }
+    if (wordId === 'dragon') {
+      const reflectPct = [50, 65, 80][idx];
+      const roarDebuff = tier >= 2 ? 6 : 0;
+      const trueDmg = tier === 3;
+      return {
+        ...base,
+        id: 'dragon_drake_sovereign',
+        badge: `🐲 สะท้อน ${reflectPct}%${roarDebuff ? ' · คำรามลดโจมตี 6' : ''}${trueDmg ? ' · หมัดมหาวินาศดาเมจแท้ 100%' : ''}`,
+        label: `ราชันมังกรโบราณ เกล็ดสะท้อน ${reflectPct}%${roarDebuff ? ' & คำรามข่มขวัญลดโจมตี 6' : ''}${trueDmg ? ' & หมัดประสานเป็นดาเมจแท้ข้ามเกราะและม่าน' : ''}`,
+        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เกล็ดมังกรสะท้อนความเสียหาย ${reflectPct}% คืนผู้โจมตี${roarDebuff ? ' · เมื่อลงสนาม คำรามลดพลังโจมตีศัตรูทุกคน -6 หน่วย 2 เทิร์น' : ''}${trueDmg ? ' · หมัดประสานเทิร์น 2 แปลงเป็นดาเมจแท้ 100% ข้ามม่านและเกราะทั้งหมด' : ''}`,
+        dragonReflectPct: reflectPct,
+        dragonRoarDebuff: roarDebuff,
+        dragonTrueDamage: trueDmg,
+      };
+    }
+    if (wordId === 'phoenix') {
+      const eggRevive = true;
+      const cleanseHeal = tier >= 2 ? 15 : 0;
+      const playerRevive = tier === 3;
+      return {
+        ...base,
+        id: 'phoenix_immortal_rebirth',
+        badge: `🪶 จุติไข่ 1 ครั้ง${cleanseHeal ? ' · ล้างดีบัฟ/ฮีล 15' : ''}${playerRevive ? ' · ชุบชีวิตผู้เล่น 100%' : ''}`,
+        label: `วิหคเพลิงอมตะ จุติจากไข่ 1 ครั้ง${cleanseHeal ? ' & ล้างดีบัฟ & ฮีล 15 HP' : ''}${playerRevive ? ' & ชุบชีวิตผู้เล่นเลือดเต็ม/มานาเต็ม' : ''}`,
+        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อฟีนิกซ์แตก จะกลายเป็นไข่และฟื้นคืนชีพ 1 ครั้งด้วย 50% HP${cleanseHeal ? ' · สวนกลับชำระล้างดีบัฟผู้เล่นและฟื้น +15 HP' : ''}${playerRevive ? ' · หากผู้เล่นพลาดท่าถึงชีวิต ฟีนิกซ์สละชีพชุบชีวิตผู้เล่นกลับมาด้วยเลือดเต็ม 100% และมานาเต็ม 12 MP ทันที' : ''}`,
+        phoenixEggRevive: eggRevive,
+        phoenixCleanseHeal: cleanseHeal,
+        phoenixPlayerRevive: playerRevive,
+      };
+    }
+    if (wordId === 'dog') {
+      const drawBonus = 1;
+      const pierceBonus = [2, 4, 6][idx];
+      const alphaDouble = tier === 3;
+      return {
+        ...base,
+        id: 'dog_pack_alpha',
+        badge: `🐕 จั่ว +1 · เจาะ +${pierceBonus}${alphaDouble ? ' · หมัดแฝดจั่ว +1' : ''}`,
+        label: `จ่าฝูงหมาล่าเนื้อ จั่ว +1 ใบ & เจาะ +${pierceBonus}${alphaDouble ? ' & หมัดประสานคู่' : ''}`,
+        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อลงสนามจั่ว +1 ใบ และเจาะเกราะ +${pierceBonus}${alphaDouble ? ' · หมัดประสานออกท่าเบิ้ล 2 ครั้งและจั่วเพิ่มอีก +1 ใบ' : ''}`,
+        creatureDrawOnSummon: drawBonus,
+        pierceBonus,
+        dogAlphaDoubleStrike: alphaDouble,
+      };
+    }
+    const bonusHp = [10, 20, 35][idx];
+    const bonusDmg = [4, 8, 15][idx];
+    const extraPierce = tier >= 2 ? 2 : 0;
+    return {
+      ...base,
+      id: `${wordId}_awakened_beast`,
+      badge: `${c.glyph} HP +${bonusHp} · ดาเมจ +${bonusDmg}${extraPierce ? ` · เจาะ +${extraPierce}` : ''}`,
+      label: `${c.name}ตื่นรู้ HP +${bonusHp} & ดาเมจ +${bonusDmg}${extraPierce ? ` & เจาะเกราะ +${extraPierce}` : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เพิ่ม HP สิ่งอัญเชิญ +${bonusHp} และพลังโจมตี/สวนกลับ +${bonusDmg}${extraPierce ? ` พร้อมเจาะเกราะ +${extraPierce}` : ''}`,
+      creatureBonusHp: bonusHp,
+      creatureBonusDmg: bonusDmg,
+      pierceBonus: extraPierce,
+    };
+  }
   if (ATTACK_FORMS.includes(wordId)) {
     return {
       ...base,
@@ -1393,6 +1486,13 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
 
 export function describeCardUpgradeEffect(wordId, level = 0) {
   const nextLv = Math.max(1, level);
+  if (wordId === 'summon') return `HP สิ่งอัญเชิญทุกตัว +${nextLv * 2} · ดาเมจ +${nextLv * 2}% · ลดดาเมจรับ -${Math.floor(nextLv / 3)}`;
+  if (CREATURE_STATS[wordId]) {
+    const stats = CREATURE_STATS[wordId];
+    const hpInc = (stats.growthHp * nextLv).toFixed(1).replace(/\.0$/, '');
+    const dmgInc = (stats.growthDmg * nextLv).toFixed(1).replace(/\.0$/, '');
+    return `HP สิ่งอัญเชิญ +${hpInc} · ดาเมจสวน/ตีประสาน +${dmgInc}`;
+  }
   if (wordId === 'light') return `ค่าร่าย −1 มานา · โทษพลังเหลือ −${lightDamagePenalty(nextLv)}%`;
   if (wordId === 'delay') return `โล่เทิร์นหน้า ${WORDS.delay.shieldHp + nextLv} หน่วย (+${nextLv})`;
   if (wordId === 'axe') return `พลังขวานพื้นฐาน +${nextLv} ก่อนคิดตัวคูณ 80%`;
@@ -2641,6 +2741,7 @@ export function getRewardPoolForRoom(state, roomIndex) {
   return Object.keys(WORDS).filter(id => {
     if (id === 'self' && !ownsRewardWord(state, 'heal')) return false;
     if ((id === 'blood' || id === 'mana') && !ownsRewardWord(state, 'fill')) return false;
+    if (CREATURE_WORDS.includes(id) && !ownsRewardWord(state, 'summon')) return false;
     if (id === 'pull') return roomIndex >= PULL_REWARD_ROOM;
     if (UPPER_REWARD_WORDS.includes(id)) return roomIndex >= FLOOR25_BOSS_ROOM;
     if (Object.hasOwn(SECOND_TIER_ELEMENTS, id)) return roomIndex >= FLOOR30_BOSS_ROOM;
@@ -3990,7 +4091,7 @@ export function intent(enemy, turn, enemies = [], room = 0) {
   const cycle = turn % 3;
   const profile = ENEMIES[enemy.kind];
   if (enemy.kind === 'ink_ray' && cycle === 2) {
-    const next = Math.max(0, 12 + enemyClimaxBonus(turn + 1, room) - enemy.chill - (enemy.obscured ? 4 : 0));
+    const next = Math.max(0, 12 + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
     return { type: 'charge', amount: 0, shortLabel: `พุ่ง ${next}`, label: `รวบปีกเตรียมพุ่ง ${next} เทิร์นถัดไป` };
   }
   if (enemy.kind === 'prism_crab' && cycle === 1) {
@@ -4045,7 +4146,7 @@ export function intent(enemy, turn, enemies = [], room = 0) {
   }
   if (enemy.kind === 'kraken_crush_tentacle' && cycle === 2) {
     if (enemy.freeze > 0) return { type: 'frozen', amount: 0, label: 'แช่แข็ง · ข้ามการชาร์จ' };
-    const next = Math.max(0, 92 + enemyClimaxBonus(turn + 1, room) - enemy.chill - (enemy.obscured ? 4 : 0));
+    const next = Math.max(0, 92 + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
     return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `ยกหนวดยักษ์บดขยี้ · เทิร์นหน้าฟาดหนัก ${next}!` };
   }
   // Floor 90★ Nether Dread Lord Tri-Pillar Pact: distinct pillar cooldown roles
@@ -4124,12 +4225,12 @@ export function intent(enemy, turn, enemies = [], room = 0) {
   }
   if ((enemy.kind === 'rune_ram' && cycle === 2) || (boss && cycle === 1)) {
     const base = enemy.kind === 'rune_ram' ? 15 : enemy.kind === 'seal_curator' ? 17 : 20;
-    const next = Math.max(0, base + enemyClimaxBonus(turn + 1, room) - enemy.chill);
+    const next = Math.max(0, base + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0));
     return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `เตรียมโจมตีหนัก ${next} เทิร์นถัดไป` };
   }
   if (boss && cycle === 0) return { type: 'recover', amount: 0, label: 'เปิดช่อง · เกราะ 0 และพักโจมตี' };
   if (enemy.kind === 'ember_imp' && cycle === 2) {
-    const next = Math.max(0, 9 + enemyClimaxBonus(turn + 1, room) - enemy.chill - (enemy.obscured ? 4 : 0));
+    const next = Math.max(0, 9 + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
     return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `รวบเพลิงเตรียมโจมตี ${next} เทิร์นถัดไป` };
   }
   if (['charger', 'sentinel', 'rune_golem', 'storm_titan', 'obsidian_golem', 'astral_sentinel', 'thunder_colossus'].includes(enemy.kind) && turn % 2 === 1) {
@@ -4243,7 +4344,7 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     ? (enemy.eternityAbsorbed ?? 0) * 12 : 0;
   const netherDoomBonus = enemy.kind === 'nether_dread_lord' && enemies.some(other => other.kind === 'nether_doom_pillar' && other.hp > 0) ? 18 : 0;
   base += loomAllies * 3 + eternityAllies * 10 + eternityAbsorbedBonus + netherDoomBonus;
-  const amount = Math.max(0, base + enemyClimaxBonus(turn, room) - enemy.chill - (enemy.obscured ? 4 : 0));
+  const amount = Math.max(0, base + enemyClimaxBonus(turn, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
   if (enemy.kind === 'eternity_reborn' && turn % 4 === 1) {
     return {
       type: 'attack',
