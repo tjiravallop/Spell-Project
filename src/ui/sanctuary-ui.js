@@ -75,9 +75,9 @@ function renderForge(state) {
   const maxed = level >= MAX_CARD_UPGRADE;
   const next = Math.min(MAX_CARD_UPGRADE, level + 1);
   const material = getCardUpgradeMaterial(player);
-  const goldCost = getCardUpgradeCost(level);
-  const affordable = Boolean(material) || player.gold >= goldCost;
-  const chance = getCardUpgradeSuccessRate(level, Boolean(material), material?.bonus);
+  const goldCost = getCardUpgradeCost(level, forgeWord);
+  const affordable = player.gold >= goldCost;
+  const chance = getCardUpgradeSuccessRate(level, Boolean(material), material?.bonus, forgeWord);
   const secondary = hasCardSecondaryUpgrade(state, forgeWord);
   const secondaryInfo = getCardSecondaryEffect(forgeWord, Math.max(CARD_SECONDARY_UNLOCK_LEVEL, level));
 
@@ -88,7 +88,8 @@ function renderForge(state) {
   $('forge-next-effect').textContent = describeCardUpgradeEffect(forgeWord, next);
   $('forge-terms').hidden = maxed;
   $('forge-chance').textContent = `${chance}%`;
-  $('forge-cost').textContent = material ? SHOP_ITEMS[material.id].name + ' 1 ชิ้น' : `${goldCost} ทอง`;
+  const materialName = material ? (SHOP_ITEMS[material.id]?.name || 'วัตถุดิบตีบวก') : null;
+  $('forge-cost').textContent = material ? `${goldCost} ทอง + ${materialName}` : `${goldCost} ทอง`;
   $('sanctuary-forge-gold').textContent = `${player.gold} ทอง`;
   $('forge-secondary-title').textContent = secondary ? `เอฟเฟกต์รอง · ${secondaryInfo.label}` : `เอฟเฟกต์รอง · ปลดที่ +${CARD_SECONDARY_UNLOCK_LEVEL}`;
   $('forge-secondary-description').textContent = secondaryInfo.description;

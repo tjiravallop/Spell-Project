@@ -144,8 +144,8 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: 'เติม 8 MP เต็มพลัง', manaRestore: 8, description: 'หลั่งไหลมานามหาศาล ฟื้นฟู 8 MP ทันที',
   },
   smithing_crystal: {
-    id: 'smithing_crystal', name: 'ผลึกตีบวกชั้นกลาง', icon: '💎', cost: 22, minFloor: 50, vaultOnly: true,
-    badge: 'ตีบวกฟรี · อัตราสำเร็จ +20%', description: 'วัตถุดิบตีบวกชั้นยอด เพิ่มโอกาสสำเร็จ 20 จุดเปอร์เซ็นต์ที่แท่นตีบวก',
+    id: 'smithing_crystal', name: 'ผลึกตีบวกชั้นกลาง', icon: '💎', cost: 150, minFloor: 50, vaultOnly: true,
+    badge: 'อัตราสำเร็จ +20%', description: 'วัตถุดิบตีบวกชั้นยอด เพิ่มโอกาสสำเร็จ 20 จุดเปอร์เซ็นต์ที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   oceanic_bubble: {
     id: 'oceanic_bubble', name: 'ฟองอากาศมหาป้อง', icon: '🫧', cost: 28, minFloor: 50,
@@ -174,8 +174,8 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: 'ล้างม่านศัตรูทั้งหมด', description: 'เผาทำลายม่านเวท (Ward) ของศัตรูทุกตัวในสนามทันที',
   },
   superior_smithing_stone: {
-    id: 'superior_smithing_stone', name: 'หินตีบวกชั้นสูง', icon: '⚒️', cost: 30, minFloor: 60, vaultOnly: true,
-    badge: 'ตีบวกฟรี · อัตราสำเร็จ +30%', description: 'หินแร่ร้อนระอุ เพิ่มโอกาสสำเร็จ 30 จุดเปอร์เซ็นต์ที่แท่นตีบวก',
+    id: 'superior_smithing_stone', name: 'หินตีบวกชั้นสูง', icon: '⚒️', cost: 280, minFloor: 60, vaultOnly: true,
+    badge: 'อัตราสำเร็จ +30%', description: 'หินแร่ร้อนระอุ เพิ่มโอกาสสำเร็จ 30 จุดเปอร์เซ็นต์ที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   obsidian_armor_flask: {
     id: 'obsidian_armor_flask', name: 'น้ำยาผลึกออบซิเดียน', icon: '🛡️', cost: 36, minFloor: 60,
@@ -208,8 +208,8 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: '18 ดาเมจชิ่งสายฟ้า', description: 'สร้าง 18 ดาเมจสายฟ้าใส่เป้าหมายและชิ่งใส่ตัวข้างเคียง',
   },
   hyper_smithing_cluster: {
-    id: 'hyper_smithing_cluster', name: 'กลุ่มแร่ตีบวกไฮเปอร์', icon: '💠', cost: 40, minFloor: 70, vaultOnly: true,
-    badge: 'ตีบวกฟรี · อัตราสำเร็จ +40%', description: 'ผลึกไฟฟ้าบริสุทธิ์ เพิ่มโอกาสสำเร็จ 40 จุดเปอร์เซ็นต์ที่แท่นตีบวก',
+    id: 'hyper_smithing_cluster', name: 'กลุ่มแร่ตีบวกไฮเปอร์', icon: '💠', cost: 450, minFloor: 70, vaultOnly: true,
+    badge: 'อัตราสำเร็จ +40%', description: 'ผลึกไฟฟ้าบริสุทธิ์ เพิ่มโอกาสสำเร็จ 40 จุดเปอร์เซ็นต์ที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   tempest_elixir: {
     id: 'tempest_elixir', name: 'น้ำยาแก่นวายุอัสนี', icon: '🧪', cost: 44, minFloor: 70, hpRestore: 45, manaRestore: 4,
@@ -242,8 +242,8 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: '+60 HP & +5 MP', description: 'พลังแห่งแผ่นดิน ฟื้นฟู 60 HP และ 5 MP',
   },
   abyssal_smithing_core: {
-    id: 'abyssal_smithing_core', name: 'แกนตีบวกโลกันตร์', icon: '💎', cost: 50, minFloor: 80, vaultOnly: true,
-    badge: 'ตีบวกฟรี · อัตราสำเร็จ +50%', description: 'แกนตีบวกไร้ที่ติ เพิ่มโอกาสสำเร็จ 50 จุดเปอร์เซ็นต์ที่แท่นตีบวก',
+    id: 'abyssal_smithing_core', name: 'แกนตีบวกโลกันตร์', icon: '💎', cost: 700, minFloor: 80, vaultOnly: true,
+    badge: 'อัตราสำเร็จ +50%', description: 'แกนตีบวกไร้ที่ติ เพิ่มโอกาสสำเร็จ 50 จุดเปอร์เซ็นต์ที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   frost_shield_rune: {
     id: 'frost_shield_rune', name: 'รูนโล่น้ำแข็งศักดิ์สิทธิ์', icon: '🛡️', cost: 54, minFloor: 80,
@@ -268,8 +268,8 @@ export const ENDGAME_SHOP_ITEMS = Object.freeze({
     badge: 'โล่โอเมก้า +50', description: 'สร้างมหาโล่ครอบคลุมร่างกาย มอบเกราะ 50 หน่วยทันทีในเทิร์นนี้',
   },
   godly_smithing_essence: {
-    id: 'godly_smithing_essence', name: 'แก่นแท้ตีบวกเทวะ', icon: '👑', cost: 68, minFloor: 90, vaultOnly: true,
-    badge: 'ตีบวกสำเร็จ 100% แน่นอน', description: 'แก่นแท้แห่งเทพเจ้า รับประกันการตีบวกสำเร็จ 100% ทันทีที่แท่นตีบวก',
+    id: 'godly_smithing_essence', name: 'แก่นแท้ตีบวกเทวะ', icon: '👑', cost: 1000, minFloor: 90, vaultOnly: true,
+    badge: 'ตีบวกสำเร็จ 100% แน่นอน', description: 'แก่นแท้แห่งเทพเจ้า รับประกันการตีบวกสำเร็จ 100% ทันทีที่แท่นตีบวก (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   zenith_blade_sigil: {
     id: 'zenith_blade_sigil', name: 'ตราดาบแห่งเซนิธ', icon: '⚔️', cost: 80, minFloor: 90,

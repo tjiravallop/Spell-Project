@@ -6,7 +6,7 @@ import {
   getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPre10Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
   enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom,
   getRewardPool, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
-  getCardSecondaryEffect, describeCardUpgradeEffect,
+  getCardSecondaryEffect, describeCardUpgradeEffect, getCardUpgradeCost, getCardUpgradeSuccessRate, CARD_RARITY_COST_MULTIPLIER, CARD_RARITY_RATE_PENALTY, SHOP_ITEMS,
   FLOOR5_START_ROOM, FLOOR6_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR14_BOUNDARY_ROOM, FLOOR15_START_ROOM, FLOOR16_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR19_BOUNDARY_ROOM, FLOOR20_BOSS_ROOM,
   FLOOR21_START_ROOM, FLOOR24_BOUNDARY_ROOM, FLOOR25_BOSS_ROOM, FLOOR26_START_ROOM, FLOOR29_BOUNDARY_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR40_BOSS_ROOM, FLOOR50_BOSS_ROOM, TOTAL_TOWER_ROOMS, UPPER_RESTS,
 } from '../src/run.js';
@@ -1722,6 +1722,109 @@ test('forging past +2 rolls from the run seed and charges for the attempt', () =
     assert.equal(attempt.state.player.exp, 1);
     assert.equal(validateRun(attempt.state).player.cardUpgrades.fire, expectedLevel);
   }
+});
+
+test('card upgrade rarity scaling, smithing materials pricing, and gold cost enforcement', () => {
+  // 1. Rarity cost multipliers: Common 1.0, Rare 1.3, Special 1.6, Epic 2.0, Legendary 2.5
+  assert.equal(getCardUpgradeCost(0, 'fire'), 10); // Common: 10 * 1.0 = 10
+  assert.equal(getCardUpgradeCost(6, 'fire'), 49); // Common: 49 * 1.0 = 49
+  assert.equal(getCardUpgradeCost(9, 'fire'), 84); // Common: 84 * 1.0 = 84
+
+  assert.equal(getCardUpgradeCost(0, 'blast'), 13); // Rare: round(10 * 1.3) = 13
+  assert.equal(getCardUpgradeCost(6, 'blast'), 64); // Rare: round(49 * 1.3) = 64
+  assert.equal(getCardUpgradeCost(9, 'blast'), 109); // Rare: round(84 * 1.3) = 109
+
+  assert.equal(getCardUpgradeCost(0, 'akki'), 16); // Special: round(10 * 1.6) = 16
+  assert.equal(getCardUpgradeCost(6, 'akki'), 78); // Special: round(49 * 1.6) = 78
+  assert.equal(getCardUpgradeCost(9, 'akki'), 134); // Special: round(84 * 1.6) = 134
+
+  assert.equal(getCardUpgradeCost(0, 'meteor'), 20); // Epic: round(10 * 2.0) = 20
+  assert.equal(getCardUpgradeCost(6, 'meteor'), 98); // Epic: round(49 * 2.0) = 98
+  assert.equal(getCardUpgradeCost(9, 'meteor'), 168); // Epic: round(84 * 2.0) = 168
+
+  assert.equal(getCardUpgradeCost(0, 'ascension'), 25); // Legendary: round(10 * 2.5) = 25
+  assert.equal(getCardUpgradeCost(6, 'ascension'), 123); // Legendary: round(49 * 2.5) = 123
+  assert.equal(getCardUpgradeCost(9, 'ascension'), 210); // Legendary: round(84 * 2.5) = 210
+
+  // Direct rarity string lookup
+  assert.equal(getCardUpgradeCost(9, 'legendary'), 210);
+
+  // 2. Rarity success rate penalty starting at +5
+  // Below +5: all rarities get full base rate
+  assert.equal(getCardUpgradeSuccessRate(0, false, 0, 'ascension'), 100);
+  assert.equal(getCardUpgradeSuccessRate(2, false, 0, 'ascension'), 90);
+  assert.equal(getCardUpgradeSuccessRate(4, false, 0, 'ascension'), 60);
+
+  // At +5 (base 50%): Common 50%, Rare 48%, Special 46%, Epic 44%, Legendary 42%
+  assert.equal(getCardUpgradeSuccessRate(5, false, 0, 'fire'), 50);
+  assert.equal(getCardUpgradeSuccessRate(5, false, 0, 'blast'), 48);
+  assert.equal(getCardUpgradeSuccessRate(5, false, 0, 'akki'), 46);
+  assert.equal(getCardUpgradeSuccessRate(5, false, 0, 'meteor'), 44);
+  assert.equal(getCardUpgradeSuccessRate(5, false, 0, 'ascension'), 42);
+
+  // At +9 (base 15%): Common 15%, Rare 13%, Special 11%, Epic 9%, Legendary 7%
+  assert.equal(getCardUpgradeSuccessRate(9, false, 0, 'fire'), 15);
+  assert.equal(getCardUpgradeSuccessRate(9, false, 0, 'blast'), 13);
+  assert.equal(getCardUpgradeSuccessRate(9, false, 0, 'akki'), 11);
+  assert.equal(getCardUpgradeSuccessRate(9, false, 0, 'meteor'), 9);
+  assert.equal(getCardUpgradeSuccessRate(9, false, 0, 'ascension'), 7);
+
+  // Material bonuses
+  assert.equal(getCardUpgradeSuccessRate(9, true, 15, 'ascension'), 22); // 7 + 15 = 22%
+  assert.equal(getCardUpgradeSuccessRate(9, true, 100, 'ascension'), 100); // Godly essence guarantees 100%
+
+  // 3. Shop items pricing and badges
+  assert.equal(SHOP_ITEMS.smithing_stone.cost, 70);
+  assert.equal(SHOP_ITEMS.smithing_crystal.cost, 150);
+  assert.equal(SHOP_ITEMS.superior_smithing_stone.cost, 280);
+  assert.equal(SHOP_ITEMS.hyper_smithing_cluster.cost, 450);
+  assert.equal(SHOP_ITEMS.abyssal_smithing_core.cost, 700);
+  assert.equal(SHOP_ITEMS.godly_smithing_essence.cost, 1000);
+
+  // 4. In-game upgrade: Smithing materials DO NOT waive gold fee
+  const rawRun = createRun('forge-material-test', true);
+  rawRun.clearedRooms = Array.from({ length: 12 }, (_, i) => i);
+  let state = enterSanctuary(rawRun);
+  state.player.gold = 5; // not enough for level 0 upgrade (cost 10)
+  state.player.items = ['smithing_stone'];
+
+  // Should throw when gold is insufficient even if stone is present
+  assert.throws(
+    () => upgradeWordCard(state, 'fire'),
+    /ทองไม่พอสำหรับการตีบวก · ต้องใช้ 10 ทอง/
+  );
+
+  // With sufficient gold: both gold and stone are consumed
+  state.player.gold = 100;
+  const upgradeWithStone = upgradeWordCard(state, 'fire', 'stat', { roll: 1 });
+  assert.equal(upgradeWithStone.upgraded, true);
+  assert.equal(upgradeWithStone.usedStone, true);
+  assert.equal(upgradeWithStone.materialId, 'smithing_stone');
+  assert.equal(upgradeWithStone.goldCost, 10);
+  assert.equal(upgradeWithStone.state.player.gold, 90); // 100 - 10 = 90
+  assert.equal(upgradeWithStone.state.player.items.includes('smithing_stone'), false); // stone consumed
+
+  // Upgrading Legendary card (e.g. ascension) at +6 with Godly Essence
+  const legendaryRun = createRun('legendary-forge', true);
+  legendaryRun.clearedRooms = Array.from({ length: 12 }, (_, i) => i);
+  let legState = enterSanctuary(legendaryRun);
+  legState.collection = ['ascension'];
+  legState.player.cardUpgrades.ascension = 6;
+  legState.player.stash = ['godly_smithing_essence'];
+  legState.player.gold = 200;
+
+  const legCost = getCardUpgradeCost(6, 'ascension'); // 123 gold
+  assert.equal(legCost, 123);
+
+  const legAttempt = upgradeWordCard(legState, 'ascension', 'stat');
+  assert.equal(legAttempt.upgraded, true);
+  assert.equal(legAttempt.chancePercent, 100);
+  assert.equal(legAttempt.usedStone, true);
+  assert.equal(legAttempt.materialId, 'godly_smithing_essence');
+  assert.equal(legAttempt.goldCost, 123);
+  assert.equal(legAttempt.state.player.gold, 200 - 123);
+  assert.equal(legAttempt.state.player.cardUpgrades.ascension, 7);
+  assert.equal(legAttempt.state.player.stash.length, 0); // essence consumed
 });
 
 test('Floors 5-8 (2 sub-rooms + 1 boss each), Floor 9 Sanctuary, boss random card drops, and defeat fallback to Floor 4', () => {

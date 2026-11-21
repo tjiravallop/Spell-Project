@@ -71,6 +71,22 @@ export const CARD_UPGRADE_SUCCESS_RATES = Object.freeze([100, 100, 90, 70, 60, 5
 export const SMITHING_STONE_BONUS_RATE = 15;
 export const CARD_SECONDARY_GOLD_COST = 15;
 
+export const CARD_RARITY_COST_MULTIPLIER = Object.freeze({
+  common: 1.0,
+  rare: 1.3,
+  special: 1.6,
+  epic: 2.0,
+  legendary: 2.5,
+});
+
+export const CARD_RARITY_RATE_PENALTY = Object.freeze({
+  common: 0,
+  rare: 2,
+  special: 4,
+  epic: 6,
+  legendary: 8,
+});
+
 export const SHOP_ITEMS = Object.freeze({
   mana_vial: {
     id: 'mana_vial',
@@ -105,11 +121,11 @@ export const SHOP_ITEMS = Object.freeze({
     id: 'smithing_stone',
     name: 'หินตีบวกอักษร',
     icon: '⚒️',
-    cost: 14,
+    cost: 70,
     oneTime: false,
     vaultOnly: true,
-    badge: 'ตีบวกฟรี 1 ครั้ง · โอกาสสำเร็จ +15%',
-    description: 'เก็บไว้ในคลังไอเทม ใช้ตีบวกการ์ดคำที่แท่นตีบวกได้ฟรี พร้อมเพิ่มโอกาสสำเร็จ 15 จุดเปอร์เซ็นต์',
+    badge: 'เพิ่มโอกาสสำเร็จ +15%',
+    description: 'เก็บไว้ในคลังไอเทม นำไปใช้ที่แท่นตีบวกเพื่อเพิ่มโอกาสสำเร็จ 15 จุดเปอร์เซ็นต์ (ยังคงต้องจ่ายทองค่าตีบวกพื้นฐาน)',
   },
   aegis_shard: {
     id: 'aegis_shard',
@@ -240,8 +256,14 @@ export function battleSpellCost(state, parsed) {
   return form === 'ascension' ? ascensionCost(getCardUpgradeLevel(state, 'ascension')) : parsed.cost;
 }
 
-export function getCardUpgradeCost(currentLevel = 0) {
-  return CARD_UPGRADE_COSTS[currentLevel] ?? 999;
+export function getCardUpgradeCost(currentLevel = 0, wordOrRarity = 'common') {
+  const base = CARD_UPGRADE_COSTS[currentLevel] ?? 999;
+  const raw = typeof wordOrRarity === 'object' && wordOrRarity !== null ? wordOrRarity.rarity : wordOrRarity;
+  const rarity = typeof raw === 'string' && WORDS[raw]
+    ? (WORDS[raw].rarity ?? 'common')
+    : (typeof raw === 'string' && CARD_RARITY_COST_MULTIPLIER[raw] !== undefined ? raw : 'common');
+  const mult = CARD_RARITY_COST_MULTIPLIER[rarity] ?? 1.0;
+  return Math.round(base * mult);
 }
 
 const SMITHING_MATERIALS = [
@@ -263,9 +285,15 @@ export function getCardUpgradeMaterial(player) {
   return null;
 }
 
-export function getCardUpgradeSuccessRate(currentLevel = 0, useStone = false, bonus = SMITHING_STONE_BONUS_RATE) {
-  const base = CARD_UPGRADE_SUCCESS_RATES[currentLevel] ?? 20;
-  return Math.min(100, base + (useStone ? bonus : 0));
+export function getCardUpgradeSuccessRate(currentLevel = 0, useStone = false, bonus = SMITHING_STONE_BONUS_RATE, wordOrRarity = 'common') {
+  const base = CARD_UPGRADE_SUCCESS_RATES[currentLevel] ?? 15;
+  const raw = typeof wordOrRarity === 'object' && wordOrRarity !== null ? wordOrRarity.rarity : wordOrRarity;
+  const rarity = typeof raw === 'string' && WORDS[raw]
+    ? (WORDS[raw].rarity ?? 'common')
+    : (typeof raw === 'string' && CARD_RARITY_RATE_PENALTY[raw] !== undefined ? raw : 'common');
+  const penalty = currentLevel >= 5 ? (CARD_RARITY_RATE_PENALTY[rarity] ?? 0) : 0;
+  const effectiveBase = Math.max(5, base - penalty);
+  return Math.min(100, effectiveBase + (useStone ? bonus : 0));
 }
 
 export function getCardSecondaryTier(level = 0, unlockedFlag = false) {
@@ -3507,19 +3535,19 @@ export function upgradeWordCard(original, wordId, mode = 'stat', options = {}) {
   if (currentLevel >= MAX_CARD_UPGRADE) {
     throw new Error(`การ์ด “${WORDS[wordId].label}” ตีบวกสเตตัสถึงระดับสูงสุด (+${MAX_CARD_UPGRADE}) แล้ว`);
   }
-  const goldCost = getCardUpgradeCost(currentLevel);
+  const goldCost = getCardUpgradeCost(currentLevel, wordId);
+  if (p.gold < goldCost) {
+    throw new Error(`ทองไม่พอสำหรับการตีบวก · ต้องใช้ ${goldCost} ทอง (มีอยู่ ${p.gold} ทอง)`);
+  }
+  p.gold -= goldCost;
+
   const material = getCardUpgradeMaterial(p);
   const usedStone = Boolean(material);
   if (material) {
     p[material.source].splice(material.index, 1);
-  } else {
-    if (p.gold < goldCost) {
-      throw new Error(`ทองไม่พอสำหรับการตีบวก · ต้องใช้ ${goldCost} ทอง (มีอยู่ ${p.gold} ทอง)`);
-    }
-    p.gold -= goldCost;
   }
 
-  const chancePercent = getCardUpgradeSuccessRate(currentLevel, usedStone, material?.bonus);
+  const chancePercent = getCardUpgradeSuccessRate(currentLevel, usedStone, material?.bonus, wordId);
   const rollPercent = typeof options.roll === 'number'
     ? Math.max(1, Math.min(100, Math.floor(options.roll)))
     : chancePercent >= 100
@@ -3551,8 +3579,8 @@ export function upgradeWordCard(original, wordId, mode = 'stat', options = {}) {
     effect: describeCardUpgradeEffect(wordId, newLevel),
     usedStone,
     materialId: material?.id,
-    cost: usedStone ? 0 : goldCost,
-    goldCost: usedStone ? 0 : goldCost,
+    cost: goldCost,
+    goldCost,
   };
 }
 
