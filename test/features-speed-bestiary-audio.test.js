@@ -172,25 +172,28 @@ test('Item 3 - Grimoire Compendium: Achievements definitions & persistence', () 
 test('Item 4 - Retro 16-bit Web Audio: SFX synthesizers and presets execute cleanly', () => {
   const audio = new GameAudio({ sfx: 0.8, ui: 0.6, music: 0.4 });
 
-  // In Node.js without AudioContext, play() and event() should safely no-op without exceptions
-  const newPresets = [
-    'chakram',
-    'barrage',
-    'prism-shatter',
-    'boss-phase',
-    'chronos-rewind',
-    'soul-drain',
-    'shield-counter',
+  // In Node.js without AudioContext, play() and combat() should safely no-op without exceptions
+  const presets = [
+    'place', 'remove', 'cast', 'discover', 'ward', 'hit', 'weakness', 'resisted',
+    'wall-slam', 'win', 'lose', 'invalid',
+    'chakram', 'barrage', 'prism-shatter', 'boss-phase', 'chronos-rewind', 'soul-drain', 'shield-counter',
+    'trash-bite', 'trash-strike', 'trash-squish', 'trash-shoot', 'trash-hit', 'trash-kill',
+    'miniboss-strike', 'miniboss-charge', 'miniboss-kill',
+    'boss-strike', 'boss-charge', 'boss-kill',
+    'shield-block', 'shield-heavy-block',
+    'ward-grant', 'armor-shred', 'dispel', 'mana-drain',
+    'coin', 'forge', 'rest', 'potion',
+    'death-spell', 'blackhole-spell', 'meteor-spell',
   ];
 
-  for (const preset of newPresets) {
+  for (const preset of presets) {
     assert.doesNotThrow(() => {
       audio.play(preset);
     }, `audio.play("${preset}") should not throw even when AudioContext is uninitialized`);
   }
 
-  // Event handlers with new event types
-  const newEvents = [
+  // Event handlers with trash mobs, mini-bosses, boss events and elemental spell casts
+  const events = [
     { type: 'chakram' },
     { type: 'barrage' },
     { type: 'boss-phase' },
@@ -198,9 +201,36 @@ test('Item 4 - Retro 16-bit Web Audio: SFX synthesizers and presets execute clea
     { type: 'soul-drain' },
     { type: 'shield-counter' },
     { type: 'prism-shatter' },
+    { type: 'ward-grant' },
+    { type: 'armor-shred', target: 'enemy-0', amount: 2, armor: 1 },
+    { type: 'dispel', target: 'enemy-0', amount: 1 },
+    { type: 'projectile', form: 'shot', element: 'death' },
+    { type: 'projectile', form: 'blackhole', element: 'blackhole' },
+    { type: 'projectile', form: 'meteor', element: 'meteor' },
+    { type: 'attack', sourceKind: 'fire_bat', amount: 4, absorbed: 0 },
+    { type: 'attack', sourceKind: 'frost_slime', amount: 3, absorbed: 0 },
+    { type: 'attack', sourceKind: 'water_sprite', amount: 3, absorbed: 0 },
+    { type: 'attack', sourceKind: 'goblin', amount: 4, absorbed: 0 },
+    { type: 'attack', sourceKind: 'goblin', amount: 0, absorbed: 4 }, // Full shield block (trash)
+    { type: 'attack', sourceKind: 'sentinel', amount: 7, absorbed: 0, isBoss: true, heavy: true },
+    { type: 'attack', sourceKind: 'sentinel', amount: 0, absorbed: 7, isBoss: true, heavy: true }, // Heavy shield block
+    { type: 'attack', sourceKind: 'abyssal_kraken', amount: 12, specialBoss: true },
+    { type: 'attack', sourceKind: 'kraken_siphon_tentacle', amount: 4, manaDrain: 2 },
+    { type: 'charge', sourceKind: 'ember_overlord', specialBoss: true },
+    { type: 'charge', sourceKind: 'charger', isBoss: false },
+    { type: 'charge', sourceKind: 'sentinel', isBoss: true },
+    { type: 'damage', targetKind: 'goblin', isBoss: false, amount: 10, killed: true },
+    { type: 'damage', targetKind: 'sentinel', isBoss: true, amount: 15, killed: true },
+    { type: 'damage', targetKind: 'ember_overlord', isBoss: true, amount: 20, killed: true },
+    { type: 'status', status: 'freeze' },
+    { type: 'status', status: 'chill' },
+    { type: 'status', status: 'burn' },
+    { type: 'status', status: 'sealed' },
+    { type: 'swap' },
+    { type: 'push' },
   ];
 
-  for (const ev of newEvents) {
+  for (const ev of events) {
     assert.doesNotThrow(() => {
       audio.combat(ev);
     }, `audio.combat(${JSON.stringify(ev)}) should not throw`);
@@ -209,5 +239,108 @@ test('Item 4 - Retro 16-bit Web Audio: SFX synthesizers and presets execute clea
   // Ensure audio dispose doesn't throw
   assert.doesNotThrow(() => {
     audio.dispose();
+  });
+});
+
+test('Item 5 - Audio Toggle System and Dynamic BGM Tracks', () => {
+  const storage = createMockStorage();
+
+  // Test settings persistence of audio toggles
+  const initial = loadSettings(storage);
+  assert.equal(initial.muted, false, 'Default muted should be false');
+  assert.equal(initial.musicEnabled, true, 'Default musicEnabled should be true');
+  assert.equal(initial.sfxEnabled, true, 'Default sfxEnabled should be true');
+
+  storeSettings({
+    ...DEFAULT_SETTINGS,
+    muted: true,
+    musicEnabled: false,
+    sfxEnabled: false,
+  }, storage);
+
+  const reloaded = loadSettings(storage);
+  assert.equal(reloaded.muted, true, 'Saved muted should roundtrip');
+  assert.equal(reloaded.musicEnabled, false, 'Saved musicEnabled should roundtrip');
+  assert.equal(reloaded.sfxEnabled, false, 'Saved sfxEnabled should roundtrip');
+
+  // Test GameAudio mute methods and track selection
+  const audio = new GameAudio(reloaded);
+  assert.equal(audio.currentTrack, 'battle', 'Default BGM track should be battle');
+
+  // Track switching
+  audio.setMusicTrack('boss');
+  assert.equal(audio.currentTrack, 'boss', 'Track should switch to boss');
+
+  audio.setMusicTrack('sanctuary');
+  assert.equal(audio.currentTrack, 'sanctuary', 'Track should switch to sanctuary');
+
+  audio.setMusicTrack('unknown');
+  assert.equal(audio.currentTrack, 'sanctuary', 'Invalid track should not change active track');
+
+  // Mute toggle API
+  audio.setMuted(false);
+  assert.equal(audio.settings.muted, false);
+  const toggled = audio.toggleMute();
+  assert.equal(toggled, true);
+  assert.equal(audio.settings.muted, true);
+  assert.equal(audio.toggleMute(), false);
+
+  // music() execution without errors
+  audio.active = true;
+  assert.doesNotThrow(() => {
+    audio.music();
+    audio.setMusicTrack('boss');
+    audio.music();
+    audio.setMusicTrack('battle');
+    audio.music();
+  });
+
+  audio.dispose();
+});
+
+test('Item 6 - Polished Spell Cast VFX: Canvas drawing methods execute cleanly across all forms', () => {
+  // Mock canvas context
+  const mockCtx = {
+    save() {},
+    restore() {},
+    fillRect() {},
+    clearRect() {},
+    drawImage() {},
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    arc() {},
+    ellipse() {},
+    fill() {},
+    stroke() {},
+    globalAlpha: 1,
+    fillStyle: '#000000',
+    strokeStyle: '#ffffff',
+    lineWidth: 1,
+  };
+
+  const bf = Object.create(Battlefield.prototype);
+  bf.ctx = mockCtx;
+  bf.settings = { reducedMotion: false };
+  bf.state = { enemies: [{ id: 'enemy-0' }, { id: 'enemy-1' }] };
+  bf.pixelCircle = () => {};
+  bf.pixelDiamond = () => {};
+  bf.pixelEllipse = () => {};
+  bf.pixelBolt = () => {};
+  bf.drawElementalImpactFlash = () => {};
+  bf.drawHitBurstVfx = () => {};
+
+  // Verify all polished VFX methods execute without error
+  assert.doesNotThrow(() => {
+    bf.drawSpecialVfx('death', 120, 100, 0.45, 1);
+    bf.drawSpecialVfx('meteor', 120, 100, 0.45, 1);
+    bf.drawSpecialVfx('blackhole', 120, 100, 0.45, 1);
+    bf.drawDeathVfx(120, 100, 0.45, 1200);
+    bf.drawChakramVfx(50, 120, 200, 120, 120, 0.5, 0.5, { element: 'fire', size: 1 }, '#29d6ff', 1200);
+    bf.drawChakramVfx(50, 120, 200, 200, 120, 1, 0.8, { element: 'fire', size: 1, damage: { amount: 50 } }, '#29d6ff', 1200);
+    bf.drawBeamVfx(50, 120, 200, 'fire', '#29d6ff', true, 0.5, 1200, { element: 'fire', elements: ['fire', 'ice'] });
+    bf.drawWaveVfx(50, 200, '#ff7722', '#29d6ff', true, 0.5, 'fire', 1200, false, 1);
+    bf.drawStormVfx(150, 'fire', 0.5, 'ice', 1200, false, 1);
+    bf.drawStormVfx(150, 'storm', 0.5, 'lightning', 1200, true, 5);
   });
 });

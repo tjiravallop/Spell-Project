@@ -2473,6 +2473,14 @@ export function useBattleItem(original, beltIndex) {
   const events = [];
   const summary = { roomRecovery: 0 };
 
+  function stripWard(enemy) {
+    const amount = enemy.ward;
+    if (enemy.hp <= 0 || !amount) return 0;
+    enemy.ward = 0;
+    events.push({ type: 'dispel', target: enemy.id, amount });
+    return amount;
+  }
+
   function dealAoeConsumable(amount, element, label, pierceArmor = false) {
     let totalDmg = 0;
     const revisit = isRoomRevisit(state, state.room);
@@ -2599,9 +2607,8 @@ export function useBattleItem(original, beltIndex) {
     for (const enemy of state.enemies.filter(e => e.hp > 0)) enemy.chill += 4;
     effectText = 'โปรยผงหมอกเย็น · ศัตรูทุกตัวหนาว 4';
   } else if (itemId === 'veil_eraser') {
-    const total = state.enemies.reduce((sum, enemy) => sum + (enemy.hp > 0 ? enemy.ward : 0), 0);
+    const total = state.enemies.reduce((sum, enemy) => sum + stripWard(enemy), 0);
     if (!total) throw new Error('ศัตรูไม่มีม่านให้สลาย');
-    for (const enemy of state.enemies) if (enemy.hp > 0) enemy.ward = 0;
     effectText = `โปรยผงสลายม่าน · สลายม่านรวม ${total} ชั้น`;
   } else if (itemId === 'silence_scroll') {
     const targets = state.enemies.filter(enemy => enemy.hp > 0 && !enemy.sealed);
@@ -2649,13 +2656,7 @@ export function useBattleItem(original, beltIndex) {
     for (const enemy of state.enemies.filter(e => e.hp > 0)) enemy.freeze += 1;
     effectText = 'โปรยขวดความเย็นสัมบูรณ์ · แช่แข็งศัตรูทุกตัวในสนาม 1 เทิร์น!';
   } else if (itemId === 'ignite_scroll') {
-    let clearedCount = 0;
-    for (const enemy of state.enemies) {
-      if (enemy.hp > 0 && enemy.ward > 0) {
-        clearedCount += enemy.ward;
-        enemy.ward = 0;
-      }
-    }
+    const clearedCount = state.enemies.reduce((sum, enemy) => sum + stripWard(enemy), 0);
     effectText = `เผาทำลายม่านเวทด้วยม้วนจุดเพลิง · สลายม่านศัตรูรวม ${clearedCount} ชั้น!`;
   } else if (itemId === 'redraw_dust') {
     openHand(state);
@@ -2678,7 +2679,7 @@ export function useBattleItem(original, beltIndex) {
   } else if (itemId === 'pure_lightning_rod') {
     const target = state.enemies.find(e => e.hp > 0);
     if (target) {
-      target.ward = 0;
+      stripWard(target);
       const dmg = Math.min(eternityDamageLimit(state, target), 24);
       target.hp -= dmg;
       events.push({ type: 'damage', target: target.id, amount: dmg, actual: dmg, element: 'lightning', killed: target.hp === 0 });

@@ -524,7 +524,7 @@ export function bindSanctuaryEvents(ctx) {
       const storage = next.player.items.length > state.player.items.length ? 'เข็มขัด' : 'คลังสำรอง';
       ctx.setState(next);
       ctx.persist();
-      ctx.audio.play('discover');
+      ctx.audio.play('coin');
       renderSanctuary(ctx);
       ctx.updateInventoryBadge();
       receipt.textContent = `ซื้อ “${item.name}” แล้ว · เก็บใน${storage}`;
@@ -557,7 +557,7 @@ export function bindSanctuaryEvents(ctx) {
       ctx.persist();
       const reveal = () => {
         forgeImpactTimer = 0;
-        ctx.audio.play(forgeResult.failed ? 'invalid' : 'discover');
+        ctx.audio.play(forgeResult.failed ? 'invalid' : 'forge');
         renderSanctuary(ctx);
         ctx.updateInventoryBadge();
         if (button.disabled) $('forge-word-name').focus({ preventScroll: true });
@@ -593,7 +593,7 @@ export function bindSanctuaryEvents(ctx) {
     try {
       ctx.setState(restAtSanctuary(ctx.getState()));
       ctx.persist();
-      ctx.audio.play('win');
+      ctx.audio.play('rest');
       ctx.toast('พักที่กองไฟแล้ว · HP และมานาเต็ม');
       renderSanctuary(ctx);
       $('sanctuary-next-room-btn').focus({ preventScroll: true });

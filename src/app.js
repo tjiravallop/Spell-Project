@@ -388,6 +388,12 @@ function changeScreen(next) {
     if (el) el.hidden = name !== next;
   }
   audio.active = next !== 'home';
+  if (next === 'sanctuary' || next === 'home' || next === 'reward' || next === 'loadout' || next === 'result') {
+    audio.setMusicTrack('sanctuary');
+  } else if (next === 'battle') {
+    const isBoss = isBossRoom(state) || state?.enemies?.some(e => e.isBoss);
+    audio.setMusicTrack(isBoss ? 'boss' : 'battle');
+  }
   $('settings-open').disabled = busy;
   document.body.dataset.screen = next;
   for (const id of ['guide-open', 'inventory-open']) $(id).disabled = busy;
@@ -926,10 +932,11 @@ function playTurn(result, parsed = null, knownSpell = false, newlyDiscovered = f
   }
 }
 
-function playItemRoomClear(result) {
+function playItemAnimation(result) {
   if (state.phase !== 'battle') return false;
   const eternityEvent = result.summary?.eternityPhase || (state.eternityPhase === 3 && result.state.phase === 'won');
-  if (!eternityEvent && (isBossRoom(state) || (state.room === result.state.room && result.state.phase !== 'reward'))) return false;
+  const wardHit = result.events.some(event => event.type === 'dispel');
+  if (!wardHit && !eternityEvent && (isBossRoom(state) || (state.room === result.state.room && result.state.phase !== 'reward'))) return false;
   $('battle-tools').close();
   playTurn(result);
   return true;
@@ -962,7 +969,9 @@ function finishTurn() {
   const enteredRoom = state.room !== result.state.room;
   state = result.state;
   equipped = [...state.player.words];
-  words = [];
+  const usedWardItem = result.item && !enteredRoom && state.phase === 'battle'
+    && !result.summary?.eternityPhase && result.events.some(event => event.type === 'dispel');
+  words = usedWardItem ? words.filter(id => state.player.hand.includes(id)) : [];
   if (enteredRoom) {
     $('combat-numbers').replaceChildren();
     setCastFx(null);
@@ -1025,6 +1034,7 @@ function finishTurn() {
   } else if (castFxState) {
     castFxTimer = setTimeout(() => setCastFx(null), 2800);
   }
+  if (usedWardItem) toast(`${result.item.icon} ${result.effectText}`);
   if (state.tutorial && (state.room >= roomsPerFloor(state) || ['won', 'lost'].includes(state.phase))) completeTutorial();
   renderLog();
   render();
@@ -1040,6 +1050,8 @@ function updateSettings() {
   settings.music = Number($('music-volume').value) / 100;
   settings.sfx = Number($('sfx-volume').value) / 100;
   settings.ui = Number($('ui-volume').value) / 100;
+  if ($('music-toggle')) settings.musicEnabled = $('music-toggle').checked;
+  if ($('sfx-toggle')) settings.sfxEnabled = $('sfx-toggle').checked;
   settings.reducedMotion = $('reduce-motion').checked;
   settings.tips = $('show-tips').checked;
   if ($('setting-combat-speed')) settings.combatSpeed = Number($('setting-combat-speed').value) || 1;
@@ -1052,6 +1064,20 @@ function applySettings() {
     $(`${bus}-volume`).value = settings[bus] * 100;
     $(`${bus}-output`).textContent = `${Math.round(settings[bus] * 100)}%`;
   }
+  const isMuted = Boolean(settings.muted);
+  const muteBtn = $('audio-mute-toggle');
+  if (muteBtn) {
+    muteBtn.textContent = isMuted ? '🔇' : '🔊';
+    muteBtn.classList.toggle('is-muted', isMuted);
+    muteBtn.title = isMuted ? 'เสียง: ปิดอยู่ (แตะเพื่อเปิด)' : 'เสียง: เปิดอยู่ (แตะเพื่อปิด)';
+    muteBtn.setAttribute('aria-label', isMuted ? 'เปิดเสียง' : 'ปิดเสียง');
+  }
+  const muteAllBtn = $('mute-all');
+  if (muteAllBtn) {
+    muteAllBtn.textContent = isMuted ? 'เปิดเสียงทั้งหมด' : 'ปิดเสียงทั้งหมด';
+  }
+  if ($('music-toggle')) $('music-toggle').checked = settings.musicEnabled !== false && !isMuted;
+  if ($('sfx-toggle')) $('sfx-toggle').checked = settings.sfxEnabled !== false && !isMuted;
   $('reduce-motion').checked = settings.reducedMotion;
   $('show-tips').checked = settings.tips;
   const speed = settings.combatSpeed ?? 1;
@@ -1147,8 +1173,21 @@ $('combos-open').addEventListener('click', () => {
   $('quick-combos').scrollIntoView({ block: 'nearest' });
 });
 $('pause-home').addEventListener('click', () => { $('settings-dialog').close(); showHome(); });
-$('mute-all').addEventListener('click', () => { settings.music = settings.sfx = settings.ui = 0; applySettings(); storeSettings(settings); });
-for (const id of ['music-volume', 'sfx-volume', 'ui-volume', 'reduce-motion', 'show-tips']) $(id).addEventListener('input', updateSettings);
+$('audio-mute-toggle')?.addEventListener('click', () => {
+  const newMuted = audio.toggleMute();
+  settings.muted = newMuted;
+  applySettings();
+  storeSettings(settings);
+  toast(newMuted ? '🔇 ปิดเสียงแล้ว' : '🔊 เปิดเสียงแล้ว');
+});
+$('mute-all').addEventListener('click', () => {
+  settings.muted = !settings.muted;
+  audio.setMuted(settings.muted);
+  applySettings();
+  storeSettings(settings);
+  toast(settings.muted ? '🔇 ปิดเสียงทั้งหมดแล้ว' : '🔊 เปิดเสียงทั้งหมดแล้ว');
+});
+for (const id of ['music-volume', 'sfx-volume', 'ui-volume', 'music-toggle', 'sfx-toggle', 'reduce-motion', 'show-tips']) $(id)?.addEventListener('input', updateSettings);
 $('move-left').addEventListener('click', () => editWord('left'));
 $('move-right').addEventListener('click', () => editWord('right'));
 $('remove-word').addEventListener('click', () => editWord('remove'));
@@ -1344,7 +1383,7 @@ document.addEventListener('click', event => {
     const [source, rawIdx] = String(invUseBtn.dataset.invUse).split(':');
     try {
       const res = useInventoryItem(state, source, Number(rawIdx));
-      if (playItemRoomClear(res)) return;
+      if (playItemAnimation(res)) return;
       if (res.summary?.relicDropped) recentRelicDropId = res.summary.relicDropped;
       state = res.state;
       if (res.summary?.riftCleared) collection = [...state.collection];
@@ -1357,7 +1396,7 @@ document.addEventListener('click', event => {
           targetId = state.enemies.find(e => e.hp > 0)?.id ?? null;
         }
       }
-      persist(); audio.play(res.summary?.riftCleared ? 'win' : 'discover');
+      persist(); audio.play(res.summary?.riftCleared ? 'win' : 'potion');
       modals.renderInventoryModal(); render();
       if (res.summary?.riftCleared) {
         $('battle-tools').close();
@@ -1486,7 +1525,7 @@ document.addEventListener('click', event => {
     const idx = Number(button.dataset.useItem);
     try {
       const res = useBattleItem(state, idx);
-      if (playItemRoomClear(res)) return;
+      if (playItemAnimation(res)) return;
       if (res.summary?.relicDropped) recentRelicDropId = res.summary.relicDropped;
       state = res.state;
       if (res.summary?.riftCleared) collection = [...state.collection];
@@ -1497,7 +1536,7 @@ document.addEventListener('click', event => {
       if (!state.enemies.some(e => e.id === targetId && e.hp > 0)) {
         targetId = state.enemies.find(e => e.hp > 0)?.id ?? null;
       }
-      persist(); audio.play(res.summary?.riftCleared ? 'win' : 'discover');
+      persist(); audio.play(res.summary?.riftCleared ? 'win' : 'potion');
       const droppedRelic = res.summary?.relicDropped
         ? RELIC_DRAFT_CATALOG.find(r => r.id === res.summary.relicDropped)
         : null;

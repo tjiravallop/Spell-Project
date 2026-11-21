@@ -1,8 +1,10 @@
 import { shieldProtection } from './shields.js';
-import { ENEMIES, FLOOR21_START_ROOM, RELIC_DRAFT_CATALOG } from './run.js';
+import { ENEMIES, FLOOR21_START_ROOM, RELIC_DRAFT_CATALOG, getFloorInfo } from './run.js';
 import { elementFamily } from './words.js';
 import { middleSprites } from './middle-sprites.js';
 import { loadSpriteArt, spriteFrame } from './sprite-art.js';
+import { drawTowerFittings, towerArtPalette, towerEnemyArt } from './tower-enemy-art.js';
+import { drawNewTowerSprite } from './tower-pixel-sprites.js';
 
 export const PALETTE = ['#10191b', '#172326', '#203033', '#2b3d3c', '#3b4b46', '#536454', '#718063', '#9da77c', '#cbd5a1', '#eff0c4', '#332d2b', '#514036', '#765740', '#a57a50', '#d3aa6b', '#efd19a', '#4d3036', '#7b464c', '#b46c67', '#e29d83', '#3d374e', '#60516f', '#907ba6', '#bca5d2', '#335250', '#53857b', '#8bb7a0', '#b7d9bd', '#7e512e', '#b98745', '#e4b659', '#f5db87'];
 const C = PALETTE;
@@ -147,6 +149,18 @@ export class Battlefield {
   set(state, target) {
     this.state = state;
     this.target = target;
+    const floor = state ? getFloorInfo(state.room, state.rooms?.length).floor : 0;
+    if (floor !== this.artFloor) {
+      this.artFloor = floor;
+      this.enemyPalette = towerArtPalette(floor, C);
+      this.alternateEnemyPalette = towerArtPalette(floor, C, true);
+    }
+    this.alternateEnemyIds = new Set();
+    const seenKinds = new Set();
+    for (const enemy of state?.enemies ?? []) {
+      if (seenKinds.delete(enemy.kind)) this.alternateEnemyIds.add(enemy.id);
+      else seenKinds.add(enemy.kind);
+    }
     if (state && !this.settings.reducedMotion && this.canvas.id === 'battle-canvas') {
       for (const sheet of Object.values(combatSpriteSheets)) {
         sheet.image ??= new Image();
@@ -268,8 +282,9 @@ export class Battlefield {
       if (ev.type === 'magma-erupt') oldPuddles.delete(ev.slot);
       if (ev.type === 'blackhole-open') newBlackhole = ev.slot;
       if (ev.type === 'blast' && ev.element === 'blackhole') oldBlackhole = undefined;
-      if (ev.type === 'projectile' && ev.blocked && ev.target) {
-        curWards[ev.target] = Math.max(0, (curWards[ev.target] ?? 0) - 1);
+      if ((ev.type === 'dispel' || (ev.type === 'projectile' && ev.blocked)) && ev.target) {
+        const removed = ev.type === 'dispel' ? ev.amount : 1;
+        curWards[ev.target] = Math.max(0, (curWards[ev.target] ?? 0) - removed);
         ev.wardRemaining = curWards[ev.target];
       }
       this.contacts.push({ event: ev, at: contact, index: i });
@@ -294,7 +309,6 @@ export class Battlefield {
           }
         }
       }
-      if (ev.type === 'dispel') curWards[ev.target] = 0;
       if (ev.type === 'shield') curProtection = ev.protection ?? ev;
       else if (ev.type === 'brace') curProtection = ev.protection;
       else if (ev.type === 'attack' || ev.type === 'mirror-reflect' || ev.type === 'ember-thorns' || ev.type === 'storm-static' || ev.type === 'nether-curse' || ev.type === 'cosmic-echo') curProtection = ev.protection;
@@ -385,7 +399,7 @@ export class Battlefield {
     for (let i = 0; i < 9; i++) r(22 + i * 7, 146 + (i % 2 ? -4 : 5), 2, 2, C[5]);
     r(309, 10, 2, 28, C[3]); r(301, 16, 8, 2, C[3]); r(301, 18, 2, 5, C[3]);
   }
-  sprite(kind, x, baseline, frame, pose = 'idle', hitElement = null, progress = 0) {
+  sprite(kind, x, baseline, frame, pose = 'idle', hitElement = null, progress = 0, alternate = false) {
     const g = this.ctx;
     const boss = LARGE_BOSS_KINDS.has(kind);
     const originalKind = kind;
@@ -400,11 +414,21 @@ export class Battlefield {
       g.fillStyle = C[4]; g.fillRect(x - width / 2, baseline - 3, width, 3);
       return;
     }
+    const palette = originalKind === 'wizard' ? C : (alternate ? this.alternateEnemyPalette : this.enemyPalette) ?? C;
+    const idleFrame = this.settings.reducedMotion ? 0 : frame;
+    if (this.artFloor >= 6) {
+      if (drawNewTowerSprite(originalKind, r, palette, pose, idleFrame, this.settings.reducedMotion, alternate)) return;
+      if (Object.hasOwn(towerEnemyArt, originalKind)) {
+        towerEnemyArt[originalKind](r, palette, pose, idleFrame);
+        return;
+      }
+    }
     const art = spriteFrame(originalKind, pose, frame, progress, this.settings.reducedMotion);
     const image = this.spriteArt[originalKind];
     if (art && image?.complete && image.naturalWidth) {
       g.drawImage(image, art.index * art.size, art.row * art.size, art.size, art.size,
         Math.round(x - art.pivot[0]), Math.round(baseline - art.pivot[1]), art.size, art.size);
+      drawTowerFittings(originalKind, this.artFloor ?? 0, r, palette);
       return;
     }
     if (kind === 'wizard') {
@@ -416,7 +440,9 @@ export class Battlefield {
       r(27, 9, 2, 23, C[13]); r(25, 5, 6, 7, C[25]); r(26, 6, 4, 4, C[27]);
       r(26, 4, 4, 1, C[7]); r(9, 6, 3, 1, C[14]);
     } else if (Object.hasOwn(middleSprites, kind)) {
-      middleSprites[kind](r, C, pose, this.settings.reducedMotion ? 0 : frame);
+      const colors = kind === 'eternity_overlord' || kind === 'eternity_reborn' ? C : palette;
+      middleSprites[kind](r, colors, pose, idleFrame);
+      drawTowerFittings(originalKind, this.artFloor ?? 0, r, colors);
     } else if (kind === 'swarm') {
       r(6, 17, 20, 3, C[5]); r(3, 20, 26, 8, C[6]); r(1, 26, 30, 4, C[5]); r(4, 29, 25, 3, C[4]);
       r(7, 20, 6, 3, C[8]); r(9, 24, 3, 3, C[0]); r(21, 24, 3, 3, C[0]); r(15, 28, 4, 1, C[0]);
@@ -832,6 +858,7 @@ export class Battlefield {
     }
 
     if (this.state) this.state.enemies.forEach((enemy, index) => {
+      const alternateArt = this.alternateEnemyIds?.has(enemy.id);
       const x = positions[index];
       let moveSlot;
       if (event?.type === 'swap' && event.source === enemy.id) moveSlot = event.sourceSlot;
@@ -863,11 +890,13 @@ export class Battlefield {
       }
 
       const ward = snap ? (snap.wards[enemy.id] ?? enemy.ward) : enemy.ward;
-      const wardBroke = enemy.kind === 'elite' && event?.type === 'projectile' && event.target === enemy.id
-        && event.blocked && event.wardRemaining === 0 && impact;
-      const artProgress = wardBroke && !this.settings.reducedMotion ? Math.max(0, (progress - 0.65) / 0.35) : progress;
+      const wardHit = ward > 0 && impact && event?.target === enemy.id
+        && (event.type === 'dispel' || (event.type === 'projectile' && event.blocked));
+      const wardBroke = wardHit && event.wardRemaining === 0;
+      const wardProgress = this.settings.reducedMotion ? 0 : (progress - contactDelay / segment) / (1 - contactDelay / segment);
+      const artProgress = wardBroke ? wardProgress : progress;
       const supporting = enemy.kind === 'support' && event?.type === 'heal' && event.source === enemy.id;
-      const pose = gone ? 'dead' : wardBroke ? 'break' : attacking || supporting ? 'attack'
+      const pose = gone ? 'dead' : wardBroke && enemy.kind === 'elite' ? 'break' : attacking || supporting ? 'attack'
         : enemy.kind === 'prism_crab' ? (enemy.armor <= 1 ? 'exposed' : 'idle')
         : hurt ? 'hurt' : ['charger', 'sentinel', 'rune_golem', 'storm_titan'].includes(enemy.kind) && charging ? 'charge'
         : ['charger', 'sentinel', 'rune_golem', 'storm_titan'].includes(enemy.kind) && this.state.turn % 2 === 0 ? 'ready'
@@ -876,11 +905,11 @@ export class Battlefield {
       if (attacking && lunge < -4 && !this.settings.reducedMotion) {
         g.save();
         g.globalAlpha = 0.28;
-        this.sprite(enemy.kind, x + Math.round(lunge * 0.45), 146, frame, 'attack', null, progress);
+        this.sprite(enemy.kind, x + Math.round(lunge * 0.45), 146, frame, 'attack', null, progress, alternateArt);
         g.restore();
       }
 
-      this.sprite(enemy.kind, spriteX, 146, gone ? deathFrame : frame, pose, hurt ? hurtElement : null, artProgress);
+      this.sprite(enemy.kind, spriteX, 146, gone ? deathFrame : frame, pose, hurt ? hurtElement : null, artProgress, alternateArt);
 
       if ((enemy.hp > 0 && !dead?.has(enemy.id)) && ward > 0) {
         const isLargeBoss = LARGE_BOSS_KINDS.has(enemy.kind);
@@ -888,16 +917,14 @@ export class Battlefield {
           ? spriteFrame('elite', pose, frame, artProgress, this.settings.reducedMotion) : null;
         const wardX = bossArt ? Math.round(spriteX - bossArt.pivot[0] + bossArt.wardCenter[0]) : x;
         const top = bossArt ? Math.round(146 - bossArt.pivot[1] + bossArt.wardCenter[1] - 30) : isLargeBoss ? 74 : 103;
-        const contact = event?.type === 'projectile' && event.target === enemy.id && impact;
-        const blocked = contact && event.blocked;
-        const width = bossArt ? 50 : isLargeBoss ? 58 : 42;
-        if (!blocked || ward > 1) {
-          this.barrier(wardX, top, width, '#d6a2ff', false, 'ward', now, 1, false);
-        }
-        if (blocked) {
-          if (!this.settings.reducedMotion) this.drawWardImpact(wardX, top, width, ward === 1, (progress - 0.65) / 0.35);
-          this.barrierLabel(wardX, top - 6, wardLabel(event.wardRemaining), '#d6a2ff');
-        } else if (contact && event.form === 'beam') {
+        const width = this.enemyWardWidth(enemy);
+        const remaining = wardHit ? event.wardRemaining : ward;
+        if (remaining) this.drawEnemyWard(wardX, top, width, remaining);
+        if (wardHit) {
+          if (!this.settings.reducedMotion) this.drawWardImpact(wardX, top, width, wardBroke, wardProgress);
+          const label = event.type === 'dispel' ? `สลายม่าน −${event.amount} ชั้น` : wardLabel(remaining);
+          this.barrierLabel(wardX, top - 6, label, wardBroke ? '#f9eeff' : '#d6a2ff');
+        } else if (impact && event?.type === 'projectile' && event.target === enemy.id && event.form === 'beam') {
           this.barrierLabel(wardX, top - 6, 'ทะลุม่าน', '#d6a2ff');
         }
       }
@@ -989,10 +1016,10 @@ export class Battlefield {
     if (event) {
       const fraction = this.settings.reducedMotion ? 1 : progress;
       const x = eventX;
-      if (event.type === 'dispel' || event.type === 'seal' || event.type === 'ward-grant') {
+      if (event.type === 'seal' || event.type === 'ward-grant') {
         const targetIndex = this.state.enemies.findIndex(enemy => enemy.id === event.target);
         const targetX = positions[targetIndex] ?? x;
-        const label = event.type === 'dispel' ? `สลายม่าน ${event.amount} ชั้น` : event.type === 'seal' ? 'ติดผนึก' : 'ม่านเทิร์นหน้า';
+        const label = event.type === 'seal' ? 'ติดผนึก' : 'ม่านเทิร์นหน้า';
         if (!this.settings.reducedMotion && event.type !== 'ward-grant') this.drawModifierVfx(event.type, targetX, 120, fraction, true);
         this.barrierLabel(targetX, 94, label, '#d6a2ff');
       }
@@ -1000,7 +1027,9 @@ export class Battlefield {
         const travel = Math.min(1, fraction / 0.65);
         const startX = 76;
         const startY = 120;
-        const px = Math.round(startX + (x - startX) * travel);
+        const target = event.blocked && (event.form === 'shot' || event.form === 'chakram')
+          ? x - this.enemyWardWidth(this.state.enemies[eventTargetIndex]) / 2 + 3 : x;
+        const px = Math.round(startX + (target - startX) * travel);
         const arcLift = event.form === 'shot' ? Math.sin(travel * Math.PI) * 16 : 0;
         const py = Math.round(startY - arcLift);
         const color = elementColor[event.element] ?? C[30];
@@ -1017,9 +1046,9 @@ export class Battlefield {
         } else if (event.form === 'storm') {
           this.drawStormVfx(x, event.element, fraction, event.elements?.[1], now, Boolean(event.grand), projScale);
         } else if (event.form === 'chakram') {
-          this.drawChakramVfx(startX, startY, x, px, py, travel, fraction, event, secondColor, now);
+          this.drawChakramVfx(startX, startY, target, px, py, travel, fraction, event, secondColor, now);
         } else {
-          this.drawShotVfx(startX, startY, x, px, py, travel, fraction, event, secondColor, now);
+          this.drawShotVfx(startX, startY, target, px, py, travel, fraction, event, secondColor, now);
         }
         if (!this.settings.reducedMotion) {
           for (const modifier of event.visualModifiers ?? []) {
@@ -3096,31 +3125,51 @@ export class Battlefield {
     this.drawFloatingPopup(x, y, label, C[9], color);
   }
 
+  enemyWardWidth(enemy) {
+    if (enemy?.kind === 'elite') return 50;
+    return LARGE_BOSS_KINDS.has(enemy?.kind) ? 58 : 42;
+  }
+
+  drawEnemyWard(x, top, width, layers) {
+    const g = this.ctx;
+    const pal = ELEMENT_IMPACT.ward;
+    this.barrier(x, top, width, pal.primary, false, 'ward');
+    for (let i = 0; i < layers; i++) {
+      const px = x + (i - (layers - 1) / 2) * 7;
+      this.pixelDiamond(px, 150, 2, pal.secondary, pal.rim);
+    }
+    g.fillStyle = pal.rim;
+    g.fillRect(Math.round(x - width / 2) + 2, 118, 2, 5);
+  }
+
   drawWardImpact(x, top, width, broke, progress) {
     const g = this.ctx;
     const pal = ELEMENT_IMPACT.ward;
     const radius = width / 2;
-    const p = Math.max(0, progress);
-    const y = Math.round((top + 148) / 2);
+    const p = Math.max(0, Math.min(1, progress));
+    const y = 120;
     const contact = x - radius + 3;
     g.save();
-    if (broke && p < 0.42) {
-      g.globalAlpha = 1 - p / 0.42;
-      this.barrier(x, top, width, pal.primary, false, 'ward', 0, 1, false);
-      g.globalAlpha = 1 - p / 0.42;
-      this.pixelBolt(contact, y, x + radius * 0.65, y - 9, 2, pal.secondary, pal.core);
-      this.pixelBolt(x - 4, y - 4, x + 5, top + 5, 4, pal.secondary, pal.core);
-      this.pixelBolt(x - 4, y - 4, x + 10, y + 14, 3, pal.secondary, pal.core);
+    if (p < 0.35) {
+      g.globalAlpha = 1 - p / 0.35;
+      this.pixelDiamond(contact, y, broke ? 8 : 5, pal.primary, pal.core);
+      if (broke) {
+        this.pixelBolt(contact, y, x + radius * 0.65, y - 9, 2, pal.secondary, pal.core);
+        this.pixelBolt(x - 4, y - 4, x + 5, top + 7, 4, pal.secondary, pal.core);
+        this.pixelBolt(x - 4, y - 4, x + 10, y + 14, 3, pal.secondary, pal.core);
+      }
     }
-    g.globalAlpha = 1 - p;
-    this.pixelCircle(contact, y, Math.round(4 + p * 16), pal.rim, false);
-    const count = broke ? 12 : 5;
+    g.globalAlpha = (1 - p) ** 1.4;
+    const travel = 1 - (1 - p) ** 2;
+    this.pixelCircle(contact, y, Math.round(4 + travel * (broke ? 19 : 12)), pal.rim, false);
+    const count = broke ? 12 : 4;
     for (let i = 0; i < count; i++) {
-      const angle = i * Math.PI * 2 / count;
-      const spread = p * (10 + (i * 7) % 15);
-      const sx = x + Math.cos(angle) * ((broke ? radius - 4 : 5) + spread) - (broke ? 0 : radius - 3);
-      const sy = y + Math.sin(angle) * ((broke ? (148 - top) * 0.37 : 6) + spread) + p * p * 14;
-      this.pixelDiamond(sx, sy, p < 0.56 && broke ? 3 : 1, pal.primary, pal.core);
+      const angle = broke ? i * Math.PI * 2 / count : Math.PI * (0.65 + i * 0.23);
+      const spread = travel * (9 + (i * 7) % 14);
+      const sx = (broke ? x : contact) + Math.cos(angle) * ((broke ? radius - 5 : 3) + spread);
+      const sy = y + Math.sin(angle) * ((broke ? (148 - top) * 0.38 : 3) + spread) + p * p * 11;
+      const size = broke && p < 0.65 ? 2 + i % 2 : 1;
+      this.pixelDiamond(sx, sy, size, pal.primary, pal.core);
     }
     g.restore();
   }

@@ -43,7 +43,7 @@ export const SAVE_KEY = 'spell-foundry.run.v2';
 export const BACKUP_KEY = 'spell-foundry.backup.v2';
 export const SETTINGS_KEY = 'spell-foundry.settings.v1';
 export const PROFILE_KEY = 'spell-foundry.profile.v1';
-export const DEFAULT_SETTINGS = { music: 0.35, sfx: 0.65, ui: 0.45, reducedMotion: false, tips: true, combatSpeed: 1 };
+export const DEFAULT_SETTINGS = { music: 0.35, sfx: 0.65, ui: 0.45, muted: false, musicEnabled: true, sfxEnabled: true, reducedMotion: false, tips: true, combatSpeed: 1 };
 const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
 const phases = ['battle', 'reward', 'loadout', 'sanctuary', 'won', 'lost'];
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -366,7 +366,7 @@ export function loadSettings(storage) {
     const settings = { ...DEFAULT_SETTINGS };
     if (!object(saved)) return settings;
     for (const key of ['music', 'sfx', 'ui']) if (Number.isFinite(saved[key]) && saved[key] >= 0 && saved[key] <= 1) settings[key] = saved[key];
-    for (const key of ['reducedMotion', 'tips']) if (typeof saved[key] === 'boolean') settings[key] = saved[key];
+    for (const key of ['muted', 'musicEnabled', 'sfxEnabled', 'reducedMotion', 'tips']) if (typeof saved[key] === 'boolean') settings[key] = saved[key];
     if ([1, 2, 3].includes(saved.combatSpeed)) settings.combatSpeed = saved.combatSpeed;
     return settings;
   } catch { return { ...DEFAULT_SETTINGS }; }

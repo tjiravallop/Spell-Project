@@ -391,7 +391,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const projectedArmor = forecast?.ok ? forecast.summary.enemyArmorAfterTurn?.[enemy.id] ?? enemy.armor : enemy.armor;
     const armorText = projectedArmor < enemy.armor ? `${enemy.armor} → ${projectedArmor}` : enemy.armor;
     if (enemy.armor > 0 || enemy.permanentArmorShred) badges.push(`<span class="enemy-badge badge-armor badge-armor-value" title="เกราะลดความเสียหายต่อการโจมตีหนึ่งครั้ง${enemy.permanentArmorShred ? ` · ถูกทุบถาวร ${enemy.permanentArmorShred} หน่วยในศึกนี้` : ''}">🛡 เกราะ ${armorText}</span>`);
-    if (enemy.ward > 0) badges.push(`<span class="enemy-badge badge-ward" title="ม่านกันกระสุน 1 ลูกต่อชั้น ลำแสงทะลุม่านได้">🔮 ม่าน ${enemy.ward}</span>`);
+    if (enemy.ward > 0) badges.push(`<span class="enemy-badge badge-ward" data-ward-layers title="ม่านกันกระสุน 1 ลูกต่อชั้น ลำแสงทะลุม่านได้">🔮 ม่าน ${enemy.ward}</span>`);
     const exposedPct = enemy.kind === 'eternity_reborn' ? 50 : RIFT_EXPOSED_BONUS;
     const exposedHint = (isRiftBossExposed(enemy.kind, state.turn) || enemy.netherExposedTurn === state.turn)
       ? `เปิดช่อง · รับดาเมจเวทเพิ่ม ${exposedPct}%`

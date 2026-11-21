@@ -13,6 +13,19 @@
   },
   "assets": [
     {
+      "id": "tower-pixel-sprites",
+      "source": "src/tower-pixel-sprites.js",
+      "size": [32, 32],
+      "states": ["idle", "attack", "charge", "hurt"],
+      "notes": "34 original hand-drawn silhouettes for existing tower enemies. Pixel masks read on the native battlefield grid and reuse its ground anchor, boss scaling, and animation states."
+    },
+    {
+      "id": "tower-enemy-variants",
+      "source": "src/tower-enemy-art.js",
+      "size": [32, 32],
+      "notes": "Original Canvas pixel art and floor palettes for floors 6–100, drawn on the same grid as the base enemies."
+    },
+    {
       "id": "wizard",
       "source": "src/render.js sprite",
       "size": [

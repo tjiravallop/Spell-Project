@@ -361,6 +361,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const event = {
       type: 'damage',
       target: enemy.id,
+      targetKind: enemy.kind,
+      isBoss: Boolean(enemy.isBoss),
       amount,
       actual,
       element,
@@ -1524,6 +1526,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         label: action.label,
         source: enemy.id,
         sourceKind: enemy.kind,
+        isBoss: Boolean(enemy.isBoss),
         specialBoss: isSpecialBoss,
         ultimate: isSpecialBoss,
       });

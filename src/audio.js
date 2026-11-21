@@ -1,5 +1,34 @@
 import { elementFamily, FUSION_COMPONENTS } from './words.js';
 
+export const MAJOR_BOSS_KINDS = new Set([
+  'ember_overlord', 'tempest_archon', 'crown_archivist', 'mirror_regent',
+  'loom_sovereign', 'volcano_colossus', 'thunder_drake_emperor',
+  'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn',
+]);
+
+export const MINI_BOSS_KINDS = new Set([
+  'elite', 'sentinel', 'boss', 'charger',
+  'arch_codex', 'elder_grimoire', 'nexus_codex', 'mirror_mage', 'eclipse_mage',
+  'flame_viper', 'rime_gargoyle', 'ice_maiden', 'shock_sentinel', 'lightning_stalker',
+  'gale_strider', 'wind_dancer', 'dune_beast', 'coral_scuttler', 'tide_lurker',
+  'spark_wraith', 'ancient_chitin_behemoth', 'venom_spore_beast', 'crag_titan_sentinel',
+  'kraken_crush_tentacle', 'kraken_siphon_tentacle', 'kraken_storm_tentacle', 'kraken_tidal_tentacle',
+  'nether_doom_pillar', 'nether_ward_pillar', 'nether_siphon_pillar',
+  'dread_reaper', 'void_devourer', 'zenith_templar', 'chronos_keeper', 'chaos_weaver',
+]);
+
+export const BEAST_TRASH_KINDS = new Set([
+  'fire_bat', 'ice_wolf', 'cinder_bat', 'volt_skitterer', 'breeze_raptor', 'ash_goblin', 'swarm', 'sand_stalker', 'ember_imp',
+]);
+
+export const SLIME_TRASH_KINDS = new Set([
+  'frost_slime', 'magma_slime', 'mudmire',
+]);
+
+export const RANGED_TRASH_KINDS = new Set([
+  'water_sprite', 'wind_crow', 'spark_scout', 'spore_spitter', 'echo_wraith', 'breeze_dancer',
+]);
+
 export class GameAudio {
   constructor(settings = {}) {
     this.settings = settings;
@@ -12,6 +41,8 @@ export class GameAudio {
     this.buses = null;
     this.musicDuckGain = null;
     this.interval = null;
+    this.currentTrack = 'battle';
+    this.trackTempos = { battle: 520, boss: 420, sanctuary: 640 };
   }
 
   async unlock() {
@@ -73,16 +104,48 @@ export class GameAudio {
   }
 
   configure(settings = {}) {
-    this.settings = settings;
+    this.settings = { ...this.settings, ...settings };
     if (!this.buses || !this.context) return;
     const t = this.context.currentTime;
+    const isMasterMuted = Boolean(this.settings.muted);
+    const isMusicMuted = isMasterMuted || this.settings.musicEnabled === false;
+    const isSfxMuted = isMasterMuted || this.settings.sfxEnabled === false;
+
+    if (this.master) {
+      this.master.gain.setTargetAtTime(isMasterMuted ? 0 : 0.28, t, 0.03);
+    }
+
     for (const key of ['music', 'sfx', 'ui']) {
       if (this.buses[key]) {
-        const slider = Math.max(0, Math.min(1, Number(settings[key]) ?? 1));
-        // Square slider value for natural logarithmic perceived volume curve
-        const targetGain = slider ** 2 * (key === 'music' ? 0.24 : 0.85);
+        const slider = Math.max(0, Math.min(1, Number(this.settings[key]) ?? 1));
+        const muted = key === 'music' ? isMusicMuted : isSfxMuted;
+        const targetGain = muted ? 0 : (slider ** 2 * (key === 'music' ? 0.24 : 0.85));
         this.buses[key].gain.setTargetAtTime(targetGain, t, 0.03);
       }
+    }
+  }
+
+  toggleMute() {
+    this.settings.muted = !this.settings.muted;
+    this.configure(this.settings);
+    return this.settings.muted;
+  }
+
+  setMuted(muted) {
+    this.settings.muted = Boolean(muted);
+    this.configure(this.settings);
+    return this.settings.muted;
+  }
+
+  setMusicTrack(trackName) {
+    if (!['battle', 'boss', 'sanctuary'].includes(trackName)) return;
+    if (this.currentTrack === trackName) return;
+    this.currentTrack = trackName;
+    this.step = 0;
+    if (this.interval) {
+      clearInterval(this.interval);
+      const tempo = this.trackTempos[trackName] ?? 520;
+      this.interval = setInterval(() => this.music(), tempo);
     }
   }
 
@@ -189,16 +252,17 @@ export class GameAudio {
     try {
       if (name === 'place' || name === 'select') navigator.vibrate(15);
       else if (name === 'remove') navigator.vibrate(10);
-      else if (name === 'cast') navigator.vibrate(22);
-      else if (name === 'chakram') navigator.vibrate([15, 20, 25]);
+      else if (name === 'cast' || name === 'chakram' || name === 'trash-strike' || name === 'trash-bite') navigator.vibrate(20);
+      else if (name === 'hit' || name === 'trash-hit' || name === 'armor-shred' || name === 'shield-block') navigator.vibrate(25);
       else if (name === 'barrage') navigator.vibrate([10, 15, 10, 15, 20]);
       else if (name === 'prism-shatter') navigator.vibrate([20, 30, 40]);
-      else if (name === 'boss-phase') navigator.vibrate([40, 60, 50]);
+      else if (name === 'miniboss-charge' || name === 'miniboss-strike' || name === 'miniboss-kill') navigator.vibrate([30, 25, 45]);
+      else if (name === 'boss-phase' || name === 'boss-strike' || name === 'boss-kill') navigator.vibrate([45, 30, 60]);
       else if (name === 'weakness') navigator.vibrate([25, 40, 35]);
-      else if (name === 'hit') navigator.vibrate(15);
       else if (name === 'wall-slam') navigator.vibrate([20, 25, 20]);
-      else if (name === 'win' || name === 'discover') navigator.vibrate([15, 30, 20]);
+      else if (name === 'win' || name === 'discover' || name === 'coin' || name === 'forge') navigator.vibrate([15, 30, 20]);
       else if (name === 'invalid') navigator.vibrate([10, 30, 10]);
+      else if (name === 'potion' || name === 'rest') navigator.vibrate([15, 25]);
     } catch {}
   }
 
@@ -324,6 +388,162 @@ export class GameAudio {
       this.tone(140, 0.38, 'sfx', 'triangle', 0.02, 55, { gain: 0.30 });
       this.noise(0.32, { bus: 'sfx', filterType: 'bandpass', filterFreq: 600, filterEndFreq: 180, gain: 0.28 });
     }
+    else if (name === 'shield-counter') {
+      this.tone(820, 0.10, 'sfx', 'triangle', 0, 410, { gain: 0.26 });
+      this.noise(0.06, { bus: 'sfx', filterType: 'highpass', filterFreq: 2000, gain: 0.20 });
+    }
+    else if (name === 'trash-bite' || name === 'trash-strike') {
+      // Beast / Vermin swift claw swipe or bite
+      this.tone(360, 0.075, 'sfx', 'sawtooth', 0, 130, { gain: 0.28 });
+      this.noise(0.045, { bus: 'sfx', filterType: 'bandpass', filterFreq: 1800, gain: 0.18 });
+    }
+    else if (name === 'trash-squish') {
+      // Slime squishy blunt strike
+      this.tone(150, 0.11, 'sfx', 'triangle', 0, 55, { gain: 0.32 });
+      this.noise(0.06, { bus: 'sfx', filterType: 'bandpass', filterFreq: 420, filterQ: 2, gain: 0.22 });
+    }
+    else if (name === 'trash-shoot') {
+      // Ranged sprite / spore spit
+      this.tone(580, 0.08, 'sfx', 'sine', 0, 260, { gain: 0.25 });
+      this.noise(0.05, { bus: 'sfx', filterType: 'highpass', filterFreq: 2400, gain: 0.15 });
+    }
+    else if (name === 'trash-hit') {
+      // General trash mob physical hit
+      this.subThump(0.12, 85, 38, 0.35);
+      this.tone(260, 0.065, 'sfx', 'square', 0, 95, { gain: 0.24 });
+      this.noise(0.06, { bus: 'sfx', filterType: 'bandpass', filterFreq: 750, gain: 0.22 });
+    }
+    else if (name === 'trash-kill') {
+      // Satisfying 16-bit retro enemy vanish pop
+      this.tone(440, 0.09, 'sfx', 'square', 0, 90, { gain: 0.26 });
+      this.noise(0.08, { bus: 'sfx', filterType: 'bandpass', filterFreq: 1200, filterQ: 1.5, gain: 0.22 });
+    }
+    else if (name === 'miniboss-strike') {
+      // Heavy cleaving attack from mini-bosses
+      this.duckMusic(0.35, 0.35);
+      this.subThump(0.28, 95, 28, 0.52);
+      this.tone(240, 0.18, 'sfx', 'sawtooth', 0, 65, { gain: 0.40 });
+      this.noise(0.14, { bus: 'sfx', filterType: 'lowpass', filterFreq: 420, gain: 0.36 });
+    }
+    else if (name === 'miniboss-charge') {
+      // Ominous warning hum when mini-boss powers up
+      this.tone(180, 0.30, 'sfx', 'triangle', 0, 480, { gain: 0.28, attack: 0.04 });
+      this.tone(220, 0.26, 'sfx', 'sine', 0.04, 550, { gain: 0.20 });
+      this.noise(0.20, { bus: 'sfx', filterType: 'bandpass', filterFreq: 650, filterEndFreq: 1400, gain: 0.16 });
+    }
+    else if (name === 'miniboss-kill') {
+      // Rewarding 2-stage defeat sound with crystal sparkles
+      this.duckMusic(0.25, 0.5);
+      this.subThump(0.32, 105, 26, 0.56);
+      this.noise(0.22, { bus: 'sfx', filterType: 'lowpass', filterFreq: 480, gain: 0.35 });
+      [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+        this.tone(f, 0.32, 'sfx', 'sine', 0.12 + i * 0.045, f * 1.01, { gain: 0.22 });
+      });
+    }
+    else if (name === 'boss-strike') {
+      // Seismic earth-shaking strike from major floor bosses
+      this.duckMusic(0.2, 0.55);
+      this.subThump(0.42, 125, 22, 0.65);
+      this.tone(220, 0.28, 'sfx', 'sawtooth', 0, 45, { gain: 0.45 });
+      this.noise(0.25, { bus: 'sfx', filterType: 'lowpass', filterFreq: 360, gain: 0.48 });
+    }
+    else if (name === 'boss-charge') {
+      this.duckMusic(0.3, 0.45);
+      this.tone(140, 0.35, 'sfx', 'sawtooth', 0, 380, { gain: 0.36 });
+      this.tone(260, 0.32, 'sfx', 'triangle', 0.05, 520, { gain: 0.30 });
+      this.subThump(0.32, 65, 28, 0.40);
+    }
+    else if (name === 'boss-kill') {
+      this.duckMusic(0.15, 0.85);
+      this.subThump(0.55, 130, 20, 0.70);
+      this.noise(0.45, { bus: 'sfx', filterType: 'lowpass', filterFreq: 320, gain: 0.50 });
+      [329.63, 392.00, 523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+        this.tone(f, 0.45, 'sfx', 'triangle', 0.18 + i * 0.06, f, { gain: 0.26 });
+        this.tone(f * 2, 0.35, 'sfx', 'sine', 0.20 + i * 0.06, f * 2, { gain: 0.16 });
+      });
+    }
+    else if (name === 'shield-block') {
+      // Clean energetic shield deflect ping when absorbing 100% of damage
+      this.tone(780, 0.09, 'sfx', 'sine', 0, 1180, { gain: 0.28 });
+      this.tone(390, 0.11, 'sfx', 'triangle', 0.01, 780, { gain: 0.22 });
+      this.noise(0.05, { bus: 'sfx', filterType: 'highpass', filterFreq: 2200, gain: 0.18 });
+    }
+    else if (name === 'shield-heavy-block') {
+      // Heavy shield deflection against mini-bosses
+      this.subThump(0.20, 95, 38, 0.40);
+      this.tone(520, 0.14, 'sfx', 'triangle', 0, 880, { gain: 0.30 });
+      this.tone(180, 0.18, 'sfx', 'sawtooth', 0.01, 85, { gain: 0.26 });
+      this.noise(0.08, { bus: 'sfx', filterType: 'bandpass', filterFreq: 1400, gain: 0.24 });
+    }
+    else if (name === 'ward-grant') {
+      // Ethereal protective shimmer
+      [783.99, 1046.50, 1318.51].forEach((f, i) => {
+        this.tone(f, 0.22, 'sfx', 'sine', i * 0.04, f * 1.02, { gain: 0.20 });
+      });
+      this.noise(0.12, { bus: 'sfx', filterType: 'bandpass', filterFreq: 2000, gain: 0.14 });
+    }
+    else if (name === 'armor-shred') {
+      // Crunchy armor crack
+      this.tone(170, 0.15, 'sfx', 'sawtooth', 0, 55, { gain: 0.34 });
+      this.subThump(0.16, 90, 32, 0.38);
+      this.noise(0.12, { bus: 'sfx', filterType: 'bandpass', filterFreq: 950, filterQ: 2, gain: 0.30 });
+    }
+    else if (name === 'dispel') {
+      // Shimmering glass ward shatter
+      this.tone(1320, 0.14, 'sfx', 'sine', 0, 440, { gain: 0.28 });
+      this.tone(880, 0.18, 'sfx', 'triangle', 0.02, 220, { gain: 0.22 });
+      this.noise(0.10, { bus: 'sfx', filterType: 'highpass', filterFreq: 2400, gain: 0.24 });
+    }
+    else if (name === 'mana-drain') {
+      // Sinister reverse suction drone
+      this.tone(420, 0.24, 'sfx', 'sawtooth', 0, 140, { gain: 0.32 });
+      this.tone(210, 0.28, 'sfx', 'triangle', 0.02, 70, { gain: 0.26 });
+      this.noise(0.20, { bus: 'sfx', filterType: 'bandpass', filterFreq: 750, filterEndFreq: 250, gain: 0.24 });
+    }
+    else if (name === 'coin') {
+      // Sanctuary shop coin jingle
+      this.tone(987.77, 0.07, 'ui', 'sine', 0, 987.77, { gain: 0.25 });
+      this.tone(1318.51, 0.25, 'ui', 'sine', 0.06, 1318.51, { gain: 0.28 });
+    }
+    else if (name === 'forge') {
+      // Blacksmith anvil hammer strike
+      this.subThump(0.18, 110, 45, 0.40);
+      this.tone(880, 0.24, 'ui', 'sine', 0, 880, { gain: 0.30 });
+      this.tone(1760, 0.18, 'ui', 'triangle', 0.01, 1760, { gain: 0.16 });
+      this.noise(0.08, { bus: 'ui', filterType: 'highpass', filterFreq: 2600, gain: 0.28 });
+    }
+    else if (name === 'rest') {
+      // Campfire recovery harp arpeggio
+      this.duckMusic(0.28, 0.5);
+      [164.81, 207.65, 246.94, 329.63].forEach((f, i) => {
+        this.tone(f, 0.45, 'sfx', 'triangle', i * 0.07, f, { gain: 0.26, attack: 0.02 });
+        this.tone(f * 2, 0.35, 'sfx', 'sine', i * 0.07 + 0.02, f * 2, { gain: 0.15 });
+      });
+    }
+    else if (name === 'potion') {
+      // Refreshing elixir bottle pop & gulp
+      this.tone(360, 0.045, 'ui', 'sine', 0, 720, { gain: 0.26 });
+      this.tone(480, 0.11, 'ui', 'triangle', 0.06, 320, { gain: 0.22 });
+      this.tone(560, 0.13, 'ui', 'sine', 0.13, 390, { gain: 0.24 });
+    }
+    else if (name === 'death-spell') {
+      this.duckMusic(0.25, 0.4);
+      this.subThump(0.32, 85, 22, 0.55);
+      this.tone(320, 0.28, 'sfx', 'sawtooth', 0, 50, { gain: 0.38 });
+      this.noise(0.25, { bus: 'sfx', filterType: 'bandpass', filterFreq: 600, filterEndFreq: 120, gain: 0.32 });
+    }
+    else if (name === 'blackhole-spell') {
+      this.tone(115, 0.35, 'sfx', 'square', 0, 145, { gain: 0.30, filterType: 'bandpass', filterFreq: 380, filterQ: 3 });
+      this.subThump(0.28, 70, 25, 0.45);
+      this.noise(0.30, { bus: 'sfx', filterType: 'bandpass', filterFreq: 500, filterEndFreq: 180, gain: 0.28 });
+    }
+    else if (name === 'meteor-spell') {
+      this.duckMusic(0.25, 0.5);
+      this.noise(0.22, { bus: 'sfx', filterType: 'bandpass', filterFreq: 900, filterEndFreq: 300, gain: 0.35 });
+      [0.08, 0.16, 0.24].forEach((delay, i) => {
+        this.subThump(0.22, 100 - i * 15, 28, 0.48 - i * 0.06);
+      });
+    }
   }
 
   combat(event = {}) {
@@ -332,6 +552,14 @@ export class GameAudio {
     if (event.type === 'projectile') {
       if (event.blocked) {
         this.play('ward');
+      } else if (event.form === 'chakram') {
+        this.play('chakram');
+      } else if (event.element === 'death') {
+        this.play('death-spell');
+      } else if (event.form === 'blackhole' || event.element === 'blackhole') {
+        this.play('blackhole-spell');
+      } else if (event.form === 'meteor' || event.element === 'meteor') {
+        this.play('meteor-spell');
       } else if (event.form === 'storm' && (!event.elements || !event.elements.length)) {
         // Pure raw storm: howling wind and thunder
         this.tone(220, 0.24, 'sfx', 'triangle', 0, 70, { gain: 0.32 });
@@ -450,9 +678,6 @@ export class GameAudio {
       if (event.pierce && !event.blocked) {
         this.tone(1250, 0.07, 'sfx', 'triangle', 0.02, 600, { gain: 0.22 });
       }
-      if (event.form === 'chakram') {
-        this.play('chakram');
-      }
       if (event.barrage) {
         this.play('barrage');
       }
@@ -467,8 +692,7 @@ export class GameAudio {
       this.play('boss-phase');
     }
     else if (event.type === 'shield-counter') {
-      this.tone(820, 0.10, 'sfx', 'triangle', 0, 410, { gain: 0.26 });
-      this.noise(0.06, { bus: 'sfx', filterType: 'highpass', filterFreq: 2000, gain: 0.20 });
+      this.play('shield-counter');
     }
     else if (event.type === 'damage' && event.amount > 0) {
       if (event.weakness) {
@@ -479,7 +703,15 @@ export class GameAudio {
         this.play('hit');
       }
       if (event.killed) {
-        this.tone(587.33, 0.18, 'sfx', 'sine', 0.03, 880, { gain: 0.24 });
+        const isMajorBoss = MAJOR_BOSS_KINDS.has(event.targetKind);
+        const isMini = event.isBoss || MINI_BOSS_KINDS.has(event.targetKind);
+        if (isMajorBoss) {
+          this.play('boss-kill');
+        } else if (isMini) {
+          this.play('miniboss-kill');
+        } else {
+          this.play('trash-kill');
+        }
       }
     }
     else if (event.type === 'blast') {
@@ -505,33 +737,70 @@ export class GameAudio {
       this.noise(0.20, { bus: 'sfx', filterType: 'lowpass', filterFreq: 550, gain: 0.36 });
     }
     else if (event.type === 'attack') {
-      if (event.absorbed > 0) {
-        this.tone(580, 0.12, 'sfx', 'triangle', 0, 260, { gain: 0.28 });
-      }
-      if (event.ultimate) {
-        this.duckMusic(0.2, 0.65);
-        if (event.sourceKind === 'tempest_archon') {
-          this.tone(1050, 0.14, 'sfx', 'square', 0, 190, { gain: 0.42 });
-          this.tone(560, 0.24, 'sfx', 'sawtooth', 0.03, 60, { gain: 0.38 });
-          this.subThump(0.48, 120, 24, 0.62);
+      const isMajor = event.specialBoss || MAJOR_BOSS_KINDS.has(event.sourceKind);
+      const isMini = event.isBoss || event.heavy || MINI_BOSS_KINDS.has(event.sourceKind);
+
+      if (event.absorbed > 0 && (!event.amount || event.amount <= 0)) {
+        // Attack completely repelled by player's shield!
+        if (isMini || isMajor) {
+          this.play('shield-heavy-block');
         } else {
-          this.tone(240, 0.34, 'sfx', 'sawtooth', 0, 48, { gain: 0.42 });
-          this.subThump(0.44, 130, 28, 0.58);
-          this.tone(440, 0.18, 'sfx', 'square', 0.06, 110, { gain: 0.32 });
+          this.play('shield-block');
         }
-      } else if (event.specialBoss || event.heavy) {
-        this.duckMusic(0.35, 0.35);
-        this.subThump(0.30, 115, 34, 0.52);
-        if (event.amount) this.play('hit');
-      } else if (event.amount) {
-        this.play('hit');
+      } else {
+        // Attack landed on player HP (or partially broke shield)
+        if (event.ultimate) {
+          this.duckMusic(0.2, 0.65);
+          if (event.sourceKind === 'tempest_archon') {
+            this.tone(1050, 0.14, 'sfx', 'square', 0, 190, { gain: 0.42 });
+            this.tone(560, 0.24, 'sfx', 'sawtooth', 0.03, 60, { gain: 0.38 });
+            this.subThump(0.48, 120, 24, 0.62);
+          } else {
+            this.tone(240, 0.34, 'sfx', 'sawtooth', 0, 48, { gain: 0.42 });
+            this.subThump(0.44, 130, 28, 0.58);
+            this.tone(440, 0.18, 'sfx', 'square', 0.06, 110, { gain: 0.32 });
+          }
+        } else if (isMajor) {
+          this.play('boss-strike');
+        } else if (isMini) {
+          this.play('miniboss-strike');
+        } else {
+          // Normal Trash Mob Attack
+          if (BEAST_TRASH_KINDS.has(event.sourceKind)) {
+            this.play('trash-bite');
+          } else if (SLIME_TRASH_KINDS.has(event.sourceKind)) {
+            this.play('trash-squish');
+          } else if (RANGED_TRASH_KINDS.has(event.sourceKind)) {
+            this.play('trash-shoot');
+          } else {
+            this.play('trash-hit');
+          }
+        }
+        if (event.absorbed > 0) {
+          this.tone(620, 0.08, 'sfx', 'triangle', 0, 310, { gain: 0.20 });
+        }
+      }
+
+      if (event.manaDrain > 0) {
+        this.play('mana-drain');
       }
     }
     else if (event.type === 'charge') {
-      if (event.specialBoss) {
-        this.tone(140, 0.32, 'sfx', 'sawtooth', 0, 380, { gain: 0.34 });
-        this.tone(260, 0.28, 'sfx', 'triangle', 0.05, 520, { gain: 0.28 });
+      const isMajor = event.specialBoss || MAJOR_BOSS_KINDS.has(event.sourceKind);
+      if (isMajor) {
+        this.play('boss-charge');
+      } else {
+        this.play('miniboss-charge');
       }
+    }
+    else if (event.type === 'ward-grant') {
+      this.play('ward-grant');
+    }
+    else if (event.type === 'armor-shred') {
+      this.play('armor-shred');
+    }
+    else if (event.type === 'dispel') {
+      this.play('dispel');
     }
     else if (event.type === 'mirror-reflect') {
       this.tone(840, 0.12, 'sfx', 'triangle', 0, 420, { gain: 0.30 });
@@ -576,14 +845,29 @@ export class GameAudio {
         this.tone(659.25, 0.16, 'sfx', 'sine', 0.05, 880, { gain: 0.20 });
       }
     }
+    else if (event.type === 'swap') {
+      this.tone(320, 0.10, 'sfx', 'sine', 0, 640, { gain: 0.22 });
+      this.tone(640, 0.10, 'sfx', 'triangle', 0.04, 200, { gain: 0.18 });
+    }
     else if (event.type === 'push') {
-      this.tone(380, 0.12, 'sfx', 'triangle', 0, 120, { gain: 0.28 });
-      this.noise(0.10, { bus: 'sfx', filterType: 'bandpass', filterFreq: 750, gain: 0.20 });
+      this.tone(280, 0.14, 'sfx', 'triangle', 0, 110, { gain: 0.28 });
+      this.noise(0.10, { bus: 'sfx', filterType: 'bandpass', filterFreq: 650, gain: 0.22 });
     }
     else if (event.type === 'status') {
       if (event.status === 'burn') {
         this.tone(210, 0.12, 'sfx', 'sawtooth', 0, 90, { gain: 0.26 });
         this.noise(0.12, { bus: 'sfx', filterType: 'lowpass', filterFreq: 800, gain: 0.22 });
+      } else if (event.status === 'freeze') {
+        [1046.50, 1567.98, 2093.00].forEach((f, i) => {
+          this.tone(f, 0.16, 'sfx', 'sine', i * 0.03, f * 1.02, { gain: 0.24 });
+        });
+        this.noise(0.08, { bus: 'sfx', filterType: 'highpass', filterFreq: 2800, gain: 0.18 });
+      } else if (event.status === 'chill') {
+        this.tone(480, 0.16, 'sfx', 'triangle', 0, 320, { gain: 0.24 });
+        this.noise(0.12, { bus: 'sfx', filterType: 'bandpass', filterFreq: 950, gain: 0.18 });
+      } else if (event.status === 'sealed') {
+        this.tone(320, 0.14, 'sfx', 'square', 0, 160, { gain: 0.28 });
+        this.tone(960, 0.10, 'sfx', 'sine', 0.02, 960, { gain: 0.20 });
       } else {
         this.tone(1280, 0.16, 'sfx', 'sine', 0, 640, { gain: 0.24 });
       }
@@ -595,29 +879,97 @@ export class GameAudio {
   }
 
   music() {
-    if (!this.active || (this.settings.music ?? 1) === 0) return;
+    if (!this.active || this.settings.muted || this.settings.musicEnabled === false || (this.settings.music ?? 1) === 0) return;
     if (typeof document !== 'undefined' && document.hidden) return;
 
-    // Atmospheric retro 16-bit spellcraft progression (A Aeolian / D Dorian modal arpeggios)
-    const melody = [
-      220.00, 261.63, 329.63, 261.63, // A3 - C4 - E4 - C4
-      196.00, 246.94, 293.66, 246.94, // G3 - B3 - D4 - B3
-      174.61, 220.00, 261.63, 329.63, // F3 - A3 - C4 - E4
-      164.81, 196.00, 246.94, 196.00, // E3 - G3 - B3 - G3
-    ];
-    const bassNotes = [110.00, 98.00, 87.31, 82.41]; // A2, G2, F2, E2
-
+    const track = this.currentTrack ?? 'battle';
     const stepIdx = this.step++;
-    const note = melody[stepIdx % melody.length];
 
-    // Gentle triangle melody arpeggio
-    this.tone(note, 0.85, 'music', 'triangle', 0, note, { gain: 0.18, attack: 0.02 });
+    if (track === 'boss') {
+      // Tense, driving harmonic minor boss theme with urgent bass pulses
+      const bossMelody = [
+        146.83, 174.61, 220.00, 277.18, // D3, F3, A3, C#4 (Harmonic Minor)
+        293.66, 349.23, 440.00, 349.23, // D4, F4, A4, F4
+        261.63, 311.13, 392.00, 311.13, // C4, Eb4, G4, Eb4 (Tense Diminished)
+        246.94, 293.66, 370.00, 293.66, // B3, D4, F#4, D4
+      ];
+      const bossBass = [73.42, 87.31, 65.41, 61.74]; // D2, F2, C2, B1
 
-    // Smooth sine bass foundation on chord roots (every 4 steps)
-    if (stepIdx % 4 === 0) {
-      const chordIdx = Math.floor((stepIdx % melody.length) / 4);
-      const bass = bassNotes[chordIdx % bassNotes.length];
-      this.tone(bass, 1.6, 'music', 'sine', 0, bass, { gain: 0.28, attack: 0.04 });
+      const note = bossMelody[stepIdx % bossMelody.length];
+      // Punchy square/saw arpeggio flourish with rapid decay
+      this.tone(note, 0.38, 'music', 'sawtooth', 0, note, { gain: 0.12, attack: 0.01 });
+
+      // Driving bass stabs on every 2 steps
+      if (stepIdx % 2 === 0) {
+        const chordIdx = Math.floor((stepIdx % bossMelody.length) / 4);
+        const bass = bossBass[chordIdx % bossBass.length];
+        this.tone(bass, 0.40, 'music', 'triangle', 0, bass * 0.98, { gain: 0.26, attack: 0.015 });
+      }
+
+      // Snappy chiptune percussion ticks on offbeats
+      if (stepIdx % 2 === 1) {
+        this.noise(0.035, { bus: 'music', filterType: 'highpass', filterFreq: 2600, gain: 0.10 });
+      }
+      // Low impact kick every 4 steps
+      if (stepIdx % 4 === 0) {
+        this.tone(110, 0.07, 'music', 'sine', 0, 40, { gain: 0.18 });
+      }
+    } else if (track === 'sanctuary') {
+      // Serene, gentle sanctuary theme (warm Lydian/Major chords, tranquil harp arpeggio)
+      const sanctuaryMelody = [
+        261.63, 329.63, 392.00, 523.25, // C4, E4, G4, C5
+        329.63, 392.00, 493.88, 587.33, // E4, G4, B4, D5
+        349.23, 440.00, 523.25, 659.25, // F4, A4, C5, E5
+        293.66, 369.99, 440.00, 587.33, // D4, F#4, A4, D5
+      ];
+      const sanctuaryBass = [130.81, 164.81, 174.61, 146.83]; // C3, E3, F3, D3
+
+      const note = sanctuaryMelody[stepIdx % sanctuaryMelody.length];
+      // Soothing sine/triangle arpeggio with soft envelope
+      this.tone(note, 0.95, 'music', 'sine', 0, note, { gain: 0.16, attack: 0.04 });
+
+      // Deep, peaceful sub-bass foundation on chord roots (every 4 steps)
+      if (stepIdx % 4 === 0) {
+        const chordIdx = Math.floor((stepIdx % sanctuaryMelody.length) / 4);
+        const bass = sanctuaryBass[chordIdx % sanctuaryBass.length];
+        this.tone(bass, 2.2, 'music', 'triangle', 0, bass, { gain: 0.22, attack: 0.06 });
+      }
+      // Warm chord shimmer on beat 2
+      if (stepIdx % 4 === 2) {
+        const chordIdx = Math.floor((stepIdx % sanctuaryMelody.length) / 4);
+        const midNote = sanctuaryMelody[chordIdx * 4 + 1];
+        this.tone(midNote, 1.2, 'music', 'sine', 0, midNote, { gain: 0.10, attack: 0.05 });
+      }
+    } else {
+      // Atmospheric retro 16-bit tower ascent battle theme (A Aeolian / D Dorian modal arpeggios)
+      const battleMelody = [
+        220.00, 261.63, 329.63, 261.63, // A3 - C4 - E4 - C4
+        293.66, 329.63, 392.00, 329.63, // D4 - E4 - G4 - E4
+        196.00, 246.94, 293.66, 246.94, // G3 - B3 - D4 - B3
+        174.61, 220.00, 261.63, 329.63, // F3 - A3 - C4 - E4
+      ];
+      const battleBass = [110.00, 146.83, 98.00, 87.31]; // A2, D3, G2, F2
+
+      const note = battleMelody[stepIdx % battleMelody.length];
+      // Gentle triangle melody arpeggio
+      this.tone(note, 0.75, 'music', 'triangle', 0, note, { gain: 0.18, attack: 0.02 });
+
+      // Smooth bass foundation on chord roots (every 4 steps)
+      if (stepIdx % 4 === 0) {
+        const chordIdx = Math.floor((stepIdx % battleMelody.length) / 4);
+        const bass = battleBass[chordIdx % battleBass.length];
+        this.tone(bass, 1.5, 'music', 'sine', 0, bass, { gain: 0.26, attack: 0.03 });
+      }
+      // Chiptune rhythm tick on beats 1 & 3
+      if (stepIdx % 2 === 1) {
+        this.noise(0.03, { bus: 'music', filterType: 'bandpass', filterFreq: 1900, gain: 0.06 });
+      }
+      // Subtle pulse sub on step 2
+      if (stepIdx % 4 === 2) {
+        const chordIdx = Math.floor((stepIdx % battleMelody.length) / 4);
+        const bass = battleBass[chordIdx % battleBass.length] * 1.5;
+        this.tone(bass, 0.45, 'music', 'triangle', 0, bass, { gain: 0.14, attack: 0.02 });
+      }
     }
   }
 

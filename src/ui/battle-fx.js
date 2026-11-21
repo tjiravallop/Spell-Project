@@ -351,15 +351,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           });
         }
         if (event.blocked) {
-          triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
-          spawnEnemyPop(event.target, 'กันม่าน', 'ward');
-          const { x, y } = enemyImpactCoords(event.target);
-          pulseElementalOverlay('ward', x, y);
-          const wardBadge = document.querySelector(`#target-${event.target} .badge-ward:not(.badge-sealed)`);
-          if (wardBadge) {
-            if (event.wardRemaining > 0) wardBadge.textContent = `🔮 ม่าน ${event.wardRemaining}`;
-            else wardBadge.remove();
-          }
+          showWardHit(event, event.wardRemaining > 0 ? 'ม่าน −1' : 'ม่านแตก');
           status.textContent = `${[form, element].filter(Boolean).join(' ')} · ${wardLabel(event.wardRemaining)}`;
         } else if (event.damage) {
           handleCombatStep(event.damage, index);
@@ -447,8 +439,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
         break;
       case 'dispel':
-        $(`target-${event.target}`)?.querySelector('.badge-ward:not(.badge-sealed)')?.remove();
-        spawnEnemyPop(event.target, `สลายม่าน -${event.amount}`, 'ward');
+        showWardHit(event, event.wardRemaining > 0 ? `ม่าน −${event.amount}` : 'ม่านแตก');
         status.textContent = `สลายม่าน ${event.amount} ชั้น`;
         break;
       case 'seal':
@@ -709,6 +700,21 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         $('skip-animation').textContent = 'ไปต่อ';
         break;
     }
+  }
+
+  function showWardHit(event, label) {
+    const card = $(`target-${event.target}`);
+    const wardBadge = card?.querySelector('[data-ward-layers]');
+    const remaining = event.wardRemaining;
+    if (wardBadge && remaining > 0) wardBadge.textContent = `🔮 ม่าน ${remaining}`;
+    else wardBadge?.remove();
+    if (card?.hasAttribute('aria-label')) {
+      card.setAttribute('aria-label', card.getAttribute('aria-label').replace(/ม่าน \d+$/, `ม่าน ${remaining}`));
+    }
+    triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
+    spawnEnemyPop(event.target, label, 'ward');
+    const { x, y } = enemyImpactCoords(event.target);
+    pulseElementalOverlay('ward', x, y, { boosted: remaining === 0 });
   }
 
   return {
