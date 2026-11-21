@@ -2635,12 +2635,22 @@ body.reduced-motion .forge-stage.is-striking :is(.forge-hammer, .forge-sparks, .
 .eternity-segment small { font-size: 11px; color: #d6c3e0; line-height: 1.2; }
 .eternity-segment[aria-current="step"] small { color: var(--eternity-color); font-weight: 700; }
 .eternity-meter.is-shifting { animation: eternity-phase-reveal .45s ease-out; }
+.eternity-meter[data-phase="3"] .eternity-segment.is-secret i::before { background: linear-gradient(90deg, #ff9f43, #ffdc86); }
+.eternity-meter[data-phase="3"].is-shifting .eternity-segment.is-secret { animation: eternity-secret-pop .55s ease-out; }
 @keyframes eternity-phase-reveal {
   from { box-shadow: inset 0 0 0 2px var(--eternity-color); }
   to { box-shadow: inset 0 0 0 0 transparent; }
 }
-body.reduced-motion .eternity-meter.is-shifting { animation: none; }
-@media (prefers-reduced-motion: reduce) { .eternity-meter.is-shifting { animation: none; } }
+@keyframes eternity-secret-pop {
+  from { transform: scaleX(0.35); opacity: 0.25; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+body.reduced-motion .eternity-meter.is-shifting,
+body.reduced-motion .eternity-meter[data-phase="3"].is-shifting .eternity-segment.is-secret { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .eternity-meter.is-shifting,
+  .eternity-meter[data-phase="3"].is-shifting .eternity-segment.is-secret { animation: none; }
+}
 
 /* Combat Speed Toggle */
 .speed-toggle-btn {

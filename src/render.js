@@ -1027,7 +1027,7 @@ export class Battlefield {
         const travel = Math.min(1, fraction / 0.65);
         const startX = 76;
         const startY = 120;
-        const target = event.blocked && (event.form === 'shot' || event.form === 'chakram')
+        const target = event.blocked && (event.form === 'shot' || event.form === 'chakram' || event.form === 'spear')
           ? x - this.enemyWardWidth(this.state.enemies[eventTargetIndex]) / 2 + 3 : x;
         const px = Math.round(startX + (target - startX) * travel);
         const arcLift = event.form === 'shot' ? Math.sin(travel * Math.PI) * 16 : 0;
@@ -1047,6 +1047,8 @@ export class Battlefield {
           this.drawStormVfx(x, event.element, fraction, event.elements?.[1], now, Boolean(event.grand), projScale);
         } else if (event.form === 'chakram') {
           this.drawChakramVfx(startX, startY, target, px, py, travel, fraction, event, secondColor, now);
+        } else if (event.form === 'spear') {
+          this.drawSpearVfx(startX, startY, target, px, py, travel, fraction, event, secondColor, now);
         } else {
           this.drawShotVfx(startX, startY, target, px, py, travel, fraction, event, secondColor, now);
         }
@@ -1158,6 +1160,24 @@ export class Battlefield {
         if (event.source === 'player' && !this.settings.reducedMotion) this.drawHealingSigil(px, 146, fraction, event.healKind, vfxScale(event));
         const healEdge = event.healKind === 'grand' ? C[31] : event.source !== 'player' ? C[22] : C[26];
         if (!this.hpNumbersInHud) this.drawFloatingPopup(px, 96 - Math.round(fraction * 12), `+${event.amount} HP`, C[9], healEdge);
+      }
+
+      if (event.type === 'buff') {
+        const px = 51;
+        const elem = event.element ?? event.families?.[0] ?? 'fire';
+        const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.fire;
+        if (!this.settings.reducedMotion) {
+          const ringR = Math.round(10 + fraction * 14);
+          this.pixelCircle(px, 128, ringR, pal.primary, false, event.grand ? 3 : 2);
+          this.pixelCircle(px, 128, Math.max(4, ringR - 4), pal.core, false, 1);
+          for (let i = 0; i < 6; i++) {
+            const sy = 148 - Math.round(((fraction * 36 + i * 7) % 36));
+            const sx = px - 12 + i * 5;
+            this.ctx.fillStyle = i % 2 ? pal.core : pal.primary;
+            this.ctx.fillRect(sx, sy, 2, 4);
+          }
+        }
+        this.drawFloatingPopup(px, 92 - Math.round(fraction * 14), `+${event.pct}%`, pal.core, pal.primary);
       }
 
       if (event.type === 'attack') {
@@ -2068,6 +2088,59 @@ export class Battlefield {
         g.fillRect(targetX + step, 122 + step, Math.max(1, Math.round(scale)), Math.max(1, Math.round(scale)));
         g.fillRect(targetX + step, 122 - step, Math.max(1, Math.round(scale)), Math.max(1, Math.round(scale)));
       }
+      g.restore();
+      this.drawElementalImpactFlash(targetX, 122, elem, imp, scale);
+      this.drawHitBurstVfx(targetX, 122, pal.primary, imp, elem, now, scale);
+    }
+  }
+
+  drawSpearVfx(startX, startY, targetX, px, py, travel, fraction, event, secondColor, now) {
+    const g = this.ctx;
+    const elem = event.element ?? 'fire';
+    const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.fire;
+    const dual = Boolean(event.elements?.[1]);
+    const scale = vfxScale(event);
+    const shaftLen = Math.round(24 * scale);
+    const tipLen = Math.round(9 * scale);
+    const thick = Math.max(2, Math.round(2.5 * Math.min(2.2, scale)));
+    if (travel < 1) {
+      // Speed streaks trailing behind the spear
+      for (let t = 1; t <= 4; t++) {
+        const tx = px - shaftLen - t * Math.round(7 * scale);
+        if (tx < startX) break;
+        g.save();
+        g.globalAlpha = (1 - t / 5) * 0.65;
+        g.fillStyle = t % 2 && dual ? secondColor : pal.primary;
+        g.fillRect(tx, py - Math.floor(thick / 2), Math.round(6 * scale), Math.max(1, thick - 1));
+        g.restore();
+      }
+      // Spear shaft
+      g.fillStyle = pal.secondary;
+      g.fillRect(px - shaftLen, py - Math.floor(thick / 2) - 1, shaftLen, thick + 2);
+      g.fillStyle = pal.primary;
+      g.fillRect(px - shaftLen, py - Math.floor(thick / 2), shaftLen, thick);
+      g.fillStyle = pal.core;
+      g.fillRect(px - shaftLen + 2, py, Math.max(4, shaftLen - 2), 1);
+      // Spear head / piercing blade
+      g.fillStyle = dual ? secondColor : pal.rim;
+      g.fillRect(px, py - thick, Math.max(2, Math.round(tipLen * 0.5)), thick * 2 + 1);
+      g.fillStyle = pal.core;
+      g.fillRect(px + Math.round(tipLen * 0.3), py - Math.max(1, thick - 1), Math.max(3, Math.round(tipLen * 0.7)), Math.max(2, (thick - 1) * 2 + 1));
+      g.fillRect(px + tipLen, py, Math.max(2, Math.round(3 * scale)), 1);
+      if (event.grand) {
+        g.fillStyle = C[31];
+        g.fillRect(px - shaftLen - 2, py - thick - 1, shaftLen + tipLen + 4, 1);
+        g.fillRect(px - shaftLen - 2, py + thick + 1, shaftLen + tipLen + 4, 1);
+      }
+    } else if (!event.blocked && event.damage?.amount > 0 && !this.settings.reducedMotion) {
+      const imp = Math.max(0, (fraction - 0.65) / 0.35);
+      const thrustLen = Math.round((16 + imp * 14) * scale);
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - imp);
+      g.fillStyle = pal.primary;
+      g.fillRect(targetX - Math.round(thrustLen * 0.4), 120, thrustLen, Math.max(2, thick));
+      g.fillStyle = pal.core;
+      g.fillRect(targetX - Math.round(thrustLen * 0.3), 121, Math.round(thrustLen * 0.8), 1);
       g.restore();
       this.drawElementalImpactFlash(targetX, 122, elem, imp, scale);
       this.drawHitBurstVfx(targetX, 122, pal.primary, imp, elem, now, scale);

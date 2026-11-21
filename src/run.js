@@ -268,72 +268,1211 @@ export function getCardSecondaryTier(level = 0, unlockedFlag = false) {
 
 export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEVEL) {
   const tier = level >= 10 ? 3 : level >= 9 ? 2 : 1;
+  const idx = tier - 1;
   const bonusAmount = tier === 3 ? 4 : tier === 2 ? 3 : 2;
   const extraPierce = tier === 3 ? 1 : 0;
   const tierTag = tier === 3 ? 'ขั้นสูงสุด (+10)' : tier === 2 ? 'ขั้น 2 (+9)' : 'ขั้น 1 (+7)';
+  const base = {
+    tier,
+    tierTag,
+    unlockLevel: CARD_SECONDARY_UNLOCK_LEVEL,
+    shieldBonus: 0,
+    healBonus: 0,
+    pierceBonus: 0,
+  };
 
+  // === Batch 1: Tailored Common (ธรรมดา) Cards ===
+  if (wordId === 'shot') {
+    const pierce = [1, 2, 3][idx];
+    const dmgPct = [0, 0, 15][idx];
+    return {
+      ...base,
+      id: 'shot_precision',
+      badge: `↠ เจาะ +${pierce}${dmgPct ? ` · แรง +${dmgPct}%` : ''}`,
+      label: `กระสุนทะลุเกราะ +${pierce}${dmgPct ? ` & แรง +${dmgPct}%` : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): คาถาที่มีคำว่าลูกเจาะเกราะเพิ่ม +${pierce}${dmgPct ? ` และเพิ่มดาเมจกระสุน +${dmgPct}%` : ''}`,
+      pierceBonus: pierce,
+      damagePctBonus: dmgPct,
+    };
+  }
+  if (wordId === 'fire') {
+    const burn = [2, 3, 5][idx];
+    return {
+      ...base,
+      id: 'fire_ignite',
+      badge: `♨ เผา +${burn}`,
+      label: `เปลวเพลิงลุกไหม้ +${burn}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อโจมตีด้วยไฟจะติดเผาไหม้ +${burn} หน่วยทันที`,
+      burnBonus: burn,
+    };
+  }
+  if (wordId === 'ice') {
+    const chill = [2, 4, 6][idx];
+    const lasting = tier === 3;
+    return {
+      ...base,
+      id: 'ice_frostbite',
+      badge: `❄ หนาว +${chill}${lasting ? ' · 2 ครั้ง' : ''}`,
+      label: `ไอเยือกแข็ง +${chill}${lasting ? ' (ค้าง 2 ครั้ง)' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): คาถาน้ำแข็งลดพลังโจมตีศัตรูเพิ่มอีก +${chill}${lasting ? ' และความหนาวส่งผลต่อการโจมตี 2 ครั้ง' : ''}`,
+      chillBonus: chill,
+      lastingChill: lasting,
+    };
+  }
+  if (wordId === 'lightning') {
+    const pierce = [2, 3, 4][idx];
+    const wetMana = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'lightning_overcharge',
+      badge: `ϟ เจาะ +${pierce}${wetMana ? ' · เปียก +1 MP' : ''}`,
+      label: `สายฟ้าทะลวง +${pierce}${wetMana ? ' & คืน +1 MP เมื่อโดนเป้าเปียก' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): คาถาสายฟ้าเจาะเกราะเพิ่ม +${pierce}${wetMana ? ' และคืน +1 มานาเมื่อโจมตีศัตรูที่เปียก' : ''}`,
+      pierceBonus: pierce,
+      lightningWetMana: wetMana,
+    };
+  }
+  if (wordId === 'earth') {
+    const shield = [4, 6, 8][idx];
+    const shred = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'earth_bastion',
+      badge: `◆ เกราะ +${shield}${shred ? ' · ทุบเกราะ +1' : ''}`,
+      label: `ปราการปฐพี +${shield}${shred ? ' & ทุบเกราะถาวร +1' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อร่ายธาตุดินจะได้รับเกราะชั่วคราวเพิ่ม +${shield}${shred ? ' และทุบเกราะถาวรศัตรูเพิ่มอีก 1 หน่วย' : ''}`,
+      shieldBonus: shield,
+      earthArmorShredBonus: shred,
+    };
+  }
+  if (wordId === 'water') {
+    const heal = [3, 5, 8][idx];
+    const splashWet = tier === 3;
+    return {
+      ...base,
+      id: 'water_spring',
+      badge: `≈ ฮีล +${heal}${splashWet ? ' · เปียกข้างเคียง' : ''}`,
+      label: `สายน้ำชุบชีวิต +${heal} HP${splashWet ? ' & ช่องข้างเปียก' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อร่ายธาตุน้ำจะฟื้นพลังชีวิตเพิ่ม +${heal} HP${splashWet ? ' และทำให้ศัตรูช่องข้างเคียงเปียกด้วย' : ''}`,
+      healBonus: heal,
+      waterSplashWet: splashWet,
+    };
+  }
+  if (wordId === 'wind') {
+    const slam = [3, 5, 8][idx];
+    const extraSteps = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'wind_gale_impact',
+      badge: `≋ ชน +${slam}${extraSteps ? ' · ผลัก 2 ช่อง' : ''}`,
+      label: `ลมกระแทก +${slam}${extraSteps ? ' & ผลักไกล 2 ช่อง' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เพิ่มดาเมจชนกระแทกของธาตุลมอีก +${slam} (ทั้งสองตัวเมื่อชนศัตรู)${extraSteps ? ' และผลักไกลขึ้นเป็น 2 ช่อง' : ''}`,
+      windSlamBonus: slam,
+      windExtraSteps: extraSteps,
+    };
+  }
+  if (wordId === 'pair') {
+    const pct = [10, 15, 20][idx];
+    const selfBonus = [3, 5, 8][idx];
+    const manaRefund = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'pair_resonance',
+      badge: `Ⅱ พลังคู่ +${pct}%${manaRefund ? ' · +1 MP' : ''}`,
+      label: `พ้องเสียงคู่ +${pct}% / ป้องกัน +${selfBonus}${manaRefund ? ' & คืน +1 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): คาถาที่มีคำว่าคู่แรงขึ้น +${pct}% (หรือเพิ่มโล่/ฮีล +${selfBonus})${manaRefund ? ' และคืน +1 มานาหลังร่ายสำเร็จ' : ''}`,
+      pairPowerPct: pct,
+      pairSelfBonus: selfBonus,
+      manaRefund,
+    };
+  }
+  if (wordId === 'shield') {
+    const heal = [3, 5, 8][idx];
+    const healPct = [2, 3, 5][idx];
+    const renewal = tier === 3 ? 4 : 0;
+    return {
+      ...base,
+      id: 'shield_aegis_mend',
+      badge: `✚ ฮีล +${heal} (+${healPct}%)${renewal ? ' · เติมโล่ +4' : ''}`,
+      label: `โล่ฟื้นกาย +${heal} HP (+${healPct}% Max HP)${renewal ? ' & เติมโล่เทิร์นหน้า +4' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อกางโล่จะฟื้นฟู +${heal} HP (+${healPct}% Max HP)${renewal ? ' และเติมโล่ต้นเทิร์นถัดไปอีก +4 หากโล่ยังไม่แตก' : ''}`,
+      healBonus: heal,
+      healMaxHpPct: healPct,
+      shieldRenewalBonus: renewal,
+    };
+  }
+  if (wordId === 'self') {
+    const shield = [5, 8, 12][idx];
+    const manaRefund = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'self_sanctuary',
+      badge: `🛡 เกราะ +${shield}${manaRefund ? ' · +1 MP' : ''}`,
+      label: `เกราะคุ้มตน +${shield}${manaRefund ? ' & คืน +1 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อร่ายคาถาใส่ตัวเองจะได้รับเกราะป้องกันชั่วคราว +${shield}${manaRefund ? ' และคืน +1 มานาทันที' : ''}`,
+      shieldBonus: shield,
+      manaRefund,
+    };
+  }
+
+  // === Batch 2: Tailored Rare (หายาก 8 ใบ) + Special 2 ใบแรก (akki, heman) ===
+  if (wordId === 'blast') {
+    const pierce = [2, 3, 4][idx];
+    const splashPct = [60, 70, 75][idx];
+    const shred = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'blast_shatter',
+      badge: `✹ เจาะ +${pierce} · ข้าง ${splashPct}%${shred ? ' · ทุบเกราะ -1' : ''}`,
+      label: `แรงระเบิดฉีกเกราะ เจาะ +${pierce} · ข้าง ${splashPct}%${shred ? ' & ทุบเกราะ -1' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): แรงระเบิดเจาะเกราะเพิ่ม +${pierce} และช่องข้างรับดาเมจเพิ่มเป็น ${splashPct}%${shred ? ' พร้อมทุบเกราะถาวรศัตรูทุกตัวที่โดนระเบิด -1' : ''}`,
+      pierceBonus: pierce,
+      blastSplashPct: splashPct,
+      blastArmorShred: shred,
+    };
+  }
+  if (wordId === 'beam') {
+    const dmgPct = [10, 15, 20][idx];
+    const wardBonus = [4, 7, 10][idx];
+    const stripWard = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'beam_prism_piercer',
+      badge: `━ แรง +${dmgPct}% · ทะลุม่าน +${wardBonus}${stripWard ? ' · ลบม่าน 1' : ''}`,
+      label: `ลำแสงทะลวงม่าน +${dmgPct}% (โดนเป้ามีม่าน +${wardBonus})${stripWard ? ' & เฉือนม่าน -1' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ลำแสงแรงขึ้น +${dmgPct}% และหากเป้าหมายมีม่านอยู่จะได้ดาเมจเพิ่ม +${wardBonus}${stripWard ? ' พร้อมเฉือนม่านออก 1 ชั้นทันที' : ''}`,
+      damagePctBonus: dmgPct,
+      beamWardBonusDmg: wardBonus,
+      beamStripWard: stripWard,
+    };
+  }
+  if (wordId === 'wave') {
+    const pierce = [1, 2, 2][idx];
+    const dmgPct = [10, 15, 20][idx];
+    const alwaysPct = tier === 3;
+    const chill = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'wave_sweeping_surge',
+      badge: `≈ แรง +${dmgPct}% · เจาะ +${pierce}${chill ? ' · หนาว +2' : ''}`,
+      label: `คลื่นซัดกวาด +${dmgPct}%${alwaysPct ? '' : ' (≥2 เป้า)'} · เจาะ +${pierce}${chill ? ' & ลดโจมตี -2' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): คลื่นเจาะเกราะเพิ่ม +${pierce} และแรงขึ้น +${dmgPct}%${alwaysPct ? ' ทุกกรณี พร้อมลดแรงโจมตีศัตรูทุกตัวที่โดน -2' : ' เมื่อมีศัตรูตั้งแต่ 2 ตัวขึ้นไป'}`,
+      pierceBonus: pierce,
+      waveDamagePct: dmgPct,
+      waveAlwaysPct: alwaysPct,
+      waveChillBonus: chill,
+    };
+  }
+  if (wordId === 'heal') {
+    const pct = [5, 8, 12][idx];
+    const regen = [0, 5, 8][idx];
+    const overhealCap = tier === 3 ? 15 : 0;
+    return {
+      ...base,
+      id: 'heal_vital_bloom',
+      badge: `✚ +${pct}% HP${regen ? ` · เทิร์นหน้า +${regen}` : ''}${overhealCap ? ' · ล้น→เกราะ' : ''}`,
+      label: `พรฟื้นฟูต่อเนื่อง +${pct}% Max HP${regen ? ` · เทิร์นหน้า +${regen} HP` : ''}${overhealCap ? ' & ส่วนเกิน→เกราะ' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ฟื้นฟูเพิ่มทันที +${pct}% Max HP${regen ? ` และฟื้นต่อเนื่องต้นเทิร์นถัดไป +${regen} HP` : ''}${overhealCap ? ' พร้อมแปลงฮีลส่วนเกินเป็นเกราะชั่วคราว (สูงสุด 15)' : ''}`,
+      healMaxHpPct: pct,
+      nextTurnHealBonus: regen,
+      overhealShieldCap: overhealCap,
+    };
+  }
+  if (wordId === 'burn') {
+    const extraBurn = [3, 5, 8][idx];
+    const linger = tier === 3;
+    return {
+      ...base,
+      id: 'burn_spreading_embers',
+      badge: `♨ เผา +${extraBurn} · ลามข้างเคียง${linger ? ' · ไฟค้าง 50%' : ''}`,
+      label: `เพลิงลุกลาม +${extraBurn} · ลามช่องข้าง 50%${linger ? ' & ไฟค้าง 50%' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เพิ่มแรงเผาไหม้อีก +${extraBurn} และลามเผาครึ่งหนึ่งใส่ศัตรูช่องติดกัน${linger ? ' พร้อมไฟค้างเหลือ 50% ในเทิร์นถัดไปหลังเผาระเบิด' : ''}`,
+      burnCardBonus: extraBurn,
+      burnSpreadHalf: true,
+      lingeringBurn: linger,
+    };
+  }
+  if (wordId === 'push') {
+    const slam = [4, 7, 10][idx];
+    const chill = [0, 2, 3][idx];
+    const shred = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'push_concussive',
+      badge: `› กระแทก +${slam}${chill ? ` · มึน -${chill}` : ''}${shred ? ' · ทุบเกราะ -1' : ''}`,
+      label: `แรงกระแทกปลิดเกราะ +${slam}${chill ? ` · ชนกันลดโจมตี -${chill}` : ''}${shred ? ' & ทุบเกราะ -1' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เพิ่มดาเมจกระแทกชนศัตรูและชนขอบอีก +${slam} (ทะลุเกราะ)${chill ? ` และหากชนศัตรูจะลดแรงโจมตีทั้งสองตัว -${chill}` : ''}${shred ? ' พร้อมทุบเกราะถาวร -1 ทั้งสองตัว' : ''}`,
+      pushSlamBonus: slam,
+      pushCollideChill: chill,
+      pushCollideArmorShred: shred,
+    };
+  }
+  if (wordId === 'pull') {
+    const shred = [1, 1, 2][idx];
+    const slam = [3, 5, 8][idx];
+    const chill = [0, 3, 4][idx];
+    const extraSteps = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'pull_hook_expose',
+      badge: `‹ ทุบเกราะ -${shred} · ชน +${slam}${extraSteps ? ' · ดึง 2 ช่อง' : ''}`,
+      label: `กระชากทลายแนว ทุบเกราะ -${shred} · ชน +${slam}${chill ? ` · ลดโจมตี -${chill}` : ''}${extraSteps ? ' & ดึง 2 ช่อง' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เป้าที่ถูกดึงโดนทุบเกราะถาวร -${shred} และดาเมจกระชากชนเพิ่ม +${slam}${chill ? ` พร้อมลดแรงโจมตีเป้า -${chill}` : ''}${extraSteps ? ' และดึงไกลขึ้นเป็น 2 ช่อง' : ''}`,
+      pullArmorShred: shred,
+      pullSlamBonus: slam,
+      pullChillBonus: chill,
+      pullExtraSteps: extraSteps,
+    };
+  }
+  if (wordId === 'large') {
+    const dmgPct = [8, 12, 18][idx];
+    const selfBonus = [4, 7, 10][idx];
+    const manaRefund = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'large_amplified_scale',
+      badge: `⬢ แรง +${dmgPct}% / ป้องกัน +${selfBonus}${manaRefund ? ' · +1 MP' : ''}`,
+      label: `ขยายอาคม +${dmgPct}% / โล่-ฮีล +${selfBonus}${manaRefund ? ' & คืน +1 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): คาถาที่มีคำว่าใหญ่โจมตีแรงขึ้น +${dmgPct}% (หรือเพิ่มโล่/ฮีล +${selfBonus})${manaRefund ? ' และคืน +1 มานาหลังร่ายสำเร็จ' : ''}`,
+      damagePctBonus: dmgPct,
+      largeSelfBonus: selfBonus,
+      manaRefund,
+    };
+  }
+  if (wordId === 'akki') {
+    const burn = [4, 7, 10][idx];
+    const pierce = [0, 2, 3][idx];
+    const execPct = tier === 3 ? 20 : 0;
+    return {
+      ...base,
+      id: 'akki_searing_inferno',
+      badge: `♨ เผา +${burn}${pierce ? ` · เจาะ +${pierce}` : ''}${execPct ? ' · ซ้ำ +20%' : ''}`,
+      label: `เพลิงอัคคีผลาญชีวิต เผา +${burn} · ตัดฮีล 2 เทิร์น${pierce ? ` · เจาะ +${pierce}` : ''}${execPct ? ' & แรง +20% เป้าติดเผา/ตัดฮีล' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): อัคคีติดเผาไหม้ +${burn} และขยายเวลาตัดฮีลเป็น 2 เทิร์น${pierce ? ` พร้อมเจาะเกราะ +${pierce}` : ''}${execPct ? ' และแรงขึ้น +20% หากเป้าติดเผาหรือถูกตัดฮีลอยู่แล้ว' : ''}`,
+      akkiBurnBonus: burn,
+      akkiHealCutExtend: 1,
+      pierceBonus: pierce,
+      akkiExecutePct: execPct,
+    };
+  }
+  if (wordId === 'heman') {
+    const chill = [3, 5, 7][idx];
+    const shield = [5, 8, 12][idx];
+    const splashChill = [0, 3, 4][idx];
+    const freezeChilled = tier === 3;
+    return {
+      ...base,
+      id: 'heman_perpetual_winter',
+      badge: `❄ หนาว +${chill} · เกราะ +${shield}${freezeChilled ? ' · แช่แข็งซ้ำ' : ''}`,
+      label: `เยือกแข็งนิรันดร์ หนาว +${chill} · เกราะ +${shield}${splashChill ? ` · กระจายหนาว ${splashChill}` : ''}${freezeChilled ? ' & แช่แข็งเป้าหนาว' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เพิ่มหนาวอีก +${chill} และได้เกราะน้ำแข็ง +${shield}${splashChill ? ` พร้อมกระจายหนาว ${splashChill} ใส่ช่องข้างเคียง` : ''}${freezeChilled ? ' และแช่แข็งทันทีหากเป้าติดหนาวอยู่แล้ว' : ''}`,
+      hemanChillBonus: chill,
+      shieldBonus: shield,
+      hemanSplashChill: splashChill,
+      hemanFreezeChilled: freezeChilled,
+    };
+  }
+
+  // === Batch 3: Tailored Remaining Special (พิเศษ 10 ใบที่เหลือ) ===
+  if (wordId === 'asani') {
+    const pierce = [3, 4, 5][idx];
+    const chainPct = [65, 75, 85][idx];
+    const chainBoth = tier >= 2;
+    const wetMana = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'asani_arc_lightning',
+      badge: `ϟ เจาะ +${pierce} · ชิ่ง ${chainPct}%${chainBoth ? ' ×2ฝั่ง' : ''}${wetMana ? ' · เปียก +2 MP' : ''}`,
+      label: `สายฟ้าฟาดชิ่งต่อเนื่อง เจาะ +${pierce} · ชิ่ง ${chainPct}%${chainBoth ? ' (2 ฝั่ง)' : ''}${wetMana ? ' & เปียกคืน +2 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เจาะเกราะเพิ่ม +${pierce} และดาเมจชิ่งเพิ่มเป็น ${chainPct}%${chainBoth ? ' พร้อมชิ่งได้ทั้งสองฝั่ง (ซ้าย+ขวา)' : ''}${wetMana ? ' และหากโดนเป้าเปียกจะคืน +2 มานาทันที' : ''}`,
+      pierceBonus: pierce,
+      asaniChainPct: chainPct,
+      asaniChainBoth: chainBoth,
+      asaniWetMana: wetMana,
+    };
+  }
+  if (wordId === 'pathaphi') {
+    const shield = [6, 10, 15][idx];
+    const shred = [1, 1, 2][idx];
+    const chill = [0, 3, 4][idx];
+    const zeroArmorDmg = tier === 3 ? 10 : 0;
+    return {
+      ...base,
+      id: 'pathaphi_fortress',
+      badge: `◆ เกราะ +${shield} · ทุบเกราะ +${shred}${zeroArmorDmg ? ' · ไร้เกราะ +10' : ''}`,
+      label: `ปราการพสุธา เกราะ +${shield} · ทุบเกราะเพิ่ม +${shred}${chill ? ` · ลดโจมตี -${chill}` : ''}${zeroArmorDmg ? ' & เป้าไร้เกราะ +10' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ได้เกราะชั่วคราวเพิ่ม +${shield} และทุบเกราะถาวรเพิ่มอีก +${shred}${chill ? ` พร้อมลดแรงโจมตีเป้า -${chill}` : ''}${zeroArmorDmg ? ' และหากเกราะเป้าเหลือ 0 จะแถมดาเมจพสุธาทะลุเกราะ +10' : ''}`,
+      shieldBonus: shield,
+      pathaphiShredBonus: shred,
+      pathaphiChillBonus: chill,
+      pathaphiZeroArmorBonusDmg: zeroArmorDmg,
+    };
+  }
+  if (wordId === 'wari') {
+    const heal = [5, 8, 12][idx];
+    const pct = [4, 6, 8][idx];
+    const chill = [2, 3, 4][idx];
+    const wetAll = tier >= 2;
+    const manaRefund = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'wari_tidal_restoration',
+      badge: `≈ ฮีล +${heal} (+${pct}%)${wetAll ? ' · เปียกทั้งสนาม' : ''}${manaRefund ? ' · +1 MP' : ''}`,
+      label: `กระแสวารีชุบชีพ ฮีล +${heal} (+${pct}% Max HP) · หนาว +${chill}${wetAll ? ' · เปียกทั้งสนาม' : ''}${manaRefund ? ' & +1 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ฟื้นฟูเพิ่ม +${heal} HP (+${pct}% Max HP) และเพิ่มหนาว +${chill}${wetAll ? ' พร้อมทำให้ศัตรูทั้งสนามเปียก' : ''}${manaRefund ? ' และคืน +1 มานาหลังร่าย' : ''}`,
+      healBonus: heal,
+      healMaxHpPct: pct,
+      wariChillBonus: chill,
+      wariWetAll: wetAll,
+      manaRefund,
+    };
+  }
+  if (wordId === 'vayu') {
+    const slam = [5, 9, 14][idx];
+    const chill = [0, 3, 4][idx];
+    const shred = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'vayu_cyclone_drive',
+      badge: `≋ ชน +${slam} · ผลัก 2 ช่อง${chill ? ` · มึน -${chill}` : ''}${shred ? ' · ทุบเกราะ -1' : ''}`,
+      label: `พายุหมุนกวาดแนว ชน +${slam} · ผลัก 2 ช่อง${chill ? ` · ชนลดโจมตี -${chill}` : ''}${shred ? ' & ทุบเกราะ -1' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เพิ่มดาเมจกระแทกชน/ขอบอีก +${slam} และผลักไกล 2 ช่อง${chill ? ` หากชนศัตรูจะลดแรงโจมตีทั้งสองตัว -${chill}` : ''}${shred ? ' พร้อมทุบเกราะถาวร -1 ทั้งสองตัว' : ''}`,
+      vayuSlamBonus: slam,
+      vayuExtraSteps: 1,
+      vayuCollideChill: chill,
+      vayuCollideArmorShred: shred,
+    };
+  }
+  if (wordId === 'freeze') {
+    const shred = [1, 2, 2][idx];
+    const chill = [3, 5, 6][idx];
+    const dmgPct = [0, 15, 25][idx];
+    const manaRefund = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'freeze_shatter_frost',
+      badge: `❆ ทุบเกราะ -${shred} · หนาว +${chill}${dmgPct ? ` · แรง +${dmgPct}%` : ''}${manaRefund ? ' · +1 MP' : ''}`,
+      label: `ผลึกน้ำแข็งเปราะบาง ทุบเกราะ -${shred} · หนาว +${chill}${dmgPct ? ` · แรง +${dmgPct}%` : ''}${manaRefund ? ' & +1 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เป้าที่ถูกแช่แข็งโดนทุบเกราะถาวร -${shred} และติดหนาวเพิ่ม +${chill}${dmgPct ? ` พร้อมเพิ่มดาเมจคาถา +${dmgPct}%` : ''}${manaRefund ? ' และคืน +1 มานา' : ''}`,
+      freezeArmorShred: shred,
+      freezeChillBonus: chill,
+      damagePctBonus: dmgPct,
+      manaRefund,
+    };
+  }
+  if (wordId === 'pierce') {
+    const overMult = [1, 1.5, 2][idx];
+    const shred = [0, 1, 2][idx];
+    const dmgPct = [0, 0, 15][idx];
+    return {
+      ...base,
+      id: 'pierce_overpenetration',
+      badge: `↠ เจาะล้น→ดาเมจ ×${overMult}${shred ? ` · ทุบเกราะ -${shred}` : ''}${dmgPct ? ` · แรง +${dmgPct}%` : ''}`,
+      label: `เจาะจุดตาย ส่วนเกินเกราะ→ดาเมจแท้ ×${overMult}${shred ? ` · ทุบเกราะ -${shred}` : ''}${dmgPct ? ` & แรง +${dmgPct}%` : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ค่าเจาะเกราะส่วนที่เกินเกราะศัตรูจะแปลงเป็นโบนัสดาเมจแท้ ×${overMult}${shred ? ` พร้อมทุบเกราะถาวร -${shred}` : ''}${dmgPct ? ` และเพิ่มดาเมจคาถา +${dmgPct}%` : ''}`,
+      overpierceMult: overMult,
+      pierceArmorShred: shred,
+      damagePctBonus: dmgPct,
+    };
+  }
+  if (wordId === 'grand') {
+    const dmgPct = [10, 16, 25][idx];
+    const selfBonus = [6, 10, 15][idx];
+    const nextBonus = [2, 4, 6][idx];
+    const manaRefund = [0, 1, 2][idx];
+    return {
+      ...base,
+      id: 'grand_mastery',
+      badge: `✦ แรง +${dmgPct}% / ป้องกัน +${selfBonus}${manaRefund ? ` · +${manaRefund} MP` : ''}`,
+      label: `มหามนตรา โจมตี +${dmgPct}% / โล่-ฮีล +${selfBonus} · ต่อเนื่อง +${nextBonus}${manaRefund ? ` & คืน +${manaRefund} MP` : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): คาถามหาโจมตีแรงขึ้น +${dmgPct}% (หรือโล่/ฮีล +${selfBonus} และฟื้น/เติมโล่ต้นเทิร์นหน้า +${nextBonus})${manaRefund ? ` พร้อมคืน +${manaRefund} มานาหลังร่าย` : ''}`,
+      damagePctBonus: dmgPct,
+      grandSelfBonus: selfBonus,
+      grandNextTurnBonus: nextBonus,
+      manaRefund,
+    };
+  }
+  if (wordId === 'seal') {
+    const chill = [3, 5, 6][idx];
+    const splash = tier >= 2;
+    const punish = tier === 3 ? 15 : 0;
+    return {
+      ...base,
+      id: 'seal_arcane_lockdown',
+      badge: `⌑ ลดโจมตี -${chill}${splash ? ' · ลามข้างเคียง' : ''}${punish ? ' · สะท้อน +15 & +1 MP' : ''}`,
+      label: `ตราผนึกสะกดอาคม ลดโจมตี -${chill}${splash ? ' · ลามผนึกข้างเคียง' : ''}${punish ? ' & สะท้อน +15 (+1 MP)' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เป้าที่โดนผนึกถูกลดแรงโจมตี -${chill}${splash ? ' และลามผนึกพร้อมลดโจมตีใส่ช่องข้างเคียงด้วย' : ''}${punish ? ' หากเป้ามีม่านหรือกำลังจะใช้ท่าสนับสนุนจะโดนดาเมจแท้ +15 และคืน +1 มานา' : ''}`,
+      sealChillBonus: chill,
+      sealSplashAdjacent: splash,
+      sealPunishDmg: punish,
+    };
+  }
+  if (wordId === 'dispel') {
+    const burst = [10, 15, 22][idx];
+    const shred = [0, 1, 2][idx];
+    const manaRefund = tier === 3 ? 2 : 0;
+    const splashWard = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'dispel_nullify_burst',
+      badge: `✧ ลบม่าน +${burst}/ชั้น · เจาะ +2${shred ? ` · ทุบเกราะ -${shred}` : ''}${manaRefund ? ' · +2 MP' : ''}`,
+      label: `สลายอาคมสะท้อนกลับ ม่านแตก +${burst}/ชั้น · เจาะ +2${shred ? ` · ทุบเกราะ -${shred}` : ''}${manaRefund ? ' & +2 MP + ลบข้างเคียง' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เจาะเกราะ +2 และทำดาเมจแท้ +${burst} ต่อม่านทุกชั้นที่สลายได้${shred ? ` พร้อมทุบเกราะถาวร -${shred}` : ''}${manaRefund ? ' หากสลายม่านสำเร็จคืน +2 มานา และลบม่านช่องข้างเคียงอีก 1 ชั้น' : ''}`,
+      pierceBonus: 2,
+      dispelWardBurstDmg: burst,
+      dispelArmorShred: shred,
+      dispelManaRefund: manaRefund,
+      dispelSplashWard: splashWard,
+    };
+  }
+  if (wordId === 'brace') {
+    const shield = [5, 8, 12][idx];
+    const reflect = [0, 10, 16][idx];
+    const chill = tier === 3 ? 4 : 0;
+    const heal = tier === 3 ? 6 : 0;
+    return {
+      ...base,
+      id: 'brace_unbreakable',
+      badge: `▣ เกณฑ์ ≥6 · เกราะ +${shield}${reflect ? ` · สะท้อน ${reflect}` : ''}${chill ? ' · หนาว 4 & +6 HP' : ''}`,
+      label: `ป้อมปราการไม่สั่นคลอน เกณฑ์ ≥6 · เกราะ +${shield}${reflect ? ` · สะท้อนแท้ ${reflect}` : ''}${chill ? ' & หนาว -4 + ฟื้น 6 HP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ยืนหยัดทำงานง่ายขึ้นเมื่อโดนตีแรง ≥ 6 และได้เกราะเสริม +${shield}${reflect ? ` พร้อมสะท้อนดาเมจแท้ ${reflect} ใส่ผู้โจมตีเมื่อยืนหยัดทำงาน` : ''}${chill ? ' และลดแรงโจมตีศัตรู -4 พร้อมฟื้น +6 HP' : ''}`,
+      shieldBonus: shield,
+      braceThreshold: 6,
+      braceReflectDmg: reflect,
+      braceCounterChill: chill,
+      braceCounterHeal: heal,
+    };
+  }
+
+  // === Batch 4: Tailored Epic Dual-Element Fusion Cards (Cards 31-40) ===
+  if (wordId === 'magma') {
+    const burn = [4, 6, 10][idx];
+    const splashHalf = tier >= 2;
+    const shredExtra = tier === 3 ? 1 : 0;
+    const zeroArmorDmg = tier === 3 ? 12 : 0;
+    return {
+      ...base,
+      id: 'magma_volcanic_eruption',
+      badge: `♨ เผา +${burn}${splashHalf ? ' · ปะทุลาม' : ''}${zeroArmorDmg ? ' · ล้างเกราะ +12' : ''}`,
+      label: `ภูเขาไฟปะทุ เผา +${burn}${splashHalf ? ' · แอ่งปะทุลามข้างเคียง' : ''}${zeroArmorDmg ? ' & ลดเกราะ -3 + 12 แท้' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เป้าที่โดนแมกม่าติดเผา +${burn}${splashHalf ? ' · แอ่งแมกม่าปะทุลามใส่ช่องข้างเคียงครึ่งแรง' : ''}${zeroArmorDmg ? ' · ปะทุลดเกราะเพิ่มอีก -1 (รวม -3) และหากเกราะเหลือ 0 ซ้ำด้วย +12 ดาเมจแท้' : ''}`,
+      magmaBurnBonus: burn,
+      magmaSplashHalf: splashHalf,
+      magmaShredExtra: shredExtra,
+      magmaZeroArmorDmg: zeroArmorDmg,
+    };
+  }
+  if (wordId === 'mudmire') {
+    const chill = [3, 5, 7][idx];
+    const heal = [4, 7, 10][idx];
+    const splashAdj = tier >= 2;
+    const shred = tier === 3 ? 2 : 0;
+    const dmgPct = tier === 3 ? 15 : 0;
+    return {
+      ...base,
+      id: 'mudmire_quicksand',
+      badge: `◆ หนาว +${chill} · ฮีล +${heal}${splashAdj ? ' · ลามข้าง' : ''}${dmgPct ? ' · แรง +15%' : ''}`,
+      label: `โคลนดูดตรึงร่าง หนาว +${chill} & ฮีล +${heal}${splashAdj ? ' · ลามเปียก+หนาว' : ''}${shred ? ' · เจาะเกราะ -2 & +15%' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): บึงโคลนเพิ่มหนาว +${chill} และฟื้นฟู +${heal} HP${splashAdj ? ' · ลามเปียกและหนาวใส่ศัตรูช่องข้างเคียง' : ''}${shred ? ' · ทำลายเกราะถาวร -2 และเพิ่มดาเมจบึงโคลน +15%' : ''}`,
+      mudmireChillBonus: chill,
+      healBonus: heal,
+      mudmireSplashAdjacent: splashAdj,
+      mudmireArmorShred: shred,
+      damagePctBonus: dmgPct,
+    };
+  }
+  if (wordId === 'dust') {
+    const slam = [5, 9, 14][idx];
+    const shred = [1, 1, 2][idx];
+    const obscure = tier >= 2;
+    const extraSteps = tier === 3 ? 1 : 0;
+    const collideDebuff = tier === 3;
+    return {
+      ...base,
+      id: 'dust_sandstorm',
+      badge: `≋ ชน +${slam} · เกราะ −${shred}${obscure ? ' · บดบัง' : ''}${extraSteps ? ' · ผลัก 2 ช่อง' : ''}`,
+      label: `พายุทรายกัดกร่อน กระแทก +${slam} & ลดเกราะเพิ่ม −${shred}${obscure ? ' · บดบัง -4' : ''}${extraSteps ? ' · ผลัก 2 ช่อง' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): แรงกระแทกธุลีเพิ่ม +${slam} และลดเกราะถาวรเพิ่ม −${shred}${obscure ? ' · บดบังการเล็งเป้า (-4 โจมตี)' : ''}${collideDebuff ? ' · ผลักไกล 2 ช่อง และตัวที่ถูกชนเสียเกราะ −1 + บดบังด้วย' : ''}`,
+      dustSlamBonus: slam,
+      dustShredBonus: shred,
+      dustObscure: obscure,
+      dustExtraSteps: extraSteps,
+      dustCollideDebuff: collideDebuff,
+    };
+  }
+  if (wordId === 'permafrost') {
+    const shield = [6, 10, 16][idx];
+    const chill = [3, 5, 7][idx];
+    const shred = [0, 1, 1][idx];
+    const freezeZero = tier === 3;
+    return {
+      ...base,
+      id: 'permafrost_glacier_fort',
+      badge: `❄ เกราะ +${shield} · หนาว +${chill}${shred ? ' · เกราะ −3' : ''}${freezeZero ? ' · แช่แข็งเกราะ 0' : ''}`,
+      label: `ป้อมปราการน้ำแข็ง เกราะ +${shield} & หนาว +${chill}${shred ? ' · ลดเกราะเพิ่ม -1' : ''}${freezeZero ? ' · แช่แข็งเป้าไร้เกราะ' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ได้เกราะน้ำแข็งเสริม +${shield} และทำให้เป้าติดหนาว +${chill}${shred ? ' · ลดเกราะถาวรเพิ่มอีก -1 (รวม -3)' : ''}${freezeZero ? ' · หากเกราะเป้าเหลือ 0 หลังโดนตีจะแช่แข็งเป้าทันที' : ''}`,
+      shieldBonus: shield,
+      permafrostChillBonus: chill,
+      permafrostShredBonus: shred,
+      permafrostFreezeZeroArmor: freezeZero,
+    };
+  }
+  if (wordId === 'magnet') {
+    const pierce = [2, 3, 5][idx];
+    const slam = [4, 8, 12][idx];
+    const pullRange = tier >= 2 ? 2 : 1;
+    const collideShred = tier === 3 ? 1 : 0;
+    const collideChill = tier === 3 ? 3 : 0;
+    return {
+      ...base,
+      id: 'magnet_magnetic_field',
+      badge: `ϟ เจาะ +${pierce} · ชน +${slam}${pullRange > 1 ? ' · ดูด 2 ช่อง' : ''}${collideShred ? ' · เกราะ −1/หนาว 3' : ''}`,
+      label: `สนามแม่เหล็กแรงสูง เจาะ +${pierce} & ดูดชน +${slam}${pullRange > 1 ? ' · ระยะดูด 2 ช่อง' : ''}${collideShred ? ' · ชนลดเกราะ -1 & หนาว 3' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เจาะเกราะเพิ่ม +${pierce} และกระแทกดูดชนแรงขึ้น +${slam}${pullRange > 1 ? ' · ขยายระยะดูดศัตรูเป็น 2 ช่องรอบเป้าหลัก' : ''}${collideShred ? ' · ศัตรูที่ชนกันติดลดเกราะถาวร -1 และหนาว +3 ทุกตัว' : ''}`,
+      pierceBonus: pierce,
+      magnetSlamBonus: slam,
+      magnetPullRange: pullRange,
+      magnetCollideShred: collideShred,
+      magnetCollideChill: collideChill,
+    };
+  }
+  if (wordId === 'mist') {
+    const shield = [5, 8, 12][idx];
+    const spreadMode = tier >= 2 ? 'all' : 'adjacent';
+    const chill = tier === 3 ? 6 : 0;
+    const wetScald = tier === 3 ? 15 : 0;
+    return {
+      ...base,
+      id: 'mist_scalding_veil',
+      badge: `≋ เกราะ +${shield} · หมอก${spreadMode === 'all' ? 'ทั้งสนาม' : 'ข้างเคียง'}${wetScald ? ' · ลวก +15' : ''}`,
+      label: `หมอกไอร้อนอำพราง เกราะ +${shield} · เปียก+บดบัง${spreadMode === 'all' ? 'ทั้งสนาม' : 'ช่องข้างเคียง'}${wetScald ? ' & หนาว 6 + ลวก 15 แท้' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ได้เกราะหมอก +${shield} และกระจายเปียก+บดบังให้${spreadMode === 'all' ? 'ศัตรูทั้งสนาม' : 'ศัตรูช่องข้างเคียง'}${wetScald ? ' · เพิ่มหนาว +6 และเป้าที่เปียกอยู่แล้วโดนไอร้อนลวกเพิ่ม +15 ดาเมจแท้' : ''}`,
+      shieldBonus: shield,
+      mistSpreadMode: spreadMode,
+      mistChillBonus: chill,
+      mistWetScaldDmg: wetScald,
+    };
+  }
+  if (wordId === 'hail') {
+    const dryChill = [3, 5, 7][idx];
+    const freezeDmgPct = [15, 25, 35][idx];
+    const dryWet = tier >= 2;
+    const allChill = tier === 3 ? 5 : 0;
+    const freezeMana = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'hail_blizzard',
+      badge: `❆ แห้งหนาว +${dryChill} · แช่แรง +${freezeDmgPct}%${dryWet ? ' · เปียกต่อ' : ''}${freezeMana ? ' · หนาวทั้งสนาม/+1 MP' : ''}`,
+      label: `พายุหิมะเยือกแข็ง หนาว +${dryChill} · เป้าเปียก/แช่ +${freezeDmgPct}% & ลดเกราะ -2${dryWet ? ' · แห้งติดเปียก' : ''}${freezeMana ? ' · ลามหนาว 5 & +1 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เป้าแห้งติดหนาวเพิ่ม +${dryChill}${dryWet ? ' และติดเปียกทันทีเพื่อแช่แข็งเทิร์นถัดไป' : ''} · เป้าที่โดนแช่แข็งรับดาเมจเพิ่ม +${freezeDmgPct}% พร้อมลดเกราะถาวร -2${freezeMana ? ' · ลามหนาว +5 ทั้งสนามและคืน +1 มานาเมื่อแช่แข็งสำเร็จ' : ''}`,
+      hailDryChillBonus: dryChill,
+      hailFreezeDmgPct: freezeDmgPct,
+      hailDryApplyWet: dryWet,
+      hailFreezeArmorShred: 2,
+      hailAllChill: allChill,
+      hailFreezeManaRefund: freezeMana,
+    };
+  }
+  if (wordId === 'monsoon') {
+    const heal = [5, 8, 12][idx];
+    const maxHpPct = [4, 6, 8][idx];
+    const slam = [4, 8, 12][idx];
+    const pushChill = tier >= 2 ? 3 : 0;
+    const slamMana = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'monsoon_typhoon_surge',
+      badge: `≈ ฮีล +${heal}+${maxHpPct}% · ชน +${slam}${pushChill ? ' · หนาว 3' : ''}${slamMana ? ' · ชนคืน 2 MP' : ''}`,
+      label: `คลื่นยักษ์มรสุม ฟื้น +${heal} (+${maxHpPct}% MaxHP) & กระแทก +${slam}${pushChill ? ' · ผลักติดหนาว 3' : ''}${slamMana ? ' & ชนคืน +2 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ฟื้นฟูเพิ่ม +${heal} HP (+${maxHpPct}% MaxHP) และแรงกระแทกมรสุมเพิ่ม +${slam}${pushChill ? ' · ศัตรูทุกตัวที่โดนผลักติดหนาว +3' : ''}${slamMana ? ' · คืน +2 มานาเมื่อมรสุมผลักชนศัตรูหรือขอบสนาม' : ''}`,
+      healBonus: heal,
+      healMaxHpPct: maxHpPct,
+      monsoonSlamBonus: slam,
+      monsoonPushChill: pushChill,
+      monsoonSlamManaRefund: slamMana,
+    };
+  }
+  if (wordId === 'shockstream') {
+    const pierce = [2, 4, 6][idx];
+    const shockBonus = [6, 12, 18][idx];
+    const wetPrimary = tier >= 2;
+    const manaPerWet = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'shockstream_high_voltage',
+      badge: `ϟ เจาะ +${pierce} · ช็อต +${shockBonus}${wetPrimary ? ' · เปียก+ช็อตซ้ำ' : ''}${manaPerWet ? ' · +1 MP/ตัว' : ''}`,
+      label: `กระแสไฟแรงสูง เจาะ +${pierce} & ช็อตเปียก +${shockBonus}${wetPrimary ? ' · ทำให้เป้าหลักเปียก/ช็อตซ้ำ' : ''}${manaPerWet ? ' · คืน 1 MP/เป้าเปียก (สูงสุด 3)' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เจาะเกราะเพิ่ม +${pierce} และเพิ่มดาเมจช็อตเป้าเปียก +${shockBonus}${wetPrimary ? ' · ทำให้เป้าหลักติดเปียก (และถ้าเปียกอยู่แล้วจะโดนช็อตซ้ำด้วย)' : ''}${manaPerWet ? ' · คืน +1 มานาต่อเป้าเปียกที่ช็อตได้ (สูงสุด +3 มานา)' : ''}`,
+      pierceBonus: pierce,
+      shockstreamBonusDmg: shockBonus,
+      shockstreamWetPrimary: wetPrimary,
+      shockstreamManaPerWet: manaPerWet,
+    };
+  }
+  if (wordId === 'thunderstorm') {
+    const pierce = [2, 3, 5][idx];
+    const chainPct = [65, 80, 95][idx];
+    const chainBoth = tier >= 2;
+    const slamBonus = tier === 3 ? 12 : 0;
+    const collideZap = tier === 3;
+    return {
+      ...base,
+      id: 'thunderstorm_tempest_arc',
+      badge: `ϟ เจาะ +${pierce} · ชิ่ง ${chainPct}%${chainBoth ? '×2 ฝั่ง' : ''}${slamBonus ? ' · ชน+12 & ฟาดซ้ำ' : ''}`,
+      label: `อัสนีบาตพายุคลั่ง เจาะ +${pierce} & ชิ่ง ${chainPct}%${chainBoth ? ' ทั้งสองฝั่ง' : ''}${slamBonus ? ' · ชน +12 & ฟาดตัวชน' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เจาะเกราะเพิ่ม +${pierce} และสายฟ้าชิ่งแรงขึ้นเป็น ${chainPct}%${chainBoth ? ' ชิ่งใส่ทั้งสองฝั่งรอบตำแหน่งใหม่หลังผลัก' : ''}${collideZap ? ' · แรงกระแทกชนเพิ่ม +12 และฟาดสายฟ้าซ้ำใส่ศัตรูที่ถูกผลักชนด้วย' : ''}`,
+      pierceBonus: pierce,
+      thunderstormChainPct: chainPct,
+      thunderstormChainBoth: chainBoth,
+      thunderstormSlamBonus: slamBonus,
+      thunderstormCollideZap: collideZap,
+    };
+  }
+
+  // === Batch 5 (Final): Remaining 9 Epic + 4 Legendary Cards (Cards 41-53) ===
+  if (wordId === 'heatwave') {
+    const primaryBurn = [4, 7, 12][idx];
+    const slam = [4, 8, 12][idx];
+    const linger = tier >= 2;
+    const detonate = tier === 3 ? 15 : 0;
+    return {
+      ...base,
+      id: 'heatwave_inferno_gale',
+      badge: `♨ เผาหลัก +${primaryBurn} · ชน +${slam}${linger ? ' · ไฟค้าง' : ''}${detonate ? ' · ระเบิดเผา +15' : ''}`,
+      label: `คลื่นเพลิงโหม เผาเป้าหลัก +${primaryBurn} & กระแทก +${slam}${linger ? ' · ไฟค้างเทิร์นหน้า' : ''}${detonate ? ' · ซ้ำเป้าติดเผา +15 แท้' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เป้าหลักติดเผาเพิ่ม +${primaryBurn} และกระแทกชนแรงขึ้น +${slam}${linger ? ' · เป้าที่ติดเผาจากระอุจะเหลือไฟค้าง 50% เทิร์นถัดไป' : ''}${detonate ? ' · เป้าที่ติดเผาอยู่แล้วโดนระเบิดความร้อนเพิ่ม +15 ดาเมจแท้' : ''}`,
+      heatwavePrimaryBurn: primaryBurn,
+      heatwaveSlamBonus: slam,
+      heatwaveLingerBurn: linger,
+      heatwaveBurnDetonateDmg: detonate,
+    };
+  }
+  if (wordId === 'chillgale') {
+    const chill = [3, 5, 8][idx];
+    const slam = [4, 8, 12][idx];
+    const splashChill = tier >= 2 ? 4 : 0;
+    const extraSteps = tier === 3 ? 1 : 0;
+    const collideFreeze = tier === 3;
+    return {
+      ...base,
+      id: 'chillgale_blizzard_gust',
+      badge: `❄ หนาว +${chill} · ชน +${slam}${splashChill ? ' · ลามหนาว 4' : ''}${extraSteps ? ' · ผลัก 2/ชนแช่แข็ง' : ''}`,
+      label: `พายุหิมะพัดกระหน่ำ หนาว +${chill} & กระแทก +${slam}${splashChill ? ' · ลามหนาวข้างเคียง 4' : ''}${collideFreeze ? ' · ผลัก 2 ช่อง & ชนแช่แข็ง' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เพิ่มหนาวถาวร +${chill} และกระแทกชนแรงขึ้น +${slam}${splashChill ? ' · กระจายหนาวถาวร +4 ใส่ศัตรูช่องข้างเคียง' : ''}${collideFreeze ? ' · ผลักไกล 2 ช่อง และหากตัวที่ชนกันติดหนาวอยู่แล้วจะถูกแช่แข็งทันที' : ''}`,
+      chillgaleChillBonus: chill,
+      chillgaleSlamBonus: slam,
+      chillgaleSplashChill: splashChill,
+      chillgaleExtraSteps: extraSteps,
+      chillgaleCollideFreeze: collideFreeze,
+    };
+  }
+  if (wordId === 'plasma') {
+    const pierce = [3, 5, 8][idx];
+    const dmgPct = [10, 18, 28][idx];
+    const burn = tier >= 2 ? 8 : 0;
+    const shred = tier >= 2 ? 2 : 0;
+    const overpierce = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'plasma_meltdown',
+      badge: `✦ เจาะ +${pierce} · แรง +${dmgPct}%${shred ? ' · เผา 8/เกราะ −2' : ''}${overpierce ? ' · ทะลวง ×2' : ''}`,
+      label: `ลำแสงพลาสมาหลอมละลาย เจาะ +${pierce} & แรง +${dmgPct}%${shred ? ' · เผา 8 & ลดเกราะ -2' : ''}${overpierce ? ' · เจาะเกินแปลงดาเมจแท้ ×2' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เจาะเกราะเพิ่ม +${pierce} และเพิ่มดาเมจพลาสมา +${dmgPct}%${shred ? ' · เผาเป้า +8 และลดเกราะถาวร -2' : ''}${overpierce ? ' · หากเจาะเกราะเกินเกราะเป้า เปลี่ยนส่วนเกินเป็นดาเมจแท้ ×2' : ''}`,
+      pierceBonus: pierce,
+      damagePctBonus: dmgPct,
+      plasmaBurnBonus: burn,
+      plasmaArmorShred: shred,
+      overpierceMult: overpierce,
+    };
+  }
+  if (wordId === 'scald') {
+    const shred = [1, 1, 2][idx];
+    const chill = [4, 6, 8][idx];
+    const zeroArmor = tier >= 2 ? 18 : 0;
+    const wetBurn = tier === 3 ? 8 : 0;
+    const mana = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'scald_thermal_shock',
+      badge: `♨ เกราะ −${2 + shred} · หนาว +${chill}${zeroArmor ? ' · เกราะ 0 +18' : ''}${mana ? ' · เปียก+เผา 8/+1 MP' : ''}`,
+      label: `ไอน้ำฉับพลันทำลายเกราะ ลดเกราะรวม -${2 + shred} & หนาว +${chill}${zeroArmor ? ' · ช็อกเกราะ 0 (+18 แท้)' : ''}${mana ? ' · เปียก+เผา 8 & คืน 1 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ลดเกราะถาวรเพิ่มอีก -${shred} (รวม -${2 + shred}) และลดแรงโจมตี +${chill}${zeroArmor ? ' · หากเกราะเป้าเหลือ 0 ช็อกความร้อนเพิ่ม +18 ดาเมจแท้' : ''}${mana ? ' · ทำให้เป้าเปียก+เผา +8 และคืน +1 มานา' : ''}`,
+      scaldShredBonus: shred,
+      scaldChillBonus: chill,
+      scaldZeroArmorDmg: zeroArmor,
+      scaldApplyWetBurn: wetBurn,
+      manaRefund: mana,
+    };
+  }
+  if (wordId === 'frostvolt') {
+    const pierce = [2, 3, 5][idx];
+    const chainPct = [65, 80, 95][idx];
+    const chainBoth = tier >= 2;
+    const chainFreeze = tier === 3;
+    const mana = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'frostvolt_cryo_arc',
+      badge: `❆ เจาะ +${pierce} · ชิ่ง ${chainPct}%${chainBoth ? '×2 ฝั่ง' : ''}${chainFreeze ? ' · ชิ่งแช่แข็ง/+1 MP' : ''}`,
+      label: `ผลึกอัสนีเยือกแข็ง เจาะ +${pierce} & ชิ่ง ${chainPct}%${chainBoth ? ' ทั้งสองฝั่ง' : ''}${chainFreeze ? ' · ชิ่งแช่แข็งเป้าหนาว & +1 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เจาะเกราะเพิ่ม +${pierce} และสายฟ้าแช่แข็งชิ่งแรงขึ้นเป็น ${chainPct}%${chainBoth ? ' ชิ่งใส่ทั้งสองฝั่งพร้อมติดหนาว' : ''}${chainFreeze ? ' · เป้าที่ชิ่งโดนและติดหนาวอยู่แล้วถูกแช่แข็งทันที พร้อมคืน +1 มานา' : ''}`,
+      pierceBonus: pierce,
+      frostvoltChainPct: chainPct,
+      frostvoltChainBoth: chainBoth,
+      frostvoltChainFreezeChilled: chainFreeze,
+      manaRefund: mana,
+    };
+  }
+  if (wordId === 'meteor') {
+    const pierce = [2, 4, 6][idx];
+    const burn = [3, 5, 8][idx];
+    const shred = tier >= 2 ? 1 : 0;
+    const extraDrops = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'meteor_starfall',
+      badge: `✹ เจาะ +${pierce} · เผา +${burn}${shred ? ' · เกราะ −1' : ''}${extraDrops ? ' · +1 ลูก/ชุด' : ''}`,
+      label: `ฝนดาวตกถล่มฟ้า เจาะ +${pierce} & เผา +${burn}${shred ? ' · ลดเกราะ -1 ทุกเป้า' : ''}${extraDrops ? ' · เพิ่มอุกกาบาต +1 ลูกต่อชุด' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): อุกกาบาตเจาะเกราะเพิ่ม +${pierce} และเผาเป้าที่โดน +${burn}${shred ? ' · ลดเกราะถาวร -1 ทุกตัวที่โดน' : ''}${extraDrops ? ' · เพิ่มจำนวนอุกกาบาตอีก +1 ลูกต่อชุด (เป็น 4 ลูก / คู่ 8 ลูก)' : ''}`,
+      pierceBonus: pierce,
+      meteorBurnBonus: burn,
+      meteorArmorShred: shred,
+      meteorExtraDrops: extraDrops,
+    };
+  }
+  if (wordId === 'veil') {
+    const renew = [4, 7, 12][idx];
+    const reflect = tier >= 2 ? 15 : 0;
+    const breakHeal = tier >= 2 ? 8 : 0;
+    const breakMana = tier === 3 ? 2 : 0;
+    const breakChill = tier === 3 ? 6 : 0;
+    return {
+      ...base,
+      id: 'veil_astral_mirror',
+      badge: `▣ เติมม่าน +${renew}${reflect ? ' · แตกสะท้อน 15/+8 HP' : ''}${breakMana ? ' · +2 MP/หนาว 6' : ''}`,
+      label: `ม่านมิติสะท้อนพลัง เติมม่านต้นเทิร์น +${renew}${reflect ? ' · แตกสะท้อน 15 แท้ & +8 HP' : ''}${breakMana ? ' · คืน +2 MP & หนาว -6' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เติมความจุม่านต้นเทิร์นถัดไป +${renew}${reflect ? ' · เมื่อม่านแตก สะท้อนดาเมจแท้ 15 ใส่ผู้โจมตีและฟื้น +8 HP' : ''}${breakMana ? ' · เมื่อม่านแตก คืน +2 มานาและลดพลังโจมตีศัตรู -6' : ''}`,
+      shieldRenewalBonus: renew,
+      veilBreakReflectDmg: reflect,
+      veilBreakHeal: breakHeal,
+      veilBreakMana: breakMana,
+      veilBreakChill: breakChill,
+    };
+  }
+  if (wordId === 'chakram') {
+    const pierce = [2, 4, 6][idx];
+    const dmgPct = [10, 16, 24][idx];
+    const shred = tier >= 2 ? 2 : 0;
+    const killMana = tier === 3 ? 3 : 0;
+    const killCleave = tier === 3;
+    return {
+      ...base,
+      id: 'chakram_executioner',
+      badge: `❂ เจาะ +${pierce} · แรง +${dmgPct}%${shred ? ' · เกราะ −2' : ''}${killMana ? ' · สังหารชิ่ง/+3 MP' : ''}`,
+      label: `คมจักรผ่าเกราะ เจาะ +${pierce} & แรง +${dmgPct}%${shred ? ' · ลดเกราะ -2' : ''}${killCleave ? ' · สังหารคืน 3 MP & ชิ่งเฉือนข้างเคียง' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): กรงจักรเจาะเกราะเพิ่ม +${pierce} และแรงขึ้น +${dmgPct}%${shred ? ' · ทำลายเกราะถาวร -2' : ''}${killCleave ? ' · หากสังหารเป้าหมายได้ คืน +3 มานาและชิ่งเฉือนศัตรูข้างเคียงครึ่งแรง' : ''}`,
+      pierceBonus: pierce,
+      damagePctBonus: dmgPct,
+      chakramArmorShred: shred,
+      chakramKillManaRefund: killMana,
+      chakramKillCleaveHalf: killCleave,
+    };
+  }
+  if (wordId === 'storm') {
+    const sidePct = [85, 95, 100][idx];
+    const pierce = [1, 2, 4][idx];
+    const chill = tier >= 2 ? 3 : 0;
+    const multiMana = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'storm_eye_tempest',
+      badge: `◉ ข้าง ${sidePct}% · เจาะ +${pierce}${chill ? ' · หนาว 3' : ''}${multiMana ? ' · โดน ≥2 คืน 2 MP' : ''}`,
+      label: `ตาพายุโหมกระหน่ำ แรงข้างเคียง ${sidePct}% & เจาะ +${pierce}${chill ? ' · หนาวทุกเป้า 3' : ''}${multiMana ? ' · โดน ≥2 ตัวคืน +2 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): พายุเพิ่มแรงช่องข้างเคียงจาก 75% เป็น ${sidePct}% และเจาะเกราะ +${pierce}${chill ? ' · ศัตรูทุกตัวในพายุติดหนาว +3' : ''}${multiMana ? ' · หากพายุโดนศัตรู 2 ตัวขึ้นไป คืน +2 มานา' : ''}`,
+      stormSidePct: sidePct,
+      pierceBonus: pierce,
+      stormChillBonus: chill,
+      stormMultiManaRefund: multiMana,
+    };
+  }
+  if (wordId === 'barrage') {
+    const pierce = [2, 4, 6][idx];
+    const mana = [2, 4, 6][idx];
+    const shred = tier >= 2 ? 1 : 0;
+    const finale = tier === 3;
+    return {
+      ...base,
+      id: 'barrage_relentless',
+      badge: `Ⅴ เจาะ +${pierce} · +${mana} MP${shred ? ' · เกราะ −3' : ''}${finale ? ' · นัดสุดท้าย ×2' : ''}`,
+      label: `ระดมยิงไร้ปราณี เจาะ +${pierce} & คืน +${mana} มานา${shred ? ' · ลดเกราะสะสม -3' : ''}${finale ? ' · นัดที่ 5 แรง ×2!' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): กระหน่ำเจาะเกราะเพิ่ม +${pierce} และคืนมานา +${mana} หลังร่าย${shred ? ' · ลดเกราะถาวร -1 ต่อครั้งที่โดน (สูงสุด -3)' : ''}${finale ? ' · นัดสุดท้าย (ครั้งที่ 5) โจมตีแรงเป็น 2 เท่า!' : ''}`,
+      pierceBonus: pierce,
+      manaRefund: mana,
+      barrageArmorShred: shred,
+      barrageFinaleDouble: finale,
+    };
+  }
+  if (wordId === 'devastation') {
+    const blastPct = [65, 80, 100][idx];
+    const pierce = [2, 4, 6][idx];
+    const shred = tier >= 2 ? 2 : 0;
+    const mana = tier === 3 ? 2 : 0;
+    const stripWard = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'devastation_cataclysm',
+      badge: `✷ ระเบิด ${blastPct}% · เจาะ +${pierce}${shred ? ' · เกราะ −2' : ''}${stripWard ? ' · ตัดม่าน/+2 MP' : ''}`,
+      label: `มหาพินาศทำลายล้าง ระเบิดรัศมี 2 ช่อง ${blastPct}% & เจาะ +${pierce}${shred ? ' · ลดเกราะ -2 ทั้งรัศมี' : ''}${stripWard ? ' · สลายม่าน -1 & +2 MP' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ระเบิดทำลายล้างรัศมี 2 ช่องแรงขึ้นเป็น ${blastPct}% และเจาะเกราะ +${pierce}${shred ? ' · ลดเกราะถาวร -2 ทุกตัวในรัศมี' : ''}${stripWard ? ' · สลายม่าน -1 ชั้นก่อนระเบิดและคืน +2 มานา' : ''}`,
+      devastationBlastPct: blastPct,
+      pierceBonus: pierce,
+      devastationArmorShred: shred,
+      manaRefund: mana,
+      devastationStripWard: stripWard,
+    };
+  }
+  if (wordId === 'blackhole') {
+    const shield = [12, 20, 30][idx];
+    const mana = [2, 4, 6][idx];
+    const pullChill = tier >= 2 ? 6 : 0;
+    const pullShred = tier >= 2 ? 2 : 0;
+    const collapsePct = tier === 3 ? 25 : 0;
+    return {
+      ...base,
+      id: 'blackhole_event_horizon',
+      badge: `◉ เกราะ +${shield} · +${mana} MP${pullShred ? ' · ดูดหนาว 6/เกราะ −2' : ''}${collapsePct ? ' · ยุบ +25%/ข้าง 75%' : ''}`,
+      label: `ขอบฟ้าเหตุการณ์นิรันดร์ เกราะ +${shield} & คืน +${mana} มานา${pullShred ? ' · ดูดติดหนาว 6 & เกราะ -2' : ''}${collapsePct ? ' · ยุบแรง +25% (รอบข้าง 75%)' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อเปิดหลุมดำได้เกราะมิติ +${shield} และคืน +${mana} มานา${pullShred ? ' · ศัตรูที่โดนดูดติดหนาว +6 และลดเกราะถาวร -2' : ''}${collapsePct ? ' · แรงยุบหลุมดำเพิ่มขึ้นอีก +25% และศัตรูรอบข้างรับ 75% แทน 50%' : ''}`,
+      shieldBonus: shield,
+      manaRefund: mana,
+      blackholePullChill: pullChill,
+      blackholePullShred: pullShred,
+      blackholeCollapsePct: collapsePct,
+    };
+  }
+  if (wordId === 'death') {
+    const shield = [10, 18, 28][idx];
+    const heal = [10, 18, 28][idx];
+    const bossMult = tier >= 2 ? 1.5 : 1;
+    const bossShred = tier >= 2 ? 3 : 0;
+    const bossStripWard = tier >= 2 ? 2 : 0;
+    const killDraw = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'death_reaper_verdict',
+      badge: `† เกราะ/ฮีล +${shield}${bossShred ? ' · บอส ×1.5/เกราะ −3/ม่าน −2' : ''}${killDraw ? ' · ปลิดชีพจั่ว +2' : ''}`,
+      label: `คำพิพากษามรณะ เกราะ +${shield} & ฟื้น +${heal} HP${bossShred ? ' · บอส ×1.5 & ล้างเกราะ -3/ม่าน -2' : ''}${killDraw ? ' · ปลิดชีพจั่ว +2 ใบ' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อร่ายคำสั่งตายได้เกราะวิญญาณ +${shield} และฟื้น +${heal} HP${bossShred ? ' · แรงพิพากษาใส่บอสเพิ่มเป็น ×1.5 พร้อมลดเกราะบอส -3 และสลายม่าน -2' : ''}${killDraw ? ' · หากปลิดชีพศัตรูธรรมดาสำเร็จ จั่วเพิ่ม +2 ใบทันที' : ''}`,
+      shieldBonus: shield,
+      healBonus: heal,
+      deathBossMult: bossMult,
+      deathBossShred: bossShred,
+      deathBossStripWard: bossStripWard,
+      deathKillDraw: killDraw,
+    };
+  }
+  if (wordId === 'spear') {
+    const backPct = [65, 75, 85][idx];
+    const pierce = [1, 2, 3][idx];
+    const shred = tier >= 2 ? 1 : 0;
+    const doubleMana = tier === 3 ? 1 : 0;
+    return {
+      ...base,
+      id: 'spear_skewer',
+      badge: `➶ ตัวหลัง ${backPct}% · เจาะ +${pierce}${shred ? ' · เกราะ −1' : ''}${doubleMana ? ' · แทง 2 ตัว +1 MP' : ''}`,
+      label: `หอกทะลวงแถว ตัวหลัง ${backPct}% & เจาะเกราะ +${pierce}${shred ? ' · ทุบเกราะ -1' : ''}${doubleMana ? ' · โดน 2 ตัวคืน +1 มานา' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ตัวข้างหลังรับแรงเพิ่มเป็น ${backPct}% และเจาะเกราะ +${pierce}${shred ? ' · ทุบเกราะเป้าหมายที่โดน -1 ถาวร' : ''}${doubleMana ? ' · หากแทงทะลุโดนครบทั้ง 2 ตัว คืน +1 มานา' : ''}`,
+      spearBackPct: backPct,
+      pierceBonus: pierce,
+      spearArmorShred: shred,
+      spearDoubleManaRefund: doubleMana,
+    };
+  }
+  if (wordId === 'empower') {
+    const shield = [6, 10, 14][idx];
+    const extraTurns = tier >= 2 ? 1 : 0;
+    const mana = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'empower_resonance',
+      badge: `▲ เกราะ +${shield}${extraTurns ? ' · บัฟ +1 เทิร์น' : ''}${mana ? ` · +${mana} MP` : ''}`,
+      label: `เสริมพลังสะท้อน เกราะ +${shield}${extraTurns ? ' · บัฟนานขึ้น +1 เทิร์น' : ''}${mana ? ` · คืน +${mana} มานา` : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อร่ายเสริมธาตุได้เกราะชั่วคราว +${shield}${extraTurns ? ' · ยืดระยะบัฟธาตุเพิ่มอีก +1 เทิร์น' : ''}${mana ? ` · คืน +${mana} มานาทันที` : ''}`,
+      shieldBonus: shield,
+      buffExtraTurns: extraTurns,
+      manaRefund: mana,
+    };
+  }
+  if (wordId === 'bless') {
+    const heal = [6, 10, 15][idx];
+    const shield = [8, 14, 20][idx];
+    const extraPierce = [0, 1, 2][idx];
+    const extraTurns = tier >= 2 ? 1 : 0;
+    const mana = tier === 3 ? 2 : 0;
+    return {
+      ...base,
+      id: 'bless_sanctuary',
+      badge: `✧ ฮีล +${heal} · เกราะ +${shield}${extraPierce ? ` · เจาะ +${extraPierce}/+1 เทิร์น` : ''}${mana ? ` · +${mana} MP` : ''}`,
+      label: `พรศักดิ์สิทธิ์ ฟื้น +${heal} HP & เกราะ +${shield}${extraPierce ? ` · บัฟเจาะเพิ่ม +${extraPierce} & +1 เทิร์น` : ''}${mana ? ` · คืน +${mana} มานา` : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อร่ายอวยพรจะฟื้น +${heal} HP และได้เกราะ +${shield}${extraPierce ? ` · บัฟธาตุได้เจาะเกราะเพิ่ม +${extraPierce} และอยู่นานขึ้น +1 เทิร์น` : ''}${mana ? ` · คืน +${mana} มานาทันที` : ''}`,
+      healBonus: heal,
+      shieldBonus: shield,
+      buffExtraPierce: extraPierce,
+      buffExtraTurns: extraTurns,
+      manaRefund: mana,
+    };
+  }
+  if (wordId === 'fill') {
+    const shield = [5, 9, 14][idx];
+    const crossMana = [0, 1, 2][idx];
+    const crossHeal = [0, 3, 6][idx];
+    return {
+      ...base,
+      id: 'fill_overflow',
+      badge: `◈ เกราะ +${shield}${crossMana ? ` · เติมเลือด +${crossMana} MP / เติมมานา +${crossHeal} HP` : ''}`,
+      label: `เติมเต็มเอ่อล้น เกราะ +${shield}${crossMana ? ` · เติมเลือดแถม +${crossMana} MP & เติมมานาแถม +${crossHeal} HP` : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อร่ายเติมได้เกราะ +${shield}${crossMana ? ` · เติมเลือดแถม +${crossMana} มานา และเติมมานาแถม +${crossHeal} HP` : ''}`,
+      shieldBonus: shield,
+      fillCrossMana: crossMana,
+      fillCrossHeal: crossHeal,
+    };
+  }
+  if (wordId === 'blood') {
+    const overhealCap = [8, 14, 22][idx];
+    const nextHeal = [0, 4, 8][idx];
+    return {
+      ...base,
+      id: 'blood_vitality',
+      badge: `♥ ฮีลล้น→เกราะ ${overhealCap}${nextHeal ? ` · เทิร์นหน้า +${nextHeal} HP` : ''}`,
+      label: `โลหิตหล่อเลี้ยง ฮีลล้นแปลงเกราะสูงสุด ${overhealCap}${nextHeal ? ` · เทิร์นหน้าฟื้น +${nextHeal} HP` : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): พลังชีวิตที่เติมล้น Max HP แปลงเป็นเกราะชั่วคราว (สูงสุด ${overhealCap})${nextHeal ? ` · ต้นเทิร์นถัดไปฟื้นเพิ่มอีก +${nextHeal} HP` : ''}`,
+      overhealShieldCap: overhealCap,
+      nextTurnHealBonus: nextHeal,
+    };
+  }
+  if (wordId === 'mana') {
+    const shield = [4, 8, 12][idx];
+    const freeCast = true;
+    const bonusDraw = tier >= 2 ? 1 : 0;
+    const overflowShieldMult = tier === 3 ? 3 : 0;
+    return {
+      ...base,
+      id: 'mana_wellspring',
+      badge: `◆ ฟรี 0 MP · เกราะ +${shield}${bonusDraw ? ' · จั่ว +1' : ''}${overflowShieldMult ? ' · ล้น→เกราะ×3' : ''}`,
+      label: `ตาน้ำมานา เติมมานาใช้ 0 MP & เกราะ +${shield}${bonusDraw ? ' · จั่ว +1 ใบ' : ''}${overflowShieldMult ? ' · มานาล้นแปลงเกราะ ×3' : ''}`,
+      description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): ลดค่าร่าย “เติม มานา” เหลือ 0 มานา และได้เกราะ +${shield}${bonusDraw ? ' · จั่วการ์ดเพิ่ม +1 ใบทันที' : ''}${overflowShieldMult ? ' · มานาที่เติมล้น Max MP แปลงเป็นเกราะ ×3' : ''}`,
+      shieldBonus: shield,
+      manaFreeCast: freeCast,
+      manaBonusDraw: bonusDraw,
+      manaOverflowShieldMult: overflowShieldMult,
+    };
+  }
   if (ATTACK_FORMS.includes(wordId)) {
     return {
+      ...base,
       id: 'minor_shield',
-      tier,
-      tierTag,
-      unlockLevel: CARD_SECONDARY_UNLOCK_LEVEL,
       badge: `🛡 เกราะเสริม +${bonusAmount}${extraPierce ? ` · เจาะ +${extraPierce}` : ''}`,
       label: `เกราะสะท้อนเวท +${bonusAmount}${extraPierce ? ` & เจาะเกราะ +${extraPierce}` : ''}`,
       description: `ปลดล็อกเมื่อตีบวกถึง +7 (+9/+10 แรงขึ้น): เมื่อร่ายคาถาโจมตีที่มีคำนี้ จะได้เกราะป้องกันชั่วคราว +${bonusAmount} หน่วยทันที${extraPierce ? ` และเจาะเกราะ +${extraPierce}` : ''}`,
       shieldBonus: bonusAmount,
-      healBonus: 0,
       pierceBonus: extraPierce,
     };
   }
   if (ELEMENTS.includes(wordId)) {
     return {
+      ...base,
       id: 'aegis_ward',
-      tier,
-      tierTag,
-      unlockLevel: CARD_SECONDARY_UNLOCK_LEVEL,
       badge: `🛡 เกราะธาตุ +${bonusAmount}${extraPierce ? ` · เจาะ +${extraPierce}` : ''}`,
       label: `เกราะธาตุคุ้มกาย +${bonusAmount}${extraPierce ? ` & เจาะเกราะ +${extraPierce}` : ''}`,
       description: `ปลดล็อกเมื่อตีบวกถึง +7 (+9/+10 แรงขึ้น): เมื่อร่ายคาถาที่มีธาตุนี้ จะได้เกราะป้องกันชั่วคราว +${bonusAmount} หน่วยทันที${extraPierce ? ` และเจาะเกราะ +${extraPierce}` : ''}`,
       shieldBonus: bonusAmount,
-      healBonus: 0,
       pierceBonus: extraPierce,
     };
   }
-  if (['shield', 'heal', 'self'].includes(wordId)) {
-    return {
-      id: 'vital_surge',
-      tier,
-      tierTag,
-      unlockLevel: CARD_SECONDARY_UNLOCK_LEVEL,
-      badge: `✚ ฟื้นเลือด +${bonusAmount}`,
-      label: `ละอองฟื้นฟู +${bonusAmount} HP`,
-      description: `ปลดล็อกเมื่อตีบวกถึง +7 (+9/+10 แรงขึ้น): เมื่อร่ายคาถาที่มีคำนี้ จะฟื้นฟูพลังชีวิต +${bonusAmount} HP ให้ผู้เล่นเพิ่มทันที`,
-      shieldBonus: tier === 3 ? 2 : 0,
-      healBonus: bonusAmount,
-      pierceBonus: 0,
-    };
-  }
   return {
+    ...base,
     id: 'arcane_guard',
-    tier,
-    tierTag,
-    unlockLevel: CARD_SECONDARY_UNLOCK_LEVEL,
     badge: `🛡 เกราะ +${bonusAmount} · เจาะ +${1 + extraPierce}`,
     label: `เกราะรูนเสริม +${bonusAmount} & เจาะเกราะ +${1 + extraPierce}`,
     description: `ปลดล็อกเมื่อตีบวกถึง +7 (+9/+10 แรงขึ้น): เมื่อร่ายคาถาที่มีคำนี้ จะได้เกราะป้องกันชั่วคราว +${bonusAmount} หน่วย และเจาะเกราะศัตรูเพิ่ม +${1 + extraPierce}`,
     shieldBonus: bonusAmount,
-    healBonus: 0,
     pierceBonus: 1 + extraPierce,
   };
 }
 
 export function describeCardUpgradeEffect(wordId, level = 0) {
   const nextLv = Math.max(1, level);
-  if (wordId === 'veil') return `ความจุม่าน +${nextLv * 2}`;
-  if (wordId === 'blackhole') return `แรงยุบหลุมดำ +${nextLv * 10}`;
-  if (wordId === 'meteor') return `แรงกระทบอุกกาบาต +${nextLv}`;
-  if (wordId === 'death') return `คืนมานา ${nextLv} เมื่อร่ายสำเร็จ`;
+  if (wordId === 'veil') return `ความจุม่าน +${nextLv * 3} · กันส่วนล้น +${nextLv * 2}`;
+  if (wordId === 'blackhole') return `แรงยุบหลุมดำ +${nextLv * 15} · กระแทกดูดชน +${nextLv * 5}`;
+  if (wordId === 'meteor') return `แรงหลักอุกกาบาต +${nextLv * 3} · กระจาย +${nextLv * 2}`;
+  if (wordId === 'death') return `คืนมานา +${nextLv} · พิพากษาบอส ${100 + nextLv * 25} แท้`;
+  if (wordId === 'ice') {
+    const extraChill = Math.floor(nextLv / 3);
+    return `ดาเมจพื้นฐาน +${nextLv}${extraChill > 0 ? ` · หนาวลดโจมตี +${extraChill}` : ' (หนาว +1 ทุก 3 ขั้น)'}`;
+  }
+  if (wordId === 'earth') {
+    const extraBlock = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐาน +${nextLv}${extraBlock > 0 ? ` · เกราะดิน +${extraBlock}` : ' (เกราะดิน +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'water') {
+    const extraHeal = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐาน +${nextLv}${extraHeal > 0 ? ` · ฟื้นฟู +${extraHeal} HP` : ' (ฮีล +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'wind') {
+    const extraSlam = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐาน +${nextLv}${extraSlam > 0 ? ` · กระแทกชน +${extraSlam}` : ' (กระแทกชน +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'self') {
+    return `ฟื้นฟู +${nextLv * 2} HP · เกราะคุ้มตัว +${nextLv}`;
+  }
+  if (wordId === 'blast') {
+    return `แรงระเบิด +${nextLv * 2}`;
+  }
+  if (wordId === 'beam') {
+    const extraPierce = Math.floor(nextLv / 3);
+    return `ดาเมจลำแสง +${nextLv}${extraPierce > 0 ? ` · เจาะเกราะ +${extraPierce}` : ' (เจาะเกราะ +1 ทุก 3 ขั้น)'}`;
+  }
+  if (wordId === 'wave') {
+    return `ดาเมจคลื่น +${nextLv * 2} (ก่อนคูณ 0.6×)`;
+  }
+  if (wordId === 'heal') {
+    const extraPct = Math.floor(nextLv / 2);
+    return `ฟื้นฟู +${nextLv * 2} HP${extraPct > 0 ? ` · +${extraPct}% Max HP` : ' (+1% Max HP ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'burn') {
+    return `เผาไหม้แรงขึ้น +${nextLv * 2}`;
+  }
+  if (wordId === 'push') {
+    return `พลังร่วมวลี +${nextLv} · กระแทกชน/ขอบ +${nextLv}`;
+  }
+  if (wordId === 'pull') {
+    return `พลังร่วมวลี +${nextLv} · กระชากชน/ขอบ +${nextLv}`;
+  }
+  if (wordId === 'large') {
+    return `โจมตี +${nextLv} · โล่/ฮีล +${nextLv * 2}`;
+  }
+  if (wordId === 'akki') {
+    return `ดาเมจพื้นฐานอัคคี +${nextLv * 2}`;
+  }
+  if (wordId === 'heman') {
+    const extraChill = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐานเหมันต์ +${nextLv * 2}${extraChill > 0 ? ` · หนาว +${extraChill}` : ' (หนาว +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'asani') {
+    return `ดาเมจพื้นฐานอัสนี +${nextLv * 2}`;
+  }
+  if (wordId === 'pathaphi') {
+    return `ดาเมจพื้นฐานปฐพี +${nextLv * 2} · เกราะดิน +${nextLv}`;
+  }
+  if (wordId === 'wari') {
+    return `ดาเมจพื้นฐานวารี +${nextLv * 2} · ฟื้นฟู +${nextLv} HP`;
+  }
+  if (wordId === 'vayu') {
+    return `ดาเมจพื้นฐานวายุ +${nextLv * 2} · กระแทกชน/ขอบ +${nextLv}`;
+  }
+  if (wordId === 'freeze') {
+    const extraChill = Math.floor(nextLv / 3);
+    return `พลังร่วมวลี +${nextLv * 2}${extraChill > 0 ? ` · หนาว +${extraChill}` : ' (หนาว +1 ทุก 3 ขั้น)'}`;
+  }
+  if (wordId === 'pierce') {
+    const extraPierce = Math.floor(nextLv / 2);
+    return `พลังร่วมวลี +${nextLv}${extraPierce > 0 ? ` · เจาะเกราะ +${extraPierce}` : ' (เจาะเกราะ +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'grand') {
+    return `โจมตี +${nextLv * 2} · โล่/ฮีล +${nextLv * 3}`;
+  }
+  if (wordId === 'seal') {
+    return `พลังร่วมวลี +${nextLv * 2}`;
+  }
+  if (wordId === 'dispel') {
+    return `พลังร่วมวลี +${nextLv * 2}`;
+  }
+  if (wordId === 'brace') {
+    return `ความจุโล่ +${nextLv * 2} · โบนัสยืนหยัด +${nextLv * 2}`;
+  }
+  if (wordId === 'magma') {
+    return `ดาเมจพื้นฐานแมกม่า +${nextLv * 2} · แอ่งปะทุ +${nextLv * 2}`;
+  }
+  if (wordId === 'mudmire') {
+    const extraChill = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐานบึงโคลน +${nextLv * 2} · เกราะโคลน +${nextLv}${extraChill > 0 ? ` · หนาว +${extraChill}` : ' (หนาว +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'dust') {
+    return `ดาเมจพื้นฐานธุลี +${nextLv * 2} · กระแทกชน/ขอบ +${nextLv}`;
+  }
+  if (wordId === 'permafrost') {
+    return `ดาเมจพื้นฐานเยือกศิลา +${nextLv * 2} · เกราะน้ำแข็ง +${nextLv * 2}`;
+  }
+  if (wordId === 'magnet') {
+    return `ดาเมจพื้นฐานแม่เหล็ก +${nextLv * 2} · กระแทกดูดชน +${nextLv * 2}`;
+  }
+  if (wordId === 'mist') {
+    const extraChill = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐานหมอก +${nextLv * 2} · เผา +${nextLv}${extraChill > 0 ? ` · หนาว +${extraChill}` : ' (หนาว +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'hail') {
+    const extraChill = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐานหิมะ +${nextLv * 2}${extraChill > 0 ? ` · เป้าแห้งหนาว +${extraChill}` : ' (เป้าแห้งหนาว +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'monsoon') {
+    return `ดาเมจพื้นฐานมรสุม +${nextLv * 2} · กระแทกชน +${nextLv} · ฟื้นฟู +${nextLv} HP`;
+  }
+  if (wordId === 'shockstream') {
+    return `ดาเมจพื้นฐานกระแสช็อต +${nextLv * 2} · ช็อตเป้าเปียก +${nextLv * 2}`;
+  }
+  if (wordId === 'thunderstorm') {
+    return `ดาเมจพื้นฐานฟ้าคะนอง +${nextLv * 2} · กระแทกชน +${nextLv}`;
+  }
+  if (wordId === 'heatwave') {
+    return `ดาเมจพื้นฐานระอุ +${nextLv * 2} · เผาข้างเคียง +${nextLv} · กระแทกชน +${nextLv}`;
+  }
+  if (wordId === 'chillgale') {
+    const extraChill = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐานไอหนาว +${nextLv * 2} · กระแทกชน +${nextLv}${extraChill > 0 ? ` · หนาว +${extraChill}` : ' (หนาว +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'plasma') {
+    return `ดาเมจพื้นฐานพลาสมา +${nextLv * 3}`;
+  }
+  if (wordId === 'scald') {
+    const extra = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐานไอเดือด +${nextLv * 2}${extra > 0 ? ` · เผา/หนาว +${extra}` : ' (เผา/หนาว +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'frostvolt') {
+    const extraChill = Math.floor(nextLv / 2);
+    return `ดาเมจพื้นฐานผลึกช็อต +${nextLv * 2}${extraChill > 0 ? ` · หนาว +${extraChill}` : ' (หนาว +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'chakram') {
+    return `ดาเมจกรงจักร +${nextLv * 2} (ก่อนคูณ 180%)`;
+  }
+  if (wordId === 'storm') {
+    return `ดาเมจพายุ +${nextLv * 2} (ก่อนคูณ 150%/75%)`;
+  }
+  if (wordId === 'barrage') {
+    return `พลังร่วมวลี +${nextLv * 2} ต่อครั้ง (×5 ครั้ง)`;
+  }
+  if (wordId === 'devastation') {
+    return `พลังหลัก +${nextLv * 2} · แรงระเบิดกระจาย +${nextLv * 3}`;
+  }
+  if (wordId === 'spear') {
+    const extraPierce = Math.floor(nextLv / 3);
+    return `ดาเมจหอก +${nextLv}${extraPierce > 0 ? ` · เจาะเกราะ +${extraPierce}` : ' (เจาะเกราะ +1 ทุก 3 ขั้น)'}`;
+  }
+  if (wordId === 'empower') {
+    return `บัฟพลังธาตุแรงขึ้น +${nextLv * 3}%`;
+  }
+  if (wordId === 'bless') {
+    return `บัฟพลังธาตุอวยพรแรงขึ้น +${nextLv * 4}%`;
+  }
+  if (wordId === 'fill') {
+    const extraMp = Math.floor(nextLv / 2);
+    return `เติมเลือด +${nextLv} HP${extraMp > 0 ? ` · เติมมานา +${extraMp} MP` : ' (เติมมานา +1 ทุก 2 ขั้น)'}`;
+  }
+  if (wordId === 'blood') {
+    return `เติมเลือดแรงขึ้น +${nextLv} HP`;
+  }
+  if (wordId === 'mana') {
+    return `เติมมานาแรงขึ้น +${Math.ceil(nextLv / 2)} MP`;
+  }
   if (ELEMENTS.includes(wordId)) {
     return `ดาเมจพื้นฐานธาตุ +${nextLv}`;
   }
@@ -342,18 +1481,6 @@ export function describeCardUpgradeEffect(wordId, level = 0) {
   }
   if (wordId === 'shield') {
     return `ความจุโล่ +${nextLv * 2} ต่อชั้น`;
-  }
-  if (wordId === 'heal') {
-    return `ฟื้นฟูพลังชีวิต +${nextLv * 2} HP`;
-  }
-  if (wordId === 'pierce') {
-    return `เจาะเกราะเพิ่ม +${nextLv}`;
-  }
-  if (wordId === 'burn') {
-    return `เผาไหม้แรงขึ้น +${nextLv}`;
-  }
-  if (wordId === 'blast' || wordId === 'devastation') {
-    return `แรงระเบิดกระจาย +${nextLv}`;
   }
   return `พลังเวทเมื่อร่วมวลี +${nextLv}`;
 }
@@ -557,7 +1684,7 @@ export const FLOOR95_SANCTUARY = 95;
 export const FLOOR96_START_ROOM = 237;
 export const FLOOR99_BOUNDARY_ROOM = 248;
 export const FLOOR100_BOSS_ROOM = 249;
-const ETERNITY_FIRST_FORM_HP = ETERNITY_PHASE_HP[0] + ETERNITY_PHASE_HP[1];
+export const ETERNITY_FIRST_FORM_HP = ETERNITY_PHASE_HP[0] + ETERNITY_PHASE_HP[1];
 export const ETERNITY_TOTAL_HP = ETERNITY_FIRST_FORM_HP + ETERNITY_PHASE_HP[2];
 
 export function encounterMaxHp(kind, room) {
@@ -575,8 +1702,10 @@ export function eternityHealth(state, phase = state.eternityPhase ?? 1, hp = nul
   const boss = state.enemies.find(enemy => enemy.kind === (phase === 3 ? 'eternity_reborn' : 'eternity_overlord'));
   if (!boss && hp === null) return null;
   const formHp = hp ?? boss.hp;
-  const remaining = phase === 3 ? formHp : formHp + ETERNITY_PHASE_HP[2];
-  return { phase, remaining };
+  if (phase === 3) {
+    return { phase: 3, remaining: formHp, total: ETERNITY_PHASE_HP[2], revealed: true };
+  }
+  return { phase, remaining: formHp, total: ETERNITY_FIRST_FORM_HP, revealed: false };
 }
 
 export const TOTAL_TOWER_ROOMS = 250;
@@ -816,11 +1945,11 @@ export function openHand(state) {
   state.handRng = draw.rng;
 }
 
-export function drawCards(state) {
+export function drawCards(state, count = TURN_DRAW) {
   const { hand, words } = state.player;
   const deck = state.deathSpent ? words.filter(id => id !== 'death') : words;
   const draw = { rng: state.handRng };
-  for (let i = 0; i < TURN_DRAW; i++) hand.push(pick(draw, deck));
+  for (let i = 0; i < count; i++) hand.push(pick(draw, deck));
   state.handRng = draw.rng;
 }
 
@@ -1051,24 +2180,33 @@ export function triggerKrakenPhase2(state, summary = null, events = null) {
   return kraken;
 }
 
-export function checkEternityPhase2(state, summary = null, events = null) {
+export function checkEternityPhase2(state, summary = null, events = null, { absorbCouncil = true } = {}) {
   if (state.room !== FLOOR100_BOSS_ROOM || state.rift || state.eternityPhase) return false;
   const boss = state.enemies?.find(e => e.kind === 'eternity_overlord' && e.hp > 0);
   if (!boss || boss.hp > ETERNITY_PHASE_HP[1]) return false;
 
   state.eternityPhase = 2;
-  let dismissed = 0;
+  let absorbed = 0;
   for (const ally of state.enemies) {
     if (ally.id !== boss.id && ally.hp > 0) {
       ally.hp = 0;
-      dismissed++;
+      if (absorbCouncil) absorbed++;
     }
+  }
+  const preHealHp = boss.hp;
+  let healed = 0;
+  if (absorbed > 0) {
+    boss.eternityAbsorbed = Math.min(3, (boss.eternityAbsorbed ?? 0) + absorbed);
+    const rawHeal = absorbed * 600;
+    const effectiveHeal = boss.healCutUntil >= state.turn ? Math.floor(rawHeal / 2) : rawHeal;
+    healed = Math.min(boss.maxHp - boss.hp, effectiveHeal);
+    boss.hp += healed;
   }
   boss.affinity = getEternityShiftAffinity(state.turn);
   boss.ward = Math.min(3, (boss.ward ?? 0) + 2);
   boss.wardGrant = Math.max(boss.wardGrant ?? 0, 2);
-  const label = dismissed > 0
-    ? `🌌 เฟส 2: มหาเทพสลายสภากาลอวกาศ (${dismissed} ตน) · ปลดปล่อยร่างปฏิพากย์สลับธาตุ & ม่านสะท้อนดาราจักร!`
+  const label = absorbed > 0
+    ? `🌌 เฟส 2: มหาเทพกลืนกินสภากาลอวกาศ (${absorbed} ตน) ฟื้น +${healed} HP & โจมตี +${absorbed * 12}! · เข้าสู่ร่างปฏิพากย์สลับธาตุ!`
     : '🌌 เฟส 2: มหาเทพปลดปล่อยร่างปฏิพากย์สลับธาตุทุกเทิร์น & ม่านสะท้อนดาราจักร!';
   if (events) {
     events.push({
@@ -1077,12 +2215,21 @@ export function checkEternityPhase2(state, summary = null, events = null) {
       sourceKind: 'eternity_overlord',
       phase: 2,
       mode: 'prism',
-      eternity: eternityHealth(state),
+      absorbed,
+      healed,
+      eternity: eternityHealth(state, 2, preHealHp),
       label,
     });
+    if (healed > 0) {
+      events.push({ type: 'heal', source: boss.id, target: boss.id, amount: healed });
+    }
   }
   if (summary) {
     summary.eternityPhase = 2;
+    if (absorbed > 0) {
+      summary.eternityAbsorbed = absorbed;
+      summary.eternityAbsorbHeal = healed;
+    }
     if (Array.isArray(summary.sequence)) {
       summary.sequence.push(label);
     }
@@ -1169,6 +2316,7 @@ export function enterRoom(state) {
   } else {
     state.player.shield = null;
   }
+  state.player.elementBuffs = {};
   state.enemies = state.rooms[state.room].map((kind, index) => createEnemy(kind, index, state.room));
   const roomFloor = getFloorInfo(state.room, state.rooms.length).floor;
   if (SPACED_FLOORS.has(roomFloor) || ENDGAME_SPACED_FLOORS.has(roomFloor)) {
@@ -1378,7 +2526,7 @@ export function createRun(seed = String(Date.now()), tutorial = false, collectio
     player: {
       hp: 36, maxHp: 36, mana: MAX_MANA, maxMana: MAX_MANA,
       level: 1, exp: 0, gold: 0, items: [], stash: [], relics: [], blessings: [], cardUpgrades: {}, cardSecondaryUpgrades: {},
-      words: [...START_WORDS], shield: null,
+      words: [...START_WORDS], shield: null, elementBuffs: {},
     },
     stats: { casts: 0, damage: 0, blocked: 0, turns: 0, discovered: [] },
   };
@@ -1393,6 +2541,7 @@ export function ownsRewardWord(state, id) {
 export function getRewardPoolForRoom(state, roomIndex) {
   return Object.keys(WORDS).filter(id => {
     if (id === 'self' && !ownsRewardWord(state, 'heal')) return false;
+    if ((id === 'blood' || id === 'mana') && !ownsRewardWord(state, 'fill')) return false;
     if (id === 'pull') return roomIndex >= PULL_REWARD_ROOM;
     if (UPPER_REWARD_WORDS.includes(id)) return roomIndex >= FLOOR25_BOSS_ROOM;
     if (Object.hasOwn(SECOND_TIER_ELEMENTS, id)) return roomIndex >= FLOOR30_BOSS_ROOM;
@@ -1600,6 +2749,7 @@ export function resolveRiftBattleVictory(state, summary, events) {
   state.turn = 1;
   state.player.mana = getMaxMana(state.player);
   state.player.shield = null;
+  state.player.elementBuffs = {};
   state.rewards = [];
   state.enemies = (state.rooms?.[state.room] ?? []).map((kind, index) => {
     const enemy = createEnemy(kind, index, state.room);
@@ -1878,6 +3028,7 @@ function resetPlayerForSanctuaryFallback(state) {
   state.player.hp = Math.max(10, Math.ceil(state.player.maxHp * 0.5));
   state.player.mana = getMaxMana(state.player);
   state.player.shield = null;
+  state.player.elementBuffs = {};
   state.rewards = [];
   state.pendingBlessings = [];
   state.pendingTargetRoom = null;
@@ -2408,6 +3559,7 @@ export function completeRevisitVictoryToSanctuary(state, summary = null) {
   state.phase = 'sanctuary';
   state.turn = 1;
   state.player.shield = null;
+  state.player.elementBuffs = {};
   state.rewards = [];
   state.pendingBlessings = [];
   state.pendingTargetRoom = null;
@@ -2983,8 +4135,10 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     ? enemies.filter(other => other.hp > 0 && other.id !== enemy.id).length : 0;
   const eternityAllies = enemy.kind === 'eternity_overlord' && room === FLOOR100_BOSS_ROOM && turn % 4 === 2
     ? enemies.filter(other => other.hp > 0 && other.id !== enemy.id).length : 0;
+  const eternityAbsorbedBonus = enemy.kind === 'eternity_overlord' && room === FLOOR100_BOSS_ROOM
+    ? (enemy.eternityAbsorbed ?? 0) * 12 : 0;
   const netherDoomBonus = enemy.kind === 'nether_dread_lord' && enemies.some(other => other.kind === 'nether_doom_pillar' && other.hp > 0) ? 18 : 0;
-  base += loomAllies * 3 + eternityAllies * 10 + netherDoomBonus;
+  base += loomAllies * 3 + eternityAllies * 10 + eternityAbsorbedBonus + netherDoomBonus;
   const amount = Math.max(0, base + enemyClimaxBonus(turn, room) - enemy.chill - (enemy.obscured ? 4 : 0));
   if (enemy.kind === 'eternity_reborn' && turn % 4 === 1) {
     return {

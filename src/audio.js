@@ -12,8 +12,8 @@ export const MINI_BOSS_KINDS = new Set([
   'flame_viper', 'rime_gargoyle', 'ice_maiden', 'shock_sentinel', 'lightning_stalker',
   'gale_strider', 'wind_dancer', 'dune_beast', 'coral_scuttler', 'tide_lurker',
   'spark_wraith', 'ancient_chitin_behemoth', 'venom_spore_beast', 'crag_titan_sentinel',
-  'kraken_crush_tentacle', 'kraken_siphon_tentacle', 'kraken_storm_tentacle', 'kraken_tidal_tentacle',
-  'nether_doom_pillar', 'nether_ward_pillar', 'nether_siphon_pillar',
+  'kraken_ward_tentacle', 'kraken_heal_tentacle', 'kraken_ink_tentacle', 'kraken_crush_tentacle',
+  'nether_leech_pillar', 'nether_curse_pillar', 'nether_doom_pillar',
   'dread_reaper', 'void_devourer', 'zenith_templar', 'chronos_keeper', 'chaos_weaver',
 ]);
 
@@ -252,7 +252,7 @@ export class GameAudio {
     try {
       if (name === 'place' || name === 'select') navigator.vibrate(15);
       else if (name === 'remove') navigator.vibrate(10);
-      else if (name === 'cast' || name === 'chakram' || name === 'trash-strike' || name === 'trash-bite') navigator.vibrate(20);
+      else if (name === 'cast' || name === 'chakram' || name === 'spear' || name === 'trash-strike' || name === 'trash-bite') navigator.vibrate(20);
       else if (name === 'hit' || name === 'trash-hit' || name === 'armor-shred' || name === 'shield-block') navigator.vibrate(25);
       else if (name === 'barrage') navigator.vibrate([10, 15, 10, 15, 20]);
       else if (name === 'prism-shatter') navigator.vibrate([20, 30, 40]);
@@ -350,6 +350,11 @@ export class GameAudio {
       this.tone(1480, 0.12, 'sfx', 'sawtooth', 0, 740, { gain: 0.32 });
       this.tone(880, 0.15, 'sfx', 'triangle', 0.02, 1760, { gain: 0.24 });
       this.noise(0.11, { bus: 'sfx', filterType: 'bandpass', filterFreq: 2600, filterQ: 3, gain: 0.28 });
+    }
+    else if (name === 'spear') {
+      this.tone(1040, 0.10, 'sfx', 'triangle', 0, 380, { gain: 0.30 });
+      this.tone(1560, 0.08, 'sfx', 'sine', 0.015, 780, { gain: 0.22 });
+      this.noise(0.09, { bus: 'sfx', filterType: 'highpass', filterFreq: 2200, gain: 0.24 });
     }
     else if (name === 'barrage') {
       for (let i = 0; i < 5; i++) {
@@ -554,6 +559,8 @@ export class GameAudio {
         this.play('ward');
       } else if (event.form === 'chakram') {
         this.play('chakram');
+      } else if (event.form === 'spear') {
+        this.play('spear');
       } else if (event.element === 'death') {
         this.play('death-spell');
       } else if (event.form === 'blackhole' || event.element === 'blackhole') {
@@ -823,6 +830,12 @@ export class GameAudio {
       this.tone(1180, 0.14, 'sfx', 'sine', 0, 590, { gain: 0.30 });
       this.tone(880, 0.18, 'sfx', 'triangle', 0.02, 330, { gain: 0.28 });
       if (event.amount) this.play('hit');
+    }
+    else if (event.type === 'buff') {
+      const notes = event.source === 'bless' ? [523.25, 659.25, 783.99, 1046.50] : [440, 554.37, 659.25];
+      notes.forEach((f, i) => {
+        this.tone(f, 0.18, 'sfx', 'sine', i * 0.035, f * 1.03, { gain: 0.22 });
+      });
     }
     else if (event.type === 'mana-refund') {
       this.tone(523.25, 0.10, 'sfx', 'sine', 0, 783.99, { gain: 0.25 });

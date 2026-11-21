@@ -62,6 +62,11 @@ const paths = {
   seal: 'M3 2h10v2h-2v8h2v2H3v-2h2V4H3zm4 2v8h2V4z',
   dispel: 'M7 1h2v5h5v2H9v5H7V8H2V6h5zm-5 1h2v2H2zm10 8h2v2h-2z',
   brace: 'M2 2h12v8h-2v2h-2v2H6v-2H4v-2H2zm3 3v4h2v2h2V9h2V5z',
+  spear: 'M11 1h4v4h-2v1h-1v1h-1v1h-1v1H9v1H8v1H7v1H6v1H5v1H3v1H1v-2h1v-2h1v-1h1V9h1V8h1V7h1V6h1V5h1V4h1V3h1z',
+  empower: 'M7 1h2v2h2v2h2v2h-3v7H6V7H3V5h2V3h2zm0 8v3h2V9z',
+  bless: 'M7 0h2v3h1v1h2V3h1v3h3v2h-3v1h-1v2h1v1h-3v4H7v-4H4v-1h1V9H4V8H1V6h3V3h1v1h2V3h0zm0 6v3h2V6z',
+  fill: 'M5 1h6v2H9v2h3v2h2v6h-2v2H4v-2H2V7h2V5h3V3H5zm-1 7v5h8V8z',
+  blood: 'M7 1h2v3h2v3h2v4l-2 3H5l-2-3V7h2V4h2zm-1 8v2h2V9z',
 };
 export function icon(id, extra = '') {
   return `<svg class="icon ${extra}" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="${paths[id] || paths.mana}"/></svg>`;

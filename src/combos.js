@@ -18,7 +18,7 @@ import {
   getSpellCatalog,
   parseSpell,
 } from './words.js';
-import { getHandLimit } from './run.js';
+import { getHandLimit, hasCardSecondaryUpgrade } from './run.js';
 
 export const ATTACK_CANDIDATES = Object.freeze([
   ['blackhole'], ['death'], ['meteor'],
@@ -128,6 +128,18 @@ export const ATTACK_CANDIDATES = Object.freeze([
   ['wave', 'earth'],
   ['wave', 'water'],
   ['wave', 'wind'],
+  ['spear', 'fire', 'pair'],
+  ['spear', 'ice', 'pair'],
+  ['spear', 'lightning', 'pair'],
+  ['spear', 'fire', 'large'],
+  ['spear', 'fire', 'pierce'],
+  ['spear', 'fire', 'blast'],
+  ['spear', 'fire'],
+  ['spear', 'lightning'],
+  ['spear', 'ice'],
+  ['spear', 'earth'],
+  ['spear', 'water'],
+  ['spear', 'wind'],
   ['shot', 'fire'],
   ['shot', 'lightning'],
   ['shot', 'earth'],
@@ -168,6 +180,30 @@ export const DEFENSE_CANDIDATES = Object.freeze([
   ['shield', 'pair'],
   ...LARGE_SHIELD_FORMULAS,
   ...ADVANCED_FORMULAS.filter(([form]) => form === 'shield'),
+  ['fill', 'blood', 'large'],
+  ['fill', 'blood'],
+  ['fill', 'mana', 'large'],
+  ['fill', 'mana'],
+  ['grand', 'bless', 'fire'],
+  ['grand', 'bless', 'ice'],
+  ['grand', 'bless', 'lightning'],
+  ['grand', 'bless', 'wari'],
+  ['bless', 'fire', 'large'],
+  ['bless', 'akki', 'large'],
+  ['bless', 'fire'],
+  ['bless', 'ice'],
+  ['bless', 'lightning'],
+  ['bless', 'earth'],
+  ['bless', 'water'],
+  ['bless', 'wind'],
+  ['grand', 'empower', 'fire'],
+  ['empower', 'fire', 'large'],
+  ['empower', 'fire'],
+  ['empower', 'ice'],
+  ['empower', 'lightning'],
+  ['empower', 'earth'],
+  ['empower', 'water'],
+  ['empower', 'wind'],
   ['shield', 'fire'],
   ['shield', 'ice'],
   ['shield', 'lightning'],
@@ -179,11 +215,13 @@ export const DEFENSE_CANDIDATES = Object.freeze([
 
 export const MASTER_FORMULAS = Object.freeze(
   Array.from(getSpellCatalog(), ([key, parsed]) => {
+    const isBuff = parsed.spell?.form === 'empower' || parsed.spell?.form === 'bless';
+    const isManaFill = parsed.spell?.form === 'fill' && parsed.spell?.resource === 'mana';
     const isHeal = parsed.spell?.form === 'heal' || (parsed.spell?.healing ?? 0) > 0;
     const isDefense = parsed.spell?.type === 'self';
-    const category = isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
+    const category = isBuff ? 'บัพ' : isManaFill ? 'มานา' : isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
     const group = isDefense || isHeal ? 'defense' : 'attack';
-    const kindClass = isHeal ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack';
+    const kindClass = isHeal || isManaFill ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack';
     return Object.freeze({
       key,
       phrase: parsed.ids,
@@ -214,9 +252,11 @@ export function canFormCardsInHand(state, phrase) {
 
 export function canFormPhraseInHand(state, phrase) {
   const p = canFormCardsInHand(state, phrase);
-  if (!p || p.cost > state.player.mana) return null;
+  if (!p) return null;
+  const effectiveCost = p.spell.form === 'fill' && p.spell.resource === 'mana' && hasCardSecondaryUpgrade(state, 'mana') ? 0 : p.cost;
+  if (effectiveCost > state.player.mana) return null;
   if (p.spell.form === 'detonate' && !fireShieldLayers(state.player.shield, p.spell.element).length) return null;
-  return p;
+  return effectiveCost === p.cost ? p : { ...p, cost: effectiveCost };
 }
 
 export function computePlayableCombos(state, words = [], discoveredKeys = []) {
@@ -227,10 +267,12 @@ export function computePlayableCombos(state, words = [], discoveredKeys = []) {
   ]);
   const buildEntry = (phrase, parsed) => {
     const key = phrase.join(' ');
+    const isBuff = parsed.spell.form === 'empower' || parsed.spell.form === 'bless';
+    const isManaFill = parsed.spell.form === 'fill' && parsed.spell.resource === 'mana';
     const isHeal = parsed.spell.form === 'heal' || parsed.spell.healing > 0;
     const isDefense = parsed.spell.type === 'self';
-    const category = isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
-    const kindClass = isHeal ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack';
+    const category = isBuff ? 'บัพ' : isManaFill ? 'มานา' : isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
+    const kindClass = isHeal || isManaFill ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack';
     return {
       key,
       phrase,
@@ -282,6 +324,15 @@ export function describeFormulaEffect(formula) {
   if (sp.form === 'heal') {
     return `ฟื้น ${sp.healing} HP ทันที${sp.nextHealing ? ` และอีก ${sp.nextHealing} HP ต้นเทิร์นถัดไปถ้ารอด` : ''}`;
   }
+  if (sp.form === 'fill') {
+    return sp.resource === 'blood'
+      ? `เติมเลือดฟื้น ${sp.healing} HP ทันที (แรงกว่าฮีลเพราะใช้คู่ 2 คำ)`
+      : `เติมมานา +${sp.manaGain} MP ทันที`;
+  }
+  if (sp.form === 'empower' || sp.form === 'bless') {
+    const names = (sp.elements ?? []).map(id => WORDS[id]?.label ?? id).join(' + ');
+    return `บัพพลังเวทธาตุ${names} +${sp.buffPct}%${sp.buffPierce ? ` และเจาะเกราะ +${sp.buffPierce}` : ''} นาน ${sp.buffTurns} เทิร์น`;
+  }
   if (sp.type === 'self') {
     const parts = [`สร้างโล่ ${sp.layers * (sp.layerHp ?? 6)} หน่วย (${sp.layers} ชั้น)`];
     if (sp.healing > 0) parts.push(`ฟื้น +${sp.healing} HP`);
@@ -305,6 +356,7 @@ export function describeFormulaEffect(formula) {
   }
   const formMap = {
     shot: sp.shellBlast ? 'ยิงกระสุนหัวระเบิด' : 'ยิงกระสุน',
+    spear: 'หอกแทงทะลุ 2 ช่อง (เป้าหน้า 80% + ตัวหลังติดกัน 50%)',
     chakram: 'กรงจักรเจาะเป้าเดี่ยวรุนแรง 180% (ไม่กระจายออกนอก)',
     beam: 'ลำแสงทะลุแถวและม่าน',
     wave: 'คลื่นกวาดศัตรูทุกตัว',
@@ -332,14 +384,20 @@ export function describeFormulaEffect(formula) {
   if (sp.devastation) parts.push('แรงโจมตี ×2 · ระเบิดครึ่งพลังหนึ่งครั้งในรัศมี 2 ช่องเมื่อโจมตีโดน');
   if (sp.grand && sp.stormPair) parts.push('แรงโจมตี ×1.5 · กระจายครึ่งพลังไปช่องข้างทั้งสองระลอก');
   else if (sp.grand && sp.form === 'chakram') parts.push('แรงโจมตี ×1.5 เป้าเดี่ยวล้วน');
+  else if (sp.grand && sp.form === 'spear') parts.push('แรงโจมตี ×1.5 ทะลุสองช่อง');
   else if (sp.grand && ['blast', 'meteor', 'blackhole'].includes(sp.form)) parts.push('แรงโจมตี ×1.5');
   else if (sp.grand) parts.push('แรงโจมตี ×1.5 · กระจายครึ่งพลังไปช่องข้าง');
-  if (sp.shots > 1 && !sp.meteorPair && !sp.barrage) parts.push(sp.form === 'beam' ? 'ลำแสงสองครั้ง' : sp.form === 'chakram' ? 'กรงจักรสองครั้ง' : sp.blastShot ? 'ระเบิดและยิงซ้ำสองครั้ง' : `${sp.shots} ลูกต่อเนื่อง`);
+  if (sp.shots > 1 && !sp.meteorPair && !sp.barrage) parts.push(sp.form === 'beam' ? 'ลำแสงสองครั้ง' : sp.form === 'chakram' ? 'กรงจักรสองครั้ง' : sp.form === 'spear' ? 'พุ่งหอกสองครั้ง' : sp.blastShot ? 'ระเบิดและยิงซ้ำสองครั้ง' : `${sp.shots} ลูกต่อเนื่อง`);
   if (formula.phrase.includes('large')) parts.push('แรงเวท ×1.5');
   if (sp.blasts) parts.push('ระเบิดกระจายช่องข้างเคียง');
   if (sp.shellBlast) parts.push('ระเบิดรัศมี 1 ช่องเพิ่ม 60% (แรงกว่าระเบิดเดี่ยวและโดนทุกตัวในรัศมี)');
   if (sp.pierce) parts.push(`เจาะทะลุเกราะ +${sp.pierce}`);
-  if (sp.push) parts.push(sp.form === 'storm' ? 'ผลักเป้าที่เลือกถอย 1 ช่องถ้าช่องว่าง' : 'ผลักถอยหลัง 1 ช่อง');
+  if (sp.push) {
+    const hasWindSynergy = (sp.elements ?? []).some(id => ['wind', 'vayu', 'dust', 'monsoon', 'thunderstorm', 'heatwave', 'chillgale'].includes(id));
+    parts.push(sp.form === 'storm'
+      ? `ผลักเป้าที่เลือกถอย ${hasWindSynergy ? '2' : '1'} ช่อง (ชนศัตรูอีกตัวกระแทกทะลุเกราะทั้งสองตัว)`
+      : `ผลักถอยหลัง ${hasWindSynergy ? '2' : '1'} ช่อง (ชนศัตรูอีกตัวกระแทกทะลุเกราะทั้งสองตัว)`);
+  }
   if (sp.pull) parts.push('ดึงเป้าเข้าหา 1 ช่องถ้าช่องว่าง');
   if (sp.burn) parts.push('เผาไหม้ต่อเนื่อง');
   if (sp.freeze) parts.push('แช่แข็งข้ามเทิร์น');

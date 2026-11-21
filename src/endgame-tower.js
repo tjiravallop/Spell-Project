@@ -13,7 +13,7 @@ export const NETHER_PILLAR_KINDS = Object.freeze([
   'nether_doom_pillar',
 ]);
 
-export const ETERNITY_PHASE_HP = Object.freeze([3500, 3000, 3500]);
+export const ETERNITY_PHASE_HP = Object.freeze([3500, 3500, 4500]);
 export const ETERNITY_SHIFT_AFFINITIES = Object.freeze(['earth', 'fire', 'ice', 'lightning']);
 
 export const ENDGAME_ENEMIES = {
@@ -74,7 +74,7 @@ export const ENDGAME_ENEMIES = {
   zenith_templar: { name: 'อัศวินดวงดาวนิรันดร์', hp: 1380, armor: 5, ward: 2, attack: 88, color: '#4cc9f0', exp: 120, gold: 105, affinity: 'ice' },
   chronos_keeper: { name: 'ผู้คุมเวลาดึกดำบรรพ์', hp: 1250, armor: 4, ward: 2, attack: 78, color: '#4895ef', exp: 115, gold: 100, affinity: 'ice' },
   eternity_overlord: { name: 'มหาเทพราชันอนันตกาล', hp: 10000, armor: 6, ward: 2, attack: 98, color: '#f72585', exp: 500, gold: 500, isBoss: true, repeatReduction: 75, affinity: 'ice' },
-  eternity_reborn: { name: 'มหาเทพอนันตกาล · ร่างจุตินิรันดร์', hp: ETERNITY_PHASE_HP[2], armor: 6, ward: 2, attack: 124, color: '#ffd166', exp: 500, gold: 500, isBoss: true, affinity: 'fire' },
+  eternity_reborn: { name: 'มหาเทพอนันตกาล · ร่างจุตินิรันดร์', hp: ETERNITY_PHASE_HP[2], armor: 6, ward: 2, attack: 124, color: '#ffd166', exp: 500, gold: 500, isBoss: true, repeatReduction: 50, affinity: 'fire' },
 };
 
 export const ENDGAME_RELICS = Object.freeze([

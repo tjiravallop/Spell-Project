@@ -6,6 +6,7 @@ import {
   getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPre10Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
   enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom,
   getRewardPool, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
+  getCardSecondaryEffect, describeCardUpgradeEffect,
   FLOOR5_START_ROOM, FLOOR6_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR14_BOUNDARY_ROOM, FLOOR15_START_ROOM, FLOOR16_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR19_BOUNDARY_ROOM, FLOOR20_BOSS_ROOM,
   FLOOR21_START_ROOM, FLOOR24_BOUNDARY_ROOM, FLOOR25_BOSS_ROOM, FLOOR26_START_ROOM, FLOOR29_BOUNDARY_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR40_BOSS_ROOM, FLOOR50_BOSS_ROOM, TOTAL_TOWER_ROOMS, UPPER_RESTS,
 } from '../src/run.js';
@@ -551,13 +552,18 @@ test('middle-tower intents telegraph shell openings, ally support and movement i
   assert.equal(intent(opened.state.enemies[1], 2, opened.state.enemies).amount, 10);
 });
 
-test('death ignores defenses, spares bosses, and never returns to the hand in the same fight', () => {
+test('death ignores defenses, deals true verdict damage to bosses, and never returns to the hand in the same fight', () => {
   const state = battle(['armored', 'boss']);
   state.collection = ['death'];
   state.player.words = [...START_WORDS.slice(0, 4), 'death'];
   state.player.hand = ['death', 'death'];
   state.enemies[0].ward = 2;
-  assert.match(simulateTurn(state, ['death'], 'enemy-1').error, /บอสต้าน/);
+  state.enemies[1].ward = 2;
+  state.enemies[1].armor = 5;
+  const bossBeforeHp = state.enemies[1].hp;
+  const bossCast = cast(state, 'death', 'enemy-1');
+  assert.equal(bossCast.summary.enemyHp['enemy-1'], Math.max(0, bossBeforeHp - 100));
+  assert.equal(bossCast.state.deathSpent, true);
   const result = cast(state, 'death');
   assert.equal(result.summary.enemyHp['enemy-0'], 0);
   assert.equal(result.summary.enemyHp['enemy-1'], state.enemies[1].hp);
@@ -816,7 +822,7 @@ test('large and grand defenses keep their timing, upgrades, and save behavior', 
   assert.equal(renewed.summary.shield, 12);
   assert.equal(renewed.events.at(-1).restored, 3);
 
-  state.player.hp = 750;
+  state.player.hp = 700;
   state.player.maxHp = 1000;
   state.player.level = 242;
   state.collection.push('heal', 'grand', 'large');
@@ -824,12 +830,16 @@ test('large and grand defenses keep their timing, upgrades, and save behavior', 
   state.player.words = ['shot', 'fire', 'ice', 'shield', 'heal', 'grand', 'large'];
   state.player.cardUpgrades = { heal: 10, grand: 10, shield: 10 };
   state.player.hand = ['heal', 'large'];
-  assert.equal(cast(state, 'heal large').summary.healed, 32);
+  // 8 base + 20 (heal+10) + 50 (5% MaxHP main) + 120 (12% MaxHP sec) = 198 immediate + 8 next-turn regen = 206
+  assert.equal(cast(state, 'heal large').summary.healed, 206);
   state.player.hand = ['grand', 'heal'];
-  assert.deepEqual(heals(cast(state, 'grand heal')).map(event => event.amount), [40, 6]);
+  // 6 base + 20 (heal+10) + 50 (5% main) + 30 (grand+10 main +3/lv) + 120 (heal+10 12% sec) + 15 (grand+10 sec) = 241 immediate
+  // next-turn: 6 base + 6 (grand+10 sec) + 8 (heal+10 sec regen) = 20
+  assert.deepEqual(heals(cast(state, 'grand heal')).map(event => event.amount), [241, 20]);
   state.player.hand = ['grand', 'shield'];
   const fortified = cast(state, 'grand shield');
-  assert.equal(fortified.state.player.shield.layers[0], 42);
+  // 12 base + 20 (shield+10) + 30 (grand+10 main) + 15 (grand+10 sec) = 77 cap (restored to 77 after 3 enemy dmg)
+  assert.equal(fortified.state.player.shield.layers[0], 77);
   const storage = new MemoryStorage();
   assert.equal(saveRun(fortified.state, storage).ok, true);
   assert.deepEqual(loadRun(storage).state, fortified.state);
@@ -1465,10 +1475,11 @@ test('large shields add three protection per layer and upgraded shields survive 
   state.player.blessings = ['blessing_vitality'];
   const pair = cast(state, 'shield large pair');
   assert.equal(pair.summary.cost, 10);
-  assert.deepEqual(pair.state.player.shield.layers, [51, 51]);
+  // 9 base + 20 (shield+10) + 20 (large+10 ×2) + 10 (pair+10) + 8 (pairSelf) + 10 (largeSelf) + 2 (vitality) = 79
+  assert.deepEqual(pair.state.player.shield.layers, [79, 79]);
   const storage = new MemoryStorage();
   assert.equal(saveRun(pair.state, storage).ok, true);
-  assert.deepEqual(loadRun(storage).state.player.shield.layers, [51, 51]);
+  assert.deepEqual(loadRun(storage).state.player.shield.layers, [79, 79]);
 });
 
 test('split elements fire in order and fusion stays one projectile', () => {
@@ -1637,13 +1648,12 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
   assert.equal(validateRun(secRes.state), secRes.state);
 
   const fightWithUpgrades = revisitRoom(secRes.state, 0);
+  fightWithUpgrades.enemies[0].armor = 3;
   fightWithUpgrades.player.hand = ['shot', 'fire'];
   const atkTurn = cast(fightWithUpgrades, 'shot fire');
-  // Base shot fire is 10 damage; with fire +1 it deals 11 damage, and shot's secondary effect grants +2 minor shield (blocking 2 of striker's 3 attack -> incoming 1)
-  assert.equal(atkTurn.summary.damage, 11);
-  assert.equal(atkTurn.summary.secondaryShield, 2);
-  assert.equal(atkTurn.summary.blocked, 2);
-  assert.equal(atkTurn.summary.incoming, 1);
+  // Base shot fire is 10 damage; with fire +1 it deals 11 raw, vs armor 3 with shot's Tier 1 secondary pierce +1 -> 11 - 2 = 9 damage
+  assert.equal(atkTurn.summary.damage, 9);
+  assert.equal(atkTurn.summary.secondaryShield, 0);
 
   // Test +7 / +9 / +10 milestone secondary unlock and % upgrade success/failure without breaking card
   const rawMilestoneRun = createRun('forge-milestone', true);
@@ -1660,29 +1670,31 @@ test('3x3 floor subrooms, RPG level-ups (+HP every level, +MP every 5th), shop i
   assert.equal(failedAttempt.newLevel, 6);
   assert.equal(failedAttempt.secondaryUnlocked, false);
 
-  // Successful roll at +6 -> +7 unlocks Tier 1 secondary effect automatically!
+  // Successful roll at +6 -> +7 unlocks Tier 1 secondary effect automatically (shot: +1 pierce)
   const plus7 = upgradeWordCard(failedAttempt.state, 'shot', 'stat', { roll: 25 });
   assert.equal(plus7.upgraded, true);
   assert.equal(plus7.newLevel, 7);
   assert.equal(plus7.milestoneUnlocked, true);
   assert.equal(plus7.secondaryUnlocked, true);
   assert.equal(plus7.secondaryEffect.tier, 1);
-  assert.equal(plus7.secondaryEffect.shieldBonus, 2);
+  assert.equal(plus7.secondaryEffect.pierceBonus, 1);
+  assert.equal(plus7.secondaryEffect.damagePctBonus, 0);
 
-  // Reaching +9 and +10 scales the secondary effect to Tier 2 (+3 shield) and Tier 3 (+4 shield, +1 pierce)
+  // Reaching +9 and +10 scales shot secondary to Tier 2 (+2 pierce) and Tier 3 (+3 pierce, +15% damage)
   plus7.state.player.cardUpgrades.shot = 8;
   const plus9 = upgradeWordCard(plus7.state, 'shot', 'stat', { roll: 10 });
   assert.equal(plus9.newLevel, 9);
   assert.equal(plus9.milestoneUnlocked, true);
   assert.equal(plus9.secondaryEffect.tier, 2);
-  assert.equal(plus9.secondaryEffect.shieldBonus, 3);
+  assert.equal(plus9.secondaryEffect.pierceBonus, 2);
+  assert.equal(plus9.secondaryEffect.damagePctBonus, 0);
 
   const plus10 = upgradeWordCard(plus9.state, 'shot', 'stat', { roll: 5 });
   assert.equal(plus10.newLevel, 10);
   assert.equal(plus10.milestoneUnlocked, true);
   assert.equal(plus10.secondaryEffect.tier, 3);
-  assert.equal(plus10.secondaryEffect.shieldBonus, 4);
-  assert.equal(plus10.secondaryEffect.pierceBonus, 1);
+  assert.equal(plus10.secondaryEffect.pierceBonus, 3);
+  assert.equal(plus10.secondaryEffect.damagePctBonus, 15);
   assert.equal(validateRun(plus10.state), plus10.state);
 });
 
@@ -3070,11 +3082,13 @@ test('Tier 1-3 rarities and all 15 Tier 3 dual-element fusions work with distinc
   const shockRes = cast(shockState, 'shot shockstream', 'enemy-0');
   assert.equal(shockRes.summary.damage, 28); // 18 main + 10 wet shock on enemy-1
 
-  // 6. Heatwave (ระอุ): 22 dmg, push 1, burns target 4 and adjacent 4. Blocked slot deals +6 slam dmg
+  // 6. Heatwave (ระอุ): 22 dmg, push 1, burns target 4 and adjacent 4. Pushing into another enemy deals 6 collision dmg to BOTH enemies
   const heatState = battle(['striker', 'striker']);
   for (const e of heatState.enemies) e.hp = 50;
   const heatRes = cast(heatState, 'shot heatwave', 'enemy-0');
-  assert.equal(heatRes.summary.damage, 28); // 22 hit + 6 wall slam
+  assert.equal(heatRes.summary.damage, 34); // 22 hit + 6 collision on enemy-0 + 6 collision on enemy-1
+  assert.equal(heatRes.summary.enemyHp['enemy-0'], 50 - 22 - 6);
+  assert.equal(heatRes.summary.enemyHp['enemy-1'], 50 - 6);
   assert.equal(heatRes.state.enemies[0].burn, 4);
   assert.equal(heatRes.state.enemies[1].burn, 4);
 
@@ -3471,6 +3485,1043 @@ test('barrage legendary suffix only works at end of attack spells and fires 5 ti
   const waveBarrage = cast(state, 'wave fire barrage', 'enemy-1');
   assert.equal(waveBarrage.events.filter(ev => ev.type === 'projectile').length, 15);
 });
+
+test('push card rework: enemy-to-enemy collision damages both enemies (piercing armor), scales with multiplier, synergizes with wind for 2-slot push, and slams walls', () => {
+  // 1. Armored enemy-0 (slot 0) pushed into armored enemy-1 (slot 1) -> BOTH take 8 armor-piercing collision damage
+  const clash = battle(['rune_ram', 'rune_ram']);
+  for (const e of clash.enemies) { e.armor = 4; e.maxHp = e.hp = 60; }
+  const res = cast(clash, 'shot fire push', 'enemy-0');
+  assert.equal(res.ok, true);
+  assert.equal(res.state.enemies[0].slot, 0);
+  assert.equal(res.state.enemies[1].slot, 1);
+  // enemy-0: 10 - 4 armor = 6 fire hit + 8 true collision = 14 -> 46 HP
+  // enemy-1: 8 true collision = 8 -> 52 HP
+  assert.equal(res.summary.enemyHp['enemy-0'], 46);
+  assert.equal(res.summary.enemyHp['enemy-1'], 52);
+  const slamEvents = res.events.filter(ev => ev.type === 'wall-slam' && ev.collision);
+  assert.equal(slamEvents.length, 2);
+  assert.deepEqual(slamEvents.map(ev => ev.target), ['enemy-0', 'enemy-1']);
+
+  // 2. Multiplier scaling: storm fire push (1.5x) deals 12 true collision dmg to BOTH enemies
+  const stormClash = battle(['rune_ram', 'rune_ram']);
+  for (const e of stormClash.enemies) { e.armor = 4; e.maxHp = e.hp = 80; }
+  const stormRes = cast(stormClash, 'storm fire push', 'enemy-0');
+  // enemy-0: (10*1.5 - 4 = 11) + 12 collision = 23 -> 57 HP
+  // enemy-1: (10*1.5*0.5 = 8 - 4 = 4) + 12 collision = 16 -> 64 HP
+  assert.equal(stormRes.summary.enemyHp['enemy-0'], 57);
+  assert.equal(stormRes.summary.enemyHp['enemy-1'], 64);
+
+  // 3. Wind + Push synergy: pushes 2 slots! Slides from slot 0 -> slot 1, then crashes into slot 2 (damaging both!)
+  const windSynergy = battle(['striker', 'striker']);
+  windSynergy.enemies[0].slot = 0;
+  windSynergy.enemies[1].slot = 2;
+  for (const e of windSynergy.enemies) { e.armor = 0; e.maxHp = e.hp = 60; }
+  const windPushRes = cast(windSynergy, 'shot wind push', 'enemy-0');
+  assert.equal(windPushRes.state.enemies[0].slot, 1, 'Wind + Push should slide enemy-0 into slot 1 before colliding with slot 2');
+  assert.equal(windPushRes.state.enemies[1].slot, 2);
+  assert.equal(windPushRes.summary.enemyHp['enemy-0'], 60 - 7 - 8);
+  assert.equal(windPushRes.summary.enemyHp['enemy-1'], 60 - 8);
+
+  // 4. Pushing against the back edge (slot 4) deals 4 armor-piercing wall slam damage
+  const wall = battle(['rune_ram']);
+  wall.enemies[0].slot = 4;
+  wall.enemies[0].armor = 4;
+  wall.enemies[0].maxHp = wall.enemies[0].hp = 60;
+  const wallRes = cast(wall, 'shot fire push', 'enemy-0');
+  assert.equal(wallRes.summary.enemyHp['enemy-0'], 60 - 6 - 4);
+  assert.ok(wallRes.events.some(ev => ev.type === 'wall-slam' && !ev.collision && ev.amount === 4));
+
+  // 5. Magnet pulling an adjacent enemy directly into target deals 6 collision damage to BOTH
+  const magClash = battle(['striker', 'striker']);
+  magClash.enemies[0].slot = 1;
+  magClash.enemies[1].slot = 2;
+  for (const e of magClash.enemies) { e.maxHp = e.hp = 60; }
+  const magRes = cast(magClash, 'shot magnet', 'enemy-1');
+  // enemy-1: 18 magnet hit + 6 collision = 24 -> 36 HP; enemy-0: 6 collision -> 54 HP
+  assert.equal(magRes.summary.enemyHp['enemy-1'], 36);
+  assert.equal(magRes.summary.enemyHp['enemy-0'], 54);
+});
+
+test('Batch 1 Common cards: tailored main scaling and +7/+9/+10 secondary effects work in combat and match forecast', () => {
+  // 1. shot +10: +3 pierce & +15% damage
+  const shotState = battle(['armored']);
+  shotState.enemies[0].hp = shotState.enemies[0].maxHp = 80;
+  shotState.enemies[0].armor = 5;
+  shotState.player.cardUpgrades = { shot: 10 };
+  const shotRes = cast(shotState, 'shot fire');
+  // (10 + 10) * 1.15 = 23 raw; armor 5 - 3 pierce = 2 -> 21 damage
+  assert.equal(shotRes.summary.damage, 21);
+
+  // 2. fire +10: inflicts +5 burn automatically
+  const fireState = battle(['striker']);
+  fireState.enemies[0].hp = fireState.enemies[0].maxHp = 80;
+  fireState.player.cardUpgrades = { fire: 10 };
+  const fireRes = cast(fireState, 'shot fire');
+  assert.equal(fireRes.summary.enemyStatus['enemy-0'].burn, 5);
+
+  // 3. ice +10: +3 main chill (floor(10/3)) + 6 secondary chill = 13 total chill, plus lastingChill (persists 4 after attack)
+  const iceState = battle(['striker']);
+  iceState.enemies[0].hp = iceState.enemies[0].maxHp = 80;
+  iceState.player.cardUpgrades = { ice: 10 };
+  const iceRes = cast(iceState, 'shot ice');
+  assert.equal(iceRes.summary.enemyStatus['enemy-0'].chill, 13);
+  assert.equal(iceRes.summary.enemyStatus['enemy-0'].lastingChill, true);
+  assert.equal(iceRes.state.enemies[0].chill, 4);
+
+  // 4. lightning +10: +4 secondary pierce (total 6) & refunds +1 MP when hitting wet target
+  const boltState = battle(['armored']);
+  boltState.enemies[0].hp = boltState.enemies[0].maxHp = 80;
+  boltState.enemies[0].armor = 6;
+  boltState.enemies[0].wetUntil = 5;
+  boltState.player.cardUpgrades = { lightning: 10 };
+  const boltRes = cast(boltState, 'shot lightning');
+  // 8 base + 10 upg + 2 wet = 20 damage, armor 6 - (2+4) = 0 -> 20 dmg, and +1 MP refunded
+  assert.equal(boltRes.summary.damage, 20);
+  assert.equal(boltRes.summary.manaRefunded, 1);
+
+  // 5. earth +10: +5 main block + 8 secondary block = 15 total earth block, and shreds 2 permanent armor
+  const earthState = battle(['armored']);
+  earthState.enemies[0].hp = earthState.enemies[0].maxHp = 80;
+  earthState.player.cardUpgrades = { earth: 10 };
+  const earthRes = cast(earthState, 'shot earth');
+  assert.equal(earthRes.state.enemies[0].armor, 1);
+  assert.equal(earthRes.summary.secondaryShield, 8);
+  assert.equal(earthRes.summary.blocked, 3);
+  assert.equal(earthRes.summary.incoming, 0);
+
+  // 6. water +10: 2 + 5 main heal + 8 secondary heal = 15 HP healed, and splashes wet to adjacent enemies
+  const waterState = battle(['striker', 'striker']);
+  for (const e of waterState.enemies) { e.hp = e.maxHp = 80; }
+  waterState.player.hp = 10;
+  waterState.player.cardUpgrades = { water: 10 };
+  const waterRes = cast(waterState, 'shot water', 'enemy-0');
+  assert.equal(waterRes.summary.healed, 15);
+  assert.ok(waterRes.state.enemies[0].wetUntil >= 2);
+  assert.ok(waterRes.state.enemies[1].wetUntil >= 2);
+
+  // 7. wind +10: pushes 2 slots and deals 3 + 5 (floor(10/2)) + 8 (secondary) = 16 collision damage to BOTH
+  const windState = battle(['striker', 'striker']);
+  windState.enemies[0].slot = 0;
+  windState.enemies[1].slot = 2;
+  for (const e of windState.enemies) { e.hp = e.maxHp = 80; }
+  windState.player.cardUpgrades = { wind: 10 };
+  const windRes = cast(windState, 'shot wind', 'enemy-0');
+  assert.equal(windRes.state.enemies[0].slot, 1);
+  // enemy-0: (7+10) + 16 collision = 33 -> 47 HP; enemy-1: 16 collision -> 64 HP
+  assert.equal(windRes.summary.enemyHp['enemy-0'], 47);
+  assert.equal(windRes.summary.enemyHp['enemy-1'], 64);
+
+  // 8. pair +10: +20% attack damage & +1 MP refund
+  const pairState = battle(['striker']);
+  pairState.enemies[0].hp = pairState.enemies[0].maxHp = 100;
+  pairState.player.cardUpgrades = { pair: 10 };
+  const pairRes = cast(pairState, 'shot fire pair', 'enemy-0', 'enemy-0');
+  // Each shot: (10 + 10 aux) * 1.2 = 24 -> 48 total; +1 MP refund
+  assert.equal(pairRes.summary.damage, 48);
+  assert.equal(pairRes.summary.manaRefunded, 1);
+
+  // 9. shield +10: heals 8 + ceil(5% MaxHP) and renews +4 HP on intact shield layer at end of turn
+  const shieldState = battle(['void_imp']);
+  shieldState.player.maxHp = 40;
+  shieldState.player.hp = 20;
+  shieldState.player.cardUpgrades = { shield: 10 };
+  const shieldRes = cast(shieldState, 'shield');
+  // Heal: 8 + ceil(40 * 0.05) = 10 HP; void_imp at slot 0 deals 10 -> Shield layer: 6 + 20 = 26 -> 16 -> renewed +4 = 20
+  assert.equal(shieldRes.summary.healed, 10);
+  assert.deepEqual(shieldRes.state.player.shield.layers, [20]);
+
+  // 10. self +10: +20 HP main heal, +10 main block + 12 secondary block = 22 block, and +1 MP refund
+  const selfState = battle(['void_imp']);
+  selfState.player.maxHp = 60;
+  selfState.player.hp = 10;
+  selfState.player.cardUpgrades = { self: 10 };
+  const selfRes = cast(selfState, 'heal self');
+  // Heal: 4 base + 20 self = 24 HP; Block: 10 + 12 = 22 -> absorbs all 10 dmg; +1 MP refund
+  assert.equal(selfRes.summary.healed, 24);
+  assert.equal(selfRes.summary.blocked, 10);
+  assert.equal(selfRes.summary.incoming, 0);
+  assert.equal(selfRes.summary.manaRefunded, 1);
+});
+
+test('Batch 2 Rare & first 2 Special cards: tailored main scaling and +7/+9/+10 secondary effects work in combat', () => {
+  // 11. blast +10: +20 blast bonus, +4 pierce, 75% splash, permanent armor -1 on all hit targets
+  const blastState = battle(['armored', 'armored']);
+  for (const e of blastState.enemies) { e.hp = e.maxHp = 100; }
+  blastState.player.cardUpgrades = { blast: 10 };
+  const blastRes = cast(blastState, 'blast fire', 'enemy-0');
+  // Center: (10 + 20) = 30 vs armor 3 (pierce 4 -> 0) = 30 -> 70 HP; Splash: 30 * 0.75 = 22.5 -> ceil 23 -> 77 HP; both armor 3 -> 2
+  assert.equal(blastRes.summary.enemyHp['enemy-0'], 70);
+  assert.equal(blastRes.summary.enemyHp['enemy-1'], 77);
+  assert.equal(blastRes.state.enemies[0].armor, 2);
+  assert.equal(blastRes.state.enemies[1].armor, 2);
+
+  // 12. beam +10: +10 dmg, +3 main pierce, +20% dmg, +10 bonus dmg vs warded enemy, and strips 1 ward
+  const beamState = battle(['warden']);
+  beamState.enemies[0].hp = beamState.enemies[0].maxHp = 100;
+  beamState.enemies[0].armor = 3;
+  beamState.enemies[0].ward = 2;
+  beamState.player.cardUpgrades = { beam: 10 };
+  const beamRes = cast(beamState, 'beam fire', 'enemy-0');
+  // (10 + 10) * 1.2 = 24 + 10 ward bonus = 34; armor 3 - 3 pierce = 0 -> 34 dmg, ward 2 -> 1
+  assert.equal(beamRes.summary.damage, 34);
+  assert.equal(beamRes.state.enemies[0].ward, 1);
+
+  // 13. wave +10: +20 form dmg (2x), +2 pierce, +20% dmg always, and +2 chill on all hit targets
+  const waveState = battle(['armored']);
+  waveState.enemies[0].hp = waveState.enemies[0].maxHp = 100;
+  waveState.player.cardUpgrades = { wave: 10 };
+  const waveRes = cast(waveState, 'wave fire', 'enemy-0');
+  // (10 + 20) * 0.6 = 18 -> * 1.2 = 21.6 -> round 22; armor 3 - 2 pierce = 1 -> 21 dmg; chill +2
+  assert.equal(waveRes.summary.damage, 21);
+  assert.equal(waveRes.summary.enemyStatus['enemy-0'].chill, 2);
+
+  // 14. heal +10: overheal converts to block up to 15, plus next-turn regen +8 HP
+  const healState = battle(['void_imp']);
+  healState.player.maxHp = 100;
+  healState.player.hp = 95;
+  healState.player.cardUpgrades = { heal: 10 };
+  const healRes = cast(healState, 'heal self');
+  // Heal amount: 4 + 20 + 5 (5% main) + 12 (12% sec) = 41 -> heals 5 to 100, overflow 36 -> 15 block!
+  // void_imp slot 0 deals 10 -> blocked 10, incoming 0!
+  assert.equal(healRes.summary.overhealShield, 15);
+  assert.equal(healRes.summary.blocked, 10);
+  assert.equal(healRes.summary.incoming, 0);
+
+  // 15. burn +10: +20 main burn + 8 sec burn = 31 total burn, spreads 15 to neighbor, and lingers 50% next turn
+  const burnState = battle(['striker', 'striker']);
+  for (const e of burnState.enemies) { e.hp = e.maxHp = 120; }
+  burnState.player.cardUpgrades = { burn: 10 };
+  const burnRes = cast(burnState, 'shot fire burn', 'enemy-0');
+  assert.equal(burnRes.state.enemies[0].burn, 31);
+  assert.equal(burnRes.state.enemies[1].burn, 15);
+  assert.equal(burnRes.state.enemies[0].lingeringBurn, true);
+  // Next turn (guard): burn ticks 31 on enemy-0 and leaves floor(31/2)=15 lingering!
+  const burnTurn2 = cast(burnRes.state, 'guard');
+  assert.equal(burnTurn2.state.enemies[0].burn, 15);
+  assert.equal(burnTurn2.state.enemies[1].burn, 7);
+
+  // 16. push +10: collision deals 8 + 10 + 10 = 28 true dmg, +3 chill, and -1 permanent armor on BOTH
+  const pushState = battle(['armored', 'armored']);
+  for (const e of pushState.enemies) { e.hp = e.maxHp = 100; }
+  pushState.player.cardUpgrades = { push: 10 };
+  const pushRes = cast(pushState, 'shot fire push', 'enemy-0');
+  // enemy-0: (10 + 10 aux - 3 armor = 17) + 28 collision = 45 -> 55 HP; enemy-1: 28 collision -> 72 HP
+  assert.equal(pushRes.summary.enemyHp['enemy-0'], 55);
+  assert.equal(pushRes.summary.enemyHp['enemy-1'], 72);
+  assert.equal(pushRes.summary.enemyStatus['enemy-0'].chill, 3);
+  assert.equal(pushRes.summary.enemyStatus['enemy-1'].chill, 3);
+  assert.equal(pushRes.state.enemies[0].armor, 2);
+  assert.equal(pushRes.state.enemies[1].armor, 2);
+
+  // 17. pull +10: pulls 2 slots, collides into front enemy for 8+10+8 = 26 true dmg each (matching push 8x2), shreds -2 armor & +4 chill
+  const pullState = battle(['armored', 'armored']);
+  pullState.enemies[0].slot = 0;
+  pullState.enemies[1].slot = 2;
+  for (const e of pullState.enemies) { e.hp = e.maxHp = 100; }
+  pullState.player.cardUpgrades = { pull: 10 };
+  const pullRes = cast(pullState, 'shot fire pull', 'enemy-1');
+  // enemy-1 slides 2 -> 1, then collides into slot 0 for 26 true dmg to BOTH! And enemy-1 armor 3 -> 1, chill +4
+  assert.equal(pullRes.state.enemies[1].slot, 1);
+  assert.equal(pullRes.summary.enemyHp['enemy-0'], 74);
+  assert.equal(pullRes.summary.enemyHp['enemy-1'], 100 - 17 - 26);
+  assert.equal(pullRes.state.enemies[1].armor, 1);
+  assert.equal(pullRes.summary.enemyStatus['enemy-1'].chill, 4);
+
+  // 17b. pull front-edge slam parity with push: base slot-0 pull deals 4 true edge-slam, +10 deals 4+10+8 = 22 true edge-slam
+  const pullEdgeBase = battle(['armored']);
+  pullEdgeBase.enemies[0].slot = 0;
+  pullEdgeBase.enemies[0].hp = pullEdgeBase.enemies[0].maxHp = 100;
+  const pullEdgeBaseRes = cast(pullEdgeBase, 'shot fire pull', 'enemy-0');
+  // (10 - 3 armor = 7) + 4 edge slam = 11 dmg -> 89 HP
+  assert.equal(pullEdgeBaseRes.summary.enemyHp['enemy-0'], 89);
+
+  const pullEdgeMax = battle(['armored']);
+  pullEdgeMax.enemies[0].slot = 0;
+  pullEdgeMax.enemies[0].hp = pullEdgeMax.enemies[0].maxHp = 100;
+  pullEdgeMax.player.cardUpgrades = { pull: 10 };
+  const pullEdgeMaxRes = cast(pullEdgeMax, 'shot fire pull', 'enemy-0');
+  // (10 + 10 aux - 3 armor = 17) + (4 + 10 + 8 = 22 edge slam) = 39 dmg -> 61 HP
+  assert.equal(pullEdgeMaxRes.summary.enemyHp['enemy-0'], 61);
+
+  // 18. large +10: +18% attack damage & +1 MP refund
+  const largeState = battle(['striker']);
+  largeState.enemies[0].hp = largeState.enemies[0].maxHp = 100;
+  largeState.player.cardUpgrades = { large: 10 };
+  const largeRes = cast(largeState, 'shot fire large', 'enemy-0');
+  // (10 + 10 aux) * 1.5 = 30 -> * 1.18 = 35.4 -> round 35; +1 MP refund
+  assert.equal(largeRes.summary.damage, 35);
+  assert.equal(largeRes.summary.manaRefunded, 1);
+
+  // 19. akki +10: +20 base dmg (40 total), +10 burn, +3 pierce, 2-turn healCut, and +20% execute vs burned/healCut target
+  const akkiState = battle(['armored']);
+  akkiState.enemies[0].hp = akkiState.enemies[0].maxHp = 120;
+  akkiState.enemies[0].burn = 5;
+  akkiState.enemies[0].burnTurn = 99;
+  akkiState.player.cardUpgrades = { akki: 10 };
+  const akkiRes = cast(akkiState, 'shot akki', 'enemy-0');
+  // 40 * 1.2 (execute) = 48, armor 3 - 3 pierce = 0 -> 48 dmg; burn 5 + 10 = 15; healCutUntil = 1 + 1 + 1 = 3
+  assert.equal(akkiRes.summary.damage, 48);
+  assert.equal(akkiRes.state.enemies[0].burn, 15);
+  assert.equal(akkiRes.state.enemies[0].healCutUntil, 3);
+
+  // 20. heman +10: +20 base dmg (32 total), +5 main chill + 7 sec chill (total 16), +12 shield, splash chill 4, and freezes already-chilled enemy
+  const hemanState = battle(['striker', 'striker']);
+  for (const e of hemanState.enemies) { e.hp = e.maxHp = 120; }
+  hemanState.enemies[0].chill = 2;
+  hemanState.player.cardUpgrades = { heman: 10 };
+  const hemanRes = cast(hemanState, 'shot heman', 'enemy-0');
+  assert.equal(hemanRes.summary.damage, 32);
+  assert.equal(hemanRes.summary.secondaryShield, 12);
+  assert.equal(hemanRes.summary.enemyStatus['enemy-0'].chill, 18);
+  assert.equal(hemanRes.summary.enemyStatus['enemy-0'].freeze, 1);
+  assert.equal(hemanRes.summary.enemyStatus['enemy-1'].chill, 4);
+});
+
+test('Batch 3 remaining 10 Special cards: tailored main scaling and +7/+9/+10 secondary effects work in combat', () => {
+  // 21. asani +10: +20 base dmg (36), pierce +5 (total 7), chains BOTH sides at 85%, refunds +2 MP on wet target
+  const asaniState = battle(['armored', 'armored', 'armored']);
+  asaniState.enemies[0].slot = 0;
+  asaniState.enemies[1].slot = 1;
+  asaniState.enemies[2].slot = 2;
+  for (const e of asaniState.enemies) { e.hp = e.maxHp = 120; }
+  asaniState.enemies[1].wetUntil = 5;
+  asaniState.player.cardUpgrades = { asani: 10 };
+  const asaniRes = cast(asaniState, 'shot asani', 'enemy-1');
+  // primary: 36 + 2 wet conductivity = 38 (armor 3 pierced by 7 -> 38 dmg); neighbors: round(36 * 0.85) = 31 each!
+  assert.equal(asaniRes.summary.enemyHp['enemy-1'], 120 - 38);
+  assert.equal(asaniRes.summary.enemyHp['enemy-0'], 120 - 31);
+  assert.equal(asaniRes.summary.enemyHp['enemy-2'], 120 - 31);
+  assert.equal(asaniRes.summary.manaRefunded, 2);
+
+  // 22. pathaphi +10: +20 base dmg (34), +10 earth block (+14 total) + 15 sec shield = 29 block, shreds 2+2=4 armor, +4 chill, +10 true dmg when armor hits 0
+  const pathaphiState = battle(['armored']);
+  pathaphiState.enemies[0].hp = pathaphiState.enemies[0].maxHp = 120;
+  pathaphiState.player.cardUpgrades = { pathaphi: 10 };
+  const pathaphiRes = cast(pathaphiState, 'shot pathaphi', 'enemy-0');
+  // 34 - 3 armor = 31, armor shredded 3 -> 0 -> triggers +10 true dmg = 41 total dmg; chill +4; block = 14 + 15 = 29 -> absorbs striker/armored hit
+  assert.equal(pathaphiRes.summary.damage, 41);
+  assert.equal(pathaphiRes.state.enemies[0].armor, 0);
+  assert.equal(pathaphiRes.summary.enemyStatus['enemy-0'].chill, 4);
+  assert.equal(pathaphiRes.summary.secondaryShield, 15);
+
+  // 23. wari +10: +20 base dmg (32), +14 main heal + 12 sec heal + 8% MaxHP (8) = 34 heal, chill 2+4=6, wet ALL enemies, +1 MP refund
+  const wariState = battle(['striker', 'striker', 'striker']);
+  wariState.enemies[0].slot = 0;
+  wariState.enemies[1].slot = 2;
+  wariState.enemies[2].slot = 4;
+  for (const e of wariState.enemies) { e.hp = e.maxHp = 120; }
+  wariState.player.maxHp = 100;
+  wariState.player.hp = 50;
+  wariState.player.cardUpgrades = { wari: 10 };
+  const wariRes = cast(wariState, 'shot wari', 'enemy-0');
+  assert.equal(wariRes.summary.damage, 32);
+  assert.equal(wariRes.summary.healed, 34);
+  assert.equal(wariRes.summary.enemyStatus['enemy-0'].chill, 6);
+  assert.ok(wariRes.state.enemies.every(e => e.wetUntil >= 2));
+  assert.equal(wariRes.summary.manaRefunded, 1);
+
+  // 24. vayu +10: +20 base dmg (34), pushes 2 slots, collision deals 6 + 10 + 14 = 30 true dmg to BOTH, +4 chill & -1 armor to BOTH
+  const vayuState = battle(['armored', 'armored']);
+  vayuState.enemies[0].slot = 0;
+  vayuState.enemies[1].slot = 2;
+  for (const e of vayuState.enemies) { e.hp = e.maxHp = 120; }
+  vayuState.player.cardUpgrades = { vayu: 10 };
+  const vayuRes = cast(vayuState, 'shot vayu', 'enemy-0');
+  // enemy-0: (34 - 3 armor = 31) + 30 collision = 61 -> 59 HP; slides 0 -> 1 then collides into slot 2!
+  // enemy-1: 30 collision -> 90 HP; BOTH get +4 chill and armor 3 -> 2
+  assert.equal(vayuRes.state.enemies[0].slot, 1);
+  assert.equal(vayuRes.summary.enemyHp['enemy-0'], 59);
+  assert.equal(vayuRes.summary.enemyHp['enemy-1'], 90);
+  assert.equal(vayuRes.summary.enemyStatus['enemy-0'].chill, 4);
+  assert.equal(vayuRes.summary.enemyStatus['enemy-1'].chill, 4);
+  assert.equal(vayuRes.state.enemies[0].armor, 2);
+  assert.equal(vayuRes.state.enemies[1].armor, 2);
+
+  // 25. freeze +10: +20 aux dmg (6+20=26), +25% dmg -> round(26*1.25)=33, armor shred -2, chill 4 + 3 (main) + 6 (sec) = 13, freeze +1, +1 MP refund
+  const freezeState = battle(['armored']);
+  freezeState.enemies[0].hp = freezeState.enemies[0].maxHp = 120;
+  freezeState.player.cardUpgrades = { freeze: 10 };
+  const freezeRes = cast(freezeState, 'shot ice freeze', 'enemy-0');
+  // (6 + 20) * 1.25 = 32.5 -> 33; minus 3 armor = 30 dmg; armor shredded 3 -> 1; chill 4 + 3 + 6 = 13; freeze = 1; +1 MP
+  assert.equal(freezeRes.summary.damage, 30);
+  assert.equal(freezeRes.state.enemies[0].armor, 1);
+  assert.equal(freezeRes.summary.enemyStatus['enemy-0'].chill, 13);
+  assert.equal(freezeRes.summary.enemyStatus['enemy-0'].freeze, 1);
+  assert.equal(freezeRes.summary.manaRefunded, 1);
+
+  // 26. pierce +10: +10 aux dmg, +5 main pierce (total 2+5=7), +15% dmg, overpenetration (7-3=4 * 2 = +8 true dmg), permanent -2 armor
+  const pierceState = battle(['armored']);
+  pierceState.enemies[0].hp = pierceState.enemies[0].maxHp = 120;
+  pierceState.player.cardUpgrades = { pierce: 10 };
+  const pierceRes = cast(pierceState, 'shot fire pierce', 'enemy-0');
+  // (10 + 10) * 1.15 = 23 + overpierce (7 - 3) * 2 = +8 -> 31 dmg; armor 3 -> 1
+  assert.equal(pierceRes.summary.damage, 31);
+  assert.equal(pierceRes.state.enemies[0].armor, 1);
+
+  // 27. grand +10 on attack: +20 aux dmg, *1.5 mult, +25% dmg, +2 MP refund
+  const grandAtkState = battle(['striker']);
+  grandAtkState.enemies[0].hp = grandAtkState.enemies[0].maxHp = 120;
+  grandAtkState.player.cardUpgrades = { grand: 10 };
+  const grandAtkRes = cast(grandAtkState, 'grand shot fire', 'enemy-0');
+  // (10 + 20) * 1.5 = 45 -> * 1.25 = 56.25 -> 56 dmg; +2 MP refund
+  assert.equal(grandAtkRes.summary.damage, 56);
+  assert.equal(grandAtkRes.summary.manaRefunded, 2);
+
+  // 28. seal +10: +20 aux dmg, +6 chill, splashes seal+chill to adjacent enemy, +15 true punish dmg & +1 MP on support/warded enemy
+  const sealState = battle(['scroll_moth', 'striker']);
+  sealState.enemies[0].slot = 0;
+  sealState.enemies[1].slot = 1;
+  sealState.enemies[0].hp = sealState.enemies[0].maxHp = 120;
+  sealState.enemies[1].hp = sealState.enemies[1].maxHp = 120;
+  sealState.enemies[0].ward = 0; // scroll_moth casts ward on ally on turn 1 -> support intent triggers seal punish +15 true dmg & +1 MP!
+  sealState.player.cardUpgrades = { seal: 10 };
+  const sealRes = cast(sealState, 'shot fire seal', 'enemy-0');
+  // enemy-0: (10 + 20) = 30 + 15 punish true dmg = 45; both enemy-0 & enemy-1 sealed & chilled +6; +1 MP refund
+  assert.equal(sealRes.summary.damage, 45);
+  assert.equal(sealRes.events.some(e => e.type === 'seal' && e.target === 'enemy-0'), true);
+  assert.equal(sealRes.events.some(e => e.type === 'seal' && e.target === 'enemy-1'), true);
+  assert.equal(sealRes.summary.enemyStatus['enemy-0'].chill, 6);
+  assert.equal(sealRes.summary.enemyStatus['enemy-1'].chill, 6);
+  assert.equal(sealRes.summary.manaRefunded, 1);
+
+  // 29. dispel +10: +20 aux dmg, +2 pierce, bursts 22 true dmg per ward stripped, strips 1 ward from adjacent, -2 armor, +2 MP refund
+  const dispelState = battle(['armored', 'armored']);
+  dispelState.enemies[0].slot = 0;
+  dispelState.enemies[1].slot = 1;
+  for (const e of dispelState.enemies) { e.hp = e.maxHp = 120; }
+  dispelState.enemies[0].ward = 2;
+  dispelState.enemies[1].ward = 1;
+  dispelState.player.cardUpgrades = { dispel: 10 };
+  const dispelRes = cast(dispelState, 'shot fire dispel', 'enemy-0');
+  // 2 wards stripped -> 44 true burst dmg + (10 + 20 - max(0, 3-2) = 29) = 73 total dmg!
+  // enemy-0 armor 3 -> 1; enemy-1 ward 1 -> 0; +2 MP refund
+  assert.equal(dispelRes.summary.damage, 73);
+  assert.equal(dispelRes.state.enemies[0].ward, 0);
+  assert.equal(dispelRes.state.enemies[1].ward, 0);
+  assert.equal(dispelRes.state.enemies[0].armor, 1);
+  assert.equal(dispelRes.summary.manaRefunded, 2);
+
+  // 30. brace +10: +20 main shield + 12 sec shield (total 38), triggers at >= 6 incoming dmg (+26 bonus brace!), reflects 16 true dmg, chills +4, heals +6 HP
+  const braceState = battle(['void_imp']);
+  braceState.enemies[0].slot = 0; // void_imp at slot 0 deals 7+3=10 dmg (triggers brace >= 6!)
+  braceState.enemies[0].hp = braceState.enemies[0].maxHp = 100;
+  braceState.player.maxHp = 60;
+  braceState.player.hp = 40;
+  braceState.player.cardUpgrades = { brace: 10 };
+  const braceRes = cast(braceState, 'shield brace');
+  // Shield layer cap = 6 + 20 (brace+10 main) = 26, plus 12 sec bonus block, plus 26 brace trigger = absorbs 10 easily (0 hp loss)
+  // Reflects 16 true dmg -> enemy-0 at 84 HP, chills +4, heals +6 HP -> 46 HP
+  assert.equal(braceRes.summary.incoming, 0);
+  assert.equal(braceRes.state.enemies[0].hp, 84);
+  assert.equal(braceRes.state.enemies[0].chill, 4);
+  assert.equal(braceRes.state.player.hp, 46);
+});
+
+test('Batch 4 first 10 Epic Fusion cards: tailored main scaling and +7/+9/+10 secondary effects work in combat', () => {
+  // 31. magma +10: +20 base dmg (42), +10 burn, puddle erupts for 6+20=26 true dmg, -3 armor, +12 zero-armor true dmg, & splashes 13 true dmg to adjacent
+  const magmaState = battle(['armored', 'armored']);
+  magmaState.enemies[0].slot = 0;
+  magmaState.enemies[1].slot = 1;
+  for (const e of magmaState.enemies) { e.hp = e.maxHp = 150; }
+  magmaState.player.cardUpgrades = { magma: 10 };
+  const magmaHit = cast(magmaState, 'shot magma', 'enemy-0');
+  // 42 - 3 armor = 39 dmg -> 111 HP; burn = 10; puddle at slot 0
+  assert.equal(magmaHit.summary.enemyHp['enemy-0'], 111);
+  assert.equal(magmaHit.state.enemies[0].burn, 10);
+  assert.deepEqual(magmaHit.state.magmaPuddles, [0]);
+  // Next turn guard: puddle erupts on slot 0 -> 26 true dmg, shreds armor 3->0, triggers +12 zero-armor true dmg (total 38), splashes 13 true dmg to slot 1!
+  // (plus burn ticks 10 on enemy-0 after player action during enemy phase -> enemy-0 takes 38 during eruption + 10 burn = 48 -> 63 HP)
+  const magmaErupt = cast(magmaHit.state, 'guard');
+  assert.equal(magmaErupt.summary.enemyHp['enemy-0'], 111 - 26 - 12);
+  assert.equal(magmaErupt.summary.enemyHp['enemy-1'], 150 - 13);
+  assert.equal(magmaErupt.state.enemies[0].armor, 0);
+
+  // 32. mudmire +10: +20 base dmg (38) * 1.15 = 44, +10 mud block, +10 heal, chill 3+5+7=15, splashes wet+chill 15 to adjacent, -2 armor
+  const mudState = battle(['armored', 'striker']);
+  mudState.enemies[0].slot = 0;
+  mudState.enemies[1].slot = 1;
+  for (const e of mudState.enemies) { e.hp = e.maxHp = 150; }
+  mudState.player.maxHp = 100;
+  mudState.player.hp = 60;
+  mudState.player.cardUpgrades = { mudmire: 10 };
+  const mudRes = cast(mudState, 'shot mudmire', 'enemy-0');
+  // 38 * 1.15 = 43.7 -> 44; 44 - 3 armor = 41 dmg; armor 3 -> 1; both chilled 15 & wet; healed 10
+  assert.equal(mudRes.summary.damage, 41);
+  assert.equal(mudRes.state.enemies[0].armor, 1);
+  assert.equal(mudRes.summary.enemyStatus['enemy-0'].chill, 15);
+  assert.equal(mudRes.summary.enemyStatus['enemy-1'].chill, 15);
+  assert.ok(mudRes.state.enemies[1].wetUntil >= 2);
+  assert.equal(mudRes.summary.healed, 10);
+
+  // 33. dust +10: +20 base dmg (38), shreds 1+2=3 armor, obscures primary, pushes 2 slots, collides for 6+10+14=30 true dmg each, collider loses -1 armor & obscured
+  const dustState = battle(['armored', 'armored']);
+  dustState.enemies[0].slot = 0;
+  dustState.enemies[1].slot = 2;
+  for (const e of dustState.enemies) { e.hp = e.maxHp = 150; }
+  dustState.player.cardUpgrades = { dust: 10 };
+  const dustRes = cast(dustState, 'shot dust', 'enemy-0');
+  // enemy-0: (38 - 3 = 35) + 30 collision = 65 -> 85 HP; armor 3->0; obscured; slides 0->1
+  // enemy-1: 30 collision -> 120 HP; armor 3->2; obscured
+  assert.equal(dustRes.state.enemies[0].slot, 1);
+  assert.equal(dustRes.summary.enemyHp['enemy-0'], 85);
+  assert.equal(dustRes.summary.enemyHp['enemy-1'], 120);
+  assert.equal(dustRes.state.enemies[0].armor, 0);
+  assert.equal(dustRes.state.enemies[1].armor, 2);
+  assert.equal(dustRes.summary.enemyStatus['enemy-0'].obscured, true);
+  assert.equal(dustRes.summary.enemyStatus['enemy-1'].obscured, true);
+
+  // 34. permafrost +10: +20 base dmg (38), +26 earth block + 16 sec shield = 42, chill +7, shreds 2+1=3 armor (3->0) -> freezes target!
+  const permaState = battle(['armored']);
+  permaState.enemies[0].hp = permaState.enemies[0].maxHp = 150;
+  permaState.player.cardUpgrades = { permafrost: 10 };
+  const permaRes = cast(permaState, 'shot permafrost', 'enemy-0');
+  assert.equal(permaRes.summary.damage, 35);
+  assert.equal(permaRes.state.enemies[0].armor, 0);
+  assert.equal(permaRes.summary.enemyStatus['enemy-0'].chill, 7);
+  assert.equal(permaRes.summary.enemyStatus['enemy-0'].freeze, 1);
+  assert.equal(permaRes.summary.secondaryShield, 16);
+
+  // 35. magnet +10: +20 base dmg (38), pierce 2+5=7, pulls range 2 into primary, collision deals 6+20+12=38 true dmg each, -1 armor & +3 chill on colliders
+  const magState = battle(['armored', 'armored']);
+  magState.enemies[0].slot = 0;
+  magState.enemies[1].slot = 2;
+  for (const e of magState.enemies) { e.hp = e.maxHp = 150; }
+  magState.player.cardUpgrades = { magnet: 10 };
+  const magRes = cast(magState, 'shot magnet', 'enemy-0');
+  // enemy-0: 38 (armor pierced by 7) + 38 collision = 76 -> 74 HP; enemy-1 slides 2->1 then collides into slot 0 for 38 -> 112 HP; both armor 3->2 & chill +3
+  assert.equal(magRes.state.enemies[1].slot, 1);
+  assert.equal(magRes.summary.enemyHp['enemy-0'], 74);
+  assert.equal(magRes.summary.enemyHp['enemy-1'], 112);
+  assert.equal(magRes.state.enemies[0].armor, 2);
+  assert.equal(magRes.state.enemies[1].armor, 2);
+  assert.equal(magRes.summary.enemyStatus['enemy-0'].chill, 3);
+  assert.equal(magRes.summary.enemyStatus['enemy-1'].chill, 3);
+
+  // 36. mist +10: +20 base dmg (38), +10 burn, chill 5+6=11, +12 sec shield, spreads wet+obscured to ALL enemies, +15 true scald dmg vs already-wet target
+  const mistState = battle(['striker', 'striker', 'striker']);
+  mistState.enemies[0].slot = 0;
+  mistState.enemies[1].slot = 2;
+  mistState.enemies[2].slot = 4;
+  for (const e of mistState.enemies) { e.hp = e.maxHp = 150; }
+  mistState.enemies[0].wetUntil = 5;
+  mistState.player.cardUpgrades = { mist: 10 };
+  const mistRes = cast(mistState, 'shot mist', 'enemy-0');
+  // 38 + 15 true scald = 53 dmg; burn 10; chill 11; ALL enemies wet & obscured; +12 sec shield
+  assert.equal(mistRes.summary.damage, 53);
+  assert.equal(mistRes.state.enemies[0].burn, 10);
+  assert.equal(mistRes.summary.enemyStatus['enemy-0'].chill, 11);
+  assert.equal(mistRes.summary.secondaryShield, 12);
+  assert.ok(mistRes.state.enemies.every(e => e.wetUntil >= 2 && mistRes.summary.enemyStatus[e.id].obscured === true));
+
+  // 37. hail +10: wet target gets +35% dmg (38*1.35=51), freezes, -2 armor, spreads +5 chill to others, +1 MP; dry target gets chill 2+5+7=14 & becomes wet!
+  const hailWetState = battle(['armored', 'striker']);
+  for (const e of hailWetState.enemies) { e.hp = e.maxHp = 150; }
+  hailWetState.enemies[0].wetUntil = 5;
+  hailWetState.player.cardUpgrades = { hail: 10 };
+  const hailWetRes = cast(hailWetState, 'shot hail', 'enemy-0');
+  // round(38 * 1.35) = 51 - 3 armor = 48 dmg; freeze = 1; armor 3->1; enemy-1 chill +5; +1 MP refund
+  assert.equal(hailWetRes.summary.damage, 48);
+  assert.equal(hailWetRes.summary.enemyStatus['enemy-0'].freeze, 1);
+  assert.equal(hailWetRes.state.enemies[0].armor, 1);
+  assert.equal(hailWetRes.summary.enemyStatus['enemy-1'].chill, 5);
+  assert.equal(hailWetRes.summary.manaRefunded, 1);
+
+  const hailDryState = battle(['striker']);
+  hailDryState.enemies[0].hp = hailDryState.enemies[0].maxHp = 150;
+  hailDryState.player.cardUpgrades = { hail: 10 };
+  const hailDryRes = cast(hailDryState, 'shot hail', 'enemy-0');
+  assert.equal(hailDryRes.summary.enemyStatus['enemy-0'].chill, 14);
+  assert.ok(hailDryRes.state.enemies[0].wetUntil >= 2);
+
+  // 38. monsoon +10: +20 base dmg (38), pushes all (collision 6+10+12=28 true dmg), heals 14 + 12 + 8% MaxHP (8) = 34, chill +3 on pushed, +2 MP refund on collision
+  const monState = battle(['armored', 'armored']);
+  monState.enemies[0].slot = 0;
+  monState.enemies[1].slot = 1;
+  for (const e of monState.enemies) { e.hp = e.maxHp = 150; }
+  monState.player.maxHp = 100;
+  monState.player.hp = 50;
+  monState.player.cardUpgrades = { monsoon: 10 };
+  const monRes = cast(monState, 'shot monsoon', 'enemy-0');
+  // enemy-0: (38 - 3 = 35) + 28 collision = 63 -> 87 HP; enemy-1: 28 collision -> 122 HP (then slides 1->2); both wet & chill +3; healed 34; +2 MP refund
+  assert.equal(monRes.summary.enemyHp['enemy-0'], 87);
+  assert.equal(monRes.summary.enemyHp['enemy-1'], 122);
+  assert.equal(monRes.summary.healed, 34);
+  assert.equal(monRes.summary.enemyStatus['enemy-0'].chill, 3);
+  assert.equal(monRes.summary.enemyStatus['enemy-1'].chill, 3);
+  assert.equal(monRes.summary.manaRefunded, 2);
+
+  // 39. shockstream +10: +20 base dmg (38), pierce 2+6=8, shocks wet enemies for 10+20+18=48 (including already-wet primary!), +1 MP per wet shocked (up to 3)
+  const shockState = battle(['armored', 'armored', 'armored']);
+  for (const e of shockState.enemies) { e.hp = e.maxHp = 150; e.wetUntil = 5; }
+  shockState.player.cardUpgrades = { shockstream: 10 };
+  const shockRes = cast(shockState, 'shot shockstream', 'enemy-0');
+  // primary: (38 + 2 wet conductivity = 40) + 48 reshock = 88 -> 62 HP; others: 48 each -> 102 HP; 3 wet shocked -> +3 MP refund!
+  assert.equal(shockRes.summary.enemyHp['enemy-0'], 150 - 40 - 48);
+  assert.equal(shockRes.summary.enemyHp['enemy-1'], 150 - 48);
+  assert.equal(shockRes.summary.enemyHp['enemy-2'], 150 - 48);
+  assert.equal(shockRes.summary.manaRefunded, 3);
+
+  // 40. thunderstorm +10: +20 base dmg (40), pierce 2+5=7, collision 6+10+12=28 true dmg + zaps collided blocker (95% = 38) + chains BOTH sides at 95% (38)!
+  const thState = battle(['armored', 'armored', 'armored']);
+  thState.enemies[0].slot = 0;
+  thState.enemies[1].slot = 1;
+  thState.enemies[2].slot = 2;
+  for (const e of thState.enemies) { e.hp = e.maxHp = 200; }
+  thState.player.cardUpgrades = { thunderstorm: 10 };
+  const thRes = cast(thState, 'shot thunderstorm', 'enemy-1');
+  // enemy-1 (slot 1): 40 primary (pierced) + 28 collision into slot 2 = 68 -> 132 HP
+  // enemy-2 (slot 2): 28 collision + 38 collide-zap + 38 chain = 104 -> 96 HP
+  // enemy-0 (slot 0): 38 chain (both sides!) -> 162 HP
+  assert.equal(thRes.summary.enemyHp['enemy-1'], 200 - 40 - 28);
+  assert.equal(thRes.summary.enemyHp['enemy-2'], 200 - 28 - 38 - 38);
+  assert.equal(thRes.summary.enemyHp['enemy-0'], 200 - 38);
+});
+
+test('Batch 5 (Cards 41–53: remaining Epic & all Legendary) upgrade scaling and +10 secondary effects', () => {
+  const batch5 = [
+    'heatwave', 'chillgale', 'plasma', 'scald', 'frostvolt',
+    'meteor', 'veil', 'chakram', 'storm',
+    'barrage', 'devastation', 'blackhole', 'death',
+  ];
+  for (const id of batch5) {
+    assert.ok(getCardSecondaryEffect(id, 10), `${id} should have +10 secondary effect`);
+    assert.ok(describeCardUpgradeEffect(id, 10).length > 0, `${id} should describe upgrade`);
+  }
+
+  // 41. heatwave +10: +20 dmg (42), burn 4+10+12=26 primary & 14 adj with lingeringBurn, push collision 6+10+12=28 true dmg each, +15 true detonate vs already-burning target
+  const heatState = battle(['striker', 'striker']);
+  heatState.enemies[0].slot = 0;
+  heatState.enemies[1].slot = 1;
+  for (const e of heatState.enemies) { e.hp = e.maxHp = 200; }
+  heatState.enemies[0].burn = 5;
+  heatState.enemies[0].burnTurn = 1;
+  heatState.player.cardUpgrades = { heatwave: 10 };
+  const heatRes = cast(heatState, 'shot heatwave', 'enemy-0');
+  // enemy-0: 42 primary + 15 burn detonate + 28 collision = 85 -> 115 HP (burn 5 ticks at start of turn? no, burn ticks at turn end -> check newBurn + remaining)
+  assert.equal(heatRes.summary.enemyHp['enemy-0'], 200 - 42 - 15 - 28);
+  assert.equal(heatRes.summary.enemyHp['enemy-1'], 200 - 28);
+  assert.equal(heatRes.state.enemies[0].lingeringBurn, true);
+  assert.equal(heatRes.state.enemies[1].lingeringBurn, true);
+  assert.ok(heatRes.state.enemies[0].burn >= 26);
+  assert.equal(heatRes.state.enemies[1].burn, 14);
+
+  // 42. chillgale +10: +20 dmg (38), chill 4+5+8=17 + splash 4 lastingChill, pushes 2 slots, collision 6+10+12=28 true dmg each + FREEZES chilled colliders!
+  const cgState = battle(['striker', 'striker']);
+  cgState.enemies[0].slot = 0;
+  cgState.enemies[1].slot = 2;
+  for (const e of cgState.enemies) { e.hp = e.maxHp = 200; }
+  cgState.enemies[1].chill = 3;
+  cgState.player.cardUpgrades = { chillgale: 10 };
+  const cgRes = cast(cgState, 'shot chillgale', 'enemy-0');
+  assert.equal(cgRes.state.enemies[0].slot, 1);
+  assert.equal(cgRes.summary.enemyHp['enemy-0'], 200 - 38 - 28);
+  assert.equal(cgRes.summary.enemyHp['enemy-1'], 200 - 28);
+  assert.equal(cgRes.summary.enemyStatus['enemy-0'].freeze, 1);
+  assert.equal(cgRes.summary.enemyStatus['enemy-1'].freeze, 1);
+  assert.ok(cgRes.summary.enemyStatus['enemy-0'].chill >= 17);
+
+  // 43. plasma +10: (24+30)=54 * 1.28 = 69, pierce 2+8=10 vs armor 3 => overpierce 7*2=14 -> 83 dmg, +8 burn, -2 armor!
+  const plState = battle(['armored']);
+  plState.enemies[0].hp = plState.enemies[0].maxHp = 200;
+  plState.player.cardUpgrades = { plasma: 10 };
+  const plRes = cast(plState, 'shot plasma', 'enemy-0');
+  assert.equal(plRes.summary.damage, 83);
+  assert.equal(plRes.state.enemies[0].burn, 8);
+  assert.equal(plRes.state.enemies[0].armor, 1);
+
+  // 44. scald +10: +20 dmg (40), shreds 2+2=4 armor (3->0) -> +18 true zero-armor dmg, chill 5+8=13, burn 5+8=13, applies wet, +1 MP refund!
+  const scState = battle(['armored']);
+  scState.enemies[0].hp = scState.enemies[0].maxHp = 200;
+  scState.player.cardUpgrades = { scald: 10 };
+  const scRes = cast(scState, 'shot scald', 'enemy-0');
+  // 40 - 3 armor = 37 + 18 zero-armor true = 55 dmg
+  assert.equal(scRes.summary.damage, 55);
+  assert.equal(scRes.state.enemies[0].armor, 0);
+  assert.equal(scRes.state.enemies[0].burn, 13);
+  assert.ok(scRes.state.enemies[0].wetUntil >= 2);
+  assert.equal(scRes.summary.enemyStatus['enemy-0'].chill, 13);
+  assert.equal(scRes.summary.manaRefunded, 1);
+
+  // 45. frostvolt +10: +20 dmg (40), pierce 2+5+5=12, chains BOTH sides at 95% (38), freezes already-chilled neighbor, +1 MP refund
+  const fvState = battle(['armored', 'armored', 'armored']);
+  fvState.enemies[0].slot = 0;
+  fvState.enemies[1].slot = 1;
+  fvState.enemies[2].slot = 2;
+  for (const e of fvState.enemies) { e.hp = e.maxHp = 200; }
+  fvState.enemies[0].chill = 3;
+  fvState.player.cardUpgrades = { frostvolt: 10 };
+  const fvRes = cast(fvState, 'shot frostvolt', 'enemy-1');
+  assert.equal(fvRes.summary.enemyHp['enemy-1'], 200 - 40);
+  assert.equal(fvRes.summary.enemyHp['enemy-0'], 200 - 38);
+  assert.equal(fvRes.summary.enemyHp['enemy-2'], 200 - 38);
+  assert.equal(fvRes.summary.enemyStatus['enemy-0'].freeze, 1);
+  assert.equal(fvRes.summary.manaRefunded, 1);
+
+  // 46. meteor +10: 4 drops (3+1), direct 24+30=54 (pierce 6 ignores armor 3), burn +8 per hit, -1 armor per hit!
+  const metState = battle(['armored']);
+  metState.enemies[0].hp = metState.enemies[0].maxHp = 300;
+  metState.player.maxMana = metState.player.mana = 20;
+  metState.player.cardUpgrades = { meteor: 10 };
+  const metRes = cast(metState, 'meteor', 'enemy-0');
+  // 4 drops on single enemy: 4 * 54 = 216 direct damage, armor shredded 3->0, burn 4 * 8 = 32
+  assert.equal(metRes.summary.damage, 216);
+  assert.equal(metRes.state.enemies[0].armor, 0);
+  assert.equal(metRes.state.enemies[0].burn, 32);
+
+  // 47. veil +10: layerCap = 8 + 10*2 = 28; breaking a veil layer absorbs overflow (8+20=28), reflects 15 true dmg, heals 8, +6 chill, +2 MP!
+  const veilBreakState = battle(['boss']);
+  veilBreakState.enemies[0].hp = veilBreakState.enemies[0].maxHp = 200;
+  veilBreakState.enemies[0].armor = 4;
+  veilBreakState.turn = 2;
+  veilBreakState.player.maxHp = 100;
+  veilBreakState.player.hp = 60;
+  veilBreakState.player.maxMana = veilBreakState.player.mana = 20;
+  veilBreakState.player.cardUpgrades = { veil: 10 };
+  const veilCast = cast(veilBreakState, 'veil');
+  assert.ok(veilCast.summary.shield >= 28);
+  // Break veil layer on turn 1: rune_ram attacks for 6 (minus guard 4 block = 2 > 1-HP veil layer -> breaks!)
+  const breakTest = structuredClone(veilCast.state);
+  breakTest.turn = 1;
+  breakTest.enemies = [createEnemy('rune_ram', 0)];
+  breakTest.enemies[0].hp = breakTest.enemies[0].maxHp = 200;
+  breakTest.player.shield.layers = [1];
+  breakTest.player.shield.layerDetails = [{ hp: 1, expires: breakTest.turn + 1, effect: 'veil', triggered: false }];
+  breakTest.player.hp = 60;
+  breakTest.player.mana = 10;
+  const broke = cast(breakTest, 'guard');
+  assert.equal(broke.summary.damage, 15); // 15 true reflect dmg
+  assert.equal(broke.summary.healed, 8);
+  assert.equal(broke.summary.manaRefunded, 2);
+  assert.equal(broke.state.enemies[0].chill, 6);
+
+  // 48. chakram +10: pierce +6, +24% dmg, -2 armor on hit; killing enemy refunds +3 MP and cleaves adjacent for 50%!
+  const chkState = battle(['armored', 'armored']);
+  chkState.enemies[0].slot = 0;
+  chkState.enemies[1].slot = 1;
+  chkState.enemies[0].hp = 15; // will die to chakram
+  chkState.enemies[1].hp = chkState.enemies[1].maxHp = 200;
+  chkState.player.maxMana = chkState.player.mana = 20;
+  chkState.player.cardUpgrades = { chakram: 10 };
+  const chkRes = cast(chkState, 'chakram fire', 'enemy-0');
+  assert.equal(chkRes.summary.enemyHp['enemy-0'], 0);
+  assert.ok(chkRes.summary.enemyHp['enemy-1'] < 200); // cleaved adjacent!
+  assert.equal(chkRes.summary.manaRefunded, 3);
+
+  // 49. storm +10: side enemies take 100% power, pierce +4, +3 chill on hit, hitting 2+ targets refunds +2 MP!
+  const stmState = battle(['armored', 'armored', 'armored']);
+  stmState.enemies[0].slot = 0;
+  stmState.enemies[1].slot = 1;
+  stmState.enemies[2].slot = 2;
+  for (const e of stmState.enemies) { e.hp = e.maxHp = 200; }
+  stmState.player.maxMana = stmState.player.mana = 20;
+  stmState.player.cardUpgrades = { storm: 10 };
+  const stmRes = cast(stmState, 'storm fire', 'enemy-1');
+  assert.equal(stmRes.summary.enemyHp['enemy-0'], stmRes.summary.enemyHp['enemy-2']);
+  assert.equal(stmRes.summary.enemyStatus['enemy-1'].chill, 3);
+  assert.equal(stmRes.summary.manaRefunded, 2);
+
+  // 50. barrage +10: 4 hits with pierce +6, +6 MP refund, -1 armor (up to 3), finale (4th hit) deals 2x damage!
+  const barState = battle(['armored']);
+  barState.enemies[0].hp = barState.enemies[0].maxHp = 300;
+  barState.player.maxMana = barState.player.mana = 24;
+  barState.player.cardUpgrades = { barrage: 10 };
+  const barRes = cast(barState, 'shot fire barrage', 'enemy-0');
+  assert.equal(barRes.state.enemies[0].armor, 0); // shredded 3 armor across hits
+  assert.equal(barRes.summary.manaRefunded, 6);
+  const dmgEvents = barRes.events.filter(ev => ev.type === 'damage');
+  assert.equal(dmgEvents.length, 5);
+  assert.equal(dmgEvents[4].amount, dmgEvents[0].amount * 2); // finale 2x!
+
+  // 51. devastation +10: 100% blast splash in radius 2, strips 1 ward from secondary targets, -2 armor, +2 MP refund!
+  const devState = battle(['armored', 'armored', 'armored']);
+  devState.enemies[0].slot = 0;
+  devState.enemies[1].slot = 2;
+  devState.enemies[2].slot = 4;
+  for (const e of devState.enemies) { e.hp = e.maxHp = 200; }
+  devState.enemies[0].ward = 1;
+  devState.player.maxMana = devState.player.mana = 24;
+  devState.player.cardUpgrades = { devastation: 10 };
+  const devRes = cast(devState, 'shot fire devastation', 'enemy-1');
+  assert.equal(devRes.state.enemies[0].ward, 0);
+  assert.equal(devRes.state.enemies[0].armor, 1);
+  assert.equal(devRes.state.enemies[2].armor, 1);
+  assert.equal(devRes.summary.manaRefunded, 2);
+  assert.equal(devRes.summary.enemyHp['enemy-0'], devRes.summary.enemyHp['enemy-2']); // both take 100% blast splash!
+
+  // 52. blackhole +10: +30 sec shield, +6 MP refund, pulls apply +6 chill & -2 armor, slam 150 true, collapse +25% (563 center / 422 other)!
+  const bhState = battle(['armored', 'armored']);
+  bhState.enemies[0].slot = 0;
+  bhState.enemies[1].slot = 4;
+  for (const e of bhState.enemies) { e.hp = e.maxHp = 800; }
+  bhState.player.maxHp = bhState.player.hp = 200;
+  bhState.player.maxMana = bhState.player.mana = 30;
+  bhState.player.cardUpgrades = { blackhole: 10 };
+  const bhOpen = cast(bhState, 'blackhole', 'slot-2');
+  assert.equal(bhOpen.summary.secondaryShield, 30);
+  assert.equal(bhOpen.summary.manaRefunded, 6);
+  assert.equal(bhOpen.state.enemies[0].armor, 1);
+  assert.equal(bhOpen.summary.enemyStatus['enemy-0'].chill, 6);
+  // Collapse next turn: power = 450 * 1.25 = 563 center (slot 2), 75% = 422 others!
+  const bhCollapse = cast(bhOpen.state, 'guard');
+  assert.equal(bhCollapse.events.find(ev => ev.type === 'damage' && ev.target === 'enemy-0').amount, 563);
+  assert.equal(bhCollapse.events.find(ev => ev.type === 'damage' && ev.target === 'enemy-1').amount, 422);
+
+  // 53. death +10: on boss deals (100+250)*1.5 = 525 true dmg, strips 2 ward, -3 armor, +28 shield, +28 heal, +10 MP refund; on non-boss kills & draws +2 bonus cards!
+  const dBossState = battle(['boss']);
+  dBossState.enemies[0].hp = dBossState.enemies[0].maxHp = 1000;
+  dBossState.enemies[0].ward = 2;
+  dBossState.enemies[0].armor = 5;
+  dBossState.player.maxHp = 100;
+  dBossState.player.hp = 50;
+  dBossState.player.maxMana = dBossState.player.mana = 30;
+  dBossState.player.cardUpgrades = { death: 10 };
+  const dBossRes = cast(dBossState, 'death', 'enemy-0');
+  assert.equal(dBossRes.summary.enemyHp['enemy-0'], 1000 - 525);
+  assert.equal(dBossRes.state.enemies[0].ward, 0);
+  assert.equal(dBossRes.state.enemies[0].permanentArmorShred, 3);
+  assert.equal(dBossRes.state.enemies[0].armor, 0);
+  assert.equal(dBossRes.summary.healed, 28);
+  assert.equal(dBossRes.summary.secondaryShield, 28);
+  assert.equal(dBossRes.summary.manaRefunded, 10);
+
+  const dMobState = battle(['armored', 'striker']);
+  dMobState.player.maxMana = dMobState.player.mana = 30;
+  dMobState.player.hand = ['death'];
+  dMobState.player.cardUpgrades = { death: 10 };
+  const dMobRes = cast(dMobState, 'death', 'enemy-0');
+  assert.equal(dMobRes.summary.enemyHp['enemy-0'], 0);
+  // Normal end-of-turn draw (TURN_DRAW = 3) + death +10 kill bonus draw (2) = 5 cards in hand!
+  assert.equal(dMobRes.state.player.hand.length, 5);
+});
+
+test('new cards (spear, empower, bless, fill, blood, mana) respect rarities, grammar rules, combat behavior, save/load, and +10 upgrades', () => {
+  // Verify exact rarity counts across all 59 cards
+  const byRarity = Object.values(WORDS).reduce((acc, w) => {
+    const r = w.rarity ?? 'common';
+    acc[r] = (acc[r] ?? 0) + 1;
+    return acc;
+  }, {});
+  assert.equal(Object.keys(WORDS).length, 59);
+  assert.deepEqual(byRarity, { common: 14, rare: 9, special: 13, epic: 19, legendary: 4 });
+  assert.equal(WORDS.spear.rarity ?? 'common', 'common');
+  assert.equal(WORDS.empower.rarity, 'rare');
+  assert.equal(WORDS.bless.rarity, 'special');
+  assert.equal(WORDS.fill.rarity ?? 'common', 'common');
+  assert.equal(WORDS.blood.rarity ?? 'common', 'common');
+  assert.equal(WORDS.mana.rarity ?? 'common', 'common');
+
+  // 1. SPEAR (หอก): 80% primary + 50% behind (slot + 1), ignores slot + 2 and slot - 1
+  const spState = battle(['striker', 'striker', 'striker']);
+  spState.enemies[0].slot = 1;
+  spState.enemies[1].slot = 2;
+  spState.enemies[2].slot = 3;
+  for (const e of spState.enemies) { e.hp = e.maxHp = 100; e.armor = 0; }
+  const spHit = cast(spState, 'spear fire', 'enemy-0');
+  assert.equal(spHit.ok, true);
+  assert.equal(spHit.summary.cost, 3);
+  // fire base damage = 10 -> 80% = 8 on enemy-0, 50% = 5 on enemy-1, 0 on enemy-2!
+  assert.equal(spHit.summary.enemyHp['enemy-0'], 100 - 8);
+  assert.equal(spHit.summary.enemyHp['enemy-1'], 100 - 5);
+  assert.equal(spHit.summary.enemyHp['enemy-2'], 100);
+
+  // SPEAR when nobody is directly behind (slot + 1 is empty)
+  const spSolo = battle(['striker', 'striker']);
+  spSolo.enemies[0].slot = 0;
+  spSolo.enemies[1].slot = 2; // gap at slot 1
+  for (const e of spSolo.enemies) { e.hp = e.maxHp = 100; e.armor = 0; }
+  const spSoloHit = cast(spSolo, 'spear fire', 'enemy-0');
+  assert.equal(spSoloHit.summary.enemyHp['enemy-0'], 100 - 8);
+  assert.equal(spSoloHit.summary.enemyHp['enemy-1'], 100);
+
+  // SPEAR +10 secondary (spear_skewer): back 85%, pierce +3 (+3 main = +6), shred -1 armor, double-hit refunds +1 MP
+  const sp10 = battle(['armored', 'armored']);
+  sp10.enemies[0].slot = 1;
+  sp10.enemies[1].slot = 2;
+  for (const e of sp10.enemies) { e.hp = e.maxHp = 100; e.armor = 3; }
+  sp10.player.maxMana = sp10.player.mana = 12;
+  sp10.player.cardUpgrades = { spear: 10 };
+  const sp10Hit = cast(sp10, 'spear fire', 'enemy-0');
+  // base (10 + 10) = 20 -> primary 80% = 16 (pierce 6 >= armor 3 -> full 16), behind 85% = 17!
+  assert.equal(sp10Hit.summary.enemyHp['enemy-0'], 100 - 16);
+  assert.equal(sp10Hit.summary.enemyHp['enemy-1'], 100 - 17);
+  assert.equal(sp10Hit.state.enemies[0].armor, 2);
+  assert.equal(sp10Hit.state.enemies[1].armor, 2);
+  assert.equal(sp10Hit.summary.manaRefunded, 1);
+
+  // 2. EMPOWER (เสริม, rare) & BLESS (อวยพร, special): user's example phrases & 3-turn buff duration
+  const pBlessFire = parseSpell(['bless', 'fire']);
+  assert.equal(pBlessFire.ok, true);
+  assert.equal(pBlessFire.spell.buffPct, 40);
+  assert.equal(pBlessFire.spell.buffTurns, 3);
+  assert.equal(pBlessFire.spell.buffPierce, 1);
+
+  const pBlessAkkiLarge = parseSpell(['bless', 'akki', 'large']);
+  assert.equal(pBlessAkkiLarge.ok, true);
+  assert.equal(pBlessAkkiLarge.spell.buffPct, 90); // 60 * 1.5
+  assert.equal(pBlessAkkiLarge.spell.buffTurns, 3);
+
+  const pGrandBlessWari = parseSpell(['grand', 'bless', 'wari']);
+  assert.equal(pGrandBlessWari.ok, true);
+  assert.equal(pGrandBlessWari.spell.buffPct, 90); // 60 * 1.5
+  assert.equal(pGrandBlessWari.spell.buffTurns, 4); // 3 + 1
+  assert.equal(pGrandBlessWari.spell.buffPierce, 2); // 1 + 1
+
+  const pEmpowerFire = parseSpell(['empower', 'fire']);
+  assert.equal(pEmpowerFire.ok, true);
+  assert.equal(pEmpowerFire.spell.buffPct, 25);
+  assert.equal(pEmpowerFire.spell.buffTurns, 3);
+  assert.equal(pEmpowerFire.spell.buffPierce, 0);
+
+  // Buff lasts exactly 3 turns, boosts matching element attacks (including T2/fusion), does not boost other elements, and saves/loads cleanly
+  let bState = battle(['armored']);
+  bState.enemies[0].hp = bState.enemies[0].maxHp = 200; // armored has natural armor = 3
+  bState.player.maxHp = bState.player.hp = 100;
+  bState.player.maxMana = bState.player.mana = 20;
+  const bCast = cast(bState, 'bless fire');
+  assert.equal(bCast.ok, true);
+  assert.deepEqual(bCast.summary.buffApplied, { families: ['fire'], pct: 40, turns: 3, pierce: 1, source: 'bless' });
+  assert.equal(bCast.state.player.elementBuffs.fire.pct, 40);
+  assert.equal(bCast.state.player.elementBuffs.fire.expires, 4); // cast on turn 1 -> active turns 2, 3, 4
+
+  // Validate save/load with active elementBuffs
+  const saveStorage = new MemoryStorage();
+  const savable = createRun('buff-save');
+  savable.collection = ['bless'];
+  savable.learned = ['bless'];
+  savable.player.words = ['shot', 'fire', 'ice', 'pair', 'shield', 'bless'];
+  savable.player.hand = ['shot', 'fire', 'ice', 'bless', 'shield'];
+  savable.enemies[0].hp = savable.enemies[0].maxHp;
+  const savedTurn = simulateTurn(savable, ['bless', 'fire']);
+  assert.equal(savedTurn.ok, true);
+  assert.equal(saveRun(savedTurn.state, saveStorage).ok, true);
+  const loadedBuffState = loadRun(saveStorage).state;
+  assert.deepEqual(loadedBuffState.player.elementBuffs, savedTurn.state.player.elementBuffs);
+  const badBuffState = structuredClone(savedTurn.state);
+  badBuffState.player.elementBuffs = { invalid_elem: { pct: 40, expires: 4, source: 'bless' } };
+  assert.throws(() => validateRun(badBuffState));
+
+  // Turn 2: Fire shot gets +40% (10 * 1.4 = 14) & +1 pierce (armor 3 -> 2 => 12 dmg!)
+  const t2Fire = cast(bCast.state, 'shot fire', 'enemy-0');
+  assert.equal(t2Fire.events.find(ev => ev.type === 'damage').amount, 12);
+  // Turn 3: Ice shot does NOT get Fire buff (6 base - 3 armor = 3 dmg)
+  const t3Ice = cast(t2Fire.state, 'shot ice', 'enemy-0');
+  assert.equal(t3Ice.events.find(ev => ev.type === 'damage').amount, 3);
+  // Turn 4 (last active turn): Akki (fire family) gets +40% (20 * 1.4 = 28) & +1 pierce (armor 3 -> 2 => 26 dmg), then buff expires!
+  const t4Akki = cast(t3Ice.state, 'shot akki', 'enemy-0');
+  assert.equal(t4Akki.events.find(ev => ev.type === 'damage').amount, 26);
+  assert.equal(t4Akki.state.player.elementBuffs.fire, undefined);
+  // Turn 5: Fire shot back to unbuffed (10 - 3 armor = 7 dmg)
+  const t5Fire = cast(t4Akki.state, 'shot fire', 'enemy-0');
+  assert.equal(t5Fire.events.find(ev => ev.type === 'damage').amount, 7);
+
+  // Bless +10 secondary (bless_sanctuary): +40% lv bonus (80% total), +1 turn (4 turns), +2 pierce (3 total), +15 heal, +20 shield, +2 MP refund
+  const bl10 = battle(['armored']);
+  bl10.player.maxHp = 100;
+  bl10.player.hp = 60;
+  bl10.player.maxMana = bl10.player.mana = 20;
+  bl10.player.cardUpgrades = { bless: 10 };
+  const bl10Res = cast(bl10, 'bless fire');
+  assert.equal(bl10Res.summary.buffApplied.pct, 80);
+  assert.equal(bl10Res.summary.buffApplied.turns, 4);
+  assert.equal(bl10Res.summary.buffApplied.pierce, 3);
+  assert.equal(bl10Res.summary.healed, 15);
+  assert.equal(bl10Res.summary.secondaryShield, 20);
+  assert.equal(bl10Res.summary.manaRefunded, 2);
+
+  // 3. FILL (เติม) + BLOOD (เลือด) / MANA (มานา): strict grammar, stronger heal than heal+self, mana restore, gating, and +10 upgrades
+  // Strict grammar rejections
+  assert.equal(parseSpell(['blood']).ok, false);
+  assert.equal(parseSpell(['mana']).ok, false);
+  assert.equal(parseSpell(['fill']).ok, false);
+  assert.equal(parseSpell(['grand', 'fill', 'blood']).ok, false);
+  assert.equal(parseSpell(['grand', 'fill', 'mana']).ok, false);
+  assert.equal(parseSpell(['fill', 'grand', 'blood']).ok, false);
+  assert.equal(parseSpell(['large', 'fill', 'blood']).ok, false);
+  assert.equal(parseSpell(['fill', 'large', 'blood']).ok, false);
+  assert.equal(parseSpell(['fill', 'blood', 'pair']).ok, false);
+  assert.equal(parseSpell(['fill', 'mana', 'pair']).ok, false);
+
+  // Valid fill combos
+  assert.equal(parseSpell(['fill', 'blood']).ok, true);
+  assert.equal(parseSpell(['fill', 'blood', 'large']).ok, true);
+  assert.equal(parseSpell(['fill', 'mana']).ok, true);
+  assert.equal(parseSpell(['fill', 'mana', 'large']).ok, true);
+
+  // เติม เลือด (7 HP) > ฮีล ตัวเอง (4 HP), เติม เลือด ใหญ่ (12 HP) > ฮีล ใหญ่ (8 HP)
+  const hCompare = battle(['armored']);
+  hCompare.player.maxHp = 100;
+  hCompare.player.hp = 50;
+  hCompare.player.maxMana = hCompare.player.mana = 12;
+  const healSelfRes = cast(hCompare, 'heal self');
+  const fillBloodRes = cast(hCompare, 'fill blood');
+  const healLargeRes = cast(hCompare, 'heal large');
+  const fillBloodLargeRes = cast(hCompare, 'fill blood large');
+  assert.equal(healSelfRes.summary.healed, 4);
+  assert.equal(fillBloodRes.summary.healed, 7);
+  assert.ok(fillBloodRes.summary.healed > healSelfRes.summary.healed);
+  assert.equal(healLargeRes.summary.healed, 8);
+  assert.equal(fillBloodLargeRes.summary.healed, 12);
+  assert.ok(fillBloodLargeRes.summary.healed > healLargeRes.summary.healed);
+
+  // เติม มานา (+6 MP for 1 MP -> net +5), เติม มานา ใหญ่ (+10 MP for 2 MP -> net +8)
+  const mState = battle(['armored']);
+  mState.player.maxMana = 20;
+  mState.player.mana = 4;
+  const fillManaRes = cast(mState, 'fill mana');
+  assert.equal(fillManaRes.summary.cost, 1);
+  assert.equal(fillManaRes.summary.manaRestored, 6);
+  assert.equal(fillManaRes.summary.manaAfterCast, 9); // 4 - 1 + 6 = 9
+  const fillManaLargeRes = cast(mState, 'fill mana large');
+  assert.equal(fillManaLargeRes.summary.cost, 2);
+  assert.equal(fillManaLargeRes.summary.manaRestored, 10);
+  assert.equal(fillManaLargeRes.summary.manaAfterCast, 12); // 4 - 2 + 10 = 12
+
+  // Reward pool gating: blood & mana require owning fill
+  const gateRun = createRun('fill-gating');
+  const poolBefore = getRewardPool(gateRun);
+  assert.equal(poolBefore.includes('blood'), false);
+  assert.equal(poolBefore.includes('mana'), false);
+  gateRun.collection.push('fill');
+  const poolAfter = getRewardPool(gateRun);
+  assert.equal(poolAfter.includes('blood'), true);
+  assert.equal(poolAfter.includes('mana'), true);
+
+  // fill +10 & blood +10: overheal shield + next-turn heal + cross-mana refund
+  const fb10 = battle(['armored']);
+  fb10.player.maxHp = 100;
+  fb10.player.hp = 95;
+  fb10.player.maxMana = 20;
+  fb10.player.mana = 10;
+  fb10.player.cardUpgrades = { fill: 10, blood: 10 };
+  const fb10Res = cast(fb10, 'fill blood');
+  // Base 7 + 10 (fill) + 10 (blood) = 27 heal -> heals 5 to 100, overflow 22 -> overhealShield = 22!
+  assert.equal(fb10Res.summary.healed, 5);
+  assert.equal(fb10Res.summary.overhealShield, 22);
+  assert.equal(fb10Res.summary.secondaryShield, 14);
+  assert.equal(fb10Res.summary.manaRefunded, 2);
+
+  // mana +10: free cast even at 0 MP, +5 extra MP gain (11 total), +12 sec shield, +1 bonus draw, overflow MP ×3 shield!
+  const fm10 = battle(['armored']);
+  fm10.player.maxMana = 12;
+  fm10.player.mana = 0; // 0 MP!
+  fm10.player.hand = ['fill', 'mana'];
+  fm10.player.cardUpgrades = { mana: 10 };
+  const fm10Res = cast(fm10, 'fill mana');
+  assert.equal(fm10Res.ok, true);
+  assert.equal(fm10Res.summary.cost, 0); // manaFreeCast!
+  assert.equal(fm10Res.summary.manaRestored, 11); // 6 + ceil(10/2)=5 = 11
+  assert.equal(fm10Res.summary.manaAfterCast, 11);
+  assert.equal(fm10Res.summary.secondaryShield, 12);
+  // 1 bonus draw + 3 normal turn draw = 4 cards in hand
+  assert.equal(fm10Res.state.player.hand.length, 4);
+  // Forecast/UI helper parity for free mana fill at 0 MP
+  assert.ok(canFormPhraseInHand(fm10, ['fill', 'mana']));
+  assert.equal(canFormPhraseInHand(fm10, ['fill', 'mana']).cost, 0);
+});
+
+
+
+
 
 
 

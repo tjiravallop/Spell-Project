@@ -1,5 +1,5 @@
 import { shieldProtection } from './shields.js';
-import { WORDS, STANDALONE_WORDS, fireShieldLayers, parseSpell } from './words.js';
+import { WORDS, STANDALONE_WORDS, FUSED_ELEMENTS, fireShieldLayers, parseSpell } from './words.js';
 import {
   getHandLimit,
   MAX_CARD_UPGRADE,
@@ -9,6 +9,7 @@ import {
   equipRelic,
   unequipRelic,
   getCardUpgradeLevel,
+  hasCardSecondaryUpgrade,
   deckCapacity,
   ownsRewardWord,
   nextExpForLevel,
@@ -561,10 +562,11 @@ function renderBattle() {
   $('seed-label').textContent = `SEED ${state.seed}`;
   const parsed = parseSpell(words, p.words);
   const knownSpell = isKnownValidSpell(words);
+  const manaFreeCast = Boolean(parsed.ok && parsed.spell.form === 'fill' && parsed.spell.resource === 'mana' && hasCardSecondaryUpgrade(state, 'mana'));
   const pendingCost = busy || !words.length
     ? 0
     : parsed.ok
-      ? parsed.cost
+      ? (manaFreeCast ? 0 : parsed.cost)
       : estimateWordCost(words, p.words);
   syncManaPipsPreview(state, pendingCost);
   if (!knownSpell || parsed.ids.join(' ') !== lastJustUnlockedKey) lastJustUnlockedKey = null;
@@ -593,7 +595,7 @@ function renderBattle() {
   secondSelect.innerHTML = '<option value="">ใช้เป้าหมายแรก</option>' + selectable.map(enemy => `<option value="${enemy.id}">${ENEMY_LABEL(enemy)} · ช่อง ${enemy.slot + 1}</option>`).join('');
   secondSelect.value = secondTargetId ?? '';
   secondSelect.disabled = busy;
-  renderShieldStatus(shieldProtection(p.shield));
+  renderShieldStatus(shieldProtection(p.shield), p.elementBuffs, state.turn);
   const forecast = busy || !knownSpell ? null : getCachedSimulation(state, words, targetId, secondTargetId ?? targetId);
   battlefield.set(state, targetId);
   renderEnemies({ state, battlefield, targetId, busy }, forecast);
@@ -876,21 +878,18 @@ function playTurn(result, parsed = null, knownSpell = false, newlyDiscovered = f
   busy = true;
   pending = result;
   battleFx.beginTurnAnimation(state);
-  if (parsed?.ok && result.events.some(e => e.type === 'projectile')) {
+  if (parsed?.ok && parsed.spell && result.events.some(e => ['projectile', 'blast', 'damage'].includes(e.type))) {
+    const s = parsed.spell;
     unlockAchievement('first_spell');
-    if (parsed.elements?.length >= 2 || parsed.secondary) unlockAchievement('dual_fusion');
-    if (parsed.grand) unlockAchievement('grand_spell');
-    if (parsed.form === 'chakram') unlockAchievement('chakram_blade');
-    if (parsed.barrage) unlockAchievement('barrage_burst');
+    if ((s.elements?.length ?? 0) >= 2 || s.secondElement || s.elements?.some(id => Boolean(FUSED_ELEMENTS[id]))) {
+      unlockAchievement('dual_fusion');
+    }
+    if (s.grand) unlockAchievement('grand_spell');
+    if (s.form === 'chakram') unlockAchievement('chakram_blade');
+    if (s.barrage) unlockAchievement('barrage_burst');
   }
   if (result.events.some(e => e.type === 'shield-counter' || (e.type === 'shield' && e.element))) {
     unlockAchievement('shield_fortress');
-  }
-  if (result.state.player.hand.length >= 10) {
-    unlockAchievement('full_hand');
-  }
-  if (result.state.player.relics?.length >= 3) {
-    unlockAchievement('relic_collector');
   }
   if (isBossRoom(state) && (result.state.phase === 'reward' || result.state.phase === 'won' || result.state.phase === 'sanctuary')) {
     if (state.room === 24) unlockAchievement('boss_10');

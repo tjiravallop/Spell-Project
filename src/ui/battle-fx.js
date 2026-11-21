@@ -1,5 +1,5 @@
-import { WORDS, elementFamily } from '../words.js';
-import { ETERNITY_PHASE_HP, ETERNITY_TOTAL_HP, eternityHealth, ENEMIES, RELIC_DRAFT_CATALOG } from '../run.js';
+import { WORDS, elementFamily, ELEMENT_ICONS, ELEMENT_LABELS } from '../words.js';
+import { ETERNITY_PHASE_HP, ETERNITY_FIRST_FORM_HP, eternityHealth, ENEMIES, RELIC_DRAFT_CATALOG } from '../run.js';
 import { damageLabel, fizzleLabel, wardLabel } from '../render.js';
 import { $, queueFxClassRestart, upperCheckpoint, checkpointFloor } from './dom.js';
 
@@ -31,14 +31,30 @@ export function renderEternityMeter(health) {
   meter.hidden = !health;
   if (!health) return;
   const { phase, remaining } = health;
+  const revealed = Boolean(health.revealed || phase === 3);
   meter.dataset.phase = phase;
-  let preceding = 0;
-  const segments = ETERNITY_PHASE_HP.map((size, index) => {
-    preceding += size;
-    const left = Math.max(0, Math.min(size, remaining - (ETERNITY_TOTAL_HP - preceding)));
-    return `<span class="eternity-segment" style="--phase-weight:${size};--phase-left:${left / size * 100}%"${phase === index + 1 ? ' aria-current="step"' : ''}><i></i><small>${index + 1} ${ETERNITY_PHASE_NAMES[index]}</small></span>`;
-  }).join('');
-  meter.innerHTML = `<div class="eternity-meter-header"><strong>เฟส ${phase}/3 · ${ETERNITY_PHASE_NAMES[phase - 1]}</strong><span>${remaining.toLocaleString('en-US')} / ${ETERNITY_TOTAL_HP.toLocaleString('en-US')} HP</span></div><div class="eternity-segments">${segments}</div>`;
+  meter.dataset.revealed = revealed ? 'true' : 'false';
+  const visibleCount = revealed ? 3 : 2;
+  const totalHp = health.total ?? (revealed ? ETERNITY_PHASE_HP[2] : ETERNITY_FIRST_FORM_HP);
+  let segments;
+  if (revealed) {
+    segments = ETERNITY_PHASE_HP.map((size, index) => {
+      const left = index === 2 ? Math.max(0, Math.min(size, remaining)) : 0;
+      const secretCls = index === 2 ? ' is-secret' : '';
+      return `<span class="eternity-segment${secretCls}" style="--phase-weight:${size};--phase-left:${left / size * 100}%"${phase === index + 1 ? ' aria-current="step"' : ''}><i></i><small>${index + 1} ${ETERNITY_PHASE_NAMES[index]}</small></span>`;
+    }).join('');
+  } else {
+    let preceding = 0;
+    segments = ETERNITY_PHASE_HP.slice(0, 2).map((size, index) => {
+      preceding += size;
+      const left = Math.max(0, Math.min(size, remaining - (ETERNITY_FIRST_FORM_HP - preceding)));
+      return `<span class="eternity-segment" style="--phase-weight:${size};--phase-left:${left / size * 100}%"${phase === index + 1 ? ' aria-current="step"' : ''}><i></i><small>${index + 1} ${ETERNITY_PHASE_NAMES[index]}</small></span>`;
+    }).join('');
+  }
+  const phaseLabel = revealed
+    ? `เฟส 3/3 · ${ETERNITY_PHASE_NAMES[2]} (คืนชีพลับ!)`
+    : `เฟส ${phase}/${visibleCount} · ${ETERNITY_PHASE_NAMES[phase - 1]}`;
+  meter.innerHTML = `<div class="eternity-meter-header"><strong>${phaseLabel}</strong><span>${remaining.toLocaleString('en-US')} / ${totalHp.toLocaleString('en-US')} HP</span></div><div class="eternity-segments">${segments}</div>`;
 }
 
 export function renderPlayerHp(hp, maxHp) {
@@ -67,15 +83,32 @@ export function triggerEnemyCardFx(enemyId, fxClass) {
   queueFxClassRestart(card, ['enemy-hit-shake', 'enemy-acting-lunge', 'enemy-targeted-pulse'], fxClass);
 }
 
-export function renderShieldStatus(protection) {
+export function renderShieldStatus(protection, elementBuffs = null, turn = 1) {
   const el = $('shield-status');
   const layers = protection?.details ?? [];
-  el.hidden = !layers.length;
-  el.textContent = layers.length ? `โล่ ${layers.length} ชั้น · ${layers.map(layer => {
-    const elements = layer.elements ?? (layer.effect ? [layer.effect] : []);
-    const name = elements.map(id => WORDS[id]?.label ?? (id === 'akki-blast' ? 'อัคคีระเบิด' : id)).join('+');
-    return `${name ? name + ' ' : ''}${layer.hp}`;
-  }).join(' / ')}` : '';
+  const parts = [];
+  if (layers.length) {
+    parts.push(`โล่ ${layers.length} ชั้น · ${layers.map(layer => {
+      const elements = layer.elements ?? (layer.effect ? [layer.effect] : []);
+      const name = elements.map(id => WORDS[id]?.label ?? (id === 'akki-blast' ? 'อัคคีระเบิด' : id)).join('+');
+      return `${name ? name + ' ' : ''}${layer.hp}`;
+    }).join(' / ')}`);
+  }
+  if (elementBuffs && typeof elementBuffs === 'object') {
+    const activeBuffs = Object.entries(elementBuffs)
+      .filter(([, buff]) => buff && buff.expires >= turn)
+      .map(([fam, buff]) => {
+        const iconChar = ELEMENT_ICONS[fam] ?? '✦';
+        const label = ELEMENT_LABELS[fam] ?? fam;
+        const left = Math.max(1, buff.expires - turn + 1);
+        return `${iconChar}${label} +${buff.pct}%${buff.pierceBonus ? ` เจาะ+${buff.pierceBonus}` : ''} (${left} เทิร์น)`;
+      });
+    if (activeBuffs.length) {
+      parts.push(`บัพธาตุ: ${activeBuffs.join(' · ')}`);
+    }
+  }
+  el.hidden = !parts.length;
+  el.textContent = parts.join(' | ');
 }
 
 export function pulsePlayerHud(kind = 'shield') {
@@ -438,6 +471,14 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         status.textContent = `ช่อง ${event.slot + 1} ได้ม่านเพิ่มเทิร์นหน้า`;
         triggerEnemyCardFx(event.target, 'enemy-targeted-pulse');
         break;
+      case 'prism-shatter': {
+        triggerEnemyCardFx(event.target, 'enemy-hit-shake');
+        spawnEnemyPop(event.target, `ผลึกแตก +${event.amount}`, 'weak');
+        const { x, y } = enemyImpactCoords(event.target);
+        pulseElementalOverlay(event.element ?? 'lightning', x, y, { boosted: true });
+        status.textContent = `✨ ทลายผลึกธาตุ! +${event.amount} ดาเมจแท้`;
+        break;
+      }
       case 'dispel':
         showWardHit(event, event.wardRemaining > 0 ? `ม่าน −${event.amount}` : 'ม่านแตก');
         status.textContent = `สลายม่าน ${event.amount} ชั้น`;
@@ -522,6 +563,16 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           if (Object.hasOwn(card.dataset, 'middleLane')) card.dataset.middleLane = event.slot % 2;
         }
         status.textContent = event.advancing ? `ศัตรูไล่ประชิดช่อง ${event.slot + 1}` : `${event.pulled ? 'ดึง' : 'ผลัก'}ศัตรูไปช่อง ${event.slot + 1}`;
+        break;
+      }
+      case 'wall-slam': {
+        triggerEnemyCardFx(event.target, 'enemy-hit-shake');
+        const { x, y } = enemyImpactCoords(event.target);
+        pulseElementalOverlay('earth', x, y);
+        spawnEnemyPop(event.target, event.collision ? 'ชนกระแทก!' : 'กระแทกขอบ!', 'status');
+        status.textContent = event.collision
+          ? `ศัตรูชนกระแทกกัน! (ดาเมจกระแทกทะลุเกราะ ${event.amount})`
+          : `ศัตรูถูกผลักกระแทกขอบสนาม! (${event.amount})`;
         break;
       }
       case 'swap':
@@ -632,9 +683,21 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           ? `💀 คำสาปห้ามร่ายซ้ำย้อนศร · เสีย ${event.amount} HP`
           : `💀 โล่ต้านคำสาปห้ามร่ายซ้ำได้ ${event.absorbed}`;
         break;
+      case 'buff': {
+        pulsePlayerHud('shield');
+        pulseElementalOverlay(event.element ?? event.families?.[0] ?? 'fire', 16, 66, {
+          grand: Boolean(event.grand),
+          large: Boolean(event.large),
+        });
+        const famText = (event.families ?? []).map(f => `${ELEMENT_ICONS[f] ?? ''}${ELEMENT_LABELS[f] ?? f}`).join('+');
+        status.textContent = `${WORDS[event.source]?.label ?? 'บัพ'}${famText} · พลังธาตุ +${event.pct}%${event.pierce ? ` เจาะ +${event.pierce}` : ''} (${event.turns} เทิร์น)`;
+        break;
+      }
       case 'mana-refund':
         pulsePlayerHud('shield');
-        status.textContent = `${RELIC_DRAFT_CATALOG.find(r => r.id === event.relicId)?.name ?? 'คาถา'} · คืนมานา +${event.amount}`;
+        status.textContent = event.restored
+          ? `เติมมานา +${event.amount} MP`
+          : `${RELIC_DRAFT_CATALOG.find(r => r.id === event.relicId)?.name ?? 'คาถา'} · คืนมานา +${event.amount}`;
         break;
       case 'relic': {
         audio.play('discover');

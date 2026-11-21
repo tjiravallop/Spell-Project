@@ -1,5 +1,6 @@
 import { WORDS, START_WORDS, ELEMENT_LABELS } from '../words.js';
 import { ENEMY_TRAITS } from '../enemy-traits.js';
+import { ENDGAME_ENEMIES } from '../endgame-tower.js';
 import { ACHIEVEMENTS } from './storage-discovery.js';
 import {
   ENEMIES,
@@ -285,14 +286,7 @@ export function createModalsController(ctx) {
     if (bestiaryTab === 'bosses') {
       filteredKinds = allKinds.filter(k => ENEMIES[k].isBoss);
     } else if (bestiaryTab === 'endgame') {
-      filteredKinds = allKinds.filter(k => [
-        'volcano_colossus', 'sand_stalker', 'spark_wraith',
-        'thunder_drake_emperor', 'ancient_chitin_behemoth', 'venom_spore_beast', 'crag_titan_sentinel',
-        'abyssal_kraken', 'kraken_crush_tentacle', 'kraken_siphon_tentacle', 'kraken_storm_tentacle', 'kraken_tidal_tentacle',
-        'nether_dread_lord', 'nether_doom_pillar', 'nether_ward_pillar', 'nether_siphon_pillar',
-        'dread_reaper', 'void_devourer',
-        'eternity_overlord', 'eternity_reborn', 'zenith_templar', 'chronos_keeper', 'chaos_weaver',
-      ].includes(k));
+      filteredKinds = allKinds.filter(k => Object.hasOwn(ENDGAME_ENEMIES, k));
     }
 
     const discoveredCount = allKinds.filter(k => accountBestiary.has(k)).length;

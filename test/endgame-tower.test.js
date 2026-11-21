@@ -31,6 +31,7 @@ import {
   RELIC_DRAFT_CATALOG,
   nextExpForLevel,
   applyExpAndGold,
+  eternityHealth,
 } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
 import { getTowerSpellBonus, getTurnManaRegen } from '../src/upper-tower.js';
@@ -39,6 +40,7 @@ import {
   ENDGAME_RELICS,
   ENDGAME_SHOP_ITEMS,
   ENDGAME_SPACED_FLOORS,
+  ETERNITY_PHASE_HP,
   buildEndgameTowerRooms,
 } from '../src/endgame-tower.js';
 import { ENEMY_TRAITS } from '../src/enemy-traits.js';
@@ -647,9 +649,9 @@ test('Endgame Rebalance (Option 1): progressive EXP >Lv80, 10,000 HP Floor 100 b
   const legacyF100 = createRun('legacy-f100-save');
   legacyF100.room = FLOOR100_BOSS_ROOM;
   legacyF100.enemies = legacyF100.rooms[FLOOR100_BOSS_ROOM].map(createEnemy);
-  // Overwrite with pre-rebalance maxHp & 50% remaining HP
+  // Overwrite with pre-rebalance maxHp & 75% remaining HP (Phase 1)
   legacyF100.enemies[0].maxHp = 880;
-  legacyF100.enemies[0].hp = 440;
+  legacyF100.enemies[0].hp = 660;
   legacyF100.enemies[1].maxHp = 145;
   legacyF100.enemies[1].hp = 145;
   legacyF100.enemies[2].maxHp = 135;
@@ -660,12 +662,35 @@ test('Endgame Rebalance (Option 1): progressive EXP >Lv80, 10,000 HP Floor 100 b
 
   const migrated = loadRun(storage);
   assert.equal(migrated.ok, true, `Legacy Floor 100 save should load cleanly: ${migrated.error}`);
-  assert.equal(migrated.state.enemies[0].maxHp, 6500);
-  assert.equal(migrated.state.enemies[0].hp, 3250);
+  assert.equal(migrated.state.enemies[0].maxHp, 7000);
+  assert.equal(migrated.state.enemies[0].hp, 5250);
   assert.equal(migrated.state.enemies[1].maxHp, 1380);
   assert.equal(migrated.state.enemies[1].hp, 1380);
   assert.equal(migrated.state.enemies[3].maxHp, 1080);
   assert.equal(migrated.state.enemies[3].hp, 540);
+
+  // Also verify 6,500 -> 7,000 Phase 1/2 migration and 3,500 -> 4,500 Phase 3 migration
+  const oldP2Save = structuredClone(migrated.state);
+  oldP2Save.eternityPhase = 2;
+  oldP2Save.enemies[0].maxHp = 6500;
+  oldP2Save.enemies[0].hp = 1500;
+  for (let i = 1; i < oldP2Save.enemies.length; i++) oldP2Save.enemies[i].hp = 0;
+  storage.setItem(SAVE_KEY, JSON.stringify(oldP2Save));
+  const migratedP2 = loadRun(storage);
+  assert.equal(migratedP2.ok, true);
+  assert.equal(migratedP2.state.enemies[0].maxHp, 7000);
+  assert.equal(migratedP2.state.enemies[0].hp, 1750);
+
+  const oldP3Save = structuredClone(migrated.state);
+  oldP3Save.eternityPhase = 3;
+  oldP3Save.enemies = [createEnemy('eternity_reborn', 0)];
+  oldP3Save.enemies[0].maxHp = 3500;
+  oldP3Save.enemies[0].hp = 1750;
+  storage.setItem(SAVE_KEY, JSON.stringify(oldP3Save));
+  const migratedP3 = loadRun(storage);
+  assert.equal(migratedP3.ok, true);
+  assert.equal(migratedP3.state.enemies[0].maxHp, 4500);
+  assert.equal(migratedP3.state.enemies[0].hp, 2250);
 });
 
 test('Floor 80 Boss (Abyssal Kraken): Phase 1 four distinct Water tentacles -> Phase 2 True Body, cooldowns, conductivity passive, and save roundtrip', () => {
@@ -1073,15 +1098,17 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   base.player.hand = ['shot', 'beam', 'fire', 'water', 'earth', 'wind', 'shield'];
   base.player.mana = 24;
 
-  // Phase 1 initial lineup & stats preserved
+  // Phase 1 initial lineup & calibrated HP (3,500 + 3,500 = 7,000 First Form, Secret Phase 3 = 4,500)
+  assert.deepEqual(ETERNITY_PHASE_HP, [3500, 3500, 4500]);
   assert.deepEqual(
     base.enemies.map(e => e.kind),
     ['eternity_overlord', 'zenith_templar', 'chronos_keeper', 'chaos_weaver'],
   );
-  assert.equal(base.enemies[0].hp, 6500);
+  assert.equal(base.enemies[0].hp, 7000);
   assert.equal(base.enemies[0].armor, 6);
   assert.equal(base.enemies[0].ward, 2);
   assert.equal(base.eternityPhase, undefined);
+  assert.deepEqual(eternityHealth(base), { phase: 1, remaining: 7000, total: 7000, revealed: false });
 
   // 1. Phase 1 Council Synergy: 3 allies => -45% damage taken on boss, Turn 2 +10/ally attack bonus
   const councilHit = simulateTurn(structuredClone(base), ['beam', 'fire'], 'enemy-0');
@@ -1108,17 +1135,54 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   sealedChronos.enemies[2].sealed = true;
   assert.equal(intent(sealedChronos.enemies[2], 1, sealedChronos.enemies, FLOOR100_BOSS_ROOM).type, 'sealed');
 
-  // 2. Phase 1 -> Phase 2 Transition at 3,000 HP
+  // 2A. Phase 1 -> Phase 2 Transition at <= 3,500 HP WITH surviving Council retainers -> Council Absorption (+600 HP & +12 atk each)
+  const p2AbsorbTrigger = structuredClone(base);
+  p2AbsorbTrigger.enemies[0].hp = 3505;
+  p2AbsorbTrigger.enemies[0].ward = 0;
+  const p2AbsorbRes = simulateTurn(p2AbsorbTrigger, ['beam', 'fire'], 'enemy-0');
+  assert.equal(p2AbsorbRes.ok, true);
+  assert.equal(p2AbsorbRes.state.eternityPhase, 2);
+  assert.equal(p2AbsorbRes.state.enemies[0].eternityAbsorbed, 3);
+  assert.equal(p2AbsorbRes.state.enemies[0].hp, 3500 + 1800, 'Absorbing 3 surviving Council retainers must heal +1,800 HP');
+  assert.ok(p2AbsorbRes.state.enemies.slice(1).every(e => e.hp === 0), 'Phase 2 transition must absorb remaining council retainers');
+  const absorbPhaseEv = p2AbsorbRes.events.find(e => e.type === 'boss-phase' && e.sourceKind === 'eternity_overlord' && e.mode === 'prism');
+  assert.ok(absorbPhaseEv);
+  assert.equal(absorbPhaseEv.absorbed, 3);
+  assert.equal(absorbPhaseEv.healed, 1800);
+  assert.deepEqual(absorbPhaseEv.eternity, { phase: 2, remaining: 3500, total: 7000, revealed: false });
+  assert.equal(intent(p2AbsorbRes.state.enemies[0], 1, p2AbsorbRes.state.enemies, FLOOR100_BOSS_ROOM).amount, 98 + 36, 'Absorbing 3 retainers grants permanent +36 attack');
+
+  // Council Absorption heal is halved by Akki (healCutUntil)
+  const p2AkkiTrigger = structuredClone(base);
+  p2AkkiTrigger.player.words = ['beam', 'akki', 'fire', 'water', 'earth', 'wind', 'shield'];
+  p2AkkiTrigger.player.hand = ['beam', 'akki', 'fire', 'water', 'earth', 'wind', 'shield'];
+  p2AkkiTrigger.enemies[0].hp = 3505;
+  p2AkkiTrigger.enemies[0].ward = 0;
+  const p2AkkiRes = simulateTurn(p2AkkiTrigger, ['beam', 'akki'], 'enemy-0');
+  assert.equal(p2AkkiRes.ok, true);
+  assert.equal(p2AkkiRes.state.enemies[0].eternityAbsorbed, 3);
+  assert.equal(p2AkkiRes.state.enemies[0].hp, 3500 + 900, 'Akki healCut must halve Council absorption heal (+1,800 -> +900 HP)');
+
+  // Absorbed stacks persist across save/load roundtrip
+  assert.equal(saveRun(p2AbsorbRes.state, storage).ok, true);
+  const loadedAbsorb = loadRun(storage);
+  assert.equal(loadedAbsorb.ok, true, `Phase 2 absorbed save should load cleanly: ${loadedAbsorb.error}`);
+  assert.equal(loadedAbsorb.state.enemies[0].eternityAbsorbed, 3);
+
+  // 2B. Phase 1 -> Phase 2 Transition WITHOUT surviving Council retainers -> clean transition (0 absorbed, 0 heal)
   const p2Trigger = structuredClone(base);
-  p2Trigger.enemies[0].hp = 3005;
+  for (let i = 1; i < p2Trigger.enemies.length; i++) p2Trigger.enemies[i].hp = 0;
+  p2Trigger.enemies[0].hp = 3505;
   p2Trigger.enemies[0].ward = 0;
   const p2Res = simulateTurn(p2Trigger, ['beam', 'fire'], 'enemy-0');
   assert.equal(p2Res.ok, true);
   assert.equal(p2Res.state.eternityPhase, 2);
-  assert.equal(p2Res.state.enemies[0].hp, 3000);
-  assert.equal(p2Res.events.find(event => event.eternity?.phase === 2).eternity.remaining, 6500);
-  assert.ok(p2Res.events.some(e => e.type === 'boss-phase' && e.sourceKind === 'eternity_overlord' && e.mode === 'prism'));
-  assert.ok(p2Res.state.enemies.slice(1).every(e => e.hp === 0), 'Phase 2 transition must dismiss remaining council retainers');
+  assert.equal(p2Res.state.enemies[0].hp, 3500);
+  assert.equal(p2Res.state.enemies[0].eternityAbsorbed, undefined);
+  const cleanPhaseEv = p2Res.events.find(e => e.type === 'boss-phase' && e.sourceKind === 'eternity_overlord' && e.mode === 'prism');
+  assert.equal(cleanPhaseEv.absorbed, 0);
+  assert.equal(cleanPhaseEv.healed, 0);
+  assert.deepEqual(cleanPhaseEv.eternity, { phase: 2, remaining: 3500, total: 7000, revealed: false });
   assert.ok(p2Res.state.enemies[0].ward >= 2, 'Phase 2 transition must grant +2 ward (capped at 3)');
 
   // Phase 2 save/load roundtrip
@@ -1148,7 +1212,7 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   assert.ok(echoEv, 'Projectile hitting Phase 2 Ward must emit cosmic-echo');
   assert.equal(echoEv.rawAttack, 10);
 
-  // Phase 2 Prism Shatter: hitting current weakness (Turn 1 fire -> water) deals +60 true dmg, -3 armor immediately & next turn, -1 ward
+  // Phase 2 Prism Shatter: hitting current weakness (Turn 1 fire -> water) deals +60 true dmg, -3 armor immediately & next turn, -1 ward, and emits prism-shatter event
   const shatterState = structuredClone(prismState);
   shatterState.turn = 1;
   prepareEnemies(shatterState); // fire affinity, armor 6, ward 2
@@ -1162,8 +1226,16 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   assert.equal(shatterBeam.state.enemies[0].eternityShatterUntil, 2);
   assert.equal(shatterBeam.state.enemies[0].armor, 5, 'Turn 2 base armor 8 minus 3 from eternityShatterUntil => 5');
   assert.ok(shatterBeam.events.some(e => e.type === 'dispel' && e.amount === 1), 'Prism Shatter must strip -1 ward');
+  assert.ok(shatterBeam.events.some(e => e.type === 'prism-shatter' && e.amount === 60), 'Prism Shatter must emit prism-shatter SFX/VFX event');
   assert.equal(saveRun(shatterBeam.state, storage).ok, true);
   assert.equal(loadRun(storage).state.enemies[0].eternityShatterUntil, 2);
+
+  // Barrage emits barrage: true exactly once per cast for SFX
+  const barrageState = structuredClone(shatterState);
+  barrageState.player.words = ['shot', 'water', 'barrage', 'fire', 'earth', 'wind', 'shield'];
+  barrageState.player.hand = ['shot', 'water', 'barrage', 'fire', 'earth', 'wind', 'shield'];
+  const barrageRes = simulateTurn(barrageState, ['shot', 'water', 'barrage'], 'enemy-0');
+  assert.equal(barrageRes.events.filter(e => e.type === 'projectile' && e.barrage).length, 1, 'Barrage cast should tag barrage: true once for SFX');
 
   // 4. Secret Phase 3 Resurrection ("นิรันดร์กาลจุติ!") via Spell AND via Consumable Item
   const p3Trigger = structuredClone(prismState);
@@ -1182,11 +1254,12 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   assert.equal(p3Res.state.eternityPhase, 3);
   assert.equal(p3Res.state.enemies.length, 1);
   assert.equal(p3Res.state.enemies[0].kind, 'eternity_reborn');
-  assert.equal(p3Res.state.enemies[0].hp, 3500);
+  assert.equal(p3Res.state.enemies[0].hp, 4500);
   assert.equal(p3Res.state.enemies[0].slot, 2);
   assert.equal(p3Res.state.magmaPuddles, undefined, 'Phase 3 resurrection should clear magma puddles');
   const p3PhaseEv = p3Res.events.find(e => e.type === 'boss-phase' && e.sourceKind === 'eternity_reborn' && e.mode === 'reborn');
   assert.ok(p3PhaseEv, 'Phase 3 resurrection must emit boss-phase event with mode reborn');
+  assert.deepEqual(p3PhaseEv.eternity, { phase: 3, remaining: 4500, total: 4500, revealed: true });
   // Tower Resonance Mercy Blessing: +25% maxHp & full mana
   assert.equal(p3PhaseEv.mercyHeal, Math.ceil(p3Res.state.player.maxHp * 0.25), 'Phase 3 resurrection should grant +25% maxHp Mercy Blessing');
   assert.ok(p3Res.state.player.hp >= 1600, 'Phase 3 resurrection should heal player from 1000 by at least +600 HP');
@@ -1242,6 +1315,7 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   rewindUnshattered.enemies[0].hp = 2500;
   const rewindRes = simulateTurn(rewindUnshattered, ['shield'], 'enemy-0');
   assert.equal(rewindRes.state.enemies[0].hp, 2900, 'Turn 2 Chronos Rewind must heal +400 HP when unshattered');
+  assert.ok(rewindRes.events.some(e => e.type === 'heal' && e.isChronosRewind), 'Turn 2 Chronos Rewind must tag isChronosRewind for SFX');
 
   // Prism Shatter on Turn 2 (ice -> fire) deals +100 true dmg, -3 armor, -1 ward AND cancels Chronos Rewind (+0 HP)
   const rewindShatter = structuredClone(rebornState);
@@ -1266,7 +1340,7 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   assert.equal(rebornState.enemies[0].ward, 2);
   assert.equal(intent(rebornState.enemies[0], 3, rebornState.enemies, FLOOR100_BOSS_ROOM).type, 'charge');
 
-  // Turn 4: earth affinity, Armor 0, Ward 0, Supernova 188 + Exposed +50% (boosted above +35%)
+  // Turn 4: earth affinity, Armor 0, Ward 0, Supernova 188 + Exposed +35%
   rebornState.turn = 4;
   prepareEnemies(rebornState);
   assert.equal(rebornState.enemies[0].affinity, 'earth');
@@ -1280,10 +1354,10 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   rExpT4.turn = 4;
   const dmgBase = simulateTurn(rBaseT2, ['beam', 'water'], 'enemy-0').summary.damage;
   const dmgExp = simulateTurn(rExpT4, ['beam', 'water'], 'enemy-0').summary.damage;
-  assert.equal(dmgExp, Math.round(dmgBase * 1.5), `Phase 3 Turn 4 exposed (+50%) should scale ${dmgBase} -> ${Math.round(dmgBase * 1.5)}, got ${dmgExp}`);
+  assert.equal(dmgExp, Math.ceil(dmgBase * 1.35), `Phase 3 Turn 4 exposed (+35%) should scale ${dmgBase} -> ${Math.ceil(dmgBase * 1.35)}, got ${dmgExp}`);
 
-  // No repeatReduction on Eternity Reborn (all-out finale)
-  assert.equal(ENEMIES.eternity_reborn.repeatReduction, undefined);
+  // Phase 3 Eternity Reborn has repeatReduction 50% (lighter than Phase 1–2's 75%)
+  assert.equal(ENEMIES.eternity_reborn.repeatReduction, 50);
 
   // 6. True Victory: Defeating eternity_reborn clears eternityPhase, grants crown_of_eternity_100, sets phase = 'won'
   const finish100 = structuredClone(rebornState);

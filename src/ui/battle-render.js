@@ -392,7 +392,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const armorText = projectedArmor < enemy.armor ? `${enemy.armor} → ${projectedArmor}` : enemy.armor;
     if (enemy.armor > 0 || enemy.permanentArmorShred) badges.push(`<span class="enemy-badge badge-armor badge-armor-value" title="เกราะลดความเสียหายต่อการโจมตีหนึ่งครั้ง${enemy.permanentArmorShred ? ` · ถูกทุบถาวร ${enemy.permanentArmorShred} หน่วยในศึกนี้` : ''}">🛡 เกราะ ${armorText}</span>`);
     if (enemy.ward > 0) badges.push(`<span class="enemy-badge badge-ward" data-ward-layers title="ม่านกันกระสุน 1 ลูกต่อชั้น ลำแสงทะลุม่านได้">🔮 ม่าน ${enemy.ward}</span>`);
-    const exposedPct = enemy.kind === 'eternity_reborn' ? 50 : RIFT_EXPOSED_BONUS;
+    const exposedPct = RIFT_EXPOSED_BONUS;
     const exposedHint = (isRiftBossExposed(enemy.kind, state.turn) || enemy.netherExposedTurn === state.turn)
       ? `เปิดช่อง · รับดาเมจเวทเพิ่ม ${exposedPct}%`
       : '';
@@ -472,23 +472,25 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     } else if (state.room === FLOOR100_BOSS_ROOM && enemy.kind === 'eternity_overlord') {
       if (state.eternityPhase === 2) {
         const isShattered = (status.eternityShatterUntil ?? enemy.eternityShatterUntil ?? 0) >= state.turn;
+        const absorbed = enemy.eternityAbsorbed ?? 0;
         bossHint = isShattered
           ? 'เฟส 2 ปฏิพากย์เบญจธาตุ · ทลายผลึกแล้ว! (−3 เกราะจนจบเทิร์นนี้) · ม่านสะท้อน 10'
           : 'เฟส 2 ปฏิพากย์เบญจธาตุ · สลับธาตุทุกเทิร์น (ไฟ→น้ำแข็ง→สายฟ้า→ดิน) · ม่านสะท้อน 10 · ตีจุดอ่อนทลายผลึก +60 แท้ / −3 เกราะ / −1 ม่าน!';
         badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">เฟส 2 · สลับธาตุ · สะท้อนม่าน 10</span>`);
+        if (absorbed > 0) badges.push(`<span class="enemy-badge badge-burn" title="กลืนพลังสภากาลอวกาศ ${absorbed} ตน · เสริมพลังโจมตีถาวร +${absorbed * 12}">กลืนสภา +${absorbed * 12} โจมตี</span>`);
         badges.push(`<span class="enemy-badge ${isShattered ? 'badge-push' : 'badge-chill'}" title="${bossHint}">${isShattered ? 'ทลายผลึกแล้ว' : 'ตีจุดอ่อนทลายผลึก'}</span>`);
       } else {
         const eternityGuarded = state.enemies.filter(ally => ally.id !== enemy.id && ally.hp > 0).length;
         bossHint = eternityGuarded > 0
-          ? `เฟส 1 สภากาลอวกาศ · ลูกสมุน ${eternityGuarded} ตัวลดดาเมจบอส −${eternityGuarded * 15}% และเสริมบท 2 +${eternityGuarded * 10} ดาเมจ`
-          : `เฟส 1 · สภาถูกโค่นหมดแล้ว · เข้าเฟส 2 เมื่อร่างแรกเหลือ ${ETERNITY_PHASE_HP[1].toLocaleString('en-US')} HP`;
+          ? `เฟส 1 สภากาลอวกาศ · ลูกสมุน ${eternityGuarded} ตัวลดดาเมจบอส −${eternityGuarded * 15}% และเสริมบท 2 +${eternityGuarded * 10} · หากไม่โค่นก่อน ≤${ETERNITY_PHASE_HP[1].toLocaleString('en-US')} HP บอสจะกลืนพลังฟื้น +600 HP & +12 โจมตี/ตน!`
+          : `เฟส 1 · สภาถูกโค่นหมดแล้ว · เข้าเฟส 2 เมื่อเหลือ ${ETERNITY_PHASE_HP[1].toLocaleString('en-US')} HP โดยไม่เสียพลังกลืนสภา`;
         badges.push(`<span class="enemy-badge ${eternityGuarded > 0 ? 'badge-armor' : 'badge-push'}" title="${bossHint}">${eternityGuarded > 0 ? `เฟส 1 · สภา −${eternityGuarded * 15}% / +${eternityGuarded * 10}` : 'เฟส 1 · ไร้สภา'}</span>`);
       }
     } else if (enemy.kind === 'eternity_reborn') {
       const isShattered = (status.eternityShatterUntil ?? enemy.eternityShatterUntil ?? 0) >= state.turn;
       bossHint = isShattered
         ? 'เฟส 3 ร่างจุตินิรันดร์ · ผลึกแตกแล้ว! (−3 เกราะ & หยุดย้อนเวลาฟื้น +400 HP ในบท 2) · ม่านสะท้อน 10'
-        : 'เฟส 3 ร่างจุตินิรันดร์ · สลับธาตุทุกเทิร์น · ม่านสะท้อน 10 · ตีจุดอ่อนทลายผลึก +100 แท้ / −3 เกราะ / −1 ม่าน & หยุดย้อนเวลา! · บท 4 เปิดช่อง +50%';
+        : 'เฟส 3 ร่างจุตินิรันดร์ · สลับธาตุทุกเทิร์น · ต้านทานคาถาซ้ำ −50% · ม่านสะท้อน 10 · ตีจุดอ่อนทลายผลึก +100 แท้ / −3 เกราะ / −1 ม่าน & หยุดย้อนเวลา! · บท 4 เปิดช่อง +35%';
       badges.push(`<span class="enemy-badge badge-burn" title="${bossHint}">เฟส 3 ร่างจุติ · สลับธาตุ · สะท้อน 10</span>`);
       badges.push(`<span class="enemy-badge ${isShattered ? 'badge-push' : 'badge-chill'}" title="${bossHint}">${isShattered ? 'ผลึกแตก (เวลาหยุด)' : 'ตีจุดอ่อน +100 · หยุดเวลา'}</span>`);
     }
@@ -897,13 +899,14 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
     castBtn.setAttribute('aria-label', `ทดลองร่ายคาถา ${phraseLabel} ใช้ ${attemptCost} มานา`);
     return;
   }
-  const notEnoughMana = parsed.ok && parsed.cost > state.player.mana;
+  const displayCost = forecast?.ok ? forecast.summary.cost : (parsed.ok ? parsed.cost : 0);
+  const notEnoughMana = parsed.ok && displayCost > state.player.mana;
   if (notEnoughMana) {
-    const missing = parsed.cost - state.player.mana;
-    $('cast-cost').innerHTML = `${parsed.cost} มานา <span class="cast-cost-short">ขาด ${missing}</span>`;
+    const missing = displayCost - state.player.mana;
+    $('cast-cost').innerHTML = `${displayCost} มานา <span class="cast-cost-short">ขาด ${missing}</span>`;
     castBtn.classList.add('cast-insufficient');
   } else {
-    $('cast-cost').textContent = parsed.ok ? `${parsed.cost} มานา` : '';
+    $('cast-cost').textContent = parsed.ok ? `${displayCost} มานา` : '';
   }
   castBtn.disabled = !forecast?.ok;
   $('spell-feedback').textContent = '';
@@ -924,11 +927,22 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
   else if (s.phase === 'won') headline = `ชนะศึก · HP เหลือ ${s.hp}`;
   else if (s.phase === 'reward') headline = `ชนะศึกและได้เลือกการ์ดคำ · HP เหลือ ${s.hp}`;
   else if (s.nextRoom !== state.room || s.phase === 'sanctuary') headline = `ชนะศึก${s.roomRecovery ? ` · ฟื้น HP ${s.roomRecovery}` : ''} · HP เหลือ ${s.hp}`;
+  else if (s.buffApplied) {
+    const famNames = s.buffApplied.families.map(f => `${ELEMENT_ICONS[f] ?? ''}${ELEMENT_LABELS[f] ?? f}`).join('+');
+    headline = `บัพ${famNames} +${s.buffApplied.pct}% (${s.buffApplied.turns} เทิร์น) · รับดาเมจ ${s.incoming} · HP เหลือ ${s.hp}`;
+  } else if (s.manaRestored) {
+    headline = `เติมมานา +${s.manaRestored} (เหลือ ${s.manaAfterCast}) · รับดาเมจ ${s.incoming} · HP เหลือ ${s.hp}`;
+  }
   const lvUpInfo = s.levelUps?.length ? s.levelUps[s.levelUps.length - 1] : null;
+  const buffDetail = s.buffApplied
+    ? `บัพธาตุ ${s.buffApplied.families.map(f => ELEMENT_LABELS[f] ?? f).join('+')} +${s.buffApplied.pct}%${s.buffApplied.pierce ? ` เจาะ+${s.buffApplied.pierce}` : ''} (${s.buffApplied.turns} เทิร์น)`
+    : '';
   const details = [
     `ใช้ ${s.cost} มานา`,
+    s.manaRestored ? `เติมมานา +${s.manaRestored}` : '',
     s.manaRefunded ? `คืนมานา +${s.manaRefunded}` : '',
     `มานาเหลือ ${s.manaAfterCast}`,
+    buffDetail,
     s.wards ? `ทำลายม่าน ${s.wards} ชั้น` : '',
     s.blocked ? `ป้องกันความเสียหาย ${s.blocked}` : '',
     s.healed ? `ฟื้น HP ${s.healed}` : '',

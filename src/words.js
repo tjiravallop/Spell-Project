@@ -10,30 +10,31 @@ export const RARITIES = Object.freeze({
 
 export const WORDS = Object.freeze({
   shot: { label: 'ลูก', glyph: '●', description: 'ยิงกระสุนใส่ศัตรูที่เลือก ต่อกับธาตุหรือ “ระเบิด” ได้', formula: '1 มานา + ค่าธาตุ' },
+  spear: { label: 'หอก', glyph: '➶', description: 'แทงทะลุ 2 ช่อง · เป้าหลักรับพลัง 80% และตัวข้างหลังรับ 50% (ม่านกันแยกแต่ละตัว)', formula: '1 มานา + ค่าธาตุ · เป้าหลัก 80% / ตัวหลัง 50%' },
   fire: { label: 'ไฟ', glyph: '♨', damage: 10, cost: 2, description: 'ทำความเสียหายทันที', formula: 'พลัง 10 · 2 มานา' },
   ice: { label: 'น้ำแข็ง', glyph: '❄', damage: 6, cost: 2, description: 'ลดพลังโจมตีครั้งถัดไป 4 ต่อครั้งที่โดน', formula: 'พลัง 6 · 2 มานา' },
   lightning: { rarity: 'common', label: 'สายฟ้า', glyph: 'ϟ', damage: 8, cost: 2, description: 'ข้ามเกราะ 2 หน่วย', formula: 'พลัง 8 · 2 มานา' },
   earth: { label: 'ดิน', glyph: '◆', damage: 7, cost: 2, description: 'เพิ่มเกราะชั่วคราว 2 และทำลายเกราะเป้า 1 ถาวร', formula: 'พลัง 7 · 2 มานา' },
   water: { label: 'น้ำ', glyph: '≈', damage: 6, cost: 2, description: 'ฟื้นพลังชีวิต 2 HP และทำให้เป้าเปียกถึงจบเทิร์นถัดไป · สายฟ้าแรงขึ้น +2 และหิมะแช่แข็งได้', formula: 'พลัง 6 · 2 มานา' },
-  wind: { label: 'ลม', glyph: '≋', damage: 7, cost: 2, description: 'ผลักศัตรูที่โดนถอยหนึ่งช่องถ้าช่องถัดไปว่าง หากติดขอบหรือศัตรูอื่นจะสร้างดาเมจกระแทก 3', formula: 'พลัง 7 · 2 มานา' },
+  wind: { label: 'ลม', glyph: '≋', damage: 7, cost: 2, description: 'ผลักศัตรูที่โดนถอยหนึ่งช่องถ้าช่องถัดไปว่าง หากชนศัตรูอีกตัวจะกระแทกทะลุเกราะ 3 ทั้งสองตัว (ชนขอบ 3)', formula: 'พลัง 7 · 2 มานา' },
   akki: { rarity: 'special', label: 'อัคคี', glyph: '♨', damage: 20, cost: 5, description: 'ไฟขั้นสอง · เป้าที่โดนรับฮีลครึ่งเดียวจนจบเทิร์นถัดไป', formula: 'พลัง 20 · 5 มานา' },
   heman: { rarity: 'special', label: 'เหมันต์', glyph: '❄', damage: 12, cost: 5, description: 'น้ำแข็งขั้นสอง · หนาว 4 ส่งผลต่อการโจมตีจริงสองครั้ง', formula: 'พลัง 12 · 5 มานา' },
   asani: { rarity: 'special', label: 'อัสนี', glyph: 'ϟ', damage: 16, cost: 5, description: 'สายฟ้าขั้นสอง · ข้ามเกราะ 2 และชิ่งหาเป้าข้างเคียงหนึ่งตัวด้วยพลังครึ่งหนึ่ง', formula: 'พลัง 16 · 5 มานา' },
   pathaphi: { rarity: 'special', label: 'ปฐพี', glyph: '◆', damage: 14, cost: 5, description: 'ดินขั้นสอง · เพิ่มเกราะชั่วคราว 4 และทำลายเกราะเป้า 2 ถาวร', formula: 'พลัง 14 · 5 มานา' },
   wari: { rarity: 'special', label: 'วารี', glyph: '≈', damage: 12, cost: 5, description: 'น้ำขั้นสอง · ฟื้นพลังชีวิต 4 HP และทำให้เป้ารวมช่องข้างเคียงเปียกถึงจบเทิร์นถัดไป', formula: 'พลัง 12 · 5 มานา' },
-  vayu: { rarity: 'special', label: 'วายุ', glyph: '≋', damage: 14, cost: 5, description: 'ลมขั้นสอง · ผลักศัตรูที่โดนถอยหนึ่งช่องถ้าช่องถัดไปว่าง หากติดขอบหรือศัตรูอื่นจะสร้างดาเมจกระแทก 6', formula: 'พลัง 14 · 5 มานา' },
+  vayu: { rarity: 'special', label: 'วายุ', glyph: '≋', damage: 14, cost: 5, description: 'ลมขั้นสอง · ผลักศัตรูที่โดนถอยหนึ่งช่องถ้าช่องถัดไปว่าง หากชนศัตรูอีกตัวจะกระแทกทะลุเกราะ 6 ทั้งสองตัว (ชนขอบ 6)', formula: 'พลัง 14 · 5 มานา' },
   magma: { rarity: 'epic', label: 'แมกม่า', glyph: '♨', damage: 22, cost: 7, description: 'ดิน + ไฟ · ทิ้งแอ่งตรงจุดกระทบ หลังแอ็กชันผู้เล่นเทิร์นถัดไป ปะทุใส่ตัวที่ยืนตรงนั้น 6 และลดเกราะ 2 ถาวร', formula: 'พลัง 22 · 7 มานา' },
   mudmire: { rarity: 'epic', label: 'บึงโคลน', glyph: '◆', damage: 18, cost: 7, description: 'ดิน + น้ำ · สร้างบึงโคลนตรึงเป้าหมาย ทำให้เปียกและลดพลังโจมตี 3 จนจบเทิร์นถัดไป', formula: 'พลัง 18 · 7 มานา' },
-  dust: { rarity: 'epic', label: 'ธุลี', glyph: '≋', damage: 18, cost: 7, description: 'ดิน + ลม · ทำลายเกราะเป้า 1 ถาวร และผลักเป้าถอยหนึ่งช่อง (ชนขอบรับดาเมจกระแทก 6)', formula: 'พลัง 18 · 7 มานา' },
+  dust: { rarity: 'epic', label: 'ธุลี', glyph: '≋', damage: 18, cost: 7, description: 'ดิน + ลม · ทำลายเกราะเป้า 1 ถาวร และผลักเป้าถอยหนึ่งช่อง (ชนศัตรูอีกตัวกระแทกทะลุเกราะ 6 ทั้งสองตัว · ชนขอบ 6)', formula: 'พลัง 18 · 7 มานา' },
   permafrost: { rarity: 'epic', label: 'เยือกศิลา', glyph: '❄', damage: 18, cost: 7, description: 'ดิน + น้ำแข็ง · ทำลายเกราะเป้า 2 ถาวร และเพิ่มเกราะชั่วคราวให้ผู้ร่าย 6', formula: 'พลัง 18 · 7 มานา' },
-  magnet: { rarity: 'epic', label: 'แม่เหล็ก', glyph: 'ϟ', damage: 18, cost: 7, description: 'ดิน + สายฟ้า · ข้ามเกราะ 2 และส่งแรงแม่เหล็กดึงศัตรูข้างเคียงเข้ามาชนเป้าหลัก', formula: 'พลัง 18 · 7 มานา' },
+  magnet: { rarity: 'epic', label: 'แม่เหล็ก', glyph: 'ϟ', damage: 18, cost: 7, description: 'ดิน + สายฟ้า · ข้ามเกราะ 2 และส่งแรงแม่เหล็กดึงศัตรูข้างเคียงเข้ามาชนเป้าหลัก (ชนกันกระแทกทะลุเกราะ 6 ทั้งสองตัว)', formula: 'พลัง 18 · 7 มานา' },
   mist: { rarity: 'epic', label: 'หมอก', glyph: '≋', damage: 18, cost: 7, description: 'น้ำ + ไฟ · ทำให้เป้าเปียกถึงจบเทิร์นถัดไป และบดบังการเล็ง ลดแรงโจมตีครั้งถัดไป 4', formula: 'พลัง 18 · 7 มานา' },
   hail: { rarity: 'epic', label: 'หิมะ', glyph: '❆', damage: 18, cost: 7, description: 'น้ำ + น้ำแข็ง · เป้าแห้งติดหนาว 2 เป้าเปียกเสียสถานะเปียกและข้ามการโจมตีครั้งถัดไป', formula: 'พลัง 18 · 7 มานา' },
-  monsoon: { rarity: 'epic', label: 'มรสุม', glyph: '≈', damage: 18, cost: 7, description: 'น้ำ + ลม · ผลักศัตรูทั้งหมด 1 ช่อง ทำให้เปียก และฟื้นพลังชีวิตผู้ร่าย 4 HP', formula: 'พลัง 18 · 7 มานา' },
+  monsoon: { rarity: 'epic', label: 'มรสุม', glyph: '≈', damage: 18, cost: 7, description: 'น้ำ + ลม · ผลักศัตรูทั้งหมด 1 ช่อง (ชนกันกระแทกทะลุเกราะ 6 ทั้งสองตัว) ทำให้เปียก และฟื้นพลังชีวิตผู้ร่าย 4 HP', formula: 'พลัง 18 · 7 มานา' },
   shockstream: { rarity: 'epic', label: 'กระแสช็อต', glyph: 'ϟ', damage: 18, cost: 7, description: 'น้ำ + สายฟ้า · ข้ามเกราะ 2 ช็อตสายฟ้าทะลวงเป้าหมายที่เปียกทั้งหมดในสนาม', formula: 'พลัง 18 · 7 มานา' },
-  thunderstorm: { rarity: 'epic', label: 'ฟ้าคะนอง', glyph: 'ϟ', damage: 20, cost: 7, description: 'ลม + สายฟ้า · ข้ามเกราะ 2 ผลักเป้าถอยหนึ่งช่องถ้าว่าง แล้วชิ่งครึ่งพลังหาเป้าข้างตำแหน่งใหม่', formula: 'พลัง 20 · 7 มานา' },
-  heatwave: { rarity: 'epic', label: 'ระอุ', glyph: '♨', damage: 22, cost: 7, description: 'ลม + ไฟ · ผลักเป้าถอยหนึ่งช่อง และเผา 4 หน่วยกระจายใส่ศัตรูช่องข้างเคียง', formula: 'พลัง 22 · 7 มานา' },
-  chillgale: { rarity: 'epic', label: 'ไอหนาว', glyph: '❄', damage: 18, cost: 7, description: 'ลม + น้ำแข็ง · ผลักเป้าถอยหนึ่งช่อง และกระจายละอองหนาว 4 ลดการโจมตีสองครั้ง', formula: 'พลัง 18 · 7 มานา' },
+  thunderstorm: { rarity: 'epic', label: 'ฟ้าคะนอง', glyph: 'ϟ', damage: 20, cost: 7, description: 'ลม + สายฟ้า · ข้ามเกราะ 2 ผลักเป้าถอยหนึ่งช่อง (ชนศัตรูกระแทกทะลุเกราะ 6 ทั้งสองตัว) แล้วชิ่งครึ่งพลังหาเป้าข้างตำแหน่งใหม่', formula: 'พลัง 20 · 7 มานา' },
+  heatwave: { rarity: 'epic', label: 'ระอุ', glyph: '♨', damage: 22, cost: 7, description: 'ลม + ไฟ · ผลักเป้าถอยหนึ่งช่อง (ชนศัตรูกระแทกทะลุเกราะ 6 ทั้งสองตัว) และเผา 4 หน่วยกระจายใส่ศัตรูช่องข้างเคียง', formula: 'พลัง 22 · 7 มานา' },
+  chillgale: { rarity: 'epic', label: 'ไอหนาว', glyph: '❄', damage: 18, cost: 7, description: 'ลม + น้ำแข็ง · ผลักเป้าถอยหนึ่งช่อง (ชนศัตรูกระแทกทะลุเกราะ 6 ทั้งสองตัว) และกระจายละอองหนาว 4 ลดการโจมตีสองครั้ง', formula: 'พลัง 18 · 7 มานา' },
   plasma: { rarity: 'epic', label: 'พลาสมา', glyph: '✦', damage: 24, cost: 7, description: 'ไฟ + สายฟ้า · ระเบิดพลังงานความร้อนสูง ข้ามเกราะ 2 ดาเมจเดี่ยวรุนแรงสูงสุด', formula: 'พลัง 24 · 7 มานา' },
   scald: { rarity: 'epic', label: 'ไอเดือด', glyph: '♨', damage: 20, cost: 7, description: 'ไฟ + น้ำแข็ง · สลับอุณหภูมิฉับพลัน ทำลายเกราะเป้า 2 ถาวร และทำให้ชะงัก', formula: 'พลัง 20 · 7 มานา' },
   frostvolt: { rarity: 'epic', label: 'ผลึกช็อต', glyph: '❆', damage: 20, cost: 7, description: 'น้ำแข็ง + สายฟ้า · ข้ามเกราะ 2 และชิ่งสายฟ้าแช่แข็งใส่เป้าข้างเคียงพร้อมติดหนาว 4', formula: 'พลัง 20 · 7 มานา' },
@@ -42,7 +43,7 @@ export const WORDS = Object.freeze({
   blast: { rarity: 'rare', label: 'ระเบิด', glyph: '✹', damage: 6, cost: 4, description: 'วางต้นคาถาหรือต่อหลัง “ลูก” เพื่อยิงกระสุนหัวระเบิด เติมธาตุหรือคู่ได้ ใช้ต่อท้ายเพื่อระเบิดเมื่อโจมตีโดน หรือสั่งระเบิดโล่ไฟที่มีอยู่', formula: 'ร่ายเดี่ยว 4 มานา · ลูกระเบิด +1 · คำต่อท้าย +2 · สั่งระเบิดโล่ 2' },
   devastation: { rarity: 'legendary', label: 'ทำลายล้าง', glyph: '✷', cost: 5, description: 'ใช้เป็นคำสุดท้ายของคาถาโจมตีเท่านั้น เพิ่มแรงโจมตีเป็น 2 เท่าและระเบิดซ้ำหนึ่งครั้งด้วยครึ่งพลังในรัศมี 2 ช่องเมื่อโจมตีโดน', formula: '+5 มานา · พลัง ×2 · ระเบิดรัศมี 2 ช่อง' },
   blackhole: { rarity: 'legendary', label: 'หลุมดำ', glyph: '◉', cost: 20, description: 'เลือกช่องบนสนาม ดูดศัตรูทั้งหมดเข้าหาจุดศูนย์กลาง ชนกันทำดาเมจกระแทก 100 ต่อตัว (ทับซ้อนได้) ยุบตัวเทิร์นถัดไป จุดกลาง 300 / รอบข้าง 150 · ข้ามม่านและเกราะทั้งหมด', formula: '20 มานา · กระแทก 100/ตัว · ยุบ 300 / 150 · ข้ามม่าน/เกราะ' },
-  death: { rarity: 'legendary', label: 'ตาย', glyph: '†', cost: 10, description: 'ปราบศัตรูหนึ่งตัวทันที บอสต้านคำสั่งนี้ ใช้สำเร็จได้ครั้งเดียวต่อศึก แล้วการ์ดจะหายจากมือและกองจั่วจนจบศึก', formula: '10 มานา · ข้ามม่านและเกราะ' },
+  death: { rarity: 'legendary', label: 'ตาย', glyph: '†', cost: 10, description: 'ปราบศัตรูธรรมดาหนึ่งตัวทันที (หากใช้กับบอสจะสร้างดาเมจแท้ 100+ ทะลุเกราะและม่าน) ใช้สำเร็จได้ครั้งเดียวต่อศึก แล้วการ์ดจะหายจากมือและกองจั่วจนจบศึก', formula: '10 มานา · ปลิดชีพทันที / บอส 100+ แท้ · ข้ามม่านและเกราะ' },
   meteor: { rarity: 'epic', label: 'อุกกาบาต', glyph: '✹', cost: 9, description: 'อุกกาบาตตกแบบสุ่มตำแหน่ง 3 ครั้ง ทำดาเมจเป้าหลัก 24 และกระจายช่องติดกัน 12 ต่อลูก ข้ามม่านแล้วหักเกราะตามปกติ', formula: '9 มานา · สุ่มตก 3 ครั้ง · หลัก 24 / กระจาย 12 · ข้ามม่าน' },
   veil: { rarity: 'epic', label: 'ม่าน', glyph: '▣', cost: 7, description: 'กางม่านรับความเสียหาย 14 อยู่ถึงจบเทิร์นถัดไป เมื่อการโจมตีทำให้ม่านแตก กันส่วนที่ล้นเพิ่มได้อีกสูงสุด 8', formula: '7 มานา · กัน 14 + กันส่วนล้นสูงสุด 8' },
   shield: { label: 'โล่', glyph: '⬡', description: 'กันความเสียหาย 6 ใช้ส่วนที่เหลือได้อีกหนึ่งเทิร์น', formula: '3 มานา' },
@@ -52,10 +53,15 @@ export const WORDS = Object.freeze({
   storm: { rarity: 'epic', label: 'พายุ', glyph: '◉', damage: 12, cost: 5, description: 'เลือกเป้าหลักและโดนช่องติดซ้ายขวา ร่ายเดี่ยวได้ หรือเติมธาตุใดก็ได้เพื่อใช้พลังและผลธาตุ ม่านของแต่ละตัวกันได้', formula: '5 มานา + ค่าธาตุ · พลังเดี่ยว 12/6 · เติมธาตุ 150%/75%' },
   heal: { rarity: 'rare', label: 'ฮีล', glyph: '+', description: 'ร่าย “ฮีล ตัวเอง” เพื่อฟื้น 4 HP ทันที หรือร่าย “โล่ ฮีล” เพื่อป้องกันพร้อมฟื้นเลือด', formula: 'ฮีล ตัวเอง 3 มานา · โล่ ฮีล 5 มานา' },
   self: { label: 'ตัวเอง', glyph: '◇', description: 'ระบุผู้ร่ายเป็นเป้าหมายของฮีล', formula: 'ใช้ต่อท้ายฮีล' },
+  empower: { rarity: 'rare', label: 'เสริม', glyph: '▲', cost: 2, description: 'เสริมพลังธาตุที่ร่ายให้ผู้ร่ายเป็นเวลา 3 เทิร์น (+25% / ขั้นสอง +40% / ผสาน +45%) ต่อ “ใหญ่” หรือขึ้นต้น “มหา” ได้', formula: '2 มานา + ค่าธาตุ · บัฟพลังธาตุ 3 เทิร์น' },
+  bless: { rarity: 'special', label: 'อวยพร', glyph: '✧', cost: 3, description: 'อวยพรพลังธาตุระดับสูงให้ผู้ร่ายเป็นเวลา 3 เทิร์น (+40% / ขั้นสอง +60% / ผสาน +70%) พร้อมเจาะเกราะ +1 ต่อ “ใหญ่” หรือขึ้นต้น “มหา” ได้', formula: '3 มานา + ค่าธาตุ · บัฟพลังธาตุแรง 3 เทิร์น + เจาะเกราะ' },
+  fill: { label: 'เติม', glyph: '◈', cost: 1, description: 'ใช้คู่กับ “เลือด” (3 มานา ฟื้น 7 HP แรงกว่าฮีล) หรือ “มานา” (1 มานา ฟื้น 6 MP) · ต่อท้าย “ใหญ่” ได้เท่านั้น ห้ามใช้ร่วมกับ “มหา”', formula: 'เติม เลือด 3 มานา (7 HP) · เติม มานา 1 มานา (+6 MP)' },
+  blood: { label: 'เลือด', glyph: '♥', cost: 2, description: 'ร่ายเดี่ยวไม่ได้ · ใช้ต่อท้าย “เติม” เพื่อฟื้นเลือดแรงกว่าฮีล (7 HP · เติม เลือด ใหญ่ 12 HP)', formula: 'ใช้คู่ “เติม” เท่านั้น · ต่อท้าย “ใหญ่” ได้' },
+  mana: { label: 'มานา', glyph: '◆', cost: 0, description: 'ร่ายเดี่ยวไม่ได้ · ใช้ต่อท้าย “เติม” เพื่อฟื้นมานาทันที (+6 MP · เติม มานา ใหญ่ +10 MP)', formula: 'ใช้คู่ “เติม” เท่านั้น · ต่อท้าย “ใหญ่” ได้' },
   burn: { rarity: 'rare', label: 'เผา', glyph: '♨', description: 'เผา 3 ก่อนศัตรูทำแอ็กชันในเทิร์นถัดไป ผลเผาซ้ำรวมกัน', formula: '+1 มานา' },
   freeze: { rarity: 'special', label: 'แช่แข็ง', glyph: '❆', description: 'ต่อท้ายลูกหรือลำแสงตระกูลน้ำแข็ง ให้เป้าข้ามการโจมตีหนึ่งครั้ง', formula: '+3 มานา' },
-  push: { rarity: 'rare', label: 'ผลัก', glyph: '›', description: 'ต่อท้ายลูกหรือพายุ เลื่อนเป้าหลักหนึ่งช่องถ้าช่องว่าง ศัตรูยังเก็บการชาร์จ', formula: '+1 มานา' },
-  pull: { rarity: 'rare', label: 'ดึง', glyph: '‹', description: 'ต่อท้ายลูกหรือลำแสง ดึงเป้าที่โดนเข้าหาผู้ร่ายหนึ่งช่องเมื่อช่องว่าง', formula: '+1 มานา' },
+  push: { rarity: 'rare', label: 'ผลัก', glyph: '›', description: 'ต่อท้ายคาถาโจมตี เลื่อนเป้าถอย 1 ช่อง (ใช้กับธาตุลมผลักไกล 2 ช่อง) หากผลักชนศัตรูอีกตัวจะกระแทกทะลุเกราะ 8 ใส่ทั้งสองตัว (ชนขอบ 4 · แรงขึ้นตามตัวคูณคาถา)', formula: '+1 มานา · ชนศัตรู 8×2 (ทะลุเกราะ) · ชนขอบ 4' },
+  pull: { rarity: 'rare', label: 'ดึง', glyph: '‹', description: 'ต่อท้ายคาถาโจมตี ดึงเป้าที่โดนเข้าหาผู้ร่าย 1 ช่อง หากดึงชนศัตรูข้างหน้าจะกระแทกทะลุเกราะ 8 ใส่ทั้งสองตัว (ชนขอบหน้า 4 · แรงขึ้นตามตัวคูณคาถา)', formula: '+1 มานา · ดึงชนศัตรู 8×2 (ทะลุเกราะ) · ชนขอบหน้า 4' },
   pierce: { rarity: 'special', label: 'ทะลวง', glyph: '↠', description: 'ต่อท้ายลูก คลื่น หรือพายุ เพื่อข้ามเกราะเพิ่ม 2 หน่วย ทั้งตอนกระทบและระเบิด', formula: '+1 มานา' },
   large: { rarity: 'rare', label: 'ใหญ่', glyph: '⬢', description: 'เพิ่มพลังลูก 1.5 เท่า เพิ่มโล่เป็น 9 ต่อชั้น หรือเพิ่มฮีลทันทีเป็น 8', formula: '+2 มานา' },
   grand: { rarity: 'special', label: 'มหา', glyph: '✦', description: 'วางหน้าคาถาโจมตีเพื่อเพิ่มแรง มหาระเบิดขยายรัศมี ใช้คู่กับลูก ระเบิด หรือพายุที่มีธาตุเดียวได้ มหาโล่และมหาโล่คู่เติมโล่ต้นเทิร์นถัดไป มหาฮีลฟื้นเลือดต่อเนื่อง', formula: 'โจมตี +3 มานา · มหาลูกคู่ +6 · มหาพายุคู่ +5 · มหาโล่ 6 / คู่ 12 · มหาฮีล 7' },
@@ -203,10 +209,11 @@ export const ELEMENTS = [
   ...Object.keys(SECOND_TIER_ELEMENTS),
   ...Object.keys(FUSED_ELEMENTS),
 ];
-export const ATTACK_FORMS = ['shot', 'chakram', 'beam', 'wave', 'storm'];
+export const ATTACK_FORMS = ['shot', 'spear', 'chakram', 'beam', 'wave', 'storm'];
 export const STANDALONE_WORDS = ['blackhole', 'death', 'meteor', 'veil'];
 const SPELL_STARTS = {
   shot: [...ELEMENTS, 'blast'],
+  spear: [...ELEMENTS],
   chakram: [...ELEMENTS],
   beam: [...ELEMENTS, 'pair'],
   wave: [...ELEMENTS, 'pair'],
@@ -217,8 +224,11 @@ const SPELL_STARTS = {
   veil: ['large', 'pair'],
   shield: [...ELEMENTS, 'pair', 'large', 'heal', 'brace'],
   heal: ['self', 'large', 'pair'],
+  empower: [...ELEMENTS],
+  bless: [...ELEMENTS],
+  fill: ['blood', 'mana'],
   blast: ['shield', 'shot', ...ELEMENTS, 'pair', 'large'],
-  grand: [...ATTACK_FORMS, 'blast', 'heal', 'shield', 'veil', 'meteor', 'blackhole'],
+  grand: [...ATTACK_FORMS, 'blast', 'heal', 'shield', 'veil', 'meteor', 'blackhole', 'empower', 'bless'],
 };
 export const STORM_FORMULAS = [
   ['storm'],
@@ -229,13 +239,18 @@ export const STORM_FORMULAS = [
   ]),
 ];
 export const ADVANCED_FORMULAS = [...Object.keys(SECOND_TIER_ELEMENTS), ...Object.keys(FUSED_ELEMENTS)].flatMap(id => [
-  ['shot', id], ['chakram', id], ['beam', id], ['wave', id], ['shot', id, 'pair'], ['chakram', id, 'pair'], ['shield', id], ['shield', id, 'pair'],
+  ['shot', id], ['spear', id], ['chakram', id], ['beam', id], ['wave', id],
+  ['shot', id, 'pair'], ['spear', id, 'pair'], ['chakram', id, 'pair'],
+  ['shield', id], ['shield', id, 'pair'],
+  ['empower', id], ['bless', id],
 ]);
 export const START_WORDS = ['shot', 'fire', 'ice', 'pair', 'shield'];
 export const LARGE_SHIELD_HP = 9;
 export const LARGE_SHOT_FORMULAS = ELEMENTS.flatMap(id => [
   ['shot', id, 'large'],
   ['shot', id, 'large', 'pair'],
+  ['spear', id, 'large'],
+  ['spear', id, 'large', 'pair'],
 ]);
 export const LARGE_SHIELD_FORMULAS = [
   ['shield', 'large'], ['shield', 'large', 'pair'], ['shield', 'large', 'heal'],
@@ -243,9 +258,14 @@ export const LARGE_SHIELD_FORMULAS = [
 ];
 export const HEAL_AND_GRAND_DEFENSE_FORMULAS = [
   ['heal', 'large'], ['heal', 'self', 'large'], ['heal', 'pair'], ['heal', 'self', 'pair'],
+  ['fill', 'blood'], ['fill', 'blood', 'large'], ['fill', 'mana'], ['fill', 'mana', 'large'],
   ['grand', 'heal'], ['grand', 'heal', 'self'], ['grand', 'heal', 'large'], ['grand', 'heal', 'self', 'large'],
   ['grand', 'shield'], ['grand', 'shield', 'pair'], ['grand', 'shield', 'large'], ['grand', 'shield', 'brace'],
   ...ELEMENTS.map(id => ['grand', 'shield', id]),
+  ...ELEMENTS.flatMap(id => [
+    ['empower', id], ['empower', id, 'large'], ['grand', 'empower', id], ['grand', 'empower', id, 'large'],
+    ['bless', id], ['bless', id, 'large'], ['grand', 'bless', id], ['grand', 'bless', id, 'large'],
+  ]),
   ['grand', 'veil'], ['veil', 'large'], ['veil', 'pair'], ['veil', 'large', 'pair'],
 ];
 export const CROSS_FORM_FORMULAS = ELEMENTS.flatMap(id => [
@@ -253,11 +273,12 @@ export const CROSS_FORM_FORMULAS = ELEMENTS.flatMap(id => [
   ['wave', id, 'pair'], ['wave', id, 'large', 'pair'],
   ['wave', id, 'blast'], ['wave', id, 'pierce'],
   ...(elementFamily(id) === 'ice' ? [['beam', id, 'freeze']] : []),
-  ['shot', id, 'pull'], ['beam', id, 'pull'],
+  ['shot', id, 'pull'], ['spear', id, 'pull'], ['beam', id, 'pull'],
 ]);
 export const GRAND_FORMULAS = [
   ['grand', 'storm'], ['grand', 'meteor'], ['grand', 'blackhole'],
   ...ATTACK_FORMS.flatMap(form => ELEMENTS.map(id => ['grand', form, id])),
+  ...ELEMENTS.map(id => ['grand', 'spear', id, 'pair']),
   ...ELEMENTS.map(id => ['grand', 'chakram', id, 'pair']),
   ...ELEMENTS.map(id => ['grand', 'storm', id, 'pair']),
   ...ELEMENTS.map(id => ['grand', 'beam', id, 'pair']),
@@ -283,16 +304,23 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   if (barraging && barrageIndex !== ids.length - 1) return fail(barrageIndex, 'วาง “กระหน่ำ” ไว้ท้ายสุดเท่านั้น');
   if (devastating && barraging) return fail(barrageIndex, 'ใช้ “กระหน่ำ” ร่วมกับ “ทำลายล้าง” ไม่ได้');
   const baseIds = (devastating || barraging) ? ids.slice(0, -1) : ids;
+  if (baseIds[0] === 'blood') return fail(0, 'ใช้ “เลือด” เดี่ยวไม่ได้ ต้องวางหลัง “เติม” เช่น เติม เลือด');
+  if (baseIds[0] === 'mana') return fail(0, 'ใช้ “มานา” เดี่ยวไม่ได้ ต้องวางหลัง “เติม” เช่น เติม มานา');
+  if (baseIds.includes('fill') && baseIds.includes('grand')) {
+    return fail(baseIds.indexOf('grand'), 'คำว่า “เติม” ใช้ร่วมกับ “มหา” ไม่ได้ ใช้ได้เฉพาะ “ใหญ่” ต่อท้ายเท่านั้น');
+  }
   const allowedSecond = Object.hasOwn(SPELL_STARTS, baseIds[0]) ? SPELL_STARTS[baseIds[0]] : null;
   if (!allowedSecond) {
     return fail(0, devastating ? '“ทำลายล้าง” ใช้ต่อท้ายคาถาโจมตีเท่านั้น' : barraging ? '“กระหน่ำ” ใช้ต่อท้ายคาถาโจมตีเท่านั้น' : 'คำนี้ต่อกับวลีตรงนี้ไม่ได้');
   }
   if (baseIds[1] && !allowedSecond.includes(baseIds[1])) {
+    if (baseIds[0] === 'fill') return fail(1, 'วาง “เลือด” หรือ “มานา” หลัง “เติม” เท่านั้น');
+    if (baseIds[0] === 'empower' || baseIds[0] === 'bless') return fail(1, 'เติมธาตุหลัง “เสริม” หรือ “อวยพร”');
     return fail(1, ATTACK_FORMS.includes(baseIds[0]) ? 'เติมธาตุหลังรูปทรง' : 'คำนี้ต่อกับวลีตรงนี้ไม่ได้');
   }
   const grand = baseIds[0] === 'grand';
   const [head, ...tail] = grand ? baseIds.slice(1) : baseIds;
-  if (grand && !SPELL_STARTS.grand.includes(head)) return fail(1, 'วางรูปเวท ฮีล โล่ ม่าน อุกกาบาต หรือหลุมดำหลัง “มหา”');
+  if (grand && !SPELL_STARTS.grand.includes(head)) return fail(1, 'วางรูปเวท เสริม อวยพร ฮีล โล่ ม่าน อุกกาบาต หรือหลุมดำหลัง “มหา”');
   const [second, third, fourth] = ['beam', 'wave', 'shield'].includes(head) && tail[0] === 'pair' &&
     ELEMENTS.includes(tail[1]) && ELEMENTS.includes(tail[2])
     ? [tail[1], tail[2], 'pair'] : tail;
@@ -322,7 +350,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     if (ids.includes('large')) spell = { ...spell, large: true };
     if (devastating) spell = { ...spell, devastation: true, multiplier: spell.multiplier * 2, cost: spell.cost + WORDS.devastation.cost };
     if (barraging) {
-      const multiShotForm = ['shot', 'chakram', 'beam', 'meteor'].includes(spell.form) || (spell.form === 'blast' && spell.blastShot);
+      const multiShotForm = ['shot', 'spear', 'chakram', 'beam', 'meteor'].includes(spell.form) || (spell.form === 'blast' && spell.blastShot);
       spell = {
         ...spell,
         barrage: true,
@@ -473,6 +501,84 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     return second === 'self' && !third
       ? finish({ type: 'self', form: 'heal', healing: 4, cost: 3 }) : invalid(second === 'self' ? 2 : 1);
   }
+  if (head === 'fill') {
+    if (grand) return fail(0, 'คำว่า “เติม” ใช้ร่วมกับ “มหา” ไม่ได้ ใช้ได้เฉพาะ “ใหญ่” ต่อท้ายเท่านั้น');
+    if (second !== 'blood' && second !== 'mana') return fail(1, 'เติมต้องใช้คู่กับ “เลือด” หรือ “มานา”');
+    if (third && third !== 'large') return fail(2, 'คำว่า “เติม” ต่อท้ายได้เฉพาะ “ใหญ่” เท่านั้น');
+    if (fourth) return invalid(3);
+    const isLarge = third === 'large';
+    if (second === 'blood') {
+      return finish({
+        type: 'self',
+        form: 'fill',
+        resource: 'blood',
+        healing: isLarge ? 12 : 7,
+        cost: isLarge ? 5 : 3,
+      });
+    }
+    return finish({
+      type: 'self',
+      form: 'fill',
+      resource: 'mana',
+      manaGain: isLarge ? 10 : 6,
+      cost: isLarge ? 2 : 1,
+    });
+  }
+  if (head === 'empower' || head === 'bless') {
+    if (!ELEMENTS.includes(second)) return fail(grand ? 2 : 1, `เติมธาตุหลัง “${WORDS[head].label}”`);
+    const isBless = head === 'bless';
+    const baseHeadCost = WORDS[head].cost;
+    const elemTierPct = elemId => {
+      if (Object.hasOwn(FUSED_ELEMENTS, elemId)) return isBless ? 70 : 45;
+      if (Object.hasOwn(SECOND_TIER_ELEMENTS, elemId)) return isBless ? 60 : 40;
+      return isBless ? 40 : 25;
+    };
+    let elements = [second];
+    let buffPct = elemTierPct(second);
+    let buffTurns = 3;
+    let cost = baseHeadCost + WORDS[second].cost;
+    let buffPierce = isBless ? 1 : 0;
+    if (third === 'large') {
+      if (fourth) return invalid(grand ? 3 : 3);
+      buffPct = Math.round(buffPct * 1.5);
+      cost += 2;
+    } else if (third === 'pair') {
+      if (!fourth) {
+        buffPct = Math.round(buffPct * 1.5);
+        buffTurns += 1;
+        cost += 3;
+      } else if (!grand && ELEMENTS.includes(fourth)) {
+        if (fourth === second) {
+          buffPct = Math.round(buffPct * 1.5);
+          buffTurns += 1;
+          cost += 3;
+        } else {
+          elements = [second, fourth].sort();
+          buffPct = Math.round((elemTierPct(second) + elemTierPct(fourth)) / 2);
+          cost = baseHeadCost + WORDS[second].cost + WORDS[fourth].cost - 1;
+        }
+      } else {
+        return invalid(3);
+      }
+    } else if (third) {
+      return invalid(grand ? 3 : 2);
+    }
+    if (grand) {
+      buffPct = Math.round(buffPct * 1.5);
+      buffTurns += 1;
+      cost += 3;
+      if (isBless) buffPierce += 1;
+    }
+    return finish({
+      type: 'self',
+      form: head,
+      elements,
+      buffPct,
+      buffTurns,
+      buffPierce,
+      cost,
+    });
+  }
   if (head === 'storm') {
     const dual = ELEMENTS.includes(third);
     const elements = ELEMENTS.includes(second) ? [second] : [];
@@ -616,7 +722,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     return invalid(2);
   }
   if (!ELEMENTS.includes(element)) return fail(grand ? 2 : 1, 'เติมธาตุหลังรูปทรง');
-  const baseCost = { shot: 1, chakram: 3, beam: 2, wave: 3 }[form] + WORDS[element].cost;
+  const baseCost = { shot: 1, spear: 1, chakram: 3, beam: 2, wave: 3 }[form] + WORDS[element].cost;
   const baseMult = form === 'chakram' ? 1.8 : 1;
   const spell = { type: 'attack', form, elements: [element], shots: 1, blasts: 0, multiplier: baseMult, cost: baseCost };
   if (!third) return finish(spell);
@@ -626,10 +732,10 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   if (split) {
     return finish({ ...spell, secondElement: third, shots: form === 'wave' ? 1 : 2, cost: 2 * baseCost + WORDS[third].cost - WORDS[element].cost });
   }
-  if (third === 'pull' && !fourth && ['shot', 'chakram', 'beam', 'wave'].includes(form)) {
+  if (third === 'pull' && !fourth && ['shot', 'spear', 'chakram', 'beam', 'wave'].includes(form)) {
     return finish({ ...spell, pull: true, cost: baseCost + 1 });
   }
-  if (form !== 'shot' && form !== 'chakram') {
+  if (form !== 'shot' && form !== 'spear' && form !== 'chakram') {
     if (third === 'large' && fourth === 'pair') {
       return finish(form === 'wave'
         ? { ...spell, wavePair: true, multiplier: 1.5, cost: 2 * (baseCost + 2) }
@@ -690,9 +796,10 @@ export const DEVASTATION_FORMULAS = [
   ['blackhole'],
   ['blackhole', 'large'],
   ...ELEMENTS.flatMap(id => [
-    ['shot', id], ['chakram', id], ['beam', id], ['wave', id], ['blast', id],
+    ['shot', id], ['spear', id], ['chakram', id], ['beam', id], ['wave', id], ['blast', id],
     ['shot', 'blast', id],
     ...['pair', 'blast', 'pierce', 'large', 'seal', 'dispel', 'burn', 'freeze', 'push'].map(mod => ['shot', id, mod]),
+    ...['pair', 'blast', 'pierce', 'large', 'seal', 'dispel', 'burn', 'freeze', 'push'].map(mod => ['spear', id, mod]),
     ...['pair', 'blast', 'pierce', 'large', 'seal', 'dispel', 'burn', 'freeze', 'push'].map(mod => ['chakram', id, mod]),
   ]),
   ...STORM_FORMULAS.filter(phrase => phrase.length < 4),
@@ -709,16 +816,16 @@ export const BARRAGE_FORMULAS = [
   ['blast'],
   ['blast', 'large'],
   ...ELEMENTS.flatMap(id => [
-    ['grand', 'chakram', id], ['grand', 'shot', id], ['grand', 'storm', id], ['grand', 'beam', id], ['grand', 'wave', id],
-    ['chakram', id], ['shot', id], ['storm', id], ['beam', id], ['wave', id], ['blast', id],
-    ['chakram', id, 'large'], ['shot', id, 'large'], ['chakram', id, 'pierce'], ['shot', id, 'pierce'],
+    ['grand', 'chakram', id], ['grand', 'shot', id], ['grand', 'spear', id], ['grand', 'storm', id], ['grand', 'beam', id], ['grand', 'wave', id],
+    ['chakram', id], ['shot', id], ['spear', id], ['storm', id], ['beam', id], ['wave', id], ['blast', id],
+    ['chakram', id, 'large'], ['shot', id, 'large'], ['spear', id, 'large'], ['chakram', id, 'pierce'], ['shot', id, 'pierce'], ['spear', id, 'pierce'],
   ]),
 ].map(phrase => [...phrase, 'barrage']).filter(phrase => parseSpell(phrase).ok);
 
 const TAIL_CANDIDATES = Object.freeze([
   ...ELEMENTS,
   'pair', 'blast', 'pierce', 'large', 'push', 'pull', 'burn', 'freeze',
-  'seal', 'dispel', 'heal', 'self', 'brace', 'shield', 'shot', 'devastation', 'barrage',
+  'seal', 'dispel', 'heal', 'self', 'brace', 'shield', 'shot', 'spear', 'blood', 'mana', 'devastation', 'barrage',
 ]);
 
 let spellCatalog;

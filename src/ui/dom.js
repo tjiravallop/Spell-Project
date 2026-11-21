@@ -29,6 +29,7 @@ export function restLocationLabel(checkpoint) {
 
 export const CARD_META = Object.freeze({
   shot: { roleClass: 'role-form' },
+  spear: { roleClass: 'role-form' },
   chakram: { roleClass: 'role-form' },
   beam: { roleClass: 'role-form' },
   wave: { roleClass: 'role-form' },
@@ -51,6 +52,11 @@ export const CARD_META = Object.freeze({
   shield: { roleClass: 'role-defense' },
   heal: { roleClass: 'role-support' },
   self: { roleClass: 'role-support' },
+  empower: { roleClass: 'role-support' },
+  bless: { roleClass: 'role-support' },
+  fill: { roleClass: 'role-support' },
+  blood: { roleClass: 'role-support' },
+  mana: { roleClass: 'role-support' },
   burn: { roleClass: 'role-mod' },
   freeze: { roleClass: 'role-mod' },
   push: { roleClass: 'role-mod' },
@@ -79,7 +85,7 @@ export function playingCardFace(state, id, { headerRight = '', footerSub = '', b
   const word = WORDS[id];
   const upgLv = getCardUpgradeLevel(state, id);
   const hasSec = hasCardSecondaryUpgrade(state, id);
-  const secEffect = hasSec ? getCardSecondaryEffect(id) : null;
+  const secEffect = hasSec ? getCardSecondaryEffect(id, Math.max(7, upgLv)) : null;
   const upgTags = [];
   if (upgLv > 0) upgTags.push(`<span class="card-upg-pip stat-pip" title="${escape(describeCardUpgradeEffect(id, upgLv))}">+${upgLv}</span>`);
   if (hasSec && secEffect) upgTags.push(`<span class="card-upg-pip sec-pip" title="${escape(secEffect.description)}">${escape(secEffect.badge)}</span>`);

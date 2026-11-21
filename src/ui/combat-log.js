@@ -101,6 +101,12 @@ export function formatTurnLogCard(entry, index, fallbackEnemies = []) {
       const move = event.advancing ? 'ไล่ประชิด' : event.pulled ? 'ดึง' : 'ผลัก';
       return `<li class="log-ev ev-status"><span class="ev-tag tag-status">${move}</span><span><strong class="hl-target">${escape(names(event.target))}</strong> ไปช่อง ${event.slot + 1}</span></li>`;
     }
+    if (event.type === 'wall-slam') {
+      if (event.collision && event.collider) {
+        return `<li class="log-ev ev-dmg"><span class="ev-tag tag-dmg">ชนกระแทก</span><span><strong class="hl-target">${escape(names(event.target))}</strong> กระแทกชนกับ <strong class="hl-target">${escape(names(event.collider))}</strong> · ดาเมจทะลุเกราะ <strong class="hl-dmg">${event.amount}</strong></span></li>`;
+      }
+      return `<li class="log-ev ev-dmg"><span class="ev-tag tag-dmg">กระแทกขอบ</span><span><strong class="hl-target">${escape(names(event.target))}</strong> ชนขอบสนาม · ดาเมจ <strong class="hl-dmg">${event.amount}</strong></span></li>`;
+    }
     if (event.type === 'swap') {
       return `<li class="log-ev ev-status"><span class="ev-tag tag-status">สลับช่อง</span><span>${escape(names(event.source))} สลับกับ ${escape(names(event.target))}</span></li>`;
     }
