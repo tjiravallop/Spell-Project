@@ -1599,28 +1599,61 @@ export class Battlefield {
     g.save();
     g.globalAlpha = Math.sin(Math.PI * t) * 0.85;
     if (kind === 'blackhole') {
-      // Motes spiral inward toward the selected slot before the well persists.
-      for (let i = 0; i < 8; i++) {
-        const angle = i * Math.PI / 4 + t * 4;
-        const radius = (24 - t * 18) * s;
-        this.pixelDiamond(Math.round(x + Math.cos(angle) * radius), Math.round(y - 10 + Math.sin(angle) * radius * 0.55), Math.max(1, Math.round(s)), pal.primary, pal.core);
+      // Deep singularity core + accretion disk + inward curving graviton motes
+      const holeR = Math.max(4, Math.round((8 + Math.sin(t * Math.PI) * 4) * s));
+      this.pixelEllipse(x, y - 6, Math.round(holeR * 1.6), Math.round(holeR * 0.9), pal.secondary, false, Math.max(1, Math.round(s)));
+      this.pixelCircle(x, y - 6, holeR, '#05000d', true);
+      this.pixelCircle(x, y - 6, Math.max(2, holeR - Math.round(2 * s)), '#000000', true);
+      for (let i = 0; i < 12; i++) {
+        const angle = i * Math.PI / 6 + t * 5;
+        const radius = (28 - t * 22) * s;
+        const px = Math.round(x + Math.cos(angle) * radius);
+        const py = Math.round(y - 6 + Math.sin(angle) * radius * 0.55);
+        this.pixelDiamond(px, py, Math.max(1, Math.round(s)), i % 2 ? pal.primary : pal.core, pal.rim);
       }
     } else if (kind === 'meteor') {
-      // Scatter fragments from the impact rather than another circular glow.
-      this.pixelEllipse(x, 146, Math.round((10 + t * 22) * s), Math.max(2, Math.round(3 * s)), pal.secondary, false);
-      for (let i = 0; i < 7; i++) {
-        const dx = Math.round((i - 3) * (4 + t * 4) * s);
-        const dy = Math.round(Math.sin(t * Math.PI) * (7 + (i % 3) * 5) * s);
-        g.fillStyle = i % 2 ? pal.primary : pal.secondary;
-        g.fillRect(x + dx - 2, y - dy, Math.max(2, Math.round(4 * s)), Math.max(2, Math.round(3 * s)));
+      // Expanding volcanic impact shockwave on ground + arc ejecta + rising embers
+      this.pixelEllipse(x, 146, Math.round((12 + t * 30) * s), Math.max(3, Math.round(5 * s)), pal.secondary, false, Math.max(1, Math.round(s)));
+      this.pixelEllipse(x, 146, Math.round((6 + t * 18) * s), Math.max(2, Math.round(3 * s)), pal.primary, false);
+      for (let i = 0; i < 9; i++) {
+        const dir = (i - 4);
+        const arcX = Math.round(x + dir * (5 + t * 7) * s);
+        const arcY = Math.round(146 - Math.sin(t * Math.PI) * (14 + Math.abs(dir) * 3) * s);
+        g.fillStyle = i % 2 ? pal.primary : pal.core;
+        g.fillRect(arcX - Math.max(1, Math.round(s)), arcY, Math.max(2, Math.round(3 * s)), Math.max(2, Math.round(3 * s)));
+      }
+      for (let i = 0; i < 6; i++) {
+        const sparkX = Math.round(x + Math.sin(t * 5 + i * 1.5) * (10 + t * 15) * s);
+        const sparkY = Math.round(140 - t * 28 * s - (i % 3) * 6 * s);
+        this.pixelDiamond(sparkX, sparkY, i % 2 ? 2 : 1, pal.primary, pal.core);
       }
     } else if (kind === 'death') {
-      // A closing rune makes the execution distinct from elemental damage.
-      const radius = Math.round((19 - t * 10) * s);
-      this.pixelCircle(x, y, radius, pal.rim, false);
+      // Ominous closing runic ring with inward collapsing void sigil & spectral skull
+      const radius = Math.round((22 - t * 12) * s);
+      this.pixelCircle(x, y, radius, pal.rim, false, Math.max(1, Math.round(s)));
+      this.pixelCircle(x, y, Math.max(2, radius - Math.round(3 * s)), pal.primary, false);
+      const sw = Math.round(5 * s);
+      const sh = Math.round(6 * s);
+      // Skull brow & temples
+      g.fillStyle = pal.primary;
+      g.fillRect(x - sw, y - sh, sw * 2, Math.round(5 * s));
+      // Hollow glowing eye sockets
+      g.fillStyle = '#05000d';
+      g.fillRect(x - Math.round(3 * s), y - Math.round(3 * s), Math.max(1, Math.round(2 * s)), Math.max(1, Math.round(2 * s)));
+      g.fillRect(x + Math.round(s), y - Math.round(3 * s), Math.max(1, Math.round(2 * s)), Math.max(1, Math.round(2 * s)));
+      // Glowing eye embers
       g.fillStyle = pal.core;
-      g.fillRect(x - Math.round(s), y - Math.round(9 * s), Math.max(2, Math.round(2 * s)), Math.round(18 * s));
-      g.fillRect(x - Math.round(5 * s), y - Math.round(4 * s), Math.round(10 * s), Math.max(2, Math.round(2 * s)));
+      g.fillRect(x - Math.round(2 * s), y - Math.round(3 * s), 1, 1);
+      g.fillRect(x + Math.round(2 * s), y - Math.round(3 * s), 1, 1);
+      // Jaw and teeth
+      g.fillStyle = pal.secondary;
+      g.fillRect(x - Math.round(2 * s), y + Math.round(2 * s), Math.round(4 * s), Math.max(1, Math.round(2 * s)));
+      // Inward spiraling soul motes
+      for (let i = 0; i < 6; i++) {
+        const ang = i * Math.PI / 3 + t * 4;
+        const dist = (26 - t * 20) * s;
+        this.pixelDiamond(Math.round(x + Math.cos(ang) * dist), Math.round(y + Math.sin(ang) * dist * 0.7), Math.max(1, Math.round(s)), pal.primary, pal.core);
+      }
     } else {
       // The rising bands form a translucent curtain around the player.
       for (let i = 0; i < 5; i++) {
@@ -2002,16 +2035,18 @@ export class Battlefield {
         this.pixelEllipse(tx, ty, Math.max(2, Math.round(radius * (1 - t * 0.08))), Math.max(1, Math.round(radius * 0.45)), t % 2 && dual ? secondColor : pal.primary, false, Math.max(1, stroke - 1));
         g.restore();
       }
-      const spin = this.settings.reducedMotion ? 0 : now * 0.032;
+      const spin = this.settings.reducedMotion ? 0 : now * 0.038;
       this.pixelCircle(px, py, radius + Math.max(1, Math.round(scale)), pal.secondary, false, stroke);
       this.pixelCircle(px, py, radius, pal.primary, false, stroke);
       this.pixelCircle(px, py, Math.max(2, Math.round(radius * 0.55)), pal.core, false, Math.max(1, Math.round(scale * 0.8)));
-      for (let i = 0; i < 4; i++) {
-        const angle = spin + (i * Math.PI) / 2;
-        const bx = Math.round(px + Math.cos(angle) * (radius + 3 * scale));
-        const by = Math.round(py + Math.sin(angle) * (radius + 3 * scale));
-        const toothColor = dual && i % 2 ? secondColor : pal.rim;
-        this.pixelDiamond(bx, by, Math.max(2, Math.round(2.5 * Math.min(2.5, scale))), toothColor, pal.core);
+      this.pixelDiamond(px, py, Math.max(2, Math.round(3 * Math.min(2, scale))), pal.rim, pal.core);
+      for (let i = 0; i < 8; i++) {
+        const angle = spin + (i * Math.PI) / 4;
+        const toothDist = radius + Math.round((i % 2 === 0 ? 4 : 2) * scale);
+        const bx = Math.round(px + Math.cos(angle) * toothDist);
+        const by = Math.round(py + Math.sin(angle) * toothDist);
+        const toothColor = dual && i % 2 ? secondColor : (i % 2 === 0 ? pal.rim : pal.primary);
+        this.pixelDiamond(bx, by, Math.max(1, Math.round((i % 2 === 0 ? 2.5 : 1.8) * Math.min(2.5, scale))), toothColor, pal.core);
       }
       if (event.grand) {
         this.pixelCircle(px, py, radius + Math.round(4 * scale), C[31], false, stroke);
@@ -2117,11 +2152,23 @@ export class Battlefield {
     }
 
     if (dual) {
-      g.fillStyle = secondColor;
-      for (let bx = startX; bx < targetX; bx += 8) {
-        const waveY = Math.round(Math.sin((bx + now * 0.25) * 0.18) * 5 * scale);
-        g.fillRect(bx, Math.max(0, startY + waveY - scale), Math.round(5 * Math.min(2.5, scale)), Math.max(3, Math.round(3 * scale)));
+      const step = Math.max(4, Math.round(6 * Math.min(2, scale)));
+      for (let bx = startX; bx < targetX; bx += step) {
+        const phase = (bx * 0.16 + now * 0.05);
+        const wave1 = Math.round(Math.sin(phase) * 5 * scale);
+        const wave2 = -wave1;
+        const strandW = Math.max(2, Math.round(3 * Math.min(2.5, scale)));
+        const strandH = Math.max(2, Math.round(2.5 * scale));
+        g.fillStyle = pal.primary;
+        g.fillRect(bx, Math.max(0, startY + wave1 - Math.floor(strandH / 2)), strandW, strandH);
+        g.fillStyle = secondColor;
+        g.fillRect(bx, Math.max(0, startY + wave2 - Math.floor(strandH / 2)), strandW, strandH);
+        if (Math.abs(wave1) < Math.round(1.5 * scale)) {
+          this.pixelDiamond(bx, startY, Math.max(1, Math.round(2 * Math.min(2, scale))), '#ffffff', pal.core);
+        }
       }
+      this.pixelCircle(targetX, startY, Math.round((9 + Math.sin(fraction * Math.PI) * 10) * scale), secondColor, false, stroke);
+      this.pixelDiamond(targetX, startY, Math.round(8 * Math.min(3, scale)), secondColor, '#ffffff');
     }
     const diamondStep = Math.round(14 * Math.min(2, scale));
     const diamondR = Math.round(3 * Math.min(3, scale));
@@ -2397,28 +2444,39 @@ export class Battlefield {
     const pal = ELEMENT_IMPACT.death;
     const f = Math.max(0, Math.min(1, fraction));
     g.save();
-    // Vertical execution pillar + sweeping crimson grim X-slash
-    if (f < 0.7) {
-      g.globalAlpha = Math.sin((f / 0.7) * Math.PI) * 0.7;
-      g.fillStyle = pal.secondary; g.fillRect(x - 10, 18, 20, 128);
-      g.fillStyle = pal.primary; g.fillRect(x - 4, 24, 8, 122);
-      g.fillStyle = pal.core; g.fillRect(x - 1, 30, 2, 116);
+    // 1. Vertical execution beam piercing from heavens into ground
+    if (f < 0.75) {
+      const beamAlpha = Math.sin((f / 0.75) * Math.PI) * 0.85;
+      g.globalAlpha = beamAlpha;
+      g.fillStyle = pal.secondary; g.fillRect(x - 12, 12, 24, 134);
+      g.fillStyle = pal.primary; g.fillRect(x - 5, 16, 10, 130);
+      g.fillStyle = pal.core; g.fillRect(x - 2, 20, 4, 126);
     }
-    g.globalAlpha = Math.max(0, 1 - f * 0.85);
-    const reach = Math.round(8 + Math.min(1, f * 1.8) * 18);
+    // 2. Twin grim scythe execution cross-slash
+    g.globalAlpha = Math.max(0, 1 - f * 0.88);
+    const reach = Math.round(10 + Math.min(1, f * 1.9) * 24);
     for (let s = -reach; s <= reach; s++) {
-      g.fillStyle = pal.secondary; g.fillRect(x + s - 2, y + s - 2, 4, 4);
-      g.fillStyle = pal.primary; g.fillRect(x + s - 1, y + s - 1, 2, 2);
-      g.fillStyle = pal.core; g.fillRect(x + s, y + s, 1, 1);
-      g.fillStyle = pal.primary; g.fillRect(x + s - 1, y - s - 1, 2, 2);
+      g.fillStyle = pal.secondary;
+      g.fillRect(x + s - 3, y + s - 3, 6, 6);
+      g.fillRect(x + s - 3, y - s - 3, 6, 6);
+      g.fillStyle = pal.primary;
+      g.fillRect(x + s - 1, y + s - 1, 3, 3);
+      g.fillRect(x + s - 1, y - s - 1, 3, 3);
+      g.fillStyle = pal.core;
+      g.fillRect(x + s, y + s, 1, 1);
+      g.fillRect(x + s, y - s, 1, 1);
     }
-    this.pixelCircle(x, y, Math.round(8 + f * 24), pal.primary, false);
-    this.pixelEllipse(x, 146, Math.round(14 + f * 16), 4, pal.secondary, false);
-    for (let i = 0; i < 8; i++) {
-      const ang = (i * Math.PI) / 4 + now * 0.002;
-      const sx = Math.round(x + Math.cos(ang) * (6 + f * 20));
-      const sy = Math.round(y + Math.sin(ang) * (6 + f * 20) - f * 12);
-      this.pixelDiamond(sx, sy, 2, pal.primary, pal.core);
+    // 3. Central death sigil & expanding void shockwaves
+    this.pixelCircle(x, y, Math.round(10 + f * 28), pal.primary, false, 2);
+    this.pixelCircle(x, y, Math.round(6 + f * 16), pal.rim, false, 1);
+    this.pixelEllipse(x, 146, Math.round(16 + f * 22), 5, pal.secondary, false, 2);
+    // 4. Rising soul wisps (harvested soul particles ascending)
+    for (let i = 0; i < 10; i++) {
+      const ang = (i * Math.PI) / 5 + now * 0.003;
+      const dist = Math.round(8 + f * 26);
+      const sx = Math.round(x + Math.cos(ang) * dist);
+      const sy = Math.round(y + Math.sin(ang) * dist * 0.6 - f * 24);
+      this.pixelDiamond(sx, sy, i % 2 ? 2 : 1, pal.primary, pal.core);
     }
     g.restore();
   }
