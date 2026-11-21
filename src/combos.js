@@ -1,6 +1,8 @@
 import {
   WORDS,
   ELEMENTS,
+  ELEMENT_LABELS,
+  CREATURE_STATS,
   STANDALONE_WORDS,
   LARGE_SHOT_FORMULAS,
   LARGE_SHIELD_FORMULAS,
@@ -216,13 +218,14 @@ export const DEFENSE_CANDIDATES = Object.freeze([
 
 export const MASTER_FORMULAS = Object.freeze(
   Array.from(getSpellCatalog(), ([key, parsed]) => {
+    const isSummon = parsed.spell?.form === 'summon';
     const isBuff = ['empower', 'bless', 'ascension', 'timestop'].includes(parsed.spell?.form);
     const isManaFill = parsed.spell?.form === 'fill' && parsed.spell?.resource === 'mana';
     const isHeal = parsed.spell?.form === 'heal' || (parsed.spell?.healing ?? 0) > 0;
     const isDefense = parsed.spell?.type === 'self';
-    const category = isBuff ? 'บัพ' : isManaFill ? 'มานา' : isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
-    const group = isDefense || isHeal ? 'defense' : 'attack';
-    const kindClass = isHeal || isManaFill ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack';
+    const category = isSummon ? 'อัญเชิญ' : isBuff ? 'บัพ' : isManaFill ? 'มานา' : isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
+    const group = isSummon ? 'summon' : (isDefense || isHeal ? 'defense' : 'attack');
+    const kindClass = isSummon ? 'combo-summon' : (isHeal || isManaFill ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack');
     return Object.freeze({
       key,
       phrase: parsed.ids,
@@ -321,6 +324,15 @@ export function describeFormulaEffect(formula) {
   if (!sp) return '';
   const [first] = formula.phrase;
   if (formula.phrase.length === 1 && STANDALONE_WORDS.includes(first)) return WORDS[first].description;
+  if (sp.form === 'summon') {
+    const cStats = CREATURE_STATS[sp.creature];
+    const cName = cStats?.name || WORDS[sp.creature]?.label || sp.creature;
+    const elemName = sp.element ? (ELEMENT_LABELS[sp.element] || WORDS[sp.element]?.label || sp.element) : 'ไร้ธาตุ';
+    const hp = sp.grand ? Math.round((cStats?.baseHp ?? 15) * 1.5) : (cStats?.baseHp ?? 15);
+    const counter = sp.grand ? Math.round((cStats?.baseCounter ?? 4) * 1.5) : (cStats?.baseCounter ?? 4);
+    const strike = sp.grand ? Math.round((cStats?.baseStrike ?? 12) * 1.5) : (cStats?.baseStrike ?? 12);
+    return `อัญเชิญ ${cName} (ธาตุ${elemName} · ${hp} HP) ยืนแนวหน้ารับดาเมจเดี่ยวแทนผู้เล่น · สวนกลับ ${counter} · เทิร์นหน้าออกหมัดประสาน ${strike} แล้วสลายตัว`;
+  }
   if (sp.form === 'detonate') return `ระเบิดโล่${WORDS[sp.element].label}ที่มีอยู่ โจมตีศัตรูทุกตัว`;
   if (sp.delayed) return `รอดถึงต้นเทิร์นถัดไปเพื่อกางโล่ ${sp.layerHp} หน่วย 1 ชั้น · อยู่สองเทิร์นหลังเริ่มกาง`;
   if (sp.form === 'heal') {

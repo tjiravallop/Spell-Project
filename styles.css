@@ -57,6 +57,8 @@
 .combo-shield.unlocked strong{color:#a8dce7}
 .combo-heal .combo-cat{color:var(--nature);border-color:#3e5f3d;background:#192b1a}
 .combo-heal.unlocked strong{color:#a8d89a}
+.combo-summon .combo-cat{color:#f59e0b;border-color:#78350f;background:#291b07}
+.combo-summon.unlocked strong{color:#fcd34d}
 .combo-attack .combo-cat{color:var(--gold);border-color:#5a4626;background:#292114}
 .combo-chip.unlocked:hover:not(:disabled){background:var(--raised);border-color:var(--accent);transform:translateY(-2px)}
 .combo-chip.prefix-match{border-color:var(--gold);background:#1c2520}
@@ -389,6 +391,7 @@ body.reduced-motion .turn-label{animation:none!important}
 .grimoire-card.is-discovered.combo-attack{border-color:#594036}
 .grimoire-card.is-discovered.combo-shield{border-color:#385966}
 .grimoire-card.is-discovered.combo-heal{border-color:#3e6142}
+.grimoire-card.is-discovered.combo-summon{border-color:#78350f}
 .grimoire-card.is-playable{border-color:var(--gold)!important;box-shadow:0 0 0 1px #dab87a33,0 4px 14px #0006}
 .grimoire-card.is-locked{opacity:.68;background:#0f1719;border-style:dashed}
 .grimoire-card-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -396,6 +399,7 @@ body.reduced-motion .turn-label{animation:none!important}
 .grimoire-card.combo-attack .grimoire-cat{background:#331e17;color:#ffb59b;border-color:#6b3d2f}
 .grimoire-card.combo-shield .grimoire-cat{background:#142c36;color:#9ce3f5;border-color:#2f6175}
 .grimoire-card.combo-heal .grimoire-cat{background:#182e1b;color:#ade6a1;border-color:#3b6940}
+.grimoire-card.combo-summon .grimoire-cat{background:#291b07;color:#fcd34d;border-color:#92400e}
 .grimoire-title{font-size:13.5px;color:var(--text);margin-right:auto}
 .grimoire-cost{font-size:11px;font-weight:700;color:var(--gold);background:#1b2218;border:1px solid #404d34;padding:1px 6px;border-radius:4px;font-variant-numeric:tabular-nums}
 .grimoire-words{display:flex;align-items:center;gap:4px;flex-wrap:wrap}

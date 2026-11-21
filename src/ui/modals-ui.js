@@ -90,6 +90,7 @@ export function createModalsController(ctx) {
     if (grimoireTab === 'discovered') filtered = discoveredList;
     else if (grimoireTab === 'attack') filtered = MASTER_FORMULAS.filter(f => f.group === 'attack');
     else if (grimoireTab === 'defense') filtered = MASTER_FORMULAS.filter(f => f.group === 'defense');
+    else if (grimoireTab === 'summon') filtered = MASTER_FORMULAS.filter(f => f.group === 'summon');
 
     const inBattle = screen === 'battle' && state?.phase === 'battle' && !busy && state.player.hand.length <= getHandLimit(state.player);
     $('grimoire-castable-label').hidden = !inBattle;
