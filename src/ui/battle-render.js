@@ -18,6 +18,7 @@ import {
   FLOOR80_BOSS_ROOM,
   FLOOR90_BOSS_ROOM,
   FLOOR100_BOSS_ROOM,
+  ETERNITY_PHASE_HP,
   UPPER_RESTS,
   firstClimaxTurn,
   enemyClimaxBonus,
@@ -480,7 +481,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
         const eternityGuarded = state.enemies.filter(ally => ally.id !== enemy.id && ally.hp > 0).length;
         bossHint = eternityGuarded > 0
           ? `เฟส 1 สภากาลอวกาศ · ลูกสมุน ${eternityGuarded} ตัวลดดาเมจบอส −${eternityGuarded * 15}% และเสริมบท 2 +${eternityGuarded * 10} ดาเมจ`
-          : 'เฟส 1 สภากาลอวกาศ · สภาถูกโค่นหมดแล้ว! บอสไร้การคุ้มกัน (≤50% HP เข้าเฟส 2)';
+          : `เฟส 1 · สภาถูกโค่นหมดแล้ว · เข้าเฟส 2 เมื่อร่างแรกเหลือ ${ETERNITY_PHASE_HP[1].toLocaleString('en-US')} HP`;
         badges.push(`<span class="enemy-badge ${eternityGuarded > 0 ? 'badge-armor' : 'badge-push'}" title="${bossHint}">${eternityGuarded > 0 ? `เฟส 1 · สภา −${eternityGuarded * 15}% / +${eternityGuarded * 10}` : 'เฟส 1 · ไร้สภา'}</span>`);
       }
     } else if (enemy.kind === 'eternity_reborn') {
@@ -919,6 +920,7 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
   let headline = `ทำความเสียหาย ${s.damage} · รับความเสียหาย ${s.incoming} · HP เหลือ ${s.hp}`;
   if (fallback !== null) headline = `จะแพ้ศึกและกลับ${restLocationLabel(fallback)}`;
   else if (s.phase === 'lost') headline = 'HP จะเหลือ 0 และรอบจะจบ';
+  else if (s.eternityPhase && s.phase === 'battle') headline = `บอสจะเข้าสู่เฟส ${s.eternityPhase}/3 · ทำความเสียหาย ${s.damage} · HP เหลือ ${s.hp}`;
   else if (s.phase === 'won') headline = `ชนะศึก · HP เหลือ ${s.hp}`;
   else if (s.phase === 'reward') headline = `ชนะศึกและได้เลือกการ์ดคำ · HP เหลือ ${s.hp}`;
   else if (s.nextRoom !== state.room || s.phase === 'sanctuary') headline = `ชนะศึก${s.roomRecovery ? ` · ฟื้น HP ${s.roomRecovery}` : ''} · HP เหลือ ${s.hp}`;

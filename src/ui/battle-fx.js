@@ -1,5 +1,5 @@
 import { WORDS, elementFamily } from '../words.js';
-import { ENEMIES, RELIC_DRAFT_CATALOG } from '../run.js';
+import { ETERNITY_PHASE_HP, ETERNITY_TOTAL_HP, eternityHealth, ENEMIES, RELIC_DRAFT_CATALOG } from '../run.js';
 import { damageLabel, fizzleLabel, wardLabel } from '../render.js';
 import { $, queueFxClassRestart, upperCheckpoint, checkpointFloor } from './dom.js';
 
@@ -21,6 +21,24 @@ let lastPlayerHpWidth = null;
 
 export function resetPlayerHpFx() {
   lastPlayerHpWidth = null;
+}
+
+const ETERNITY_PHASE_NAMES = ['สภากาลอวกาศ', 'ผลึกสลับธาตุ', 'ร่างจุตินิรันดร์'];
+
+export function renderEternityMeter(health) {
+  const meter = $('eternity-meter');
+  if (!meter) return;
+  meter.hidden = !health;
+  if (!health) return;
+  const { phase, remaining } = health;
+  meter.dataset.phase = phase;
+  let preceding = 0;
+  const segments = ETERNITY_PHASE_HP.map((size, index) => {
+    preceding += size;
+    const left = Math.max(0, Math.min(size, remaining - (ETERNITY_TOTAL_HP - preceding)));
+    return `<span class="eternity-segment" style="--phase-weight:${size};--phase-left:${left / size * 100}%"${phase === index + 1 ? ' aria-current="step"' : ''}><i></i><small>${index + 1} ${ETERNITY_PHASE_NAMES[index]}</small></span>`;
+  }).join('');
+  meter.innerHTML = `<div class="eternity-meter-header"><strong>เฟส ${phase}/3 · ${ETERNITY_PHASE_NAMES[phase - 1]}</strong><span>${remaining.toLocaleString('en-US')} / ${ETERNITY_TOTAL_HP.toLocaleString('en-US')} HP</span></div><div class="eternity-segments">${segments}</div>`;
 }
 
 export function renderPlayerHp(hp, maxHp) {
@@ -99,6 +117,7 @@ export function pulseSpellSlotsElem(elem = 'fire') {
 
 export function createBattleFxController({ getState, getTargetId, getSettings, getAudio, getBattlefield }) {
   let animEnemyHp = {};
+  let animEternityPhase = 1;
   let animPlayerHp = 0;
   let animPlayerMaxHp = 0;
 
@@ -106,6 +125,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     const numbers = $('combat-numbers');
     if (numbers && typeof numbers.replaceChildren === 'function') numbers.replaceChildren();
     else if (numbers) numbers.innerHTML = '';
+    animEternityPhase = state.eternityPhase ?? 1;
     animEnemyHp = Object.fromEntries(state.enemies.map(e => [e.id, e.hp]));
     animPlayerHp = state.player.hp;
     animPlayerMaxHp = state.player.maxHp;
@@ -134,7 +154,8 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     card.appendChild(pop);
     const cleanup = () => pop.remove();
     pop.addEventListener('animationend', cleanup, { once: true });
-    setTimeout(cleanup, 950);
+    const speed = Math.max(1, Math.min(3, Number(getSettings()?.combatSpeed) || 1));
+    setTimeout(cleanup, Math.round(950 / speed));
   }
 
   function changeAnimatedEnemyHp(id, amount) {
@@ -144,6 +165,10 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     const prevHp = animEnemyHp[id] ?? enemy.hp;
     const nextHp = Math.max(0, Math.min(enemy.maxHp, prevHp + amount));
     animEnemyHp[id] = nextHp;
+    if (enemy.kind === 'eternity_overlord' || enemy.kind === 'eternity_reborn') {
+      const health = eternityHealth(state, animEternityPhase, nextHp);
+      if (health) renderEternityMeter(health);
+    }
     const card = $(`target-${id}`);
     if (!card) return;
     const hpTextEl = card.querySelector('.enemy-hp-text');
@@ -299,7 +324,8 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     number.style.setProperty('--number-y', `${62 - stagger - Number(lane) * 15}%`);
     layer.appendChild(number);
     number.addEventListener('animationend', () => number.remove(), { once: true });
-    setTimeout(() => number.remove(), 880);
+    const speed = Math.max(1, Math.min(3, Number(getSettings()?.combatSpeed) || 1));
+    setTimeout(() => number.remove(), Math.round(880 / speed));
   }
 
   function handleCombatStep(event, index) {
@@ -556,10 +582,15 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         break;
       }
       case 'boss-phase': {
+        if (event.eternity) {
+          animEternityPhase = event.eternity.phase;
+          renderEternityMeter(event.eternity);
+          queueFxClassRestart($('eternity-meter'), ['is-shifting'], 'is-shifting');
+        }
         audio.play('discover');
         triggerCameraScreenShake('boss-ultimate', event.sourceKind ?? 'abyssal_kraken');
         const phaseTheme = (event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn')
-          ? 'grand'
+          ? (event.eternity?.phase === 2 ? 'ice' : 'grand')
           : event.sourceKind === 'nether_dread_lord'
             ? 'death'
             : 'water';

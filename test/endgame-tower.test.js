@@ -660,8 +660,8 @@ test('Endgame Rebalance (Option 1): progressive EXP >Lv80, 10,000 HP Floor 100 b
 
   const migrated = loadRun(storage);
   assert.equal(migrated.ok, true, `Legacy Floor 100 save should load cleanly: ${migrated.error}`);
-  assert.equal(migrated.state.enemies[0].maxHp, 10000);
-  assert.equal(migrated.state.enemies[0].hp, 5000);
+  assert.equal(migrated.state.enemies[0].maxHp, 6500);
+  assert.equal(migrated.state.enemies[0].hp, 3250);
   assert.equal(migrated.state.enemies[1].maxHp, 1380);
   assert.equal(migrated.state.enemies[1].hp, 1380);
   assert.equal(migrated.state.enemies[3].maxHp, 1080);
@@ -1078,7 +1078,7 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
     base.enemies.map(e => e.kind),
     ['eternity_overlord', 'zenith_templar', 'chronos_keeper', 'chaos_weaver'],
   );
-  assert.equal(base.enemies[0].hp, 10000);
+  assert.equal(base.enemies[0].hp, 6500);
   assert.equal(base.enemies[0].armor, 6);
   assert.equal(base.enemies[0].ward, 2);
   assert.equal(base.eternityPhase, undefined);
@@ -1108,13 +1108,15 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   sealedChronos.enemies[2].sealed = true;
   assert.equal(intent(sealedChronos.enemies[2], 1, sealedChronos.enemies, FLOOR100_BOSS_ROOM).type, 'sealed');
 
-  // 2. Phase 1 -> Phase 2 Transition at <= 50% HP (<= 5,000 HP)
+  // 2. Phase 1 -> Phase 2 Transition at 3,000 HP
   const p2Trigger = structuredClone(base);
-  p2Trigger.enemies[0].hp = 5005;
+  p2Trigger.enemies[0].hp = 3005;
   p2Trigger.enemies[0].ward = 0;
   const p2Res = simulateTurn(p2Trigger, ['beam', 'fire'], 'enemy-0');
   assert.equal(p2Res.ok, true);
-  assert.equal(p2Res.state.eternityPhase, 2, 'Dropping eternity_overlord <= 50% HP must activate Phase 2');
+  assert.equal(p2Res.state.eternityPhase, 2);
+  assert.equal(p2Res.state.enemies[0].hp, 3000);
+  assert.equal(p2Res.events.find(event => event.eternity?.phase === 2).eternity.remaining, 6500);
   assert.ok(p2Res.events.some(e => e.type === 'boss-phase' && e.sourceKind === 'eternity_overlord' && e.mode === 'prism'));
   assert.ok(p2Res.state.enemies.slice(1).every(e => e.hp === 0), 'Phase 2 transition must dismiss remaining council retainers');
   assert.ok(p2Res.state.enemies[0].ward >= 2, 'Phase 2 transition must grant +2 ward (capped at 3)');
@@ -1129,7 +1131,7 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   const prismState = structuredClone(p2Res.state);
   prismState.player.hand = ['shot', 'beam', 'water', 'fire', 'earth', 'wind', 'shield'];
   prismState.player.mana = 24;
-  prismState.enemies[0].hp = 4500;
+  prismState.enemies[0].hp = 2500;
   for (const [t, expectedAff] of [[1, 'fire'], [2, 'ice'], [3, 'lightning'], [4, 'earth']]) {
     prismState.turn = t;
     prepareEnemies(prismState);
@@ -1180,7 +1182,7 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   assert.equal(p3Res.state.eternityPhase, 3);
   assert.equal(p3Res.state.enemies.length, 1);
   assert.equal(p3Res.state.enemies[0].kind, 'eternity_reborn');
-  assert.equal(p3Res.state.enemies[0].hp, 5500);
+  assert.equal(p3Res.state.enemies[0].hp, 3500);
   assert.equal(p3Res.state.enemies[0].slot, 2);
   assert.equal(p3Res.state.magmaPuddles, undefined, 'Phase 3 resurrection should clear magma puddles');
   const p3PhaseEv = p3Res.events.find(e => e.type === 'boss-phase' && e.sourceKind === 'eternity_reborn' && e.mode === 'reborn');
@@ -1237,13 +1239,13 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   assert.equal(rT2Intent.chronoRewind, 400);
 
   const rewindUnshattered = structuredClone(rebornState);
-  rewindUnshattered.enemies[0].hp = 4000;
+  rewindUnshattered.enemies[0].hp = 2500;
   const rewindRes = simulateTurn(rewindUnshattered, ['shield'], 'enemy-0');
-  assert.equal(rewindRes.state.enemies[0].hp, 4400, 'Turn 2 Chronos Rewind must heal +400 HP when unshattered');
+  assert.equal(rewindRes.state.enemies[0].hp, 2900, 'Turn 2 Chronos Rewind must heal +400 HP when unshattered');
 
   // Prism Shatter on Turn 2 (ice -> fire) deals +100 true dmg, -3 armor, -1 ward AND cancels Chronos Rewind (+0 HP)
   const rewindShatter = structuredClone(rebornState);
-  rewindShatter.enemies[0].hp = 4000;
+  rewindShatter.enemies[0].hp = 2500;
   const rNeutral = simulateTurn(structuredClone(rewindShatter), ['beam', 'water'], 'enemy-0');
   const rShattered = simulateTurn(structuredClone(rewindShatter), ['beam', 'fire'], 'enemy-0');
   assert.ok(
@@ -1293,6 +1295,8 @@ test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Sh
   assert.equal(win100.state.eternityPhase, undefined);
   assert.equal(win100.state.phase, 'won');
   assert.ok(win100.state.player.relics.includes('crown_of_eternity_100'));
+  assert.equal(saveRun(win100.state, storage).ok, true);
+  assert.equal(loadRun(storage).state.phase, 'won');
 });
 
 

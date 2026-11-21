@@ -190,6 +190,10 @@ export class GameAudio {
       if (name === 'place' || name === 'select') navigator.vibrate(15);
       else if (name === 'remove') navigator.vibrate(10);
       else if (name === 'cast') navigator.vibrate(22);
+      else if (name === 'chakram') navigator.vibrate([15, 20, 25]);
+      else if (name === 'barrage') navigator.vibrate([10, 15, 10, 15, 20]);
+      else if (name === 'prism-shatter') navigator.vibrate([20, 30, 40]);
+      else if (name === 'boss-phase') navigator.vibrate([40, 60, 50]);
       else if (name === 'weakness') navigator.vibrate([25, 40, 35]);
       else if (name === 'hit') navigator.vibrate(15);
       else if (name === 'wall-slam') navigator.vibrate([20, 25, 20]);
@@ -277,6 +281,48 @@ export class GameAudio {
     else if (name === 'invalid') {
       this.tone(160, 0.08, 'ui', 'square', 0, 130, { gain: 0.25 });
       this.tone(130, 0.10, 'ui', 'square', 0.09, 100, { gain: 0.25 });
+    }
+    else if (name === 'chakram') {
+      this.tone(1480, 0.12, 'sfx', 'sawtooth', 0, 740, { gain: 0.32 });
+      this.tone(880, 0.15, 'sfx', 'triangle', 0.02, 1760, { gain: 0.24 });
+      this.noise(0.11, { bus: 'sfx', filterType: 'bandpass', filterFreq: 2600, filterQ: 3, gain: 0.28 });
+    }
+    else if (name === 'barrage') {
+      for (let i = 0; i < 5; i++) {
+        const f = 520 + i * 65;
+        this.tone(f, 0.045, 'sfx', 'square', i * 0.038, f * 0.7, { gain: 0.26 });
+        this.noise(0.03, { bus: 'sfx', filterType: 'highpass', filterFreq: 1800, delay: i * 0.038, gain: 0.18 });
+      }
+    }
+    else if (name === 'prism-shatter') {
+      this.duckMusic(0.28, 0.35);
+      [1174.66, 1479.98, 1760.00, 2349.32].forEach((f, i) => {
+        this.tone(f, 0.22, 'sfx', 'sine', i * 0.025, f * 1.05, { gain: 0.25 });
+        this.tone(f * 1.5, 0.15, 'sfx', 'triangle', i * 0.025 + 0.01, f * 1.5, { gain: 0.15 });
+      });
+      this.noise(0.16, { bus: 'sfx', filterType: 'highpass', filterFreq: 3200, gain: 0.24 });
+    }
+    else if (name === 'boss-phase') {
+      this.duckMusic(0.18, 0.7);
+      this.subThump(0.45, 120, 24, 0.65);
+      [220.00, 277.18, 329.63, 440.00, 554.37].forEach((f, i) => {
+        this.tone(f, 0.55, 'sfx', 'triangle', i * 0.06, f, { gain: 0.28, attack: 0.02 });
+        this.tone(f * 2, 0.40, 'sfx', 'sine', i * 0.06 + 0.02, f * 2, { gain: 0.18 });
+      });
+      this.noise(0.35, { bus: 'sfx', filterType: 'bandpass', filterFreq: 1400, filterEndFreq: 400, gain: 0.30 });
+    }
+    else if (name === 'chronos-rewind') {
+      this.duckMusic(0.3, 0.4);
+      this.tone(180, 0.32, 'sfx', 'sine', 0, 720, { gain: 0.32, attack: 0.03 });
+      this.tone(360, 0.28, 'sfx', 'triangle', 0.04, 1080, { gain: 0.20 });
+      [0.05, 0.12, 0.19, 0.26].forEach(delay => {
+        this.tone(1200, 0.03, 'sfx', 'square', delay, 1200, { gain: 0.16 });
+      });
+    }
+    else if (name === 'soul-drain') {
+      this.tone(280, 0.34, 'sfx', 'sawtooth', 0, 85, { gain: 0.35 });
+      this.tone(140, 0.38, 'sfx', 'triangle', 0.02, 55, { gain: 0.30 });
+      this.noise(0.32, { bus: 'sfx', filterType: 'bandpass', filterFreq: 600, filterEndFreq: 180, gain: 0.28 });
     }
   }
 
@@ -404,9 +450,25 @@ export class GameAudio {
       if (event.pierce && !event.blocked) {
         this.tone(1250, 0.07, 'sfx', 'triangle', 0.02, 600, { gain: 0.22 });
       }
+      if (event.form === 'chakram') {
+        this.play('chakram');
+      }
+      if (event.barrage) {
+        this.play('barrage');
+      }
       if (event.grand) {
         this.duckMusic(0.3, 0.4);
       }
+    }
+    else if (event.type === 'prism-shatter') {
+      this.play('prism-shatter');
+    }
+    else if (event.type === 'boss-phase') {
+      this.play('boss-phase');
+    }
+    else if (event.type === 'shield-counter') {
+      this.tone(820, 0.10, 'sfx', 'triangle', 0, 410, { gain: 0.26 });
+      this.noise(0.06, { bus: 'sfx', filterType: 'highpass', filterFreq: 2000, gain: 0.20 });
     }
     else if (event.type === 'damage' && event.amount > 0) {
       if (event.weakness) {
@@ -504,9 +566,15 @@ export class GameAudio {
       this.tone(freq, 0.16, 'sfx', 'sine', 0, freq * 1.5, { gain: 0.26 });
     }
     else if (event.type === 'heal') {
-      // Gentle restorative arpeggio
-      this.tone(440, 0.14, 'sfx', 'sine', 0, 659.25, { gain: 0.24 });
-      this.tone(659.25, 0.16, 'sfx', 'sine', 0.05, 880, { gain: 0.20 });
+      if (event.isChronosRewind || (event.amount === 400 && event.source === 'enemy-0')) {
+        this.play('chronos-rewind');
+      } else if (event.isSoulDrain) {
+        this.play('soul-drain');
+      } else {
+        // Gentle restorative arpeggio
+        this.tone(440, 0.14, 'sfx', 'sine', 0, 659.25, { gain: 0.24 });
+        this.tone(659.25, 0.16, 'sfx', 'sine', 0.05, 880, { gain: 0.20 });
+      }
     }
     else if (event.type === 'push') {
       this.tone(380, 0.12, 'sfx', 'triangle', 0, 120, { gain: 0.28 });

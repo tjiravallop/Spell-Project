@@ -10,9 +10,10 @@ import {
   KRAKEN_TENTACLE_KINDS,
   NETHER_PILLAR_KINDS,
   ETERNITY_SHIFT_AFFINITIES,
+  ETERNITY_PHASE_HP,
   buildEndgameTowerRooms,
 } from './endgame-tower.js';
-export { KRAKEN_TENTACLE_KINDS, NETHER_PILLAR_KINDS, ETERNITY_SHIFT_AFFINITIES };
+export { KRAKEN_TENTACLE_KINDS, NETHER_PILLAR_KINDS, ETERNITY_SHIFT_AFFINITIES, ETERNITY_PHASE_HP };
 
 export function getEternityShiftAffinity(turn) {
   return ETERNITY_SHIFT_AFFINITIES[turn % 4];
@@ -556,6 +557,28 @@ export const FLOOR95_SANCTUARY = 95;
 export const FLOOR96_START_ROOM = 237;
 export const FLOOR99_BOUNDARY_ROOM = 248;
 export const FLOOR100_BOSS_ROOM = 249;
+const ETERNITY_FIRST_FORM_HP = ETERNITY_PHASE_HP[0] + ETERNITY_PHASE_HP[1];
+export const ETERNITY_TOTAL_HP = ETERNITY_FIRST_FORM_HP + ETERNITY_PHASE_HP[2];
+
+export function encounterMaxHp(kind, room) {
+  return kind === 'eternity_overlord' && room === FLOOR100_BOSS_ROOM ? ETERNITY_FIRST_FORM_HP : ENEMIES[kind].hp;
+}
+
+export function eternityDamageLimit(state, enemy) {
+  return state.room === FLOOR100_BOSS_ROOM && !state.rift && !state.eternityPhase && enemy.kind === 'eternity_overlord'
+    ? Math.max(0, enemy.hp - ETERNITY_PHASE_HP[1])
+    : enemy.hp;
+}
+
+export function eternityHealth(state, phase = state.eternityPhase ?? 1, hp = null) {
+  if (state.room !== FLOOR100_BOSS_ROOM || state.rift) return null;
+  const boss = state.enemies.find(enemy => enemy.kind === (phase === 3 ? 'eternity_reborn' : 'eternity_overlord'));
+  if (!boss && hp === null) return null;
+  const formHp = hp ?? boss.hp;
+  const remaining = phase === 3 ? formHp : formHp + ETERNITY_PHASE_HP[2];
+  return { phase, remaining };
+}
+
 export const TOTAL_TOWER_ROOMS = 250;
 
 // Aliases for legacy exports
@@ -814,9 +837,10 @@ export function discardOverflow(original, indices) {
   return state;
 }
 
-export function createEnemy(kind, index = 0) {
+export function createEnemy(kind, index = 0, room = null) {
   const base = ENEMIES[kind];
-  return { id: `enemy-${index}`, kind, slot: index, hp: base.hp, maxHp: base.hp, armor: base.armor, ward: base.ward, affinity: base.affinity ?? null, chill: 0, freeze: 0, burn: 0, burnTurn: 0 };
+  const hp = encounterMaxHp(kind, room);
+  return { id: `enemy-${index}`, kind, slot: index, hp, maxHp: hp, armor: base.armor, ward: base.ward, affinity: base.affinity ?? null, chill: 0, freeze: 0, burn: 0, burnTurn: 0 };
 }
 
 export function prepareEnemies(state) {
@@ -1028,9 +1052,9 @@ export function triggerKrakenPhase2(state, summary = null, events = null) {
 }
 
 export function checkEternityPhase2(state, summary = null, events = null) {
-  if (state.room !== FLOOR100_BOSS_ROOM || state.eternityPhase) return false;
+  if (state.room !== FLOOR100_BOSS_ROOM || state.rift || state.eternityPhase) return false;
   const boss = state.enemies?.find(e => e.kind === 'eternity_overlord' && e.hp > 0);
-  if (!boss || boss.hp > Math.floor(boss.maxHp / 2)) return false;
+  if (!boss || boss.hp > ETERNITY_PHASE_HP[1]) return false;
 
   state.eternityPhase = 2;
   let dismissed = 0;
@@ -1053,6 +1077,7 @@ export function checkEternityPhase2(state, summary = null, events = null) {
       sourceKind: 'eternity_overlord',
       phase: 2,
       mode: 'prism',
+      eternity: eternityHealth(state),
       label,
     });
   }
@@ -1080,7 +1105,7 @@ export function triggerEternityPhase3(state, summary = null, events = null) {
   if (mercyHeal > 0) p.hp += mercyHeal;
   p.mana = getMaxMana(p);
 
-  const label = '✨ ห้วงกาลเวลาแตกสลาย! มหาเทพราชันอนันตกาลแอบคืนชีพสู่ “ร่างจุตินิรันดร์” (เฟส 3 · 5,500 HP)!';
+  const label = `เฟส 3 · ร่างจุตินิรันดร์คืนชีพ · ${reborn.maxHp.toLocaleString('en-US')} HP`;
   if (events) {
     events.push({
       type: 'boss-phase',
@@ -1088,6 +1113,7 @@ export function triggerEternityPhase3(state, summary = null, events = null) {
       sourceKind: 'eternity_reborn',
       phase: 3,
       mode: 'reborn',
+      eternity: eternityHealth(state),
       mercyHeal,
       label,
     });
@@ -1143,7 +1169,7 @@ export function enterRoom(state) {
   } else {
     state.player.shield = null;
   }
-  state.enemies = state.rooms[state.room].map(createEnemy);
+  state.enemies = state.rooms[state.room].map((kind, index) => createEnemy(kind, index, state.room));
   const roomFloor = getFloorInfo(state.room, state.rooms.length).floor;
   if (SPACED_FLOORS.has(roomFloor) || ENDGAME_SPACED_FLOORS.has(roomFloor)) {
     const slots = { 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4] }[state.enemies.length];
@@ -1576,7 +1602,7 @@ export function resolveRiftBattleVictory(state, summary, events) {
   state.player.shield = null;
   state.rewards = [];
   state.enemies = (state.rooms?.[state.room] ?? []).map((kind, index) => {
-    const enemy = createEnemy(kind, index);
+    const enemy = createEnemy(kind, index, state.room);
     enemy.hp = 0;
     return enemy;
   });
@@ -1856,7 +1882,7 @@ function resetPlayerForSanctuaryFallback(state) {
   state.pendingBlessings = [];
   state.pendingTargetRoom = null;
   state.enemies = (state.rooms?.[state.room] ?? []).map((kind, index) => {
-    const enemy = createEnemy(kind, index);
+    const enemy = createEnemy(kind, index, state.room);
     enemy.hp = 0;
     return enemy;
   });
@@ -2386,7 +2412,7 @@ export function completeRevisitVictoryToSanctuary(state, summary = null) {
   state.pendingBlessings = [];
   state.pendingTargetRoom = null;
   state.enemies = (state.rooms?.[state.room] ?? []).map((kind, index) => {
-    const enemy = createEnemy(kind, index);
+    const enemy = createEnemy(kind, index, state.room);
     enemy.hp = 0;
     return enemy;
   });
@@ -2457,7 +2483,7 @@ export function useBattleItem(original, beltIndex) {
       if (enemy.hp <= 0) continue;
       const rawAmount = typeof amount === 'function' ? amount(enemy) : amount;
       const afterArmor = pierceArmor ? rawAmount : Math.max(1, rawAmount - enemy.armor);
-      const dmg = Math.min(enemy.hp, afterArmor);
+      const dmg = Math.min(eternityDamageLimit(state, enemy), afterArmor);
       enemy.hp -= dmg;
       totalDmg += dmg;
       events.push({ type: 'damage', target: enemy.id, amount: dmg, actual: dmg, element, killed: enemy.hp === 0 });
@@ -2653,38 +2679,45 @@ export function useBattleItem(original, beltIndex) {
     const target = state.enemies.find(e => e.hp > 0);
     if (target) {
       target.ward = 0;
-      const dmg = Math.min(target.hp, 24);
+      const dmg = Math.min(eternityDamageLimit(state, target), 24);
       target.hp -= dmg;
-      effectText = `ฟาดสายล่อฟ้าทองคำ · ล้างม่านและทำ 24 ดาเมจใส่ ${ENEMIES[target.kind]?.name ?? target.kind}!`;
+      events.push({ type: 'damage', target: target.id, amount: dmg, actual: dmg, element: 'lightning', killed: target.hp === 0 });
+      effectText = `ฟาดสายล่อฟ้าทองคำ · ล้างม่านและทำ ${dmg} ดาเมจใส่ ${ENEMIES[target.kind]?.name ?? target.kind}!`;
       if (state.enemies.every(e => e.hp <= 0)) dealAoeConsumable(0, 'lightning', '');
     }
   } else if (itemId === 'sea_serpent_fang') {
     const target = state.enemies.find(e => e.hp > 0);
     if (target) {
-      const dmg = Math.min(target.hp, 18);
+      const dmg = Math.min(eternityDamageLimit(state, target), 18);
       target.hp -= dmg;
-      effectText = `ซัดเขี้ยวอสรพิษสมุทร · ทำ 18 ดาเมจเจาะเกราะใส่ ${ENEMIES[target.kind]?.name ?? target.kind}!`;
+      events.push({ type: 'damage', target: target.id, amount: dmg, actual: dmg, element: 'water', killed: target.hp === 0 });
+      effectText = `ซัดเขี้ยวอสรพิษสมุทร · ทำ ${dmg} ดาเมจเจาะเกราะใส่ ${ENEMIES[target.kind]?.name ?? target.kind}!`;
       if (state.enemies.every(e => e.hp <= 0)) dealAoeConsumable(0, 'water', '');
     }
   } else if (itemId === 'chain_lightning_orb') {
     const targets = state.enemies.filter(e => e.hp > 0).slice(0, 2);
+    let total = 0;
     for (const t of targets) {
-      const dmg = Math.min(t.hp, 18);
+      const dmg = Math.min(eternityDamageLimit(state, t), 18);
       t.hp -= dmg;
+      total += dmg;
+      events.push({ type: 'damage', target: t.id, amount: dmg, actual: dmg, element: 'lightning', killed: t.hp === 0 });
     }
-    effectText = 'ปลดปล่อยลูกแก้วอสุนีบาตลูกโซ่ · สายฟ้าชิ่งทำดาเมจ 18 หน่วย!';
+    effectText = `ปลดปล่อยลูกแก้วอสุนีบาตลูกโซ่ · ทำความเสียหายรวม ${total}`;
     if (state.enemies.every(e => e.hp <= 0)) dealAoeConsumable(0, 'lightning', '');
   } else if (itemId === 'pyro_core_extract') {
     const target = state.enemies.find(e => e.hp > 0);
     if (target) {
-      const dmg = Math.min(target.hp, 15);
+      const dmg = Math.min(eternityDamageLimit(state, target), 15);
       target.hp -= dmg;
+      events.push({ type: 'damage', target: target.id, amount: dmg, actual: dmg, element: 'fire', killed: target.hp === 0 });
       target.burn += 5;
-      effectText = `สาดสารสกัดแก่นเพลิงใส่ ${ENEMIES[target.kind]?.name ?? target.kind} · 15 ดาเมจและเผาไหม้ 5!`;
+      effectText = `สาดสารสกัดแก่นเพลิงใส่ ${ENEMIES[target.kind]?.name ?? target.kind} · ${dmg} ดาเมจและเผาไหม้ 5!`;
       if (state.enemies.every(e => e.hp <= 0)) dealAoeConsumable(0, 'fire', '');
     }
   }
 
+  checkEternityPhase2(state, summary, events);
   return { ok: true, state, item, effectText, events, summary };
 }
 

@@ -27,6 +27,7 @@ const combatSpriteSheets = {
 
 export const fizzleLabel = cost => `คาถาสลาย · เสีย ${cost} มานา`;
 export const damageLabel = event => {
+  if (event.phaseGate) return 'ถึงขอบเขตเฟส';
   if (event.amount <= 0) return 'เกราะกันหมด';
   const tag = event.weakness ? ' (จุดอ่อน!)' : event.resisted ? ' (ต้านทาน)' : '';
   return `−${event.actual ?? event.amount} HP${tag}`;
@@ -189,19 +190,21 @@ export class Battlefield {
     this.events = events;
     this.started = performance.now();
     this.duration = 0;
+    const speed = Math.max(1, Math.min(3, Number(this.settings.combatSpeed) || 1));
     const lastEvent = events.at(-1);
-    const victoryHold = lastEvent?.type === 'room-clear' ? 900 : 0;
+    const victoryHold = Math.round((lastEvent?.type === 'room-clear' ? 900 : 0) / speed);
     const actionEvents = victoryHold ? events.slice(0, -1) : events;
     const rawEnds = actionEvents.map(event => {
       const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'fizzle', 'blackhole-open', 'boss-phase'].includes(event.type)
         || Boolean(event.specialBoss && event.type === 'charge');
       const ultBonus = (event.ultimate && event.type === 'attack') ? 180 : event.type === 'boss-phase' ? 280 : 0;
       const wardHold = event.type === 'projectile' && event.blocked ? 160 : 0;
-      this.duration += (this.settings.reducedMotion ? (action ? 200 : 110) : (action ? 520 : 260) + wardHold + ultBonus);
+      const baseStep = this.settings.reducedMotion ? (action ? 200 : 110) : (action ? 520 : 260) + wardHold + ultBonus;
+      this.duration += Math.round(baseStep / speed);
       return this.duration;
     });
-    const minDuration = this.settings.reducedMotion ? 500 : 1500;
-    const maxDuration = this.settings.reducedMotion ? 1200 : 3400;
+    const minDuration = Math.round((this.settings.reducedMotion ? 500 : 1500) / speed);
+    const maxDuration = Math.round((this.settings.reducedMotion ? 1200 : 3400) / speed);
     if (this.duration > maxDuration && this.duration > 0) {
       const scale = maxDuration / this.duration;
       this.eventEnds = rawEnds.map(end => Math.round(end * scale));

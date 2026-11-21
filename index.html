@@ -27,6 +27,7 @@
       <span class="local-note"><i></i> บันทึกในเครื่อง</span>
       <button id="inventory-open" class="text-button inventory-nav-btn" type="button" data-open-inventory="true">🎒 กระเป๋า (0/15)</button>
       <button id="guide-open" class="text-button">คู่มือคาถา</button>
+      <button id="combat-speed-toggle" class="text-button speed-toggle-btn battle-tool" type="button" aria-label="สลับความเร็วการต่อสู้ 1x" title="ความเร็วการต่อสู้ (แตะเพื่อสลับ 1x / 2x / 3x)">⚡ 1x</button>
       <button id="map-open" class="icon-button battle-tool" type="button" aria-label="แผนที่"></button>
       <button id="log-open" class="icon-button battle-tool" type="button" aria-label="บันทึกการต่อสู้"></button>
       <button id="settings-open" class="icon-button" aria-label="พักเกมและตั้งค่า"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3 2h3v12H3zm7 0h3v12h-3z"/></svg></button>
@@ -39,7 +40,7 @@
         <p class="home-intro">ตำราบอกให้ท่องจำ<br>ที่นี่ให้คุณลองเรียงใหม่</p>
         <p class="home-description">เรียงการ์ดคำเป็นคาถา ดูท่าถัดไปของศัตรู แล้วลองสลับคำเพื่อค้นพบผลใหม่</p>
         <p id="early-loss-warning" class="muted">หากแพ้ก่อนถึงจุดพักชั้น 5 รอบจะจบ และการ์ดสะสมกับสูตรที่ค้นพบจะถูกล้าง</p>
-        <div class="home-buttons"><button id="new-run" class="primary-button">เริ่มไต่หอคอย <span aria-hidden="true">↗</span></button><button id="continue-run" class="secondary-button" hidden>เล่นต่อ</button></div>
+        <div class="home-buttons"><button id="new-run" class="primary-button">เริ่มไต่หอคอย <span aria-hidden="true">↗</span></button><button id="continue-run" class="secondary-button" hidden>เล่นต่อ</button><button id="home-grimoire" class="secondary-button" type="button">หอจดหมายเหตุ 📜</button></div>
         <p id="collection-summary" class="muted"></p><p id="save-notice" class="save-notice" role="status"></p>
         <div class="home-facts"><span>100 ชั้น · 250 ห้องต่อสู้</span><span>บอสใหญ่ทุก 10 ชั้น</span><span>ต่อสู้แบบผลัดเทิร์น · ไม่จับเวลา</span></div>
       </div>
@@ -62,6 +63,7 @@
         <h1 id="tower-heading-title" class="battle-room"></h1>
         <span id="turn-label" class="turn-label"></span>
       </div>
+      <section id="eternity-meter" class="eternity-meter" aria-label="พลังชีวิตบอสชั้น 100" hidden></section>
       <aside id="story-banner" class="story-banner" aria-label="บันทึกเนื้อเรื่อง" hidden></aside>
       <div class="battlefield-wrap" id="battlefield-wrap">
         <div class="battle-scene">
@@ -297,6 +299,8 @@
       </div>
       <div class="surface-tabs" role="tablist" aria-label="เมนูระหว่างเล่น">
         <button id="tools-tome-tab" type="button" role="tab" aria-selected="true" aria-controls="tools-tome">ตำรา</button>
+        <button id="tools-bestiary-tab" type="button" role="tab" aria-selected="false" aria-controls="tools-bestiary" tabindex="-1">อสูร</button>
+        <button id="tools-achievements-tab" type="button" role="tab" aria-selected="false" aria-controls="tools-achievements" tabindex="-1">ความสำเร็จ</button>
         <button id="tools-bag-tab" type="button" role="tab" aria-selected="false" aria-controls="tools-bag" tabindex="-1">กระเป๋า</button>
         <button id="tools-map-tab" type="button" role="tab" aria-selected="false" aria-controls="tools-map" tabindex="-1">แผนที่</button>
         <button id="tools-log-tab" type="button" role="tab" aria-selected="false" aria-controls="tools-log" tabindex="-1">บันทึก</button>
@@ -316,6 +320,25 @@
           <button id="grimoire-next" type="button" class="secondary-button small-button">ถัดไป</button>
         </nav>
         <div id="grimoire-list" class="grimoire-list"></div><div id="word-guide" hidden></div>
+      </section>
+      <section id="tools-bestiary" class="sheet-panel" role="tabpanel" aria-labelledby="tools-bestiary-tab" hidden>
+        <div class="grimoire-summary">
+          <div class="grimoire-summary-head"><strong id="bestiary-progress-text"></strong></div>
+          <div class="grimoire-meter"><i id="bestiary-progress-bar"></i></div>
+        </div>
+        <div id="bestiary-tabs" class="grimoire-tabs" aria-label="หมวดหมู่อสูร">
+          <button type="button" class="grimoire-tab active" data-bestiary-tab="all">ทั้งหมด</button>
+          <button type="button" class="grimoire-tab" data-bestiary-tab="bosses">บอสประจำหอคอย</button>
+          <button type="button" class="grimoire-tab" data-bestiary-tab="endgame">หอคอยส่วนลึก (51+)</button>
+        </div>
+        <div id="bestiary-list" class="bestiary-list"></div>
+      </section>
+      <section id="tools-achievements" class="sheet-panel" role="tabpanel" aria-labelledby="tools-achievements-tab" hidden>
+        <div class="grimoire-summary">
+          <div class="grimoire-summary-head"><strong id="achievements-progress-text"></strong></div>
+          <div class="grimoire-meter"><i id="achievements-progress-bar"></i></div>
+        </div>
+        <div id="achievements-list" class="achievements-list"></div>
       </section>
       <section id="tools-bag" class="sheet-panel" role="tabpanel" aria-labelledby="tools-bag-tab" hidden>
       <div id="item-belt-bar" class="item-belt-bar" aria-label="เข็มขัดไอเทมด่วน" hidden></div>
@@ -361,7 +384,7 @@
       <button id="rift-reward-done" type="button" class="secondary-button">กลับจุดพัก</button>
     </div>
   </dialog>
-  <dialog id="settings-dialog" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-heading"><h2 id="settings-title">พักสักครู่</h2><button class="icon-button" aria-label="ปิดการตั้งค่า" value="close">×</button></div><p class="muted">เกมเป็นเทิร์น คุณมีเวลาคิดเต็มที่</p><label class="setting">เพลง <input id="music-volume" type="range" min="0" max="100" step="1"><output id="music-output"></output></label><label class="setting">เสียงเอฟเฟกต์ <input id="sfx-volume" type="range" min="0" max="100" step="1"><output id="sfx-output"></output></label><label class="setting">เสียงปุ่ม <input id="ui-volume" type="range" min="0" max="100" step="1"><output id="ui-output"></output></label><label class="check-setting"><input id="reduce-motion" type="checkbox">ลดการเคลื่อนไหว</label><label class="check-setting"><input id="show-tips" type="checkbox">แสดงคำแนะนำ</label><div class="dialog-actions"><button id="mute-all" class="secondary-button" type="button">ปิดเสียงทั้งหมด</button><button class="primary-button" value="close">กลับไปเล่น</button></div><button id="pause-home" class="text-button" type="button">บันทึกแล้วกลับหน้าหลัก</button></form></dialog>
+  <dialog id="settings-dialog" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-heading"><h2 id="settings-title">พักสักครู่</h2><button class="icon-button" aria-label="ปิดการตั้งค่า" value="close">×</button></div><p class="muted">เกมเป็นเทิร์น คุณมีเวลาคิดเต็มที่</p><label class="setting">เพลง <input id="music-volume" type="range" min="0" max="100" step="1"><output id="music-output"></output></label><label class="setting">เสียงเอฟเฟกต์ <input id="sfx-volume" type="range" min="0" max="100" step="1"><output id="sfx-output"></output></label><label class="setting">เสียงปุ่ม <input id="ui-volume" type="range" min="0" max="100" step="1"><output id="ui-output"></output></label><label class="check-setting"><input id="reduce-motion" type="checkbox">ลดการเคลื่อนไหว</label><label class="check-setting"><input id="show-tips" type="checkbox">แสดงคำแนะนำ</label><label class="setting">ความเร็วต่อสู้ <select id="setting-combat-speed"><option value="1">1x (ปกติ)</option><option value="2">2x (เร็ว)</option><option value="3">3x (เทอร์โบ)</option></select></label><div class="dialog-actions"><button id="mute-all" class="secondary-button" type="button">ปิดเสียงทั้งหมด</button><button class="primary-button" value="close">กลับไปเล่น</button></div><button id="pause-home" class="text-button" type="button">บันทึกแล้วกลับหน้าหลัก</button></form></dialog>
   <dialog id="replace-dialog" aria-labelledby="replace-title" aria-describedby="replace-notice replace-loss-warning"><form method="dialog"><h2 id="replace-title">เริ่มรอบใหม่?</h2><p id="replace-notice">รอบใหม่จะใช้ช่องเซฟปัจจุบัน</p><p id="replace-loss-warning">หากแพ้ก่อนถึงจุดพักชั้น 5 รอบจะจบ และการ์ดสะสมกับสูตรที่ค้นพบจะถูกล้าง</p><div class="dialog-actions"><button class="secondary-button" value="cancel">ยกเลิก</button><button id="confirm-new" class="primary-button" type="button">เริ่มรอบใหม่</button></div></form></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
   <noscript><p class="storage-warning">เกมนี้ต้องเปิด JavaScript เพื่อประกอบและจำลองคาถา</p></noscript>

@@ -60,6 +60,12 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
 #battle-view:has(> .story-banner:not([hidden])) {
   grid-template-rows: auto auto var(--battlefield-row) auto;
 }
+#battle-view:has(> .eternity-meter:not([hidden])) {
+  grid-template-rows: auto auto var(--battlefield-row) auto;
+}
+#battle-view:has(> .eternity-meter:not([hidden])):has(> .story-banner:not([hidden])) {
+  grid-template-rows: auto auto auto var(--battlefield-row) auto;
+}
 #battle-view .resource-bar {
   gap: clamp(12px, 3vw, 38px);
   padding: 8px 14px;
@@ -2603,3 +2609,260 @@ body.reduced-motion .forge-stage.is-striking :is(.forge-hammer, .forge-sparks, .
   .shop-catalog { gap: 6px; padding-block: 0; }
   .sanctuary-shop-list { max-block-size: min(33dvh, 224px); }
 }
+
+
+.eternity-meter {
+  --eternity-color: #d6a3ff;
+  display: grid;
+  gap: 6px;
+  width: min(100%, 820px);
+  margin: 0 auto;
+  padding: 7px 10px;
+  background: #211a31;
+  border: 1px solid #73538d;
+  color: #fff0dc;
+}
+.eternity-meter[hidden] { display: none; }
+.eternity-meter[data-phase="2"] { --eternity-color: #9aeaff; border-color: #557f99; }
+.eternity-meter[data-phase="3"] { --eternity-color: #ffdc86; border-color: #997346; }
+.eternity-meter-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 3px 12px; font-size: 13px; }
+.eternity-meter-header strong { color: var(--eternity-color); }
+.eternity-meter-header span { font-variant-numeric: tabular-nums; }
+.eternity-segments { display: flex; gap: 4px; }
+.eternity-segment { flex: var(--phase-weight) 1 0; min-width: 0; display: grid; gap: 3px; }
+.eternity-segment i { height: 6px; background: #4b364e; overflow: hidden; }
+.eternity-segment i::before { content: ''; display: block; width: var(--phase-left); height: 100%; background: var(--eternity-color); }
+.eternity-segment small { font-size: 11px; color: #d6c3e0; line-height: 1.2; }
+.eternity-segment[aria-current="step"] small { color: var(--eternity-color); font-weight: 700; }
+.eternity-meter.is-shifting { animation: eternity-phase-reveal .45s ease-out; }
+@keyframes eternity-phase-reveal {
+  from { box-shadow: inset 0 0 0 2px var(--eternity-color); }
+  to { box-shadow: inset 0 0 0 0 transparent; }
+}
+body.reduced-motion .eternity-meter.is-shifting { animation: none; }
+@media (prefers-reduced-motion: reduce) { .eternity-meter.is-shifting { animation: none; } }
+
+/* Combat Speed Toggle */
+.speed-toggle-btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffd875;
+  background: #2b1f3d;
+  border: 1px solid #7c5835;
+  border-radius: 4px;
+  padding: 4px 8px;
+  min-height: 36px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #120c1a;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.speed-toggle-btn:hover {
+  background: #3e2a57;
+  border-color: #ffd875;
+}
+.speed-toggle-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* Combat Speed Animations Acceleration */
+body[data-combat-speed="2"] {
+  --combat-speed-factor: 0.5;
+}
+body[data-combat-speed="3"] {
+  --combat-speed-factor: 0.333;
+}
+body[data-combat-speed="2"] :is(.enemy-shake, .player-shake, .slash-fx, .cast-fx, .floating-number) {
+  animation-duration: 0.22s !important;
+}
+body[data-combat-speed="3"] :is(.enemy-shake, .player-shake, .slash-fx, .cast-fx, .floating-number) {
+  animation-duration: 0.14s !important;
+}
+
+/* Bestiary View */
+.bestiary-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.bestiary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #1b192e;
+  border: 1px solid #514260;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.bestiary-card.is-boss {
+  border-color: #9d5bb5;
+  background: linear-gradient(180deg, #241c38 0%, #171428 100%);
+  box-shadow: 0 0 8px rgba(157, 91, 181, 0.25);
+}
+.bestiary-card.is-undiscovered {
+  background: #151322;
+  border-color: #383049;
+  border-style: dashed;
+  opacity: 0.75;
+}
+.bestiary-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.bestiary-head strong {
+  flex: 1;
+  color: #fff;
+}
+.bestiary-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.bestiary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: #d6c3e0;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+.bestiary-stats strong {
+  color: #ffd875;
+  font-variant-numeric: tabular-nums;
+}
+.bestiary-stats .badge-role {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 1px 5px;
+  background: #39284d;
+  color: #e2a8ff;
+  border-radius: 3px;
+}
+.bestiary-trait {
+  font-size: 12px;
+  color: #c9bed8;
+}
+.bestiary-trait p {
+  margin: 0;
+}
+.bestiary-counter {
+  margin-top: 4px !important;
+  color: #7ef2bf;
+}
+.bestiary-counter em {
+  font-style: normal;
+  font-weight: 700;
+  color: #ffd875;
+}
+.bestiary-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.tag-defeated {
+  font-size: 11px;
+  color: #7ef2bf;
+  font-weight: 600;
+}
+
+/* Achievements View */
+.achievements-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.achievement-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  background: #1b192e;
+  border: 1px solid #514260;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+}
+.achievement-card.is-unlocked {
+  border-color: #b8860b;
+  background: linear-gradient(180deg, #2a2238 0%, #1d182b 100%);
+  box-shadow: 0 0 6px rgba(246, 200, 95, 0.2);
+}
+.achievement-card.is-locked {
+  opacity: 0.65;
+  background: #141221;
+  border-color: #383049;
+}
+.achievement-icon {
+  font-size: 26px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+}
+.achievement-card.is-unlocked .achievement-icon {
+  filter: drop-shadow(0 0 4px #ffd875);
+}
+.achievement-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.achievement-info strong {
+  font-size: 14px;
+  color: #fff;
+}
+.achievement-card.is-unlocked .achievement-info strong {
+  color: #ffd875;
+}
+.achievement-info p {
+  margin: 0;
+  font-size: 12px;
+  color: #c9bed8;
+}
+.achievement-status {
+  font-size: 11px;
+  margin-top: 4px;
+  font-weight: 600;
+  color: #9c8fb1;
+}
+.achievement-card.is-unlocked .achievement-status {
+  color: #7ef2bf;
+}
+
+@media (max-width: 660px) {
+  .speed-toggle-btn {
+    padding: 3px 6px;
+    font-size: 12px;
+    min-height: 34px;
+    min-width: 38px;
+  }
+  .bestiary-list,
+  .achievements-list {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+

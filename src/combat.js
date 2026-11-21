@@ -57,6 +57,7 @@ import {
   triggerKrakenPhase2,
   checkNetherPhase2,
   checkEternityPhase2,
+  eternityDamageLimit,
   triggerEternityPhase3,
 } from './run.js';
 
@@ -352,7 +353,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       }
       formsHit.set(enemy.id, attackForm);
     }
-    const actual = Math.min(amount, enemy.hp);
+    const limit = eternityDamageLimit(state, enemy);
+    const actual = Math.min(amount, limit);
     enemy.hp -= actual;
     summary.damage += actual;
     const killed = enemy.hp === 0;
@@ -363,6 +365,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       actual,
       element,
       killed,
+      ...(limit === 0 && amount > 0 && { phaseGate: true }),
       ...spellVfxFlags,
       ...(reduction && { reduction }),
       ...(reaction.isWeak && { weakness: true, weakBonus, triggerElement: reaction.triggerElement }),
@@ -1328,6 +1331,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       damage(enemy, enemy.burn, 'fire', enemy.armor);
       enemy.burn = 0;
       enemy.burnTurn = 0;
+      if (player.hp > 0) checkEternityPhase2(state, summary, events);
     }
     const action = intent(enemy, turn, enemies, state.room);
     summary.enemyActions[enemy.id] = action;

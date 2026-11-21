@@ -1,5 +1,8 @@
-import { WORDS, START_WORDS } from '../words.js';
+import { WORDS, START_WORDS, ELEMENT_LABELS } from '../words.js';
+import { ENEMY_TRAITS } from '../enemy-traits.js';
+import { ACHIEVEMENTS } from './storage-discovery.js';
 import {
+  ENEMIES,
   getHandLimit,
   getMaxMana,
   MAX_BELT_ITEMS,
@@ -268,6 +271,110 @@ export function createModalsController(ctx) {
     `;
   }
 
+  let bestiaryTab = 'all';
+
+  function renderBestiary() {
+    const listEl = $('bestiary-list');
+    const progressText = $('bestiary-progress-text');
+    const progressBar = $('bestiary-progress-bar');
+    if (!listEl) return;
+    const accountBestiary = ctx.getAccountBestiary?.() ?? new Set();
+
+    const allKinds = Object.keys(ENEMIES);
+    let filteredKinds = allKinds;
+    if (bestiaryTab === 'bosses') {
+      filteredKinds = allKinds.filter(k => ENEMIES[k].isBoss);
+    } else if (bestiaryTab === 'endgame') {
+      filteredKinds = allKinds.filter(k => [
+        'volcano_colossus', 'sand_stalker', 'spark_wraith',
+        'thunder_drake_emperor', 'ancient_chitin_behemoth', 'venom_spore_beast', 'crag_titan_sentinel',
+        'abyssal_kraken', 'kraken_crush_tentacle', 'kraken_siphon_tentacle', 'kraken_storm_tentacle', 'kraken_tidal_tentacle',
+        'nether_dread_lord', 'nether_doom_pillar', 'nether_ward_pillar', 'nether_siphon_pillar',
+        'dread_reaper', 'void_devourer',
+        'eternity_overlord', 'eternity_reborn', 'zenith_templar', 'chronos_keeper', 'chaos_weaver',
+      ].includes(k));
+    }
+
+    const discoveredCount = allKinds.filter(k => accountBestiary.has(k)).length;
+    const totalCount = allKinds.length;
+    const pct = totalCount ? Math.round((discoveredCount / totalCount) * 100) : 0;
+    if (progressText) progressText.textContent = `ค้นพบอสูร ${discoveredCount} / ${totalCount} ชนิด (${pct}%)`;
+    if (progressBar) progressBar.style.width = `${pct}%`;
+
+    const tabsEl = $('bestiary-tabs');
+    if (tabsEl) {
+      for (const btn of tabsEl.querySelectorAll('[data-bestiary-tab]')) {
+        const tab = btn.dataset.bestiaryTab;
+        const active = tab === bestiaryTab;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', String(active));
+      }
+    }
+
+    listEl.innerHTML = filteredKinds.map(kind => {
+      const e = ENEMIES[kind];
+      const trait = ENEMY_TRAITS[kind];
+      const discovered = accountBestiary.has(kind);
+      const aff = e.affinity ? `<span class="elem-badge elem-${e.affinity}">${ELEMENT_LABELS[e.affinity] ?? e.affinity}</span>` : '<span class="elem-badge elem-none">ไร้ธาตุ</span>';
+      if (!discovered) {
+        return `<div class="bestiary-card is-undiscovered">
+          <div class="bestiary-head">
+            <span class="bestiary-icon">❓</span>
+            <strong>???</strong>
+            <small class="muted">${e.isBoss ? 'บอส' : 'อสูรทั่วไป'}</small>
+          </div>
+          <p class="bestiary-desc muted">ยังไม่เคยเผชิญหน้าในหอคอย</p>
+        </div>`;
+      }
+      return `<div class="bestiary-card is-discovered ${e.isBoss ? 'is-boss' : ''}">
+        <div class="bestiary-head">
+          <span class="bestiary-icon">${e.isBoss ? '👑' : '👾'}</span>
+          <strong>${escape(e.name)}</strong>
+          ${aff}
+        </div>
+        <div class="bestiary-stats">
+          <span>HP <strong>${e.hp}</strong></span>
+          <span>เกราะ <strong>${e.armor}</strong></span>
+          <span>ม่าน <strong>${e.ward}</strong></span>
+          <small class="badge-role">${escape(trait?.role ?? 'ศัตรู')}</small>
+        </div>
+        <div class="bestiary-trait">
+          <p>${typeof trait?.passive === 'function' ? escape(trait.passive()) : 'มีพฤติกรรมการโจมตีเฉพาะตัว'}</p>
+          ${trait?.counter ? `<p class="bestiary-counter">💡 <em>แก้ทาง:</em> ${escape(trait.counter)}</p>` : ''}
+        </div>
+        <div class="bestiary-foot">
+          <span class="tag-defeated">✓ บันทึกข้อมูลแล้ว</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderAchievements() {
+    const listEl = $('achievements-list');
+    const progressText = $('achievements-progress-text');
+    const progressBar = $('achievements-progress-bar');
+    if (!listEl) return;
+    const accountAchievements = ctx.getAccountAchievements?.() ?? new Set();
+
+    const unlockedCount = ACHIEVEMENTS.filter(a => accountAchievements.has(a.id)).length;
+    const totalCount = ACHIEVEMENTS.length;
+    const pct = totalCount ? Math.round((unlockedCount / totalCount) * 100) : 0;
+    if (progressText) progressText.textContent = `ปลดล็อก ${unlockedCount} / ${totalCount} ความสำเร็จ (${pct}%)`;
+    if (progressBar) progressBar.style.width = `${pct}%`;
+
+    listEl.innerHTML = ACHIEVEMENTS.map(a => {
+      const unlocked = accountAchievements.has(a.id);
+      return `<div class="achievement-card ${unlocked ? 'is-unlocked' : 'is-locked'}">
+        <span class="achievement-icon" aria-hidden="true">${unlocked ? a.icon : '🔒'}</span>
+        <div class="achievement-info">
+          <strong>${escape(a.name)}</strong>
+          <p>${escape(a.desc)}</p>
+          <span class="achievement-status">${unlocked ? '✓ สำเร็จแล้ว' : 'ยังไม่ปลดล็อก'}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
   function selectSurfaceTab(tab) {
     const state = ctx.getState();
     const screen = ctx.getScreen();
@@ -281,6 +388,10 @@ export function createModalsController(ctx) {
     if (tab.id === 'tools-tome-tab') {
       if (screen !== 'battle') $('quick-combos').hidden = true;
       renderGrimoire();
+    } else if (tab.id === 'tools-bestiary-tab') {
+      renderBestiary();
+    } else if (tab.id === 'tools-achievements-tab') {
+      renderAchievements();
     } else if (tab.id === 'tools-bag-tab') {
       renderItemBelt({ state, screen, busy });
       renderInventoryModal();
@@ -307,6 +418,15 @@ export function createModalsController(ctx) {
 
   function initStaticGuide() {
     $('word-guide').innerHTML = Object.entries(WORDS).map(([id, word]) => `<div class="guide-word word-${id}">${icon(id)}<strong>${word.label}</strong><div><p>${word.description}</p><small>${word.formula}</small> ${rarityBadge(word)}</div></div>`).join('');
+    const bestiaryTabs = $('bestiary-tabs');
+    if (bestiaryTabs) {
+      bestiaryTabs.addEventListener('click', event => {
+        const btn = event.target.closest('[data-bestiary-tab]');
+        if (!btn) return;
+        bestiaryTab = btn.dataset.bestiaryTab;
+        renderBestiary();
+      });
+    }
     const grimoireWordFilter = $('grimoire-word-filter');
     for (const [id, word] of Object.entries(WORDS)) grimoireWordFilter.add(new Option(word.label, id));
     for (const control of [grimoireWordFilter, $('grimoire-castable')]) {
@@ -345,6 +465,8 @@ export function createModalsController(ctx) {
     updateGuideButtonBadge,
     renderGrimoire,
     renderInventoryModal,
+    renderBestiary,
+    renderAchievements,
     selectSurfaceTab,
     openTools,
     setGrimoireTab: tab => { grimoireTab = tab; grimoirePage = 1; },

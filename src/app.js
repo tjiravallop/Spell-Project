@@ -18,6 +18,7 @@ import {
   FLOOR20_BOSS_ROOM,
   FLOOR50_BOSS_ROOM,
   FLOOR100_BOSS_ROOM,
+  eternityHealth,
   enemyClimaxBonus,
   hasCardReward,
   isBossRoom,
@@ -63,6 +64,11 @@ import {
   saveTurnLogs as storeTurnLogs,
   loadAccountDiscovered,
   saveAccountDiscovered as storeAccountDiscovered,
+  loadAccountBestiary,
+  saveAccountBestiary as storeAccountBestiary,
+  loadAccountAchievements,
+  saveAccountAchievements as storeAccountAchievements,
+  ACHIEVEMENTS,
 } from './ui/storage-discovery.js';
 import { renderLog as renderCombatLog } from './ui/combat-log.js';
 import {
@@ -71,6 +77,7 @@ import {
   resetPlayerHpFx,
   pulsePlayerHud,
   renderShieldStatus,
+  renderEternityMeter,
   createBattleFxController,
 } from './ui/battle-fx.js';
 import {
@@ -137,6 +144,25 @@ let castFxTimer = null;
 let lastJustUnlockedKey = null;
 
 const accountDiscovered = loadAccountDiscovered();
+const accountBestiary = loadAccountBestiary();
+const accountAchievements = loadAccountAchievements();
+
+function recordBestiaryEncounter(kind) {
+  if (!kind || accountBestiary.has(kind)) return;
+  accountBestiary.add(kind);
+  storeAccountBestiary(accountBestiary);
+}
+
+function unlockAchievement(id) {
+  if (!id || accountAchievements.has(id)) return;
+  accountAchievements.add(id);
+  storeAccountAchievements(accountAchievements);
+  const meta = ACHIEVEMENTS.find(a => a.id === id);
+  if (meta) {
+    audio.play('discover');
+    toast(`🏆 ปลดล็อกความสำเร็จ: ${meta.name}`);
+  }
+}
 const simCache = new Map();
 let comboCache = { sig: '', combos: null };
 let workerReqId = 0;
@@ -294,6 +320,8 @@ const modals = createModalsController({
   getScreen: () => screen,
   getBusy: () => busy,
   accountDiscovered,
+  getAccountBestiary: () => accountBestiary,
+  getAccountAchievements: () => accountAchievements,
   syncDiscoveredFromState,
   renderLog,
 });
@@ -515,7 +543,10 @@ function renderBattle() {
   }
   renderRoomTrack(state, busy);
   syncRpgResourceBar();
+  for (const enemy of state.enemies) recordBestiaryEncounter(enemy.kind);
+  if (state.player.words.length >= 7) unlockAchievement('deck_master');
   renderTurnLabel(state);
+  renderEternityMeter(eternityHealth(state));
   const manaRegen = getTurnManaRegen(state.room);
   const towerSpellBonus = getTowerSpellBonus(state.room);
   const roomNotes = [`ฟื้นมานา ${manaRegen} หน่วยต่อเทิร์น`];
@@ -839,6 +870,33 @@ function playTurn(result, parsed = null, knownSpell = false, newlyDiscovered = f
   busy = true;
   pending = result;
   battleFx.beginTurnAnimation(state);
+  if (parsed?.ok && result.events.some(e => e.type === 'projectile')) {
+    unlockAchievement('first_spell');
+    if (parsed.elements?.length >= 2 || parsed.secondary) unlockAchievement('dual_fusion');
+    if (parsed.grand) unlockAchievement('grand_spell');
+    if (parsed.form === 'chakram') unlockAchievement('chakram_blade');
+    if (parsed.barrage) unlockAchievement('barrage_burst');
+  }
+  if (result.events.some(e => e.type === 'shield-counter' || (e.type === 'shield' && e.element))) {
+    unlockAchievement('shield_fortress');
+  }
+  if (result.state.player.hand.length >= 10) {
+    unlockAchievement('full_hand');
+  }
+  if (result.state.player.relics?.length >= 3) {
+    unlockAchievement('relic_collector');
+  }
+  if (isBossRoom(state) && (result.state.phase === 'reward' || result.state.phase === 'won' || result.state.phase === 'sanctuary')) {
+    if (state.room === 24) unlockAchievement('boss_10');
+    else if (state.room === 49) unlockAchievement('boss_20');
+    else if (state.room === 124) unlockAchievement('boss_50');
+    else if (state.room === 199) unlockAchievement('boss_80');
+    else if (state.room === 224) unlockAchievement('boss_90');
+    else if (state.room === 249) unlockAchievement('boss_100');
+  }
+  if (state.rift && result.summary?.riftStageCleared === 3) {
+    unlockAchievement('rift_clear');
+  }
   try {
     lastEvents = result.events;
     lastEnemies = state.enemies;
@@ -869,7 +927,9 @@ function playTurn(result, parsed = null, knownSpell = false, newlyDiscovered = f
 }
 
 function playItemRoomClear(result) {
-  if (state.phase !== 'battle' || isBossRoom(state) || (state.room === result.state.room && result.state.phase !== 'reward')) return false;
+  if (state.phase !== 'battle') return false;
+  const eternityEvent = result.summary?.eternityPhase || (state.eternityPhase === 3 && result.state.phase === 'won');
+  if (!eternityEvent && (isBossRoom(state) || (state.room === result.state.room && result.state.phase !== 'reward'))) return false;
   $('battle-tools').close();
   playTurn(result);
   return true;
@@ -982,6 +1042,7 @@ function updateSettings() {
   settings.ui = Number($('ui-volume').value) / 100;
   settings.reducedMotion = $('reduce-motion').checked;
   settings.tips = $('show-tips').checked;
+  if ($('setting-combat-speed')) settings.combatSpeed = Number($('setting-combat-speed').value) || 1;
   applySettings();
   if (!storeSettings(settings)) toast('เก็บการตั้งค่าไม่ได้ แต่ใช้ได้ในแท็บนี้');
 }
@@ -993,6 +1054,12 @@ function applySettings() {
   }
   $('reduce-motion').checked = settings.reducedMotion;
   $('show-tips').checked = settings.tips;
+  const speed = settings.combatSpeed ?? 1;
+  const speedBtn = $('combat-speed-toggle');
+  if (speedBtn) speedBtn.textContent = `⚡ ${speed}x`;
+  const speedSelect = $('setting-combat-speed');
+  if (speedSelect) speedSelect.value = String(speed);
+  document.body.dataset.combatSpeed = String(speed);
   document.body.classList.toggle('reduced-motion', settings.reducedMotion);
   battlefield.configure(settings);
   homeArt.configure(settings);
@@ -1051,6 +1118,26 @@ $('continue-run').addEventListener('click', restore);
 $('replay-seed').addEventListener('click', () => startRun(state.seed, state.tutorial));
 $('brand').addEventListener('click', showHome);
 $('result-home').addEventListener('click', showHome);
+$('combat-speed-toggle')?.addEventListener('click', () => {
+  const cur = Number(settings.combatSpeed) || 1;
+  const next = cur === 1 ? 2 : cur === 2 ? 3 : 1;
+  settings.combatSpeed = next;
+  applySettings();
+  storeSettings(settings);
+  toast(`⚡ ความเร็วการต่อสู้ ${next}x`);
+  audio.play('place');
+});
+
+$('home-grimoire')?.addEventListener('click', () => {
+  modals.openTools('tome');
+});
+
+$('setting-combat-speed')?.addEventListener('change', event => {
+  settings.combatSpeed = Number(event.target.value) || 1;
+  applySettings();
+  storeSettings(settings);
+});
+
 $('settings-open').addEventListener('click', () => { applySettings(); $('settings-dialog').showModal(); });
 $('guide-open').addEventListener('click', () => modals.openTools('tome'));
 $('map-open').addEventListener('click', () => modals.openTools('map'));
