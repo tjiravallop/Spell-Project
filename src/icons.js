@@ -1,5 +1,6 @@
 const paths = {
   shot: 'M5 2h6v2h2v2h2v4h-2v2h-2v2H5v-2H3v-2H1V6h2V4h2z',
+  chakram: 'M6 0h4v2h2v1l3-1v4h-1v4h1v4l-3-1v1h-2v2H6v-2H4v-1l-3 1v-4h1V6H1V2l3 1V2h2zm0 5v6h4V5z',
   beam: 'M1 7h14v2H1z',
   wave: 'M1 5h4V3h4v2h6v2H8V5H6v2H1zm0 6h4V9h4v2h6v2H8v-2H6v2H1z',
   storm: 'M5 1h9v2H6v2H3v3h9V6H7V4h6v1h2v4h-2v1H3V9H1V5h2V3h2zm-2 11h10v2H7v1H3z',
@@ -10,6 +11,7 @@ const paths = {
   meteor: 'M12 0h3l-4 6 3 3v4l-3 3H6l-3-3V9l3-3 4-6zm-6 1h2L4 6H2z',
   veil: 'M6 1h4v2h3v2h2v8H1V5h2V3h3zm0 4v2H4v4h8V7h-2V5z',
   pair: 'M3 2h4v12H3zm6 0h4v12H9z',
+  barrage: 'M1 2h2v12H1zm3 0h2v12H4zm3 0h2v12H7zm3 0h2v12h-2zm3 0h2v12h-2z',
   blast: 'M7 0h2v4l3-3 2 2-3 3h5v3h-5l3 3-2 2-3-3v5H7v-5l-3 3-2-2 3-3H0V6h5L2 3l2-2 3 3z',
   fire: 'M8 1h2v4h2v2h2v5h-2v2H4v-2H2V8h2V5h2v4h2V6H7V3h1zm0 8H6v3h4v-2H8z',
   ice: 'M7 0h2v4l3-3 2 2-3 3h5v2h-5l3 3-2 2-3-3v5H7v-5l-3 3-2-2 3-3H0V6h5L2 3l2-2 3 3z',

@@ -1,55 +1,79 @@
 // Floors 51–100 Endgame Tower Expansion: Monsters, Encounters, Relics, and High-Tier Shop Items
 
+export const KRAKEN_TENTACLE_KINDS = Object.freeze([
+  'kraken_ward_tentacle',
+  'kraken_heal_tentacle',
+  'kraken_ink_tentacle',
+  'kraken_crush_tentacle',
+]);
+
+export const NETHER_PILLAR_KINDS = Object.freeze([
+  'nether_leech_pillar',
+  'nether_curse_pillar',
+  'nether_doom_pillar',
+]);
+
+export const ETERNITY_SHIFT_AFFINITIES = Object.freeze(['earth', 'fire', 'ice', 'lightning']);
+
 export const ENDGAME_ENEMIES = {
   // --- Floors 51–55: Abyssal Depths (Water 💧) ---
-  abyss_crawler: { name: 'ปูเกราะบาดาล', hp: 85, armor: 4, ward: 0, attack: 11, color: '#3b82a6', exp: 60, gold: 50, affinity: 'water' },
-  hydra_serpent: { name: 'อสรพิษวารี', hp: 75, armor: 2, ward: 0, attack: 13, color: '#2a9d8f', exp: 58, gold: 48, affinity: 'water' },
-  leviathan_tide: { name: 'พญานาคีสมุทร', hp: 360, armor: 3, ward: 2, attack: 16, color: '#1d3557', exp: 160, gold: 150, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 26, affinity: 'water' },
+  abyss_crawler: { name: 'ปูเกราะบาดาล', hp: 260, armor: 4, ward: 0, attack: 26, color: '#3b82a6', exp: 60, gold: 50, affinity: 'water' },
+  hydra_serpent: { name: 'อสรพิษวารี', hp: 220, armor: 2, ward: 0, attack: 32, color: '#2a9d8f', exp: 58, gold: 48, affinity: 'water' },
+  leviathan_tide: { name: 'พญานาคีสมุทร', hp: 950, armor: 3, ward: 2, attack: 38, color: '#1d3557', exp: 160, gold: 150, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 58, affinity: 'water' },
 
   // --- Floors 56–60: Infernal Magma (Fire 🔥) ---
-  magma_tortoise: { name: 'เต่าศิลาลาวา', hp: 95, armor: 5, ward: 0, attack: 12, color: '#d94e34', exp: 68, gold: 58, affinity: 'fire' },
-  cinder_drake: { name: 'มังกรสะเก็ดไฟ', hp: 82, armor: 2, ward: 0, attack: 15, color: '#f77f00', exp: 65, gold: 55, affinity: 'fire' },
-  volcano_colossus: { name: 'ยักษ์อัคนีภูเขาไฟ', hp: 580, armor: 5, ward: 2, attack: 20, color: '#e63946', exp: 240, gold: 220, isBoss: true, swapTurn: 1, wardTurn: 1, heavy: 34, repeatReduction: 60, affinity: 'fire' },
+  magma_tortoise: { name: 'เต่าศิลาลาวา', hp: 340, armor: 3, ward: 0, attack: 30, color: '#d94e34', exp: 68, gold: 58, affinity: 'fire' },
+  cinder_drake: { name: 'มังกรสะเก็ดไฟ', hp: 280, armor: 1, ward: 0, attack: 36, color: '#f77f00', exp: 65, gold: 55, affinity: 'fire' },
+  volcano_colossus: { name: 'ยักษ์อัคนีภูเขาไฟ', hp: 1500, armor: 3, ward: 1, attack: 46, color: '#e63946', exp: 240, gold: 220, isBoss: true, affinity: 'fire' },
 
   // --- Floors 61–65: Gale Peaks (Wind 💨) ---
-  gale_harpy: { name: 'ปักษาพายุหมุน', hp: 88, armor: 2, ward: 0, attack: 14, color: '#8ecae6', exp: 70, gold: 60, distanceAttack: true, affinity: 'wind' },
-  cloud_elemental: { name: 'จิตวิญญาณเมฆา', hp: 98, armor: 2, ward: 2, attack: 12, color: '#a8dadc', exp: 72, gold: 62, wardTurn: 1, affinity: 'wind' },
-  storm_roc: { name: 'วิหคสายลมคำราม', hp: 420, armor: 3, ward: 2, attack: 18, color: '#457b9d', exp: 190, gold: 180, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 29, affinity: 'wind' },
+  gale_harpy: { name: 'ปักษาพายุหมุน', hp: 360, armor: 2, ward: 0, attack: 40, color: '#8ecae6', exp: 70, gold: 60, distanceAttack: true, affinity: 'wind' },
+  cloud_elemental: { name: 'จิตวิญญาณเมฆา', hp: 420, armor: 2, ward: 2, attack: 36, color: '#a8dadc', exp: 72, gold: 62, wardTurn: 1, affinity: 'wind' },
+  storm_roc: { name: 'วิหคสายลมคำราม', hp: 1800, armor: 3, ward: 2, attack: 50, color: '#457b9d', exp: 190, gold: 180, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 74, affinity: 'wind' },
 
   // --- Floors 66–70: Thunder Wastes (Lightning ⚡) ---
-  sand_stalker: { name: 'แมงป่องสายฟ้าทราย', hp: 92, armor: 3, ward: 0, attack: 15, color: '#ee9b00', exp: 76, gold: 65, affinity: 'lightning' },
-  spark_wraith: { name: 'ภูตอัสนีไร้ร่าง', hp: 84, armor: 1, ward: 1, attack: 16, color: '#ffd166', exp: 74, gold: 64, swapTurn: 1, affinity: 'lightning' },
-  thunder_drake_emperor: { name: 'จักรพรรดิมังกรอสุนี', hp: 640, armor: 5, ward: 2, attack: 22, color: '#ffb703', exp: 260, gold: 240, isBoss: true, swapTurn: 1, wardTurn: 1, heavy: 38, repeatReduction: 65, affinity: 'lightning' },
+  sand_stalker: { name: 'แมงป่องสายฟ้าทราย', hp: 500, armor: 3, ward: 0, attack: 44, color: '#ee9b00', exp: 76, gold: 65, affinity: 'lightning' },
+  spark_wraith: { name: 'ภูตอัสนีไร้ร่าง', hp: 440, armor: 1, ward: 1, attack: 48, color: '#ffd166', exp: 74, gold: 64, swapTurn: 1, affinity: 'lightning' },
+  thunder_drake_emperor: { name: 'จักรพรรดิมังกรอสุนี', hp: 2800, armor: 5, ward: 1, attack: 58, color: '#ffb703', exp: 260, gold: 240, isBoss: true, affinity: 'lightning' },
 
   // --- Floors 71–75: Glacial Permafrost (Ice ❄️) ---
-  frost_crystal_golem: { name: 'โกเลมผลึกหิมะ', hp: 110, armor: 5, ward: 1, attack: 14, color: '#bde0fe', exp: 82, gold: 70, affinity: 'ice' },
-  blizzard_wolf: { name: 'พญาหมาป่าเหมันต์', hp: 96, armor: 2, ward: 0, attack: 16, color: '#a2d2ff', exp: 80, gold: 68, affinity: 'ice' },
-  glacial_hydra: { name: 'ไฮดราน้ำแข็งพันปี', hp: 480, armor: 4, ward: 2, attack: 19, color: '#90e0ef', exp: 210, gold: 200, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 32, affinity: 'ice' },
+  frost_crystal_golem: { name: 'โกเลมผลึกหิมะ', hp: 620, armor: 5, ward: 1, attack: 46, color: '#bde0fe', exp: 82, gold: 70, affinity: 'ice' },
+  blizzard_wolf: { name: 'พญาหมาป่าเหมันต์', hp: 540, armor: 2, ward: 0, attack: 54, color: '#a2d2ff', exp: 80, gold: 68, affinity: 'ice' },
+  glacial_hydra: { name: 'ไฮดราน้ำแข็งพันปี', hp: 3000, armor: 4, ward: 2, attack: 62, color: '#90e0ef', exp: 210, gold: 200, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 92, affinity: 'ice' },
 
-  // --- Floors 76–80: Toxic Overgrowth & Earth Catacomb (Earth 🪨) ---
-  venom_spore_beast: { name: 'อสูรสปอร์พิษ', hp: 105, armor: 3, ward: 1, attack: 15, color: '#588157', exp: 86, gold: 74, affinity: 'earth' },
-  crag_titan_sentinel: { name: 'ทมิฬศิลายักษ์', hp: 125, armor: 6, ward: 0, attack: 14, color: '#344e41', exp: 90, gold: 78, affinity: 'earth' },
-  ancient_chitin_behemoth: { name: 'เบฮีมอธเกราะปฐพี', hp: 700, armor: 6, ward: 2, attack: 23, color: '#3a5a40', exp: 280, gold: 260, isBoss: true, swapTurn: 1, wardTurn: 2, heavy: 40, repeatReduction: 70, affinity: 'earth' },
+  // --- Floors 76–80: Toxic Overgrowth & Abyssal Trench (Floor 80★ Water Kraken Boss 💧) ---
+  venom_spore_beast: { name: 'อสูรสปอร์พิษ', hp: 640, armor: 3, ward: 1, attack: 54, color: '#588157', exp: 86, gold: 74, affinity: 'earth' },
+  crag_titan_sentinel: { name: 'ทมิฬศิลายักษ์', hp: 760, armor: 6, ward: 0, attack: 50, color: '#344e41', exp: 90, gold: 78, affinity: 'earth' },
+  ancient_chitin_behemoth: { name: 'เบฮีมอธเกราะปฐพี', hp: 4600, armor: 6, ward: 2, attack: 70, color: '#3a5a40', exp: 280, gold: 260, isBoss: true, swapTurn: 1, wardTurn: 2, heavy: 104, repeatReduction: 70, affinity: 'earth' },
+  kraken_ward_tentacle: { name: 'หนวดม่านวารี', hp: 1000, armor: 4, ward: 1, attack: 38, color: '#00b4d8', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
+  kraken_heal_tentacle: { name: 'หนวดฟื้นสมุทร', hp: 950, armor: 3, ward: 0, attack: 34, color: '#2ec4b6', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
+  kraken_ink_tentacle: { name: 'หนวดหมึกดำบาดาล', hp: 1050, armor: 3, ward: 0, attack: 42, color: '#5a189a', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
+  kraken_crush_tentacle: { name: 'หนวดยักษ์บดขยี้', hp: 1250, armor: 5, ward: 0, attack: 52, color: '#023e8a', exp: 45, gold: 40, isBoss: true, affinity: 'water' },
+  abyssal_kraken: { name: 'มหาคราเค่นแห่งห้วงบาดาล', hp: 4600, armor: 5, ward: 1, attack: 72, color: '#0077b6', exp: 280, gold: 260, isBoss: true, affinity: 'water' },
 
   // --- Floors 81–85: Solar Citadel (Fire/Light 🔥) ---
-  solar_sentinel: { name: 'หุ่นสุริยันพิฆาต', hp: 115, armor: 4, ward: 1, attack: 17, color: '#fb8500', exp: 94, gold: 80, distanceAttack: true, affinity: 'fire' },
-  radiant_phoenix: { name: 'วิหคสุริยคราส', hp: 100, armor: 3, ward: 2, attack: 16, color: '#ffb703', exp: 92, gold: 78, wardTurn: 1, affinity: 'fire' },
-  sun_archon: { name: 'อัครทูตแห่งดวงอาทิตย์', hp: 520, armor: 4, ward: 2, attack: 21, color: '#f39c12', exp: 230, gold: 220, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 35, affinity: 'fire' },
+  solar_sentinel: { name: 'หุ่นสุริยันพิฆาต', hp: 880, armor: 4, ward: 1, attack: 64, color: '#fb8500', exp: 94, gold: 80, distanceAttack: true, affinity: 'fire' },
+  radiant_phoenix: { name: 'วิหคสุริยคราส', hp: 780, armor: 3, ward: 2, attack: 60, color: '#ffb703', exp: 92, gold: 78, wardTurn: 1, affinity: 'fire' },
+  sun_archon: { name: 'อัครทูตแห่งดวงอาทิตย์', hp: 4800, armor: 4, ward: 2, attack: 76, color: '#f39c12', exp: 230, gold: 220, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 114, affinity: 'fire' },
 
   // --- Floors 86–90: Abyssal Shadow Necropolis (Void/Shadow 🌌) ---
-  dread_reaper: { name: 'ยมทูตเงาจันทรา', hp: 118, armor: 3, ward: 1, attack: 19, color: '#4a154b', exp: 98, gold: 85, affinity: 'wind' },
-  void_devourer: { name: 'มารสุญญากาศ', hp: 130, armor: 4, ward: 1, attack: 16, color: '#3c096c', exp: 102, gold: 88, affinity: 'wind' },
-  nether_dread_lord: { name: 'จอมอสูรนรกานต์', hp: 760, armor: 5, ward: 3, attack: 25, color: '#240046', exp: 300, gold: 280, isBoss: true, swapTurn: 1, wardTurn: 1, heavy: 44, repeatReduction: 70, affinity: 'wind' },
+  dread_reaper: { name: 'ยมทูตเงาจันทรา', hp: 900, armor: 3, ward: 1, attack: 74, color: '#4a154b', exp: 98, gold: 85, affinity: 'wind' },
+  void_devourer: { name: 'มารสุญญากาศ', hp: 1020, armor: 4, ward: 1, attack: 64, color: '#3c096c', exp: 102, gold: 88, affinity: 'wind' },
+  nether_dread_lord: { name: 'จอมอสูรนรกานต์', hp: 7000, armor: 5, ward: 2, attack: 84, color: '#240046', exp: 300, gold: 280, isBoss: true, repeatReduction: 70, affinity: 'wind' },
+  nether_leech_pillar: { name: 'เสาดูดวิญญาณ', hp: 1100, armor: 4, ward: 1, attack: 48, color: '#7b2cbf', exp: 55, gold: 48, isBoss: true, affinity: 'wind' },
+  nether_curse_pillar: { name: 'เสาคำสาปต้องห้าม', hp: 1050, armor: 3, ward: 1, attack: 54, color: '#9d0208', exp: 55, gold: 48, isBoss: true, affinity: 'fire' },
+  nether_doom_pillar: { name: 'เสาพิพากษานรกานต์', hp: 1250, armor: 5, ward: 0, attack: 52, color: '#3a0ca3', exp: 60, gold: 52, isBoss: true, affinity: 'ice' },
 
   // --- Floors 91–95: Chamber of Cosmic Chaos (Cosmic 🌌) ---
-  chaos_weaver: { name: 'ผู้ถักทอความโกลาหล', hp: 128, armor: 4, ward: 2, attack: 18, color: '#7209b7', exp: 106, gold: 92, swapTurn: 1, affinity: 'lightning' },
-  astral_chimera: { name: 'คิเมร่าดวงดาว', hp: 140, armor: 4, ward: 1, attack: 20, color: '#560bad', exp: 110, gold: 96, affinity: 'lightning' },
-  primordial_avatar: { name: 'อวตารปฐมกาล', hp: 580, armor: 5, ward: 2, attack: 23, color: '#480ca8', exp: 250, gold: 240, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 38, affinity: 'lightning' },
+  chaos_weaver: { name: 'ผู้ถักทอความโกลาหล', hp: 1080, armor: 4, ward: 2, attack: 72, color: '#7209b7', exp: 106, gold: 92, swapTurn: 1, affinity: 'lightning' },
+  astral_chimera: { name: 'คิเมร่าดวงดาว', hp: 1200, armor: 4, ward: 1, attack: 82, color: '#560bad', exp: 110, gold: 96, affinity: 'lightning' },
+  primordial_avatar: { name: 'อวตารปฐมกาล', hp: 6800, armor: 5, ward: 2, attack: 90, color: '#480ca8', exp: 250, gold: 240, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 136, affinity: 'lightning' },
 
   // --- Floors 96–100: The Celestial Zenith (Endgame Climax 🌌) ---
-  zenith_templar: { name: 'อัศวินดวงดาวนิรันดร์', hp: 145, armor: 5, ward: 2, attack: 21, color: '#4cc9f0', exp: 120, gold: 105, affinity: 'ice' },
-  chronos_keeper: { name: 'ผู้คุมเวลาดึกดำบรรพ์', hp: 135, armor: 4, ward: 2, attack: 19, color: '#4895ef', exp: 115, gold: 100, affinity: 'ice' },
-  eternity_overlord: { name: 'มหาเทพราชันอนันตกาล', hp: 880, armor: 6, ward: 3, attack: 27, color: '#f72585', exp: 500, gold: 500, isBoss: true, swapTurn: 1, wardTurn: 1, heavy: 48, repeatReduction: 75, affinity: 'ice' },
+  zenith_templar: { name: 'อัศวินดวงดาวนิรันดร์', hp: 1380, armor: 5, ward: 2, attack: 88, color: '#4cc9f0', exp: 120, gold: 105, affinity: 'ice' },
+  chronos_keeper: { name: 'ผู้คุมเวลาดึกดำบรรพ์', hp: 1250, armor: 4, ward: 2, attack: 78, color: '#4895ef', exp: 115, gold: 100, affinity: 'ice' },
+  eternity_overlord: { name: 'มหาเทพราชันอนันตกาล', hp: 10000, armor: 6, ward: 2, attack: 98, color: '#f72585', exp: 500, gold: 500, isBoss: true, repeatReduction: 75, affinity: 'ice' },
+  eternity_reborn: { name: 'มหาเทพอนันตกาล · ร่างจุตินิรันดร์', hp: 5500, armor: 6, ward: 2, attack: 124, color: '#ffd166', exp: 500, gold: 500, isBoss: true, affinity: 'fire' },
 };
 
 export const ENDGAME_RELICS = Object.freeze([
@@ -71,9 +95,9 @@ export const ENDGAME_RELICS = Object.freeze([
   },
   {
     id: 'gaia_emblem_80',
-    name: 'ตราประทับมหาปฐพี',
+    name: 'ตราประทับมหาสมุทร',
     dropFloor: 80,
-    icon: '🍃',
+    icon: '🌊',
     summary: 'เกราะป้องกันพื้นฐาน +3 ทุกเทิร์น และฟื้นฟู 4 HP เมื่อได้รับโล่เวท',
     status: 'ดรอปจากบอสหลักชั้น 80',
   },
@@ -361,8 +385,8 @@ export function buildEndgameTowerRooms(p) {
     p([['venom_spore_beast', 'crag_titan_sentinel', 'venom_spore_beast'], ['crag_titan_sentinel', 'venom_spore_beast', 'crag_titan_sentinel']]),
     ['ancient_chitin_behemoth', 'venom_spore_beast', 'crag_titan_sentinel'], // 79-3 boss
 
-    // Floor 80★ Major Boss (room 199)
-    ['ancient_chitin_behemoth', 'venom_spore_beast', 'crag_titan_sentinel', 'venom_spore_beast'],
+    // Floor 80★ Major Boss (room 199): 4 Kraken Tentacles -> True Abyssal Kraken Phase 2
+    ['kraken_ward_tentacle', 'kraken_heal_tentacle', 'kraken_ink_tentacle', 'kraken_crush_tentacle'],
 
     // === ZONE 9: Floors 81–84 (rooms 200–211, Solar Citadel 🔥) ===
     ['solar_sentinel', 'radiant_phoenix'],
@@ -392,8 +416,8 @@ export function buildEndgameTowerRooms(p) {
     p([['dread_reaper', 'void_devourer', 'dread_reaper'], ['void_devourer', 'dread_reaper', 'void_devourer']]),
     ['nether_dread_lord', 'dread_reaper', 'void_devourer'], // 89-3 boss
 
-    // Floor 90★ Major Boss (room 224)
-    ['nether_dread_lord', 'dread_reaper', 'void_devourer', 'dread_reaper'],
+    // Floor 90★ Major Boss (room 224): Nether Dread Lord + Tri-Pillar Pact
+    ['nether_dread_lord', 'nether_leech_pillar', 'nether_curse_pillar', 'nether_doom_pillar'],
 
     // === ZONE 10: Floors 91–94 (rooms 225–236, Cosmic Chaos 🌌) ===
     ['chaos_weaver', 'astral_chimera'],

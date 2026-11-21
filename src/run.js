@@ -7,8 +7,16 @@ import {
   ENDGAME_RELICS,
   ENDGAME_SHOP_ITEMS,
   ENDGAME_SPACED_FLOORS,
+  KRAKEN_TENTACLE_KINDS,
+  NETHER_PILLAR_KINDS,
+  ETERNITY_SHIFT_AFFINITIES,
   buildEndgameTowerRooms,
 } from './endgame-tower.js';
+export { KRAKEN_TENTACLE_KINDS, NETHER_PILLAR_KINDS, ETERNITY_SHIFT_AFFINITIES };
+
+export function getEternityShiftAffinity(turn) {
+  return ETERNITY_SHIFT_AFFINITIES[turn % 4];
+}
 
 export const ENEMIES = Object.freeze({
   striker: { name: 'อิมพ์หมึก', hp: 16, armor: 0, ward: 0, attack: 3, color: '#ba7862', exp: 10, gold: 8, isBoss: false },
@@ -322,7 +330,8 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
 export function describeCardUpgradeEffect(wordId, level = 0) {
   const nextLv = Math.max(1, level);
   if (wordId === 'veil') return `ความจุม่าน +${nextLv * 2}`;
-  if (wordId === 'blackhole' || wordId === 'meteor') return `แรงกระทบ +${nextLv}`;
+  if (wordId === 'blackhole') return `แรงยุบหลุมดำ +${nextLv * 10}`;
+  if (wordId === 'meteor') return `แรงกระทบอุกกาบาต +${nextLv}`;
   if (wordId === 'death') return `คืนมานา ${nextLv} เมื่อร่ายสำเร็จ`;
   if (ELEMENTS.includes(wordId)) {
     return `ดาเมจพื้นฐานธาตุ +${nextLv}`;
@@ -458,7 +467,9 @@ const EARLY_LEVEL_CAP = 25;
 const LATE_LEVEL_START = 80;
 
 export function nextExpForLevel(level = 1) {
-  return level < EARLY_LEVEL_CAP ? 25 : 55;
+  if (level < EARLY_LEVEL_CAP) return 25;
+  if (level <= LATE_LEVEL_START) return 55;
+  return 55 + (level - LATE_LEVEL_START) * 10;
 }
 
 export function levelUpRewards(level) {
@@ -871,27 +882,51 @@ export function prepareEnemies(state) {
       enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
       enemy.armor = phase === 1 ? 4 : phase === 2 ? 5 : phase === 3 ? 3 : 0;
     }
-    if (enemy.kind === 'volcano_colossus' || enemy.kind === 'thunder_drake_emperor') {
+    if (enemy.kind === 'volcano_colossus') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && phase === 1 ? 1 : 0;
+      enemy.armor = phase === 1 ? 3 : phase === 2 ? 4 : phase === 3 ? 2 : 0;
+    }
+    if (enemy.kind === 'thunder_drake_emperor') {
       const phase = state.turn % 4;
       enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
-      enemy.armor = phase === 1 ? 4 : phase === 2 ? 6 : phase === 3 ? 3 : 1;
+      enemy.armor = phase === 1 ? 4 : phase === 2 ? 6 : phase === 3 ? 3 : 0;
     }
     if (enemy.kind === 'ancient_chitin_behemoth') {
       const phase = state.turn % 4;
       enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
       enemy.armor = phase === 1 ? 5 : phase === 2 ? 7 : phase === 3 ? 4 : 2;
     }
+    if (enemy.kind === 'abyssal_kraken') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
+      enemy.armor = phase === 1 ? 5 : phase === 2 ? 6 : phase === 3 ? 4 : 0;
+    }
     if (enemy.kind === 'nether_dread_lord') {
       const phase = state.turn % 4;
-      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 2 : 0;
-      enemy.armor = phase === 1 ? 4 : phase === 2 ? 6 : phase === 3 ? 3 : 1;
+      enemy.ward = enemy.hp > 0 && (phase === 1 ? 2 : phase === 3 ? 1 : 0);
+      enemy.armor = phase === 1 ? 5 : phase === 2 ? 6 : phase === 3 ? 4 : 0;
     }
     if (enemy.kind === 'eternity_overlord') {
       const phase = state.turn % 4;
       enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 2 : 0;
-      enemy.armor = phase === 1 ? 6 : phase === 2 ? 8 : phase === 3 ? 5 : 2;
+      enemy.armor = phase === 1 ? 6 : phase === 2 ? 8 : phase === 3 ? 5 : 0;
+      enemy.affinity = state.eternityPhase === 2 ? getEternityShiftAffinity(state.turn) : base.affinity;
+    }
+    if (enemy.kind === 'eternity_reborn') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3 ? 2 : phase === 2 ? 1 : 0);
+      enemy.armor = phase === 1 ? 6 : phase === 2 ? 7 : phase === 3 ? 5 : 0;
+      enemy.affinity = getEternityShiftAffinity(state.turn);
     }
     if (enemy.magmaArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
+    if (enemy.abyssalShockUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
+    if (enemy.netherPurgeUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
+    if (enemy.eternityShatterUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 3);
+    if (enemy.netherExposedTurn === state.turn) {
+      enemy.armor = 0;
+      enemy.ward = 0;
+    }
     if (enemy.permanentArmorShred) enemy.armor = Math.max(0, enemy.armor - enemy.permanentArmorShred);
     else if (enemy.earthArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - (enemy.earthArmorShred ?? 1));
     if (enemy.wardGrant) {
@@ -899,6 +934,175 @@ export function prepareEnemies(state) {
       delete enemy.wardGrant;
     }
   }
+}
+
+export function checkNetherPhase2(state, summary = null, events = null) {
+  if (state.netherPhase) return false;
+  const boss = state.enemies?.find(e => e.kind === 'nether_dread_lord' && e.hp > 0);
+  if (!boss) return false;
+  const pillars = state.enemies.filter(e => NETHER_PILLAR_KINDS.includes(e.kind));
+  if (!pillars.length) return false;
+  const livePillars = pillars.filter(e => e.hp > 0);
+
+  if (livePillars.length === 0) {
+    state.netherPhase = 2;
+    boss.netherExposedTurn = state.turn + 1;
+    delete boss.readForm;
+    if (events) {
+      events.push({
+        type: 'boss-phase',
+        source: boss.id,
+        sourceKind: 'nether_dread_lord',
+        phase: 2,
+        mode: 'broken',
+        label: '🔥 เสาทั้งสามพังทลาย! พันธสัญญาแตก — จอมอสูรนรกานต์เปิดช่อง +35% เทิร์นหน้าและเข้าสู่โหมดปลดผนึก!',
+      });
+    }
+    if (summary) {
+      summary.netherPhase2 = 'broken';
+      if (Array.isArray(summary.sequence)) {
+        summary.sequence.push('🔥 พันธสัญญาสามเสาแตก! จอมอสูรนรกานต์สูญเสียเกราะคุ้มกันและเปิดช่อง +35% เทิร์นหน้า (เข้าสู่โหมดปลดผนึก)');
+      }
+    }
+    return true;
+  }
+
+  if (boss.hp <= Math.floor(boss.maxHp / 2)) {
+    state.netherPhase = 2;
+    const sacrificed = livePillars.length;
+    for (const pillar of livePillars) pillar.hp = 0;
+    const rawHeal = sacrificed * 350;
+    const effectiveHeal = boss.healCutUntil >= state.turn ? Math.floor(rawHeal / 2) : rawHeal;
+    const healed = Math.min(boss.maxHp - boss.hp, effectiveHeal);
+    boss.hp += healed;
+    delete boss.readForm;
+    if (events) {
+      events.push({
+        type: 'boss-phase',
+        source: boss.id,
+        sourceKind: 'nether_dread_lord',
+        phase: 2,
+        mode: 'sacrifice',
+        sacrificed,
+        healed,
+        label: `💀 จอมอสูรนรกานต์สังเวยเสาที่เหลือ ${sacrificed} ต้น ฟื้น +${healed} HP และเข้าสู่โหมดปลดผนึก!`,
+      });
+      if (healed > 0) {
+        events.push({ type: 'heal', source: boss.id, target: boss.id, amount: healed });
+      }
+    }
+    if (summary) {
+      summary.netherPhase2 = 'sacrifice';
+      if (Array.isArray(summary.sequence)) {
+        summary.sequence.push(`💀 จอมอสูรนรกานต์สังเวยเสาที่เหลือ ${sacrificed} ต้น ฟื้น +${healed} HP และเข้าสู่โหมดปลดผนึก!`);
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+export function triggerKrakenPhase2(state, summary = null, events = null) {
+  state.krakenPhase = 2;
+  delete state.magmaPuddles;
+  delete state.blackhole;
+  const kraken = createEnemy('abyssal_kraken', 0);
+  kraken.slot = 2;
+  state.enemies = [kraken];
+  if (events) {
+    events.push({
+      type: 'boss-phase',
+      source: kraken.id,
+      sourceKind: 'abyssal_kraken',
+      phase: 2,
+      label: '🐙 หนวดทั้งสี่ขาดสะบั้น! มหาคราเค่นแห่งห้วงบาดาลปรากฏร่างจริง!',
+    });
+  }
+  if (summary) {
+    summary.krakenPhase2 = true;
+    if (Array.isArray(summary.sequence)) {
+      summary.sequence.push('🐙 หนวดทั้งสี่ขาดสะบั้น! มหาคราเค่นแห่งห้วงบาดาล (4,600 HP) โผล่ขึ้นจากห้วงบาดาล!');
+    }
+  }
+  return kraken;
+}
+
+export function checkEternityPhase2(state, summary = null, events = null) {
+  if (state.room !== FLOOR100_BOSS_ROOM || state.eternityPhase) return false;
+  const boss = state.enemies?.find(e => e.kind === 'eternity_overlord' && e.hp > 0);
+  if (!boss || boss.hp > Math.floor(boss.maxHp / 2)) return false;
+
+  state.eternityPhase = 2;
+  let dismissed = 0;
+  for (const ally of state.enemies) {
+    if (ally.id !== boss.id && ally.hp > 0) {
+      ally.hp = 0;
+      dismissed++;
+    }
+  }
+  boss.affinity = getEternityShiftAffinity(state.turn);
+  boss.ward = Math.min(3, (boss.ward ?? 0) + 2);
+  boss.wardGrant = Math.max(boss.wardGrant ?? 0, 2);
+  const label = dismissed > 0
+    ? `🌌 เฟส 2: มหาเทพสลายสภากาลอวกาศ (${dismissed} ตน) · ปลดปล่อยร่างปฏิพากย์สลับธาตุ & ม่านสะท้อนดาราจักร!`
+    : '🌌 เฟส 2: มหาเทพปลดปล่อยร่างปฏิพากย์สลับธาตุทุกเทิร์น & ม่านสะท้อนดาราจักร!';
+  if (events) {
+    events.push({
+      type: 'boss-phase',
+      source: boss.id,
+      sourceKind: 'eternity_overlord',
+      phase: 2,
+      mode: 'prism',
+      label,
+    });
+  }
+  if (summary) {
+    summary.eternityPhase = 2;
+    if (Array.isArray(summary.sequence)) {
+      summary.sequence.push(label);
+    }
+  }
+  return true;
+}
+
+export function triggerEternityPhase3(state, summary = null, events = null) {
+  state.eternityPhase = 3;
+  delete state.magmaPuddles;
+  delete state.blackhole;
+  const reborn = createEnemy('eternity_reborn', 0);
+  reborn.slot = 2;
+  reborn.affinity = getEternityShiftAffinity(state.turn);
+  state.enemies = [reborn];
+
+  // Tower Resonance Mercy Blessing aids the wizard for the secret final duel
+  const p = state.player;
+  const mercyHeal = Math.min(p.maxHp - p.hp, Math.ceil(p.maxHp * 0.25));
+  if (mercyHeal > 0) p.hp += mercyHeal;
+  p.mana = getMaxMana(p);
+
+  const label = '✨ ห้วงกาลเวลาแตกสลาย! มหาเทพราชันอนันตกาลแอบคืนชีพสู่ “ร่างจุตินิรันดร์” (เฟส 3 · 5,500 HP)!';
+  if (events) {
+    events.push({
+      type: 'boss-phase',
+      source: reborn.id,
+      sourceKind: 'eternity_reborn',
+      phase: 3,
+      mode: 'reborn',
+      mercyHeal,
+      label,
+    });
+    if (mercyHeal > 0) {
+      events.push({ type: 'heal', source: 'player', target: 'player', amount: mercyHeal, healKind: 'grand' });
+    }
+  }
+  if (summary) {
+    summary.eternityPhase = 3;
+    if (Array.isArray(summary.sequence)) {
+      summary.sequence.push(label);
+      summary.sequence.push(`✦ พลังหอคอยเกื้อหนุน! ฟื้น HP +${mercyHeal} และมานาเต็ม ${p.mana} เพื่อศึกชี้ชะตาเฟส 3`);
+    }
+  }
+  return reborn;
 }
 
 export function roomsPerFloor(state) {
@@ -925,6 +1129,9 @@ export function enterRoom(state) {
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
+  delete state.krakenPhase;
+  delete state.netherPhase;
+  delete state.eternityPhase;
   state.turn = 1;
   state.phase = 'battle';
   state.player.mana = getMaxMana(state.player);
@@ -2169,6 +2376,9 @@ export function completeRevisitVictoryToSanctuary(state, summary = null) {
   state.sanctuaryUnlocked = true;
   state.sanctuaryFloor = targetFloor;
   state.sanctuaryRested = false;
+  delete state.krakenPhase;
+  delete state.netherPhase;
+  delete state.eternityPhase;
   state.phase = 'sanctuary';
   state.turn = 1;
   state.player.shield = null;
@@ -2261,7 +2471,19 @@ export function useBattleItem(original, beltIndex) {
         }
       }
     }
+    checkNetherPhase2(state, summary, events);
+    checkEternityPhase2(state, summary, events);
     if (state.enemies.every(e => e.hp <= 0)) {
+      if (!state.krakenPhase && state.enemies.some(e => KRAKEN_TENTACLE_KINDS.includes(e.kind))) {
+        triggerKrakenPhase2(state, summary, events);
+        prepareEnemies(state);
+        return totalDmg;
+      }
+      if (state.room === FLOOR100_BOSS_ROOM && state.eternityPhase !== 3 && state.enemies.some(e => e.kind === 'eternity_overlord')) {
+        triggerEternityPhase3(state, summary, events);
+        prepareEnemies(state);
+        return totalDmg;
+      }
       if (state.rift) {
         resolveRiftBattleVictory(state, summary, events);
         return totalDmg;
@@ -2269,6 +2491,9 @@ export function useBattleItem(original, beltIndex) {
       delete state.magmaPuddles;
       delete state.blackhole;
       delete state.deathSpent;
+      delete state.krakenPhase;
+      delete state.netherPhase;
+      delete state.eternityPhase;
       if (!state.clearedRooms.includes(state.room)) state.clearedRooms.push(state.room);
       recordClearedFloorProgress(state, state.room);
       state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, state.room + 1));
@@ -2499,7 +2724,88 @@ export function intent(enemy, turn, enemies = [], room = 0) {
         : { type: 'ward-grant', amount: 1, target: target.id, shortLabel: `ม่าน #${target.slot + 1}`, label: `ถักม่าน 1 ชั้นให้เพื่อนช่อง ${target.slot + 1} ในเทิร์นถัดไป` };
     }
   }
-  const isMajorClimaxRelease = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'nether_dread_lord', 'eternity_overlord'].includes(enemy.kind) && turn % 4 === 0;
+  // Floor 80★ Kraken Tentacles (Phase 1): distinct cooldown roles
+  if (enemy.kind === 'kraken_ward_tentacle' && turn % 2 === 1) {
+    const allies = enemies.filter(other => other.id !== enemy.id && other.hp > 0);
+    if (allies.length) {
+      if (enemy.sealed) return { type: 'sealed', amount: 0, label: 'ติดผนึก · ข้ามการกางม่านให้หนวดอื่น' };
+      return {
+        type: 'ward-grant-all',
+        amount: 1,
+        targets: allies.map(other => other.id),
+        shortLabel: `ม่าน ×${allies.length}`,
+        label: `กางม่านวารี +1 ชั้นให้หนวดเส้นอื่นทั้งหมด (${allies.length} เส้น) ในเทิร์นถัดไป · คูลดาวน์ 2 เทิร์น`,
+      };
+    }
+  }
+  if (enemy.kind === 'kraken_heal_tentacle' && turn % 2 === 0) {
+    const injured = enemies
+      .filter(other => other.hp > 0 && other.hp < other.maxHp)
+      .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || a.slot - b.slot)[0];
+    if (injured) {
+      if (enemy.sealed) return { type: 'sealed', amount: 0, label: 'ติดผนึก · ข้ามการฟื้นฟูหนวด' };
+      return {
+        type: 'heal',
+        amount: 220,
+        target: injured.id,
+        shortLabel: `ฮีล #${injured.slot + 1} +220`,
+        label: `ฟื้นฟู +220 HP ให้ ${ENEMIES[injured.kind].name} (ช่อง ${injured.slot + 1}) · คูลดาวน์ 2 เทิร์น`,
+      };
+    }
+  }
+  if (enemy.kind === 'kraken_crush_tentacle' && cycle === 2) {
+    if (enemy.freeze > 0) return { type: 'frozen', amount: 0, label: 'แช่แข็ง · ข้ามการชาร์จ' };
+    const next = Math.max(0, 92 + enemyClimaxBonus(turn + 1, room) - enemy.chill - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `ยกหนวดยักษ์บดขยี้ · เทิร์นหน้าฟาดหนัก ${next}!` };
+  }
+  // Floor 90★ Nether Dread Lord Tri-Pillar Pact: distinct pillar cooldown roles
+  if (enemy.kind === 'nether_leech_pillar' && turn % 2 === 1) {
+    const bossTarget = enemies.find(other => other.kind === 'nether_dread_lord' && other.hp > 0 && other.hp < other.maxHp);
+    if (bossTarget) {
+      if (enemy.sealed) return { type: 'sealed', amount: 0, label: 'ติดผนึก · ข้ามการถ่ายวิญญาณฟื้นบอส' };
+      return {
+        type: 'heal',
+        amount: 180,
+        target: bossTarget.id,
+        shortLabel: 'ดูดวิญญาณ +180',
+        label: `ถ่ายวิญญาณฟื้น +180 HP ให้ ${ENEMIES[bossTarget.kind].name} · คูลดาวน์ 2 เทิร์น`,
+      };
+    }
+  }
+  if (enemy.kind === 'nether_curse_pillar' && turn % 2 === 1) {
+    const bossTarget = enemies.find(other => other.kind === 'nether_dread_lord' && other.hp > 0 && other.ward < 3);
+    if (bossTarget) {
+      if (enemy.sealed) return { type: 'sealed', amount: 0, label: 'ติดผนึก · ข้ามการถักม่านมืดให้บอส' };
+      return {
+        type: 'ward-grant',
+        amount: 1,
+        target: bossTarget.id,
+        shortLabel: 'ม่านบอส +1',
+        label: `ถักม่านมืด +1 ชั้นให้ ${ENEMIES[bossTarget.kind].name} ในเทิร์นถัดไป · คูลดาวน์ 2 เทิร์น`,
+      };
+    }
+  }
+  if (enemy.kind === 'nether_doom_pillar' && cycle === 2) {
+    if (enemy.freeze > 0) return { type: 'frozen', amount: 0, label: 'แช่แข็ง · ข้ามการชาร์จลำแสงทัณฑ์' };
+    const next = Math.max(0, 88 + enemyClimaxBonus(turn + 1, room) - enemy.chill - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `รวบรวมทัณฑ์นรกานต์ · เทิร์นหน้ายิงลำแสง ${next}!` };
+  }
+  if (enemy.kind === 'chronos_keeper' && room === FLOOR100_BOSS_ROOM && turn % 2 === 1) {
+    const allies = enemies.filter(other => other.hp > 0 && other.id !== enemy.id);
+    const target = allies.reduce((best, other) => !best || other.hp * best.maxHp < best.hp * other.maxHp
+      || (other.hp * best.maxHp === best.hp * other.maxHp && other.slot < best.slot) ? other : best, null);
+    if (target) {
+      if (enemy.sealed) return { type: 'sealed', amount: 0, label: 'ติดผนึก · ข้ามการกางม่านเวลา' };
+      return {
+        type: 'ward-grant',
+        amount: 1,
+        target: target.id,
+        shortLabel: `ม่านเวลา #${target.slot + 1}`,
+        label: `กางม่านเวลา +1 ชั้นในเทิร์นถัดไปให้ ${ENEMIES[target.kind].name} (ช่อง ${target.slot + 1})`,
+      };
+    }
+  }
+  const isMajorClimaxRelease = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind) && turn % 4 === 0;
   if (!isMajorClimaxRelease && profile.swapTurn === cycle) {
     const target = enemies.filter(other => other.hp > 0 && other.id !== enemy.id)
       .sort((a, b) => Math.abs(b.slot - enemy.slot) - Math.abs(a.slot - enemy.slot) || a.slot - b.slot)[0];
@@ -2546,19 +2852,26 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     return { type: 'charge', amount: 0, label: 'ชาร์จมหาพายุอัสนี · เทิร์นหน้าฟาด 20!' };
   }
   if (enemy.kind === 'volcano_colossus' && turn % 4 === 3) {
-    return { type: 'charge', amount: 0, label: 'ชาร์จแมกม่ากลืนพิภพ · เทิร์นหน้าทุบ 24!' };
+    return { type: 'charge', amount: 0, label: 'ชาร์จแมกม่ากลืนพิภพ · เทิร์นหน้าทุบ 68!' };
   }
   if (enemy.kind === 'thunder_drake_emperor' && turn % 4 === 3) {
-    return { type: 'charge', amount: 0, label: 'สะสมกระแสไฟฟ้าดารากระหน่ำ · เทิร์นหน้าฟาด 26!' };
+    return { type: 'charge', amount: 0, label: 'สะสมกระแสไฟฟ้าดารากระหน่ำ · เทิร์นหน้าฟาด 84!' };
   }
   if (enemy.kind === 'ancient_chitin_behemoth' && turn % 4 === 3) {
-    return { type: 'charge', amount: 0, label: 'สะเทือนธรณีปฐมกาล · เทิร์นหน้ากระแทก 28!' };
+    return { type: 'charge', amount: 0, label: 'สะเทือนธรณีปฐมกาล · เทิร์นหน้ากระแทก 104!' };
+  }
+  if (enemy.kind === 'abyssal_kraken' && turn % 4 === 3) {
+    return { type: 'charge', amount: 0, label: 'รวบรวมมหาคลื่นสึนามิบาดาล · เทิร์นหน้าซัด 108!' };
   }
   if (enemy.kind === 'nether_dread_lord' && turn % 4 === 3) {
-    return { type: 'charge', amount: 0, label: 'รวบรวมลมดับดวงวิญญาณ · เทิร์นหน้าเฉือน 30!' };
+    const doomBonus = enemies.some(other => other.kind === 'nether_doom_pillar' && other.hp > 0) ? 18 : 0;
+    return { type: 'charge', amount: 0, label: `รวบรวมเปลวเพลิงนรกานต์ · เทิร์นหน้าเฉือน ${128 + doomBonus}!` };
   }
   if (enemy.kind === 'eternity_overlord' && turn % 4 === 3) {
-    return { type: 'charge', amount: 0, label: 'รวบรวมพลังงานกาลอวกาศนิรันดร์ · เทิร์นหน้าปลดปล่อยคลื่นทำลาย 36!' };
+    return { type: 'charge', amount: 0, label: 'รวบรวมพลังงานกาลอวกาศนิรันดร์ · เทิร์นหน้าปลดปล่อยคลื่นทำลาย 152!' };
+  }
+  if (enemy.kind === 'eternity_reborn' && turn % 4 === 3) {
+    return { type: 'charge', amount: 0, label: 'รวบรวมดาราจักรดับสูญ · เทิร์นหน้าซัดซูเปอร์โนวา 188!' };
   }
   if (enemy.kind === 'support' && turn % 2 === 1) return { type: 'heal', amount: 3, label: 'ฟื้น HP พวกเดียวกัน 3' };
   if (enemy.kind === 'chrono_sage' && turn % 2 === 1) return { type: 'heal', amount: 5, label: 'ฟื้น HP พวกเดียวกัน 5' };
@@ -2599,30 +2912,99 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     else if (turn % 4 === 2) base = 14;
   }
   else if (enemy.kind === 'volcano_colossus') {
-    if (turn % 4 === 0) base = 24;
-    else if (turn % 4 === 2) base = 16;
+    if (turn % 4 === 0) base = 68;
+    else if (turn % 4 === 2) base = 38;
   }
   else if (enemy.kind === 'thunder_drake_emperor') {
-    if (turn % 4 === 0) base = 26;
-    else if (turn % 4 === 2) base = 17;
+    if (turn % 4 === 0) base = 84;
+    else if (turn % 4 === 2) base = 48;
   }
   else if (enemy.kind === 'ancient_chitin_behemoth') {
-    if (turn % 4 === 0) base = 28;
-    else if (turn % 4 === 2) base = 18;
+    if (turn % 4 === 0) base = 104;
+    else if (turn % 4 === 2) base = 58;
+  }
+  else if (enemy.kind === 'abyssal_kraken') {
+    if (turn % 4 === 0) base = 108;
+    else if (turn % 4 === 2) base = 58;
+  }
+  else if (enemy.kind === 'kraken_crush_tentacle' && cycle === 0) {
+    base = 92;
   }
   else if (enemy.kind === 'nether_dread_lord') {
-    if (turn % 4 === 0) base = 30;
-    else if (turn % 4 === 2) base = 20;
+    if (turn % 4 === 0) base = 128;
+    else if (turn % 4 === 2) base = 70;
+  }
+  else if (enemy.kind === 'nether_doom_pillar' && cycle === 0) {
+    base = 88;
   }
   else if (enemy.kind === 'eternity_overlord') {
-    if (turn % 4 === 0) base = 36;
-    else if (turn % 4 === 2) base = 24;
+    if (turn % 4 === 0) base = 152;
+    else if (turn % 4 === 2) base = 82;
+  }
+  else if (enemy.kind === 'eternity_reborn') {
+    if (turn % 4 === 0) base = 188;
+    else if (turn % 4 === 2) base = 112;
   }
   const loomAllies = enemy.kind === 'loom_sovereign' && room === FLOOR50_BOSS_ROOM && cycle === 2
     ? enemies.filter(other => other.hp > 0 && other.id !== enemy.id).length : 0;
-  const eternityAllies = enemy.kind === 'eternity_overlord' && room === FLOOR100_BOSS_ROOM && cycle === 2
+  const eternityAllies = enemy.kind === 'eternity_overlord' && room === FLOOR100_BOSS_ROOM && turn % 4 === 2
     ? enemies.filter(other => other.hp > 0 && other.id !== enemy.id).length : 0;
-  base += loomAllies * 3 + eternityAllies * 4;
+  const netherDoomBonus = enemy.kind === 'nether_dread_lord' && enemies.some(other => other.kind === 'nether_doom_pillar' && other.hp > 0) ? 18 : 0;
+  base += loomAllies * 3 + eternityAllies * 10 + netherDoomBonus;
   const amount = Math.max(0, base + enemyClimaxBonus(turn, room) - enemy.chill - (enemy.obscured ? 4 : 0));
-  return { type: 'attack', amount, label: `โจมตี ${amount}${loomAllies ? ` · ลูกสมุน ${loomAllies} ตัวเสริม ${loomAllies * 3}` : ''}${eternityAllies ? ` · ลูกสมุนมิติ ${eternityAllies} ตัวเสริม ${eternityAllies * 4}` : ''}` };
+  if (enemy.kind === 'eternity_reborn' && turn % 4 === 1) {
+    return {
+      type: 'attack',
+      amount,
+      manaDrain: 2,
+      shortLabel: `โจมตี ${amount} · −2 MP`,
+      label: `คลื่นสุญญากาศอนันต์โจมตี ${amount} + สูบมานา −2 MP`,
+    };
+  }
+  if (enemy.kind === 'eternity_reborn' && turn % 4 === 2) {
+    const shattered = (enemy.eternityShatterUntil ?? 0) >= turn;
+    return {
+      type: 'attack',
+      amount,
+      chronoRewind: 400,
+      shortLabel: shattered ? `โจมตี ${amount} (หยุดเวลา)` : `โจมตี ${amount} + ย้อนเวลา 400`,
+      label: shattered
+        ? `โจมตี ${amount} · ผลึกธาตุแตกแล้ว (ตัดการย้อนเวลาฟื้นเลือด!)`
+        : `ย้อนกาลเวลาโจมตี ${amount} และฟื้นฟู +400 HP (ตีจุดอ่อนเพื่อทลายผลึกและหยุดเวลา!)`,
+    };
+  }
+  if (enemy.kind === 'kraken_ink_tentacle' && cycle === 2) {
+    return {
+      type: 'attack',
+      amount,
+      manaDrain: 2,
+      shortLabel: `หมึก ${amount} · −2 MP`,
+      label: `พ่นหมึกดำบาดาลโจมตี ${amount} + สูบมานา −2 MP · คูลดาวน์ 3 เทิร์น`,
+    };
+  }
+  if (enemy.kind === 'abyssal_kraken' && turn % 4 === 2) {
+    return {
+      type: 'attack',
+      amount,
+      selfHeal: 120,
+      shortLabel: `โจมตี ${amount} + ฮีล 120`,
+      label: `ดูดกลืนกระแสน้ำโจมตี ${amount} และฟื้นเลือดตนเอง +120 HP`,
+    };
+  }
+  const inNetherOverdrive = enemy.kind === 'nether_dread_lord'
+    && enemies.some(other => NETHER_PILLAR_KINDS.includes(other.kind))
+    && !enemies.some(other => NETHER_PILLAR_KINDS.includes(other.kind) && other.hp > 0);
+  if (inNetherOverdrive) {
+    const purged = enemy.netherPurgeUntil >= turn;
+    return {
+      type: 'attack',
+      amount,
+      soulDrain: 150,
+      shortLabel: purged ? `โจมตี ${amount} (ชำระแล้ว)` : `โจมตี ${amount} · สูบชีพ 150`,
+      label: purged
+        ? `โจมตี ${amount} · ติดสถานะชำระมลทิน (ตัดการสูบวิญญาณ)`
+        : `โหมดปลดผนึก: โจมตี ${amount} · หากทะลุโล่เข้าเลือดจะสูบวิญญาณฟื้น +150 HP`,
+    };
+  }
+  return { type: 'attack', amount, label: `โจมตี ${amount}${netherDoomBonus ? ` (เสาพิพากษาเสริม +${netherDoomBonus})` : ''}${loomAllies ? ` · ลูกสมุน ${loomAllies} ตัวเสริม ${loomAllies * 3}` : ''}${eternityAllies ? ` · สภาแห่งกาล ${eternityAllies} ตัวเสริม ${eternityAllies * 10}` : ''}` };
 }

@@ -10,6 +10,7 @@ import {
   FUSED_ELEMENTS,
   STORM_FORMULAS,
   DEVASTATION_FORMULAS,
+  BARRAGE_FORMULAS,
   CROSS_FORM_FORMULAS,
   GRAND_FORMULAS,
   ADVANCED_FORMULAS,
@@ -24,6 +25,23 @@ export const ATTACK_CANDIDATES = Object.freeze([
   ...STORM_FORMULAS,
   ...CROSS_FORM_FORMULAS,
   ...GRAND_FORMULAS,
+  ['chakram', 'fire', 'pair'],
+  ['chakram', 'ice', 'pair'],
+  ['chakram', 'lightning', 'pair'],
+  ['chakram', 'earth', 'pair'],
+  ['chakram', 'water', 'pair'],
+  ['chakram', 'wind', 'pair'],
+  ['chakram', 'fire', 'large'],
+  ['chakram', 'ice', 'large'],
+  ['chakram', 'lightning', 'large'],
+  ['chakram', 'fire', 'pierce'],
+  ['chakram', 'fire', 'blast'],
+  ['chakram', 'fire'],
+  ['chakram', 'lightning'],
+  ['chakram', 'ice'],
+  ['chakram', 'earth'],
+  ['chakram', 'water'],
+  ['chakram', 'wind'],
   ['shot', 'blast', 'fire', 'pair'],
   ['shot', 'blast', 'fire', 'ice'],
   ['shot', 'blast', 'fire', 'large'],
@@ -224,9 +242,11 @@ export function computePlayableCombos(state, words = [], discoveredKeys = []) {
     };
   };
   const attacks = [];
-  const attackCandidates = state.player.hand.includes('devastation')
-    ? [...DEVASTATION_FORMULAS, ...ATTACK_CANDIDATES]
-    : ATTACK_CANDIDATES;
+  const attackCandidates = [
+    ...(state.player.hand.includes('barrage') ? BARRAGE_FORMULAS : []),
+    ...(state.player.hand.includes('devastation') ? DEVASTATION_FORMULAS : []),
+    ...ATTACK_CANDIDATES,
+  ];
   for (const phrase of attackCandidates) {
     const parsed = canFormPhraseInHand(state, phrase);
     if (parsed) {
@@ -285,14 +305,15 @@ export function describeFormulaEffect(formula) {
   }
   const formMap = {
     shot: sp.shellBlast ? 'ยิงกระสุนหัวระเบิด' : 'ยิงกระสุน',
+    chakram: 'กรงจักรเจาะเป้าเดี่ยวรุนแรง 180% (ไม่กระจายออกนอก)',
     beam: 'ลำแสงทะลุแถวและม่าน',
     wave: 'คลื่นกวาดศัตรูทุกตัว',
     blast: sp.blastShot
       ? `ระเบิดตรงเป้า (รัศมี ${sp.grand ? 2 : 1} ช่อง) ก่อนยิงกระสุนเสริม 60%`
       : `ระเบิดตรงเป้า · ช่องอื่นในรัศมี ${sp.grand ? 2 : 1} ช่องรับครึ่งพลัง · ม่านกันแยกเป้า`,
     storm: sp.elements.length ? 'พลังธาตุ 150% ใส่เป้าหลัก และ 75% ใส่ช่องข้าง' : 'พลัง 12 ใส่เป้าหลัก และ 6 ใส่ช่องข้าง',
-    meteor: 'อุกกาบาตตกใส่เป้าหลัก 28 / ช่องข้าง 10 (ข้ามม่าน)',
-    blackhole: 'หลุมดำดึงศัตรูรัศมี 2 ช่อง · ยุบตัวเทิร์นหน้า 30 / 15 (ข้ามม่าน)',
+    meteor: 'อุกกาบาตสุ่มตก 3 ครั้ง · เป้าหลัก 24 / กระจายช่องข้าง 12 (ข้ามม่าน)',
+    blackhole: 'หลุมดำดูดศัตรูรวมจุดกลาง (ชนกันกระแทก 100 ทับซ้อนได้) · ยุบตัวเทิร์นหน้า 300 / 150 (ข้ามม่านและเกราะ)',
   };
   const parts = [formMap[sp.form] ?? 'โจมตีเวท'];
   for (const id of new Set([...(sp.elements ?? []), sp.secondElement])) {
@@ -301,17 +322,19 @@ export function describeFormulaEffect(formula) {
   if (sp.form === 'storm' && sp.elements?.length === 2) parts.push('เฉลี่ยพลังสองธาตุและใช้ผลทั้งคู่');
   else if (sp.elements?.length === 2) parts.push(`ผสาน ${sp.elements.map(id => WORDS[id].label).join(' + ')} ในการโจมตีครั้งเดียว`);
   if (sp.secondElement) parts.push(`ครั้งแรกธาตุ${WORDS[sp.elements[0]].label} · ครั้งที่สองธาตุ${WORDS[sp.secondElement].label}`);
+  if (sp.barrage) parts.push(sp.form === 'meteor' ? 'กระหน่ำสุ่มตก 15 ลูก (5 ชุด)' : 'กระหน่ำปล่อยพลัง 5 ครั้งต่อเนื่อง');
   if (sp.stormPair) parts.push('พายุระลอกสองที่ 60% ของระลอกแรก');
   if (sp.blastPair) parts.push(sp.grand ? 'ระเบิดซ้ำที่เดิมที่ 60% ของระลอกแรก' : 'ระเบิดสองครั้งที่จุดเดียว');
-  if (sp.meteorPair) parts.push('อุกกาบาต 2 ลูก');
+  if (sp.meteorPair) parts.push('อุกกาบาตสุ่มตก 6 ลูก (2 ชุด)');
   if (sp.wavePair) parts.push('คลื่นกวาดสนามสองระลอก');
   if (sp.waveBlast) parts.push('ระเบิดครึ่งพลังใส่จุดกระทบและช่องข้าง');
   if (sp.stormBlast) parts.push('เป้าหลักจุดระเบิดครึ่งพลังในรัศมี 2 ช่อง');
   if (sp.devastation) parts.push('แรงโจมตี ×2 · ระเบิดครึ่งพลังหนึ่งครั้งในรัศมี 2 ช่องเมื่อโจมตีโดน');
   if (sp.grand && sp.stormPair) parts.push('แรงโจมตี ×1.5 · กระจายครึ่งพลังไปช่องข้างทั้งสองระลอก');
+  else if (sp.grand && sp.form === 'chakram') parts.push('แรงโจมตี ×1.5 เป้าเดี่ยวล้วน');
   else if (sp.grand && ['blast', 'meteor', 'blackhole'].includes(sp.form)) parts.push('แรงโจมตี ×1.5');
   else if (sp.grand) parts.push('แรงโจมตี ×1.5 · กระจายครึ่งพลังไปช่องข้าง');
-  if (sp.shots > 1 && !sp.meteorPair) parts.push(sp.form === 'beam' ? 'ลำแสงสองครั้ง' : sp.blastShot ? 'ระเบิดและยิงซ้ำสองครั้ง' : `${sp.shots} ลูกต่อเนื่อง`);
+  if (sp.shots > 1 && !sp.meteorPair && !sp.barrage) parts.push(sp.form === 'beam' ? 'ลำแสงสองครั้ง' : sp.form === 'chakram' ? 'กรงจักรสองครั้ง' : sp.blastShot ? 'ระเบิดและยิงซ้ำสองครั้ง' : `${sp.shots} ลูกต่อเนื่อง`);
   if (formula.phrase.includes('large')) parts.push('แรงเวท ×1.5');
   if (sp.blasts) parts.push('ระเบิดกระจายช่องข้างเคียง');
   if (sp.shellBlast) parts.push('ระเบิดรัศมี 1 ช่องเพิ่ม 60% (แรงกว่าระเบิดเดี่ยวและโดนทุกตัวในรัศมี)');

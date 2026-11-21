@@ -1,5 +1,4 @@
 import { ATTACK_FORMS, ELEMENTS, WORDS, START_WORDS, LARGE_SHIELD_HP, getSpellCatalog } from './words.js';
-import { RIFT_ENEMIES } from './upper-tower.js';
 import {
   ENEMIES,
   getHandLimit,
@@ -45,9 +44,44 @@ const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min
 const phases = ['battle', 'reward', 'loadout', 'sanctuary', 'won', 'lost'];
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 // Shield upgrades add twice their level, and veil/grand/rift/worldloom add their own bonuses.
-const maxShieldLayerHp = 300;
+const maxShieldLayerHp = 600;
 const shieldEffects = [null, ...ELEMENTS, 'blast', 'akki-blast', 'brace', 'veil'];
-const previousRiftBossHp = { gate_weaver: 190, mirror_regent: 235, seam_warden: 270, loom_sovereign: 330 };
+const previousEnemyHp = {
+  gate_weaver: [190],
+  mirror_regent: [235],
+  seam_warden: [270],
+  loom_sovereign: [330],
+  abyss_crawler: [85],
+  hydra_serpent: [75],
+  leviathan_tide: [360],
+  magma_tortoise: [95, 74],
+  cinder_drake: [82, 68],
+  volcano_colossus: [580, 380],
+  gale_harpy: [88],
+  cloud_elemental: [98],
+  storm_roc: [420],
+  sand_stalker: [92],
+  spark_wraith: [84],
+  thunder_drake_emperor: [640],
+  frost_crystal_golem: [110],
+  blizzard_wolf: [96],
+  glacial_hydra: [480],
+  venom_spore_beast: [105],
+  crag_titan_sentinel: [125],
+  ancient_chitin_behemoth: [700],
+  solar_sentinel: [115],
+  radiant_phoenix: [100],
+  sun_archon: [520],
+  dread_reaper: [118],
+  void_devourer: [130],
+  nether_dread_lord: [760],
+  chaos_weaver: [128],
+  astral_chimera: [140],
+  primordial_avatar: [580],
+  zenith_templar: [145],
+  chronos_keeper: [135],
+  eternity_overlord: [880],
+};
 
 export function validateRun(state) {
   const invalid = () => { throw new Error('ข้อมูลเซฟไม่ครบหรือมีค่าไม่ถูกต้อง'); };
@@ -59,7 +93,10 @@ export function validateRun(state) {
   if (state.magmaPuddles !== undefined && (state.phase !== 'battle' || !Array.isArray(state.magmaPuddles)
     || new Set(state.magmaPuddles).size !== state.magmaPuddles.length || state.magmaPuddles.some(slot => !integer(slot, 0, 4)))) invalid();
   if (state.blackhole !== undefined && (state.phase !== 'battle' || !object(state.blackhole)
-    || !integer(state.blackhole.slot, 0, 4) || !integer(state.blackhole.power, 30, 30 + MAX_CARD_UPGRADE))) invalid();
+    || !integer(state.blackhole.slot, 0, 4) || !integer(state.blackhole.power, 30, 1500))) invalid();
+  if (state.krakenPhase !== undefined && (state.phase !== 'battle' || state.krakenPhase !== 2)) invalid();
+  if (state.netherPhase !== undefined && (state.phase !== 'battle' || state.netherPhase !== 2)) invalid();
+  if (state.eternityPhase !== undefined && (state.phase !== 'battle' || ![2, 3].includes(state.eternityPhase))) invalid();
   if (!Array.isArray(state.rooms) || state.rooms.length < 1 || state.room >= state.rooms.length || state.rooms.some(room => !Array.isArray(room) || room.length < 1 || room.length > 4 || room.some(kind => !Object.hasOwn(ENEMIES, kind)))) invalid();
   const words = (list, min, max) => Array.isArray(list) && integer(list.length, min, max) && new Set(list).size === list.length && list.every(id => Object.hasOwn(WORDS, id));
   const maxUnlockableWords = Object.keys(WORDS).length - START_WORDS.length;
@@ -140,10 +177,15 @@ export function validateRun(state) {
           layer.elements.length < 1 || layer.elements.length > 2 ||
           new Set(layer.elements).size !== layer.elements.length || layer.elements.some(id => !ELEMENTS.includes(id))))) invalid();
   }
-  if (!Array.isArray(state.enemies) || state.enemies.length !== state.rooms[state.room].length) invalid();
+  const expectedKinds = state.krakenPhase === 2
+    ? ['abyssal_kraken']
+    : state.eternityPhase === 3
+      ? ['eternity_reborn']
+      : state.rooms[state.room];
+  if (!Array.isArray(state.enemies) || state.enemies.length !== expectedKinds.length) invalid();
   const slots = new Set();
   state.enemies.forEach((enemy, index) => {
-    if (!object(enemy) || enemy.id !== `enemy-${index}` || enemy.kind !== state.rooms[state.room][index]) invalid();
+    if (!object(enemy) || enemy.id !== `enemy-${index}` || enemy.kind !== expectedKinds[index]) invalid();
     if (enemy.sealed !== undefined && typeof enemy.sealed !== 'boolean') invalid();
     if (enemy.lastingChill !== undefined && typeof enemy.lastingChill !== 'boolean') invalid();
     if (enemy.obscured !== undefined && typeof enemy.obscured !== 'boolean') invalid();
@@ -151,12 +193,17 @@ export function validateRun(state) {
       || ![...ATTACK_FORMS, 'blast', 'blackhole', 'meteor'].includes(enemy.readForm))) invalid();
     if (enemy.wetUntil !== undefined && !integer(enemy.wetUntil, state.turn, state.turn + 1)) invalid();
     if (enemy.magmaArmorUntil !== undefined && !integer(enemy.magmaArmorUntil, state.turn, state.turn + 1)) invalid();
+    if (enemy.abyssalShockUntil !== undefined && !integer(enemy.abyssalShockUntil, state.turn, state.turn + 1)) invalid();
+    if (enemy.netherPurgeUntil !== undefined && !integer(enemy.netherPurgeUntil, state.turn, state.turn + 1)) invalid();
+    if (enemy.netherExposedTurn !== undefined && !integer(enemy.netherExposedTurn, state.turn, state.turn + 1)) invalid();
+    if (enemy.eternityShatterUntil !== undefined && !integer(enemy.eternityShatterUntil, state.turn, state.turn + 1)) invalid();
+    if (enemy.groundedUntil !== undefined && !integer(enemy.groundedUntil, state.turn, state.turn + 1)) invalid();
     if (enemy.earthArmorUntil !== undefined && !integer(enemy.earthArmorUntil, state.turn, state.turn + 1)) invalid();
     if (enemy.earthArmorShred !== undefined && !integer(enemy.earthArmorShred, 1, 2)) invalid();
     if (enemy.permanentArmorShred !== undefined && !integer(enemy.permanentArmorShred, 0, 10)) invalid();
     if (enemy.healCutUntil !== undefined && !integer(enemy.healCutUntil, state.turn, state.turn + 1)) invalid();
-    const legacyBossHp = previousRiftBossHp[enemy.kind];
-    if ((enemy.maxHp !== ENEMIES[enemy.kind].hp && (legacyBossHp === undefined || enemy.maxHp !== legacyBossHp))
+    const legacyHpList = previousEnemyHp[enemy.kind];
+    if ((enemy.maxHp !== ENEMIES[enemy.kind].hp && (!legacyHpList || !legacyHpList.includes(enemy.maxHp)))
       || !integer(enemy.hp, 0, enemy.maxHp) || !integer(enemy.armor, 0, 10) || !integer(enemy.ward, 0, 3) || !integer(enemy.slot, 0, 4) || !integer(enemy.chill, 0, 40000) || !integer(enemy.freeze, 0, 10000) || !integer(enemy.burn, 0, 60) || !integer(enemy.burnTurn, 0, state.turn + 1)) invalid();
     if (enemy.hp > 0) {
       if (slots.has(enemy.slot)) invalid();
@@ -274,8 +321,9 @@ export function loadRun(storage) {
         }
         for (const enemy of state.enemies) {
           enemy.affinity = ENEMIES[enemy.kind]?.affinity ?? null;
-          if (enemy.maxHp !== previousRiftBossHp[enemy.kind]) continue;
-          const maxHp = RIFT_ENEMIES[enemy.kind].hp;
+          const legacyHpList = previousEnemyHp[enemy.kind];
+          if (!legacyHpList || !legacyHpList.includes(enemy.maxHp)) continue;
+          const maxHp = ENEMIES[enemy.kind].hp;
           enemy.hp = Math.ceil(enemy.hp * maxHp / enemy.maxHp);
           enemy.maxHp = maxHp;
         }

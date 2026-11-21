@@ -12,7 +12,7 @@ export const LARGE_BOSS_KINDS = new Set([
   'prism_watcher', 'astral_sentinel', 'elder_grimoire', 'eclipse_mage', 'glacial_sovereign', 'thunder_colossus', 'nexus_codex', 'tempest_archon',
   'seal_curator', 'crown_archivist',
   'gate_weaver', 'mirror_regent', 'seam_warden', 'loom_sovereign',
-  'volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'nether_dread_lord', 'eternity_overlord',
+  'volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn',
 ]);
 const arcaneBeamSheets = new Map();
 const arcaneBeam = {
@@ -193,9 +193,9 @@ export class Battlefield {
     const victoryHold = lastEvent?.type === 'room-clear' ? 900 : 0;
     const actionEvents = victoryHold ? events.slice(0, -1) : events;
     const rawEnds = actionEvents.map(event => {
-      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'blast', 'shield', 'fizzle', 'blackhole-open'].includes(event.type)
+      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'fizzle', 'blackhole-open', 'boss-phase'].includes(event.type)
         || Boolean(event.specialBoss && event.type === 'charge');
-      const ultBonus = event.ultimate && event.type === 'attack' ? 180 : 0;
+      const ultBonus = (event.ultimate && event.type === 'attack') ? 180 : event.type === 'boss-phase' ? 280 : 0;
       const wardHold = event.type === 'projectile' && event.blocked ? 160 : 0;
       this.duration += (this.settings.reducedMotion ? (action ? 200 : 110) : (action ? 520 : 260) + wardHold + ultBonus);
       return this.duration;
@@ -294,7 +294,7 @@ export class Battlefield {
       if (ev.type === 'dispel') curWards[ev.target] = 0;
       if (ev.type === 'shield') curProtection = ev.protection ?? ev;
       else if (ev.type === 'brace') curProtection = ev.protection;
-      else if (ev.type === 'attack' || ev.type === 'mirror-reflect' || ev.type === 'ember-thorns' || ev.type === 'storm-static') curProtection = ev.protection;
+      else if (ev.type === 'attack' || ev.type === 'mirror-reflect' || ev.type === 'ember-thorns' || ev.type === 'storm-static' || ev.type === 'nether-curse' || ev.type === 'cosmic-echo') curProtection = ev.protection;
       else if (ev.type === 'blast' && ev.protection) curProtection = ev.protection;
     }
     this.deathStartMs = deathStartMs;
@@ -305,7 +305,7 @@ export class Battlefield {
   eventContactDelay(index) {
     if (this.settings.reducedMotion) return 0;
     const event = this.events[index];
-    const contact = ['projectile', 'mirror-reflect', 'ember-thorns', 'storm-static'].includes(event.type)
+    const contact = ['projectile', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo'].includes(event.type)
       ? 0.65
       : event.type === 'attack' ? 0.62 : 0;
     return (this.eventEnds[index] - this.eventStart(index)) * contact;
@@ -1013,6 +1013,8 @@ export class Battlefield {
           this.drawWaveVfx(startX, x, color, secondColor, Boolean(event.elements?.[1]), travel, event.element, now, Boolean(event.grand), projScale);
         } else if (event.form === 'storm') {
           this.drawStormVfx(x, event.element, fraction, event.elements?.[1], now, Boolean(event.grand), projScale);
+        } else if (event.form === 'chakram') {
+          this.drawChakramVfx(startX, startY, x, px, py, travel, fraction, event, secondColor, now);
         } else {
           this.drawShotVfx(startX, startY, x, px, py, travel, fraction, event, secondColor, now);
         }
@@ -1130,15 +1132,91 @@ export class Battlefield {
         this.drawEnemyAttackVfx(x, 51, fraction, impact, event, now);
         if (impact) {
           if (event.ultimate && (!this.hpNumbersInHud || !event.amount)) {
-            const ultTitle = event.sourceKind === 'tempest_archon' ? '⚡ อสุนีพิพากษา!' : '💥 พิพากษาเพลิง!';
+            const ultTitle = event.sourceKind === 'eternity_reborn'
+              ? '✨ ซูเปอร์โนวาดับจักรวาล!'
+              : event.sourceKind === 'eternity_overlord'
+                ? '🌌 คลื่นทำลายกาลอวกาศ!'
+                : event.sourceKind === 'tempest_archon'
+                  ? '⚡ อสุนีพิพากษา!'
+                  : event.sourceKind === 'volcano_colossus'
+                    ? '🌋 ภูเขาไฟพิโรธ!'
+                    : event.sourceKind === 'abyssal_kraken'
+                      ? '🌊 มหาคลื่นสึนามิบาดาล!'
+                      : event.sourceKind === 'nether_dread_lord'
+                        ? '💀 เปลวเพลิงนรกานต์พิพากษา!'
+                        : '💥 พิพากษาเพลิง!';
             const ultText = event.amount > 0 ? `${ultTitle} −${event.amount} HP` : `${ultTitle} ติดโล่!`;
-            const ultFg = event.sourceKind === 'tempest_archon' ? C[31] : C[30];
-            const ultEdge = event.sourceKind === 'tempest_archon' ? C[27] : C[19];
+            const isEternityUlt = event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn';
+            const ultFg = isEternityUlt ? C[31] : event.sourceKind === 'abyssal_kraken' ? C[27] : event.sourceKind === 'tempest_archon' ? C[31] : event.sourceKind === 'nether_dread_lord' ? C[23] : C[30];
+            const ultEdge = isEternityUlt ? C[22] : event.sourceKind === 'abyssal_kraken' ? C[25] : event.sourceKind === 'tempest_archon' ? C[27] : event.sourceKind === 'nether_dread_lord' ? C[18] : C[19];
             this.drawFloatingPopup(51, 86 - Math.round((fraction - 0.5) * 18), ultText, ultFg, ultEdge);
           } else if (event.amount > 0 && !this.hpNumbersInHud) {
             this.drawFloatingPopup(51, 94 - Math.round((fraction - 0.5) * 16), `−${event.amount} HP`, C[9], C[19]);
           }
+          if (event.manaDrain > 0) {
+            const drainIcon = event.sourceKind === 'eternity_reborn' ? '🌌' : '🐙';
+            this.drawFloatingPopup(51, 74 - Math.round((fraction - 0.5) * 14), `${drainIcon} −${event.manaDrain} MP`, C[23], C[20]);
+          }
         }
+      }
+
+      if (event.type === 'boss-phase') {
+        const wave = Math.sin(fraction * Math.PI);
+        const isNether = event.sourceKind === 'nether_dread_lord';
+        const isEternity = event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn';
+        if (!this.settings.reducedMotion) {
+          if (isEternity) {
+            const isReborn = event.sourceKind === 'eternity_reborn' || event.mode === 'reborn';
+            const surgeH = Math.round(wave * (isReborn ? 58 : 48));
+            if (surgeH > 2) {
+              g.fillStyle = C[20]; g.fillRect(0, 150 - surgeH, 320, surgeH);
+              g.fillStyle = isReborn ? C[30] : C[22]; g.fillRect(0, 150 - Math.round(surgeH * 0.65), 320, Math.round(surgeH * 0.45));
+              g.fillStyle = C[31]; g.fillRect(0, 150 - surgeH, 320, 3);
+              g.fillStyle = C[9]; g.fillRect(0, 150 - surgeH + 1, 320, 1);
+            }
+            const cx = isReborn ? 208 : 160;
+            this.drawElementalImpactFlash(cx, 120, 'lightning', fraction, isReborn ? 2.2 : 1.7);
+            this.pixelCircle(cx, 120, Math.round(14 + fraction * 54), C[31], false, 2);
+            this.pixelCircle(cx, 120, Math.round(8 + fraction * 36), C[23], false, 1);
+            for (let i = 0; i < 8; i++) {
+              const ang = (i * Math.PI) / 4 + fraction * 1.4;
+              const d = Math.round(10 + fraction * 44);
+              this.pixelDiamond(Math.round(cx + Math.cos(ang) * d), Math.round(120 + Math.sin(ang) * d), 3, isReborn ? C[30] : C[23], C[9]);
+            }
+          } else if (isNether) {
+            const surgeH = Math.round(wave * 48);
+            if (surgeH > 2) {
+              g.fillStyle = C[20]; g.fillRect(0, 150 - surgeH, 320, surgeH);
+              g.fillStyle = C[18]; g.fillRect(0, 150 - Math.round(surgeH * 0.65), 320, Math.round(surgeH * 0.45));
+              g.fillStyle = C[23]; g.fillRect(0, 150 - surgeH, 320, 3);
+              g.fillStyle = C[31]; g.fillRect(0, 150 - surgeH + 1, 320, 1);
+            }
+            this.drawDeathVfx(160, 122, fraction, now);
+            this.pixelCircle(160, 122, Math.round(14 + fraction * 48), C[18], false, 2);
+            this.pixelCircle(160, 122, Math.round(8 + fraction * 32), C[23], false, 1);
+          } else {
+            const tideH = Math.round(wave * 44);
+            if (tideH > 2) {
+              g.fillStyle = C[24]; g.fillRect(0, 150 - tideH, 320, tideH);
+              g.fillStyle = C[25]; g.fillRect(0, 150 - Math.round(tideH * 0.7), 320, Math.round(tideH * 0.5));
+              g.fillStyle = C[27]; g.fillRect(0, 150 - tideH, 320, 3);
+              g.fillStyle = C[9]; g.fillRect(0, 150 - tideH + 1, 320, 1);
+            }
+            this.drawElementalImpactFlash(208, 126, 'water', fraction, 1.8);
+            this.pixelCircle(208, 126, Math.round(12 + fraction * 42), C[27], false, 2);
+            this.pixelCircle(208, 126, Math.round(6 + fraction * 28), C[9], false, 1);
+          }
+        }
+        const phasePopup = isEternity
+          ? (event.mode === 'reborn' || event.sourceKind === 'eternity_reborn'
+            ? '✨ เฟส 3: มหาเทพจุตินิรันดร์!'
+            : '🌌 เฟส 2: ร่างปฏิพากย์สลับธาตุ!')
+          : isNether
+            ? (event.mode === 'broken' ? '🔥 พันธสัญญาสามเสาแตก!' : '💀 จอมอสูรปลดผนึก!')
+            : '🐙 มหาคราเค่นปรากฏร่างจริง!';
+        const phaseFg = isEternity ? C[9] : isNether ? C[31] : C[9];
+        const phaseEdge = isEternity ? C[22] : isNether ? C[18] : C[25];
+        this.drawFloatingPopup(160, 72 - Math.round(fraction * 10), phasePopup, phaseFg, phaseEdge);
       }
 
       if (event.type === 'mirror-reflect') {
@@ -1181,6 +1259,36 @@ export class Battlefield {
         }
       }
 
+      if (event.type === 'nether-curse') {
+        const travel = Math.min(1, fraction / 0.65);
+        const rx = Math.round(x + (51 - x) * travel);
+        const ry = Math.round(112 - Math.sin(travel * Math.PI) * 16);
+        this.pixelCircle(rx, ry, 6, C[20], true);
+        this.pixelDiamond(rx, ry, 4, C[18], C[23]);
+        if (impact) {
+          this.drawDeathVfx(51, 122, Math.min(1, (fraction - 0.55) / 0.45), now);
+          if (!this.hpNumbersInHud || !event.amount) {
+            this.drawFloatingPopup(51, 90 - Math.round((fraction - 0.5) * 16), event.amount > 0 ? `💀 คำสาปห้ามซ้ำ −${event.amount} HP` : '💀 คำสาปติดโล่!', C[23], C[18]);
+          }
+        }
+      }
+
+      if (event.type === 'cosmic-echo') {
+        const travel = Math.min(1, fraction / 0.65);
+        const rx = Math.round(x + (51 - x) * travel);
+        const ry = Math.round(112 - Math.sin(travel * Math.PI) * 14);
+        this.pixelBolt(x - 10, 112, rx, ry, now * 0.07, C[31], C[23]);
+        this.pixelDiamond(rx, ry, 5, C[22], C[31]);
+        this.pixelCircle(rx, ry, 2, C[9], true);
+        if (impact) {
+          this.drawElementalImpactFlash(51, 124, 'lightning', fraction);
+          this.drawHitBurstVfx(51, 124, C[31], Math.min(1, (fraction - 0.55) / 0.45), 'lightning', now);
+          if (!this.hpNumbersInHud || !event.amount) {
+            this.drawFloatingPopup(51, 90 - Math.round((fraction - 0.5) * 16), event.amount > 0 ? `🌌 สะท้อนดาราจักร −${event.amount} HP` : '🌌 สะท้อนติดโล่!', C[31], C[22]);
+          }
+        }
+      }
+
       if (event.type === 'relic') {
         this.drawHealVfx(51, 134, fraction, now);
         const relic = RELIC_DRAFT_CATALOG.find(item => item.id === event.relicId);
@@ -1213,13 +1321,29 @@ export class Battlefield {
 
       if (event.type === 'charge') {
         if (event.specialBoss) {
-          const isStorm = event.sourceKind === 'tempest_archon';
+          const isStorm = event.sourceKind === 'tempest_archon' || event.sourceKind === 'thunder_drake_emperor';
+          const isWater = event.sourceKind === 'abyssal_kraken';
+          const isNether = event.sourceKind === 'nether_dread_lord';
+          const isEternity = event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn';
+          const chargeTitle = event.sourceKind === 'eternity_reborn'
+            ? '✨ รวบรวมดาราจักรดับสูญ!'
+            : event.sourceKind === 'eternity_overlord'
+              ? '🌌 รวบรวมพลังงานกาลอวกาศ!'
+              : isNether
+                ? '💀 รวบรวมเปลวเพลิงนรกานต์!'
+                : isWater
+                  ? '🌊 รวบรวมคลื่นห้วงบาดาล!'
+                  : isStorm
+                    ? '⚡ ชาร์จมหาพายุ!'
+                    : event.sourceKind === 'volcano_colossus'
+                      ? '🌋 หลอมแก่นแมกมา!'
+                      : '🔥 หลอมแก่นเพลิง!';
           this.drawFloatingPopup(
             x,
             84 - Math.round(fraction * 12),
-            isStorm ? '⚡ ชาร์จมหาพายุ!' : '🔥 หลอมแก่นเพลิง!',
-            isStorm ? C[31] : C[30],
-            isStorm ? C[27] : C[19],
+            chargeTitle,
+            isEternity ? C[9] : isNether ? C[23] : isWater ? C[27] : isStorm ? C[31] : C[30],
+            isEternity ? C[22] : isNether ? C[18] : isWater ? C[25] : isStorm ? C[27] : C[19],
           );
         } else {
           this.drawFloatingPopup(x, 94 - Math.round(fraction * 10), '⚡ ชาร์จพลัง!', C[31], C[29]);
@@ -1827,6 +1951,62 @@ export class Battlefield {
     }
   }
 
+  drawChakramVfx(startX, startY, targetX, px, py, travel, fraction, event, secondColor, now) {
+    const g = this.ctx;
+    const elem = event.element ?? 'fire';
+    const pal = ELEMENT_IMPACT[elem] ?? ELEMENT_IMPACT.fire;
+    const dual = Boolean(event.elements?.[1]);
+    const scale = vfxScale(event);
+    const stroke = Math.min(4, scale);
+    const radius = Math.round((event.size > 1 ? 8 : 6) * scale);
+    if (travel < 1) {
+      for (let t = 1; t <= 6; t++) {
+        const trailT = Math.max(0, travel - t * 0.05);
+        const tx = Math.round(startX + (targetX - startX) * trailT);
+        const ty = Math.round(startY + Math.sin(now / 26 + t) * 2 * Math.min(2, scale));
+        const alpha = (1 - t / 7) * 0.7;
+        g.save();
+        g.globalAlpha = alpha;
+        this.pixelEllipse(tx, ty, Math.max(2, Math.round(radius * (1 - t * 0.08))), Math.max(1, Math.round(radius * 0.45)), t % 2 && dual ? secondColor : pal.primary, false, Math.max(1, stroke - 1));
+        g.restore();
+      }
+      const spin = this.settings.reducedMotion ? 0 : now * 0.032;
+      this.pixelCircle(px, py, radius + Math.max(1, Math.round(scale)), pal.secondary, false, stroke);
+      this.pixelCircle(px, py, radius, pal.primary, false, stroke);
+      this.pixelCircle(px, py, Math.max(2, Math.round(radius * 0.55)), pal.core, false, Math.max(1, Math.round(scale * 0.8)));
+      for (let i = 0; i < 4; i++) {
+        const angle = spin + (i * Math.PI) / 2;
+        const bx = Math.round(px + Math.cos(angle) * (radius + 3 * scale));
+        const by = Math.round(py + Math.sin(angle) * (radius + 3 * scale));
+        const toothColor = dual && i % 2 ? secondColor : pal.rim;
+        this.pixelDiamond(bx, by, Math.max(2, Math.round(2.5 * Math.min(2.5, scale))), toothColor, pal.core);
+      }
+      if (event.grand) {
+        this.pixelCircle(px, py, radius + Math.round(4 * scale), C[31], false, stroke);
+      }
+      if (event.pierce) {
+        g.fillStyle = pal.core;
+        g.fillRect(px + radius, py - Math.max(1, Math.floor(scale / 2)), Math.round(8 * scale), Math.max(2, Math.round(2 * Math.min(2.5, scale))));
+      }
+    } else if (!event.blocked && event.damage?.amount > 0 && !this.settings.reducedMotion) {
+      const imp = Math.max(0, (fraction - 0.65) / 0.35);
+      const slashR = Math.round((10 + imp * 10) * scale);
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - imp);
+      for (let step = -slashR; step <= slashR; step += Math.max(1, Math.round(scale))) {
+        g.fillStyle = pal.primary;
+        g.fillRect(targetX + step, 122 + step, Math.max(2, Math.round(2 * scale)), Math.max(2, Math.round(2 * scale)));
+        g.fillRect(targetX + step, 122 - step, Math.max(2, Math.round(2 * scale)), Math.max(2, Math.round(2 * scale)));
+        g.fillStyle = pal.core;
+        g.fillRect(targetX + step, 122 + step, Math.max(1, Math.round(scale)), Math.max(1, Math.round(scale)));
+        g.fillRect(targetX + step, 122 - step, Math.max(1, Math.round(scale)), Math.max(1, Math.round(scale)));
+      }
+      g.restore();
+      this.drawElementalImpactFlash(targetX, 122, elem, imp, scale);
+      this.drawHitBurstVfx(targetX, 122, pal.primary, imp, elem, now, scale);
+    }
+  }
+
   drawBeamVfx(startX, startY, targetX, element, secondColor, dual, fraction, now, event = null) {
     const g = this.ctx;
     const width = Math.max(0, targetX - startX);
@@ -2342,13 +2522,51 @@ export class Battlefield {
     const g = this.ctx;
     const isSpecial = Boolean(event.specialBoss);
     const isUltimate = Boolean(event.ultimate);
-    const isStormBoss = event.sourceKind === 'tempest_archon';
+    const isStormBoss = event.sourceKind === 'tempest_archon' || event.sourceKind === 'thunder_drake_emperor';
+    const isWaterBoss = event.sourceKind === 'abyssal_kraken';
+    const isNetherBoss = event.sourceKind === 'nether_dread_lord';
+    const isEternityBoss = event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn';
+    const isInkTentacle = event.sourceKind === 'kraken_ink_tentacle';
 
     if (isUltimate) {
       if (fraction < 0.62) {
         const t = fraction / 0.62;
         const projX = Math.round(enemyX - 18 - (enemyX - 18 - (playerX + 10)) * t);
-        if (isStormBoss) {
+        if (isEternityBoss) {
+          // Golden-magenta cosmic supernova lance hurtling across space-time
+          for (let trail = 1; trail <= 7; trail++) {
+            const tx = Math.round(projX + trail * 10);
+            const r = Math.max(3, 13 - trail);
+            this.pixelCircle(tx, 118 + Math.round(Math.sin(now / 40 + trail) * 5), r, trail % 2 ? C[22] : C[30], true);
+          }
+          this.pixelCircle(projX, 118, 14, C[22], true);
+          this.pixelCircle(projX, 118, 10, C[30], true);
+          this.pixelDiamond(projX - 2, 118, 7, C[31], C[9]);
+          this.pixelBolt(enemyX - 16, 114, projX, 118, now * 0.08, C[31], C[23]);
+        } else if (isNetherBoss) {
+          // Sweeping crimson-violet underworld eclipse wave hurtling across arena
+          for (let trail = 1; trail <= 6; trail++) {
+            const tx = Math.round(projX + trail * 11);
+            const r = Math.max(3, 12 - trail);
+            this.pixelCircle(tx, 118 + Math.round(Math.sin(now / 45 + trail) * 4), r, trail % 2 ? C[20] : C[18], true);
+          }
+          this.pixelCircle(projX, 118, 13, C[20], true);
+          this.pixelCircle(projX, 118, 9, C[18], true);
+          this.pixelDiamond(projX - 2, 117, 5, C[23], C[31]);
+        } else if (isWaterBoss) {
+          // Towering crashing tsunami wave wall surging across the arena
+          const waveH = Math.round(28 + t * 22);
+          for (let trail = 0; trail <= 5; trail++) {
+            const tx = Math.round(projX + trail * 10);
+            const h = Math.max(8, waveH - trail * 5);
+            g.fillStyle = trail % 2 ? C[24] : C[25];
+            g.fillRect(tx - 6, 146 - h, 12, h);
+            g.fillStyle = C[27];
+            g.fillRect(tx - 7, 146 - h, 14, 3);
+          }
+          this.pixelCircle(projX - 4, 146 - waveH + 4, 7, C[26], true);
+          this.pixelCircle(projX - 6, 146 - waveH + 2, 4, C[9], true);
+        } else if (isStormBoss) {
           this.pixelBolt(enemyX - 16, 108, projX, 118, now * 0.08, C[31], C[9]);
           this.pixelBolt(enemyX - 16, 116, projX + 8, 124, now * 0.09 + 2, C[27], C[9]);
           this.pixelDiamond(projX, 118, 6, C[31], C[9]);
@@ -2369,7 +2587,64 @@ export class Battlefield {
       } else {
         const imp = Math.min(1, (fraction - 0.62) / 0.38);
         const hitX = event.absorbed > 0 ? playerX + 16 : playerX + 4;
-        if (isStormBoss) {
+        if (isEternityBoss) {
+          // Celestial Golden-Violet Supernova Pillar & Astral Starlight Burst
+          const colH = Math.round(Math.sin(imp * Math.PI) * 84);
+          if (colH > 3) {
+            g.fillStyle = C[21]; g.fillRect(hitX - 22, 147 - colH, 44, colH);
+            g.fillStyle = C[30]; g.fillRect(hitX - 15, 147 - colH + 3, 30, colH - 3);
+            g.fillStyle = C[31]; g.fillRect(hitX - 8, 147 - colH + 6, 16, Math.max(2, colH - 6));
+            g.fillStyle = C[9]; g.fillRect(hitX - 3, 147 - colH + 9, 6, Math.max(2, colH - 9));
+          }
+          this.drawElementalImpactFlash(hitX, 122, 'lightning', imp);
+          this.pixelCircle(hitX, 122, Math.round(12 + imp * 38), C[30], false);
+          this.pixelCircle(hitX, 122, Math.round(7 + imp * 26), C[23], false);
+          for (let i = 0; i < 12; i++) {
+            const ang = (i * Math.PI) / 6 + imp * 0.75;
+            const d = Math.round(8 + imp * 38);
+            const sx = Math.round(hitX + Math.cos(ang) * d);
+            const sy = Math.round(122 + Math.sin(ang) * d - imp * 10);
+            this.pixelDiamond(sx, sy, i % 2 === 0 ? 4 : 3, i % 2 === 0 ? C[31] : C[23], C[9]);
+          }
+        } else if (isNetherBoss) {
+          // Crimson-violet hellfire pillar & soul-reaping eclipse burst
+          const colH = Math.round(Math.sin(imp * Math.PI) * 74);
+          if (colH > 3) {
+            g.fillStyle = C[20]; g.fillRect(hitX - 20, 147 - colH, 40, colH);
+            g.fillStyle = C[18]; g.fillRect(hitX - 13, 147 - colH + 3, 26, colH - 3);
+            g.fillStyle = C[23]; g.fillRect(hitX - 7, 147 - colH + 6, 14, Math.max(2, colH - 6));
+            g.fillStyle = C[31]; g.fillRect(hitX - 2, 147 - colH + 10, 4, Math.max(2, colH - 10));
+          }
+          this.drawDeathVfx(hitX, 122, imp, now);
+          this.pixelCircle(hitX, 124, Math.round(10 + imp * 34), C[18], false);
+          this.pixelCircle(hitX, 124, Math.round(6 + imp * 24), C[23], false);
+          for (let i = 0; i < 12; i++) {
+            const ang = (i * Math.PI) / 6 + imp * 0.65;
+            const d = Math.round(8 + imp * 34);
+            const sx = Math.round(hitX + Math.cos(ang) * d);
+            const sy = Math.round(124 + Math.sin(ang) * d - imp * 10);
+            this.pixelDiamond(sx, sy, i % 2 === 0 ? 4 : 3, i % 2 === 0 ? C[18] : C[22], C[31]);
+          }
+        } else if (isWaterBoss) {
+          // Giant abyssal geyser & crashing tsunami foam burst
+          const colH = Math.round(Math.sin(imp * Math.PI) * 70);
+          if (colH > 3) {
+            g.fillStyle = C[24]; g.fillRect(hitX - 20, 147 - colH, 40, colH);
+            g.fillStyle = C[25]; g.fillRect(hitX - 14, 147 - colH + 3, 28, colH - 3);
+            g.fillStyle = C[27]; g.fillRect(hitX - 8, 147 - colH + 6, 16, Math.max(2, colH - 6));
+            g.fillStyle = C[9]; g.fillRect(hitX - 3, 147 - colH + 9, 6, Math.max(2, colH - 9));
+          }
+          this.drawElementalImpactFlash(hitX, 122, 'water', imp);
+          this.pixelCircle(hitX, 124, Math.round(10 + imp * 34), C[25], false);
+          this.pixelCircle(hitX, 124, Math.round(6 + imp * 24), C[27], false);
+          for (let i = 0; i < 12; i++) {
+            const ang = (i * Math.PI) / 6 + imp * 0.5;
+            const d = Math.round(8 + imp * 32);
+            const sx = Math.round(hitX + Math.cos(ang) * d);
+            const sy = Math.round(124 + Math.sin(ang) * d - imp * 10);
+            this.pixelCircle(sx, sy, i % 2 === 0 ? 3 : 2, i % 3 === 0 ? C[9] : C[27], true);
+          }
+        } else if (isStormBoss) {
           // Triple sky-to-ground thunderbolts crashing onto player
           this.pixelBolt(hitX, 0, hitX, 144, now * 0.09, C[31], C[9]);
           this.pixelBolt(hitX - 16, 0, hitX - 10, 146, now * 0.09 + 1.8, C[27], C[9]);
@@ -2414,7 +2689,26 @@ export class Battlefield {
       const t = fraction / 0.62;
       const waveX = Math.round(enemyX - 12 - (enemyX - 12 - (playerX + 16)) * t);
       if (isSpecial) {
-        if (isStormBoss) {
+        if (isEternityBoss) {
+          for (let dy = -12; dy <= 12; dy++) {
+            const curve = Math.round((dy * dy) / 10);
+            g.fillStyle = Math.abs(dy) < 4 ? C[9] : Math.abs(dy) < 8 ? C[31] : C[22];
+            g.fillRect(waveX + curve, 122 + dy, 6, 1);
+          }
+          this.pixelDiamond(waveX - 2, 122, 4, C[30], C[9]);
+        } else if (isNetherBoss) {
+          for (let dy = -12; dy <= 12; dy++) {
+            const curve = Math.round((dy * dy) / 10);
+            g.fillStyle = Math.abs(dy) < 4 ? C[23] : Math.abs(dy) < 8 ? C[18] : C[20];
+            g.fillRect(waveX + curve, 122 + dy, 6, 1);
+          }
+        } else if (isWaterBoss) {
+          for (let dy = -12; dy <= 12; dy++) {
+            const curve = Math.round((dy * dy) / 10);
+            g.fillStyle = Math.abs(dy) < 4 ? C[9] : Math.abs(dy) < 8 ? C[27] : C[25];
+            g.fillRect(waveX + curve, 122 + dy, 6, 1);
+          }
+        } else if (isStormBoss) {
           this.pixelBolt(enemyX - 14, 118, waveX, 122, now * 0.06, C[31], C[9]);
           this.pixelDiamond(waveX, 122, 4, C[31], C[27]);
         } else {
@@ -2424,6 +2718,10 @@ export class Battlefield {
             g.fillRect(waveX + curve, 122 + dy, 6, 1);
           }
         }
+      } else if (isInkTentacle && event.manaDrain > 0) {
+        this.pixelCircle(waveX, 122, 6, C[0], true);
+        this.pixelCircle(waveX, 122, 4, C[21], true);
+        this.pixelCircle(waveX - 1, 121, 2, C[23], true);
       } else {
         for (let dy = -8; dy <= 8; dy++) {
           const curve = Math.round((dy * dy) / 10);
@@ -2435,8 +2733,8 @@ export class Battlefield {
       const imp = Math.min(1, (fraction - 0.62) / 0.38);
       const hitX = event.absorbed > 0 ? playerX + 17 : playerX + 4;
       const slashColor = isSpecial
-        ? (isStormBoss ? C[31] : C[16])
-        : (event.absorbed > 0 ? C[27] : C[19]);
+        ? (isEternityBoss ? C[31] : isNetherBoss ? C[18] : isWaterBoss ? C[27] : isStormBoss ? C[31] : C[16])
+        : (isInkTentacle && event.manaDrain > 0 ? C[22] : event.absorbed > 0 ? C[27] : C[19]);
       for (let s = -10; s <= 10; s++) {
         g.fillStyle = slashColor;
         g.fillRect(hitX + s - 1, 122 + s - 1, 3, 3);
@@ -2447,7 +2745,9 @@ export class Battlefield {
       }
       this.pixelCircle(hitX, 122, Math.round((isSpecial ? 7 : 5) + imp * (isSpecial ? 18 : 13)), slashColor, false);
       if (isSpecial) {
-        this.drawElementalImpactFlash(hitX, 124, isStormBoss ? 'lightning' : 'fire', imp);
+        if (isEternityBoss) this.drawElementalImpactFlash(hitX, 124, 'lightning', imp);
+        else if (isNetherBoss) this.drawDeathVfx(hitX, 124, imp, now);
+        else this.drawElementalImpactFlash(hitX, 124, isWaterBoss ? 'water' : isStormBoss ? 'lightning' : 'fire', imp);
       }
     }
   }

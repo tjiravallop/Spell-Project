@@ -29,6 +29,7 @@ export function restLocationLabel(checkpoint) {
 
 export const CARD_META = Object.freeze({
   shot: { roleClass: 'role-form' },
+  chakram: { roleClass: 'role-form' },
   beam: { roleClass: 'role-form' },
   wave: { roleClass: 'role-form' },
   storm: { roleClass: 'role-form' },
@@ -43,6 +44,7 @@ export const CARD_META = Object.freeze({
   water: { roleClass: 'role-element' },
   wind: { roleClass: 'role-element' },
   pair: { roleClass: 'role-mod' },
+  barrage: { roleClass: 'role-mod' },
   blast: { roleClass: 'role-mod' },
   devastation: { roleClass: 'role-mod' },
   vayu: { roleClass: 'role-element' },

@@ -255,7 +255,7 @@ test('late bosses remember damaging forms, allow alternatives and preserve the r
   assert.equal(repeat.summary.damage, 1);
   assert.ok(repeat.events.some(event => event.reduction === 70));
   const alternate = cast(restored, 'meteor');
-  assert.equal(alternate.summary.damage, 24);
+  assert.equal(alternate.summary.damage, 60);
   assert.equal(alternate.state.enemies[0].readForm, 'meteor');
   const opening = repeat.state;
   opening.player.hand = ['beam', 'fire', 'pair'];
@@ -572,28 +572,44 @@ test('death ignores defenses, spares bosses, and never returns to the hand in th
   assert.equal(revisitRoom(restored, 0).deathSpent, undefined);
 });
 
-test('black hole pulls toward an empty slot, survives reload, and collapses after the next action', () => {
-  const state = battle(['obsidian_golem', 'obsidian_golem', 'obsidian_golem']);
+test('black hole pulls enemies inward with stacking 100 true collision damage, survives reload, and collapses for 300/150 true damage', () => {
+  const state = battle(['frost_crystal_golem', 'frost_crystal_golem', 'frost_crystal_golem']);
   state.collection = ['blackhole'];
   state.player.words = [...START_WORDS, 'blackhole'];
   state.player.hand = ['blackhole'];
-  state.enemies.forEach((enemy, i) => { enemy.slot = [0, 1, 4][i]; });
+  state.player.maxHp = state.player.hp = 500;
+  state.player.maxMana = state.player.mana = 24;
+  state.enemies.forEach((enemy, i) => {
+    enemy.slot = [0, 1, 4][i];
+    enemy.armor = 10;
+    enemy.ward = 2;
+  });
   const opened = cast(state, 'blackhole', 'slot-2');
-  assert.equal(opened.summary.damage, 0);
+  assert.equal(opened.summary.cost, 20);
+  // enemy-1 slides 1->2; enemy-0 slides 0->1 then slams into enemy-1 (100 each); enemy-2 slides 4->3 then slams into enemy-1 (100 each)
   assert.deepEqual(opened.state.enemies.map(e => e.slot), [1, 2, 3]);
+  assert.deepEqual(opened.state.enemies.map(e => e.hp), [520, 420, 520]);
+  assert.equal(opened.summary.damage, 400);
   const storage = new MemoryStorage();
   assert.equal(saveRun(opened.state, storage).ok, true);
   const restored = loadRun(storage).state;
   const collapsed = cast(restored, 'guard');
-  assert.deepEqual(collapsed.events.filter(e => e.type === 'damage').map(e => e.amount), [12, 27, 12]);
+  // Collapse deals 150 / 300 / 150 ignoring armor (10) and ward (2)
+  assert.deepEqual(collapsed.events.filter(e => e.type === 'damage').map(e => e.amount), [150, 300, 150]);
+  assert.deepEqual(collapsed.state.enemies.map(e => e.hp), [370, 120, 370]);
   assert.equal(collapsed.state.blackhole, undefined);
 });
 
-test('meteor hits the chosen slot and its neighbors through wards, and veil catches overflow', () => {
+test('meteor drops 3 seeded-random strikes with main/splash damage through wards, and veil catches overflow', () => {
   const bombard = battle(['obsidian_golem', 'obsidian_golem', 'obsidian_golem']);
-  bombard.enemies.forEach((enemy, i) => { enemy.slot = [0, 1, 4][i]; enemy.ward = 1; });
+  bombard.enemies.forEach((enemy, i) => { enemy.slot = [0, 1, 4][i]; enemy.hp = 120; enemy.maxHp = 120; enemy.ward = 1; });
   const meteor = cast(bombard, 'meteor', 'enemy-1');
-  assert.deepEqual(meteor.events.filter(e => e.type === 'damage').map(e => e.amount), [7, 25]);
+  const meteorAgain = cast(bombard, 'meteor', 'enemy-1');
+  assert.equal(meteor.events.filter(e => e.type === 'blast').length, 3);
+  assert.deepEqual(meteor.summary.enemyHp, meteorAgain.summary.enemyHp);
+  const dmgEvents = meteor.events.filter(e => e.type === 'damage');
+  assert.ok(dmgEvents.length >= 3);
+  for (const ev of dmgEvents) assert.ok(ev.amount === 21 || ev.amount === 9, `unexpected meteor dmg ${ev.amount}`);
   assert.equal(meteor.summary.wards, 0);
   const charge = battle(['loom_sovereign']);
   charge.turn = 2;
@@ -2717,7 +2733,7 @@ test('expanded heal, shield, blast, form modifiers, grand pairs, and epic/legend
     ['storm fire large', 9], ['storm fire burn', 8], ['storm ice freeze', 10], ['storm fire seal', 9],
     ['grand beam fire pair', 14], ['grand wave fire pair', 16],
     ['meteor large', 11], ['meteor pair', 18], ['grand meteor', 12], ['meteor devastation', 14],
-    ['blackhole large', 12], ['grand blackhole', 13], ['blackhole devastation', 15],
+    ['blackhole large', 22], ['grand blackhole', 23], ['blackhole devastation', 25],
   ];
   for (const [phrase, cost] of validPhrases) {
     const parsed = parseSpell(phrase.split(' '));
@@ -2747,18 +2763,20 @@ test('expanded heal, shield, blast, form modifiers, grand pairs, and epic/legend
   assert.equal(veilRes.state.player.shield.effect, 'veil');
   assert.equal(veilRes.state.player.shield.layers[0], 18);
 
-  // meteor pair hits two chosen targets; meteor devastation adds radius-2 burst
+  // meteor pair drops 6 seeded-random meteors; meteor devastation adds radius-2 burst
   const mState = battle(['rune_ram', 'rune_ram', 'rune_ram', 'rune_ram']);
   mState.player.maxMana = mState.player.mana = 24;
-  for (const enemy of mState.enemies) { enemy.armor = 0; enemy.hp = 80; }
+  for (const enemy of mState.enemies) { enemy.armor = 0; enemy.maxHp = enemy.hp = 200; }
   const pairMeteor = cast(mState, 'meteor pair', 'enemy-0', 'enemy-3');
-  assert.equal(pairMeteor.events.filter(ev => ev.type === 'blast').length, 2);
-  assert.deepEqual(Object.values(pairMeteor.summary.enemyHp), [52, 70, 70, 52]);
+  assert.equal(pairMeteor.events.filter(ev => ev.type === 'blast').length, 6);
+  const pairMeteorReplay = cast(mState, 'meteor pair', 'enemy-0', 'enemy-3');
+  assert.deepEqual(pairMeteor.summary.enemyHp, pairMeteorReplay.summary.enemyHp);
+  assert.ok(pairMeteor.summary.damage >= 6 * 36);
 
-  mState.enemies[1].hp = 100;
   const devMeteor = cast(mState, 'meteor devastation', 'enemy-1');
+  assert.equal(devMeteor.events.filter(ev => ev.type === 'blast').length, 4);
   assert.equal(devMeteor.events.some(ev => ev.type === 'blast' && ev.devastation), true);
-  assert.equal(devMeteor.summary.enemyHp['enemy-1'], 100 - 56 - 28);
+  assert.ok(devMeteor.summary.damage > cast(mState, 'meteor', 'enemy-1').summary.damage);
 
   // blast fire devastation triggers both blast and radius-2 devastation shockwave
   const blastDev = cast(mState, 'blast fire devastation', 'enemy-1');
@@ -2772,9 +2790,9 @@ test('expanded heal, shield, blast, form modifiers, grand pairs, and epic/legend
   const gWave = cast(mState, 'grand wave fire pair', 'enemy-1');
   assert.equal(gWave.events.filter(ev => ev.type === 'blast').length, 2);
 
-  // blackhole large sets power = 45
+  // blackhole large sets power = 450
   const bh = cast(mState, 'blackhole large', 'slot-1');
-  assert.equal(bh.state.blackhole.power, 45);
+  assert.equal(bh.state.blackhole.power, 450);
 });
 
 test('grand prefix supports all valid 1-3 word attack, shield, veil, heal, meteor, and blackhole combos', () => {
@@ -2793,7 +2811,7 @@ test('grand prefix supports all valid 1-3 word attack, shield, veil, heal, meteo
     ['grand blast fire large', 11],
     ['grand meteor large', 14],
     ['grand meteor pair', 24],
-    ['grand blackhole large', 15],
+    ['grand blackhole large', 25],
     ['grand shield fire pair', 14],
     ['grand shield fire large', 9],
     ['grand shield large pair', 16],
@@ -2830,10 +2848,13 @@ test('grand prefix supports all valid 1-3 word attack, shield, veil, heal, meteo
   const gsbl = cast(atkState, 'grand shot blast large', 'enemy-1');
   assert.deepEqual(Object.values(gsbl.summary.enemyHp), [40, 31, 40]);
 
-  // Verify grand meteor pair drops 2 boosted meteors (42 center each)
+  // Verify grand meteor pair drops 6 boosted seeded-random meteors (36 center / 18 splash each)
+  for (const enemy of atkState.enemies) { enemy.maxHp = enemy.hp = 300; }
   const gmp = cast(atkState, 'grand meteor pair', 'enemy-0', 'enemy-2');
-  assert.equal(gmp.events.filter(ev => ev.type === 'blast').length, 2);
-  assert.deepEqual(Object.values(gmp.summary.enemyHp), [18, 30, 18]);
+  assert.equal(gmp.events.filter(ev => ev.type === 'blast').length, 6);
+  const gmpDamages = gmp.events.filter(ev => ev.type === 'damage').map(ev => ev.amount);
+  assert.ok(gmpDamages.length >= 12);
+  for (const dmg of gmpDamages) assert.ok(dmg === 36 || dmg === 18, `unexpected grand meteor dmg ${dmg}`);
 });
 
 test('earth, water, wind Tier-1 and pathaphi, wari, vayu Tier-2 elements balance, combine, react, persist, and render cleanly', () => {
@@ -3341,6 +3362,114 @@ test('blast shot variants (ระเบิด ลูก / ระเบิด ล
   const preview = simulateTurn(previewState, ['blast', 'shot', 'fire', 'pair'], 'enemy-0', 'enemy-2');
   assert.equal(preview.ok, true);
   assert.deepEqual(hp(preview), [44, 50, 44]);
+});
+
+test('chakram epic form deals heavy pure single-target damage without splash unless modified', () => {
+  const catalog = getSpellCatalog();
+  assert.equal(WORDS.chakram.rarity, 'epic');
+  assert.equal(cardMeta('chakram').roleClass, 'role-form');
+  for (const [phrase, cost] of [
+    ['chakram fire', 5],
+    ['chakram fire pair', 10],
+    ['chakram fire large', 7],
+    ['chakram fire pierce', 6],
+    ['chakram fire blast', 7],
+    ['grand chakram fire', 8],
+    ['grand chakram fire pair', 16],
+    ['chakram fire devastation', 10],
+  ]) {
+    const parsed = parseSpell(phrase.split(' '));
+    assert.equal(parsed.ok, true, phrase);
+    assert.equal(parsed.cost, cost, phrase);
+    assert.equal(catalog.has(phrase), true, `catalog missing: ${phrase}`);
+    assert.ok(describeFormulaEffect({ phrase: parsed.ids, spell: parsed.spell }).length > 0, phrase);
+  }
+
+  const state = battle(['rune_ram', 'rune_ram', 'rune_ram']);
+  state.player.maxMana = state.player.mana = 24;
+  state.player.maxHp = state.player.hp = 100;
+  for (const enemy of state.enemies) { enemy.armor = 0; enemy.maxHp = enemy.hp = 100; }
+
+  const shotFire = cast(state, 'shot fire', 'enemy-1');
+  const chakramFire = cast(state, 'chakram fire', 'enemy-1');
+  assert.ok(chakramFire.summary.damage > shotFire.summary.damage);
+  assert.deepEqual(Object.values(chakramFire.summary.enemyHp), [100, 82, 100]);
+
+  // grand chakram fire scales x1.5 purely on single target with ZERO splash to neighbors
+  const grandChakram = cast(state, 'grand chakram fire', 'enemy-1');
+  assert.deepEqual(Object.values(grandChakram.summary.enemyHp), [100, 73, 100]);
+
+  // Adding blast modifier explicitly allows splash damage
+  const blastChakram = cast(state, 'chakram fire blast', 'enemy-1');
+  assert.ok(blastChakram.summary.enemyHp['enemy-0'] < 100);
+  assert.ok(blastChakram.summary.enemyHp['enemy-2'] < 100);
+});
+
+test('barrage legendary suffix only works at end of attack spells and fires 5 times', () => {
+  const catalog = getSpellCatalog();
+  assert.equal(WORDS.barrage.rarity, 'legendary');
+  assert.equal(cardMeta('barrage').roleClass, 'role-mod');
+
+  // Strict suffix-only & incompatibility checks
+  assert.equal(parseSpell(['barrage', 'shot', 'fire']).ok, false);
+  assert.equal(parseSpell(['shot', 'barrage', 'fire']).ok, false);
+  assert.equal(parseSpell(['shot', 'fire', 'barrage', 'large']).ok, false);
+  assert.equal(parseSpell(['shot', 'fire', 'pair', 'barrage']).ok, false);
+  assert.equal(parseSpell(['shot', 'fire', 'devastation', 'barrage']).ok, false);
+  assert.equal(parseSpell(['shield', 'fire', 'barrage']).ok, false);
+  assert.equal(parseSpell(['heal', 'barrage']).ok, false);
+  assert.equal(parseSpell(['blackhole', 'barrage']).ok, false);
+  assert.equal(parseSpell(['death', 'barrage']).ok, false);
+
+  // Valid barrage attack formulas
+  for (const [phrase, cost] of [
+    ['shot fire barrage', 11],
+    ['grand shot fire barrage', 21],
+    ['chakram fire barrage', 18],
+    ['grand chakram fire barrage', 28],
+    ['beam fire barrage', 14],
+    ['wave fire barrage', 18],
+    ['storm fire barrage', 25],
+    ['blast fire barrage', 21],
+    ['meteor barrage', 32],
+  ]) {
+    const parsed = parseSpell(phrase.split(' '));
+    assert.equal(parsed.ok, true, phrase);
+    assert.equal(parsed.cost, cost, phrase);
+    assert.equal(parsed.spell.barrage, true, phrase);
+    assert.equal(catalog.has(phrase), true, `catalog missing: ${phrase}`);
+  }
+
+  // Grand shot fire barrage fires 5 shots and auto-retargets when the first enemy dies mid-barrage
+  const state = battle(['rune_ram', 'rune_ram', 'rune_ram']);
+  state.player.maxMana = state.player.mana = 40;
+  state.player.maxHp = state.player.hp = 120;
+  for (const enemy of state.enemies) { enemy.armor = 0; enemy.maxHp = enemy.hp = 200; }
+  const gsfb = cast(state, 'grand shot fire barrage', 'enemy-1');
+  assert.equal(gsfb.events.filter(ev => ev.type === 'projectile').length, 5);
+  assert.equal(gsfb.summary.enemyHp['enemy-1'], 200 - 5 * 15);
+
+  // Auto-retarget check when target dies on shot 2
+  const fragState = structuredClone(state);
+  fragState.enemies[1].hp = 20;
+  const retargetRes = cast(fragState, 'grand shot fire barrage', 'enemy-1');
+  assert.equal(retargetRes.summary.enemyHp['enemy-1'], 0);
+  assert.ok(retargetRes.summary.enemyHp['enemy-0'] < 200 || retargetRes.summary.enemyHp['enemy-2'] < 200);
+  assert.equal(retargetRes.events.filter(ev => ev.type === 'projectile').length, 5);
+
+  // Chakram barrage hits 5x purely single-target
+  const chBarrage = cast(state, 'chakram fire barrage', 'enemy-1');
+  assert.equal(chBarrage.events.filter(ev => ev.type === 'projectile').length, 5);
+  assert.deepEqual(Object.values(chBarrage.summary.enemyHp), [200, 200 - 5 * 18, 200]);
+
+  // Meteor barrage drops 15 seeded-random meteors
+  for (const enemy of state.enemies) { enemy.maxHp = enemy.hp = 500; }
+  const metBarrage = cast(state, 'meteor barrage', 'enemy-1');
+  assert.equal(metBarrage.events.filter(ev => ev.type === 'blast').length, 15);
+
+  // Wave barrage sweeps 5 times
+  const waveBarrage = cast(state, 'wave fire barrage', 'enemy-1');
+  assert.equal(waveBarrage.events.filter(ev => ev.type === 'projectile').length, 15);
 });
 
 

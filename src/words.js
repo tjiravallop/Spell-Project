@@ -38,13 +38,15 @@ export const WORDS = Object.freeze({
   scald: { rarity: 'epic', label: 'ไอเดือด', glyph: '♨', damage: 20, cost: 7, description: 'ไฟ + น้ำแข็ง · สลับอุณหภูมิฉับพลัน ทำลายเกราะเป้า 2 ถาวร และทำให้ชะงัก', formula: 'พลัง 20 · 7 มานา' },
   frostvolt: { rarity: 'epic', label: 'ผลึกช็อต', glyph: '❆', damage: 20, cost: 7, description: 'น้ำแข็ง + สายฟ้า · ข้ามเกราะ 2 และชิ่งสายฟ้าแช่แข็งใส่เป้าข้างเคียงพร้อมติดหนาว 4', formula: 'พลัง 20 · 7 มานา' },
   pair: { label: 'คู่', glyph: 'Ⅱ', description: 'ร่ายเวทสองครั้ง หรือเชื่อมสองธาตุเป็นเวทเดียว พายุระลอกสองใช้แรง 60%', formula: 'สองครั้งคิดมานา ×2 · พายุ +3 · ผสานลด 1' },
+  barrage: { rarity: 'legendary', label: 'กระหน่ำ', glyph: 'Ⅴ', description: 'วางไว้ท้ายสุดของคาถาโจมตีเท่านั้น (ห้ามใช้ร่วมกับคู่/ทำลายล้าง) ปล่อยพลังนั้นซ้ำ 5 ครั้งต่อเนื่อง', formula: 'ท้ายประโยคเท่านั้น · โจมตี 5 ครั้ง · ค่าร่าย ×3.5' },
   blast: { rarity: 'rare', label: 'ระเบิด', glyph: '✹', damage: 6, cost: 4, description: 'วางต้นคาถาหรือต่อหลัง “ลูก” เพื่อยิงกระสุนหัวระเบิด เติมธาตุหรือคู่ได้ ใช้ต่อท้ายเพื่อระเบิดเมื่อโจมตีโดน หรือสั่งระเบิดโล่ไฟที่มีอยู่', formula: 'ร่ายเดี่ยว 4 มานา · ลูกระเบิด +1 · คำต่อท้าย +2 · สั่งระเบิดโล่ 2' },
   devastation: { rarity: 'legendary', label: 'ทำลายล้าง', glyph: '✷', cost: 5, description: 'ใช้เป็นคำสุดท้ายของคาถาโจมตีเท่านั้น เพิ่มแรงโจมตีเป็น 2 เท่าและระเบิดซ้ำหนึ่งครั้งด้วยครึ่งพลังในรัศมี 2 ช่องเมื่อโจมตีโดน', formula: '+5 มานา · พลัง ×2 · ระเบิดรัศมี 2 ช่อง' },
-  blackhole: { rarity: 'legendary', label: 'หลุมดำ', glyph: '◉', cost: 10, description: 'เลือกช่องบนสนาม ดึงศัตรูในรัศมี 2 ช่องเข้ามาหนึ่งช่อง ช่องถัดไปต้องว่าง ยุบตัวหลังการเล่นของคุณในเทิร์นถัดไป', formula: '10 มานา · จุดกลาง 30 / รอบข้าง 15 · ข้ามม่าน' },
+  blackhole: { rarity: 'legendary', label: 'หลุมดำ', glyph: '◉', cost: 20, description: 'เลือกช่องบนสนาม ดูดศัตรูทั้งหมดเข้าหาจุดศูนย์กลาง ชนกันทำดาเมจกระแทก 100 ต่อตัว (ทับซ้อนได้) ยุบตัวเทิร์นถัดไป จุดกลาง 300 / รอบข้าง 150 · ข้ามม่านและเกราะทั้งหมด', formula: '20 มานา · กระแทก 100/ตัว · ยุบ 300 / 150 · ข้ามม่าน/เกราะ' },
   death: { rarity: 'legendary', label: 'ตาย', glyph: '†', cost: 10, description: 'ปราบศัตรูหนึ่งตัวทันที บอสต้านคำสั่งนี้ ใช้สำเร็จได้ครั้งเดียวต่อศึก แล้วการ์ดจะหายจากมือและกองจั่วจนจบศึก', formula: '10 มานา · ข้ามม่านและเกราะ' },
-  meteor: { rarity: 'epic', label: 'อุกกาบาต', glyph: '✹', cost: 9, description: 'อุกกาบาตตกใส่ศัตรูที่เลือก สะเก็ดกระทบศัตรูในช่องติดกัน ข้ามม่านแล้วหักเกราะตามปกติ', formula: '9 มานา · เป้าหลัก 28 / ช่องติดกัน 10' },
+  meteor: { rarity: 'epic', label: 'อุกกาบาต', glyph: '✹', cost: 9, description: 'อุกกาบาตตกแบบสุ่มตำแหน่ง 3 ครั้ง ทำดาเมจเป้าหลัก 24 และกระจายช่องติดกัน 12 ต่อลูก ข้ามม่านแล้วหักเกราะตามปกติ', formula: '9 มานา · สุ่มตก 3 ครั้ง · หลัก 24 / กระจาย 12 · ข้ามม่าน' },
   veil: { rarity: 'epic', label: 'ม่าน', glyph: '▣', cost: 7, description: 'กางม่านรับความเสียหาย 14 อยู่ถึงจบเทิร์นถัดไป เมื่อการโจมตีทำให้ม่านแตก กันส่วนที่ล้นเพิ่มได้อีกสูงสุด 8', formula: '7 มานา · กัน 14 + กันส่วนล้นสูงสุด 8' },
   shield: { label: 'โล่', glyph: '⬡', description: 'กันความเสียหาย 6 ใช้ส่วนที่เหลือได้อีกหนึ่งเทิร์น', formula: '3 มานา' },
+  chakram: { rarity: 'epic', label: 'กรงจักร', glyph: '❂', cost: 3, description: 'ขว้างกรงจักรเจาะเป้าเดี่ยวรุนแรง (พลังธาตุ 180%) ไม่กระจายดาเมจออกนอกหากไม่เสริมวลีอื่น', formula: '3 มานา + ค่าธาตุ · เป้าเดี่ยว 180%' },
   beam: { rarity: 'rare', label: 'ลำแสง', glyph: '━', description: 'โจมตีเป้าหมายเดียวผ่านม่านกระสุน', formula: '2 มานา + ค่าธาตุ' },
   wave: { rarity: 'rare', label: 'คลื่น', glyph: '≈', description: 'โจมตีทุกตัวเท่ากัน ม่านของแต่ละตัวกันได้', formula: '3 มานา + ค่าธาตุ' },
   storm: { rarity: 'epic', label: 'พายุ', glyph: '◉', damage: 12, cost: 5, description: 'เลือกเป้าหลักและโดนช่องติดซ้ายขวา ร่ายเดี่ยวได้ หรือเติมธาตุใดก็ได้เพื่อใช้พลังและผลธาตุ ม่านของแต่ละตัวกันได้', formula: '5 มานา + ค่าธาตุ · พลังเดี่ยว 12/6 · เติมธาตุ 150%/75%' },
@@ -201,16 +203,17 @@ export const ELEMENTS = [
   ...Object.keys(SECOND_TIER_ELEMENTS),
   ...Object.keys(FUSED_ELEMENTS),
 ];
-export const ATTACK_FORMS = ['shot', 'beam', 'wave', 'storm'];
+export const ATTACK_FORMS = ['shot', 'chakram', 'beam', 'wave', 'storm'];
 export const STANDALONE_WORDS = ['blackhole', 'death', 'meteor', 'veil'];
 const SPELL_STARTS = {
   shot: [...ELEMENTS, 'blast'],
+  chakram: [...ELEMENTS],
   beam: [...ELEMENTS, 'pair'],
   wave: [...ELEMENTS, 'pair'],
   storm: ELEMENTS,
   blackhole: ['large', 'devastation'],
   death: [],
-  meteor: ['large', 'pair', 'devastation'],
+  meteor: ['large', 'pair', 'devastation', 'barrage'],
   veil: ['large', 'pair'],
   shield: [...ELEMENTS, 'pair', 'large', 'heal', 'brace'],
   heal: ['self', 'large', 'pair'],
@@ -226,7 +229,7 @@ export const STORM_FORMULAS = [
   ]),
 ];
 export const ADVANCED_FORMULAS = [...Object.keys(SECOND_TIER_ELEMENTS), ...Object.keys(FUSED_ELEMENTS)].flatMap(id => [
-  ['shot', id], ['beam', id], ['wave', id], ['shot', id, 'pair'], ['shield', id], ['shield', id, 'pair'],
+  ['shot', id], ['chakram', id], ['beam', id], ['wave', id], ['shot', id, 'pair'], ['chakram', id, 'pair'], ['shield', id], ['shield', id, 'pair'],
 ]);
 export const START_WORDS = ['shot', 'fire', 'ice', 'pair', 'shield'];
 export const LARGE_SHIELD_HP = 9;
@@ -255,6 +258,7 @@ export const CROSS_FORM_FORMULAS = ELEMENTS.flatMap(id => [
 export const GRAND_FORMULAS = [
   ['grand', 'storm'], ['grand', 'meteor'], ['grand', 'blackhole'],
   ...ATTACK_FORMS.flatMap(form => ELEMENTS.map(id => ['grand', form, id])),
+  ...ELEMENTS.map(id => ['grand', 'chakram', id, 'pair']),
   ...ELEMENTS.map(id => ['grand', 'storm', id, 'pair']),
   ...ELEMENTS.map(id => ['grand', 'beam', id, 'pair']),
   ...ELEMENTS.map(id => ['grand', 'wave', id, 'pair']),
@@ -274,10 +278,14 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   const suffixIndex = ids.indexOf('devastation');
   const devastating = suffixIndex !== -1;
   if (devastating && suffixIndex !== ids.length - 1) return fail(suffixIndex, 'วาง “ทำลายล้าง” ไว้ท้ายสุดเท่านั้น');
-  const baseIds = devastating ? ids.slice(0, -1) : ids;
+  const barrageIndex = ids.indexOf('barrage');
+  const barraging = barrageIndex !== -1;
+  if (barraging && barrageIndex !== ids.length - 1) return fail(barrageIndex, 'วาง “กระหน่ำ” ไว้ท้ายสุดเท่านั้น');
+  if (devastating && barraging) return fail(barrageIndex, 'ใช้ “กระหน่ำ” ร่วมกับ “ทำลายล้าง” ไม่ได้');
+  const baseIds = (devastating || barraging) ? ids.slice(0, -1) : ids;
   const allowedSecond = Object.hasOwn(SPELL_STARTS, baseIds[0]) ? SPELL_STARTS[baseIds[0]] : null;
   if (!allowedSecond) {
-    return fail(0, devastating ? '“ทำลายล้าง” ใช้ต่อท้ายคาถาโจมตีเท่านั้น' : 'คำนี้ต่อกับวลีตรงนี้ไม่ได้');
+    return fail(0, devastating ? '“ทำลายล้าง” ใช้ต่อท้ายคาถาโจมตีเท่านั้น' : barraging ? '“กระหน่ำ” ใช้ต่อท้ายคาถาโจมตีเท่านั้น' : 'คำนี้ต่อกับวลีตรงนี้ไม่ได้');
   }
   if (baseIds[1] && !allowedSecond.includes(baseIds[1])) {
     return fail(1, ATTACK_FORMS.includes(baseIds[0]) ? 'เติมธาตุหลังรูปทรง' : 'คำนี้ต่อกับวลีตรงนี้ไม่ได้');
@@ -290,6 +298,14 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     ? [tail[1], tail[2], 'pair'] : tail;
   const finish = spell => {
     if (devastating && spell.type !== 'attack') return fail(suffixIndex, '“ทำลายล้าง” ใช้ต่อท้ายคาถาโจมตีเท่านั้น');
+    if (barraging) {
+      if (spell.type !== 'attack' || ['death', 'blackhole'].includes(spell.form)) {
+        return fail(barrageIndex, '“กระหน่ำ” ใช้ต่อท้ายคาถาโจมตีเท่านั้น (ยกเว้นหลุมดำและตาย)');
+      }
+      if (baseIds.includes('pair') || spell.shots > 1 || spell.wavePair || spell.stormPair || spell.blastPair || spell.meteorPair || spell.secondElement) {
+        return fail(barrageIndex, 'ใช้ “กระหน่ำ” ร่วมกับ “คู่” ไม่ได้');
+      }
+    }
     if (grand && spell.type === 'attack') {
       const extraCost = spell.stormPair ? 5 : (spell.shots === 2 || spell.wavePair) ? 6 : 3;
       const extraPierce = spell.stormPair ? 2 : 0;
@@ -305,6 +321,16 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     }
     if (ids.includes('large')) spell = { ...spell, large: true };
     if (devastating) spell = { ...spell, devastation: true, multiplier: spell.multiplier * 2, cost: spell.cost + WORDS.devastation.cost };
+    if (barraging) {
+      const multiShotForm = ['shot', 'chakram', 'beam', 'meteor'].includes(spell.form) || (spell.form === 'blast' && spell.blastShot);
+      spell = {
+        ...spell,
+        barrage: true,
+        repeatCount: 5,
+        ...(multiShotForm ? { shots: 5 } : {}),
+        cost: Math.round(spell.cost * 3.5),
+      };
+    }
     return { ok: true, spell, cost: spell.cost, ids, expression: ids.map(id => WORDS[id].label).join(' ') };
   };
   const invalid = index => fail(index, 'คำนี้ต่อกับวลีตรงนี้ไม่ได้');
@@ -590,19 +616,20 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     return invalid(2);
   }
   if (!ELEMENTS.includes(element)) return fail(grand ? 2 : 1, 'เติมธาตุหลังรูปทรง');
-  const baseCost = { shot: 1, beam: 2, wave: 3 }[form] + WORDS[element].cost;
-  const spell = { type: 'attack', form, elements: [element], shots: 1, blasts: 0, multiplier: 1, cost: baseCost };
+  const baseCost = { shot: 1, chakram: 3, beam: 2, wave: 3 }[form] + WORDS[element].cost;
+  const baseMult = form === 'chakram' ? 1.8 : 1;
+  const spell = { type: 'attack', form, elements: [element], shots: 1, blasts: 0, multiplier: baseMult, cost: baseCost };
   if (!third) return finish(spell);
   if (fused) {
-    return finish({ ...spell, elements: [element, fourth].sort(), multiplier: element === fourth ? 1.5 : 1, cost: 2 * baseCost + WORDS[fourth].cost - WORDS[element].cost - 1 });
+    return finish({ ...spell, elements: [element, fourth].sort(), multiplier: baseMult * (element === fourth ? 1.5 : 1), cost: 2 * baseCost + WORDS[fourth].cost - WORDS[element].cost - 1 });
   }
   if (split) {
     return finish({ ...spell, secondElement: third, shots: form === 'wave' ? 1 : 2, cost: 2 * baseCost + WORDS[third].cost - WORDS[element].cost });
   }
-  if (third === 'pull' && !fourth && ['shot', 'beam', 'wave'].includes(form)) {
+  if (third === 'pull' && !fourth && ['shot', 'chakram', 'beam', 'wave'].includes(form)) {
     return finish({ ...spell, pull: true, cost: baseCost + 1 });
   }
-  if (form !== 'shot') {
+  if (form !== 'shot' && form !== 'chakram') {
     if (third === 'large' && fourth === 'pair') {
       return finish(form === 'wave'
         ? { ...spell, wavePair: true, multiplier: 1.5, cost: 2 * (baseCost + 2) }
@@ -641,7 +668,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   }
   if (third === 'large' && (!fourth || fourth === 'pair')) {
     const shots = fourth === 'pair' ? 2 : 1;
-    return finish({ ...spell, shots, multiplier: 1.5, cost: (baseCost + 2) * shots });
+    return finish({ ...spell, shots, multiplier: baseMult * 1.5, cost: (baseCost + 2) * shots });
   }
   if (fourth) return invalid(3);
   if (third === 'seal' || third === 'dispel') return finish({ ...spell, [third]: true, cost: baseCost + 2 });
@@ -663,14 +690,36 @@ export const DEVASTATION_FORMULAS = [
   ['blackhole'],
   ['blackhole', 'large'],
   ...ELEMENTS.flatMap(id => [
-    ['shot', id], ['beam', id], ['wave', id], ['blast', id],
+    ['shot', id], ['chakram', id], ['beam', id], ['wave', id], ['blast', id],
     ['shot', 'blast', id],
     ...['pair', 'blast', 'pierce', 'large', 'seal', 'dispel', 'burn', 'freeze', 'push'].map(mod => ['shot', id, mod]),
+    ...['pair', 'blast', 'pierce', 'large', 'seal', 'dispel', 'burn', 'freeze', 'push'].map(mod => ['chakram', id, mod]),
   ]),
   ...STORM_FORMULAS.filter(phrase => phrase.length < 4),
   ...CROSS_FORM_FORMULAS,
   ...GRAND_FORMULAS,
 ].map(phrase => [...phrase, 'devastation']).filter(phrase => parseSpell(phrase).ok);
+
+export const BARRAGE_FORMULAS = [
+  ['meteor'],
+  ['meteor', 'large'],
+  ['grand', 'meteor'],
+  ['storm'],
+  ['grand', 'storm'],
+  ['blast'],
+  ['blast', 'large'],
+  ...ELEMENTS.flatMap(id => [
+    ['grand', 'chakram', id], ['grand', 'shot', id], ['grand', 'storm', id], ['grand', 'beam', id], ['grand', 'wave', id],
+    ['chakram', id], ['shot', id], ['storm', id], ['beam', id], ['wave', id], ['blast', id],
+    ['chakram', id, 'large'], ['shot', id, 'large'], ['chakram', id, 'pierce'], ['shot', id, 'pierce'],
+  ]),
+].map(phrase => [...phrase, 'barrage']).filter(phrase => parseSpell(phrase).ok);
+
+const TAIL_CANDIDATES = Object.freeze([
+  ...ELEMENTS,
+  'pair', 'blast', 'pierce', 'large', 'push', 'pull', 'burn', 'freeze',
+  'seal', 'dispel', 'heal', 'self', 'brace', 'shield', 'shot', 'devastation', 'barrage',
+]);
 
 let spellCatalog;
 export function getSpellCatalog() {
@@ -680,10 +729,28 @@ export function getSpellCatalog() {
   function addPhrase(phrase) {
     const parsed = parseSpell(phrase, library);
     if (parsed.ok) catalog.set(phrase.join(' '), parsed);
-    if (phrase.length < 4) {
-      const candidates = phrase.length === 1 ? [...SPELL_STARTS[phrase[0]], 'devastation'] : library;
-      for (const id of candidates) addPhrase([...phrase, id]);
+    const len = phrase.length;
+    if (len >= 4) return;
+    const last = phrase[len - 1];
+    if (last === 'devastation' || last === 'barrage') return;
+    let candidates;
+    if (len === 1) {
+      candidates = parsed.ok
+        ? [...SPELL_STARTS[phrase[0]], 'devastation', 'barrage']
+        : SPELL_STARTS[phrase[0]];
+    } else if (len === 2 && phrase[0] === 'grand') {
+      const headStarts = SPELL_STARTS[phrase[1]] ?? [];
+      candidates = parsed.ok
+        ? [...headStarts, 'devastation', 'barrage']
+        : headStarts;
+    } else if (len === 3 && phrase[0] !== 'grand' && !parsed.ok) {
+      if (ELEMENTS.includes(last)) candidates = ['pair', ...ELEMENTS];
+      else if (last === 'pair') candidates = TAIL_CANDIDATES;
+      else return;
+    } else {
+      candidates = TAIL_CANDIDATES;
     }
+    for (const id of candidates) addPhrase([...phrase, id]);
   }
   for (const head of Object.keys(SPELL_STARTS)) addPhrase([head]);
   spellCatalog = catalog;

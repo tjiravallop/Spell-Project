@@ -834,6 +834,88 @@ export const middleSprites = {
       r(0, 20, 32, 5, c[18]); // Nether soul fire eruption
     }
   },
+  nether_leech_pillar(r, c, pose, frame) {
+    // เสาดูดวิญญาณ (Floor 90★ Soul Leech Pillar — Wind / Spectral Violet)
+    const atk = pose === 'attack';
+    const pulse = [0, -1, 0, 1][frame % 4];
+    const orb = atk ? c[31] : frame % 2 ? c[23] : c[27];
+    // Obsidian Stepped Pedestal & Rune Base
+    r(6, 26, 20, 5, c[20]);
+    r(8, 24, 16, 3, c[21]);
+    // Tapered Shadow-Stone Obelisk Shaft
+    r(10, 8, 12, 17, c[20]);
+    r(11, 9, 10, 15, c[21]);
+    // Glowing Soul Conduit Runes
+    r(14, 12, 4, 10, c[22]);
+    r(15, 13, 2, 8, orb);
+    // Crown Pincers cradling floating Soul Orb
+    r(8, 4, 3, 7, c[20]); r(21, 4, 3, 7, c[20]);
+    r(9, 2, 2, 4, c[22]); r(21, 2, 2, 4, c[22]);
+    r(12, 2 + pulse, 8, 6, c[22]);
+    r(14, 3 + pulse, 4, 4, orb);
+    r(15, 4 + pulse, 2, 2, c[9]);
+    // Orbiting Spectral Soul Wisps
+    r(4, 11 + pulse, 3, 3, c[23]); r(25, 15 - pulse, 3, 3, c[23]);
+    r(5, 12 + pulse, 1, 1, c[9]); r(26, 16 - pulse, 1, 1, c[9]);
+    if (atk) {
+      r(2, 5, 28, 3, c[23]); // Spectral siphon beam
+    }
+  },
+  nether_curse_pillar(r, c, pose, frame) {
+    // เสาคำสาปต้องห้าม (Floor 90★ Forbidden Curse Pillar — Fire / Crimson-Black)
+    const atk = pose === 'attack';
+    const blink = frame % 4 === 2 && !atk;
+    const eye = atk ? c[31] : c[18];
+    // Charred Iron Base & Seal Chains
+    r(6, 26, 20, 5, c[0]);
+    r(8, 24, 16, 3, c[17]);
+    // Jagged Crimson-Black Monolith
+    r(9, 6, 14, 19, c[20]);
+    r(11, 4, 10, 21, c[0]);
+    r(13, 1, 6, 4, c[17]); // Spiked Crest
+    // Blazing Cursed Eye in center
+    r(11, 9, 10, 6, c[19]);
+    r(12, 10, 8, 4, eye);
+    if (!blink) {
+      r(15, 10, 2, 4, c[0]); // Vertical slit pupil
+      r(14, 11, 1, 1, c[31]); // Glint
+    } else {
+      r(12, 11, 8, 2, c[17]);
+    }
+    // Glowing Forbidden Seal Chains wrapping pillar
+    r(7, 17, 18, 2, c[18]);
+    r(8, 20, 16, 2, c[16]);
+    r(6, 15, 3, 3, c[30]); r(23, 19, 3, 3, c[30]);
+    if (atk) {
+      r(4, 9, 24, 2, c[18]);
+      r(11, 16, 10, 6, c[16]); // Curse sigil flare
+    }
+  },
+  nether_doom_pillar(r, c, pose, frame) {
+    // เสาพิพากษานรกานต์ (Floor 90★ Nether Doom Pillar — Ice / Indigo-Frost)
+    const atk = pose === 'attack';
+    const hum = [0, 1, 0, -1][frame % 4];
+    const core = atk ? c[31] : frame % 2 ? c[27] : c[26];
+    // Heavy Frost-Iron Pedestal
+    r(5, 26, 22, 5, c[24]);
+    r(7, 24, 18, 3, c[25]);
+    // Twin Underworld Gate Spires
+    r(7, 4, 6, 21, c[20]); r(8, 5, 4, 19, c[24]);
+    r(19, 4, 6, 21, c[20]); r(20, 5, 4, 19, c[24]);
+    r(8, 1, 4, 4, c[26]); r(20, 1, 4, 4, c[26]); // Frost horn tips
+    // Central Arcane Conduit & Blasting Core
+    r(13, 8, 6, 16, c[21]);
+    r(14, 7 + hum, 4, 10, c[25]);
+    r(13, 10 + hum, 6, 6, core);
+    r(15, 12 + hum, 2, 2, c[9]);
+    // Floating Frost Shards flanking gate
+    r(3, 9 - hum, 3, 5, c[26]); r(26, 9 + hum, 3, 5, c[26]);
+    r(4, 10 - hum, 1, 3, c[9]); r(27, 10 + hum, 1, 3, c[9]);
+    if (atk) {
+      r(0, 11, 32, 4, c[27]); // Doom Judgment Beam
+      r(0, 12, 32, 2, c[9]);
+    }
+  },
 
   // --- Floors 91–95: Chamber of Cosmic Chaos (Cosmic 🌌) ---
   chaos_weaver(r, c, pose, frame) {
@@ -957,6 +1039,177 @@ export const middleSprites = {
     r(22, -2 + floatY, 6, 4, light);
     if (atk) {
       r(0, 25, 32, 5, c[31]); // Transcendent Reality Wave
+    }
+  },
+  eternity_reborn(r, c, pose, frame) {
+    // มหาเทพอนันตกาล · ร่างจุตินิรันดร์ (Eternity Reborn - Floor 100★★★ Secret Phase 3 True Form, auto 2x scale)
+    const atk = pose === 'attack';
+    const floatY = [0, -1, -2, -1][frame % 4];
+    const pulse = atk ? c[9] : frame % 2 ? c[31] : c[30];
+    const prism = [c[19], c[27], c[31], c[7]][frame % 4];
+    // Radiant Outer Supernova Halo Ring & Star Spikes
+    r(4, -5 + floatY, 24, 2, c[30]);
+    r(4, 15 + floatY, 24, 2, c[30]);
+    r(3, -3 + floatY, 2, 18, c[31]); r(27, -3 + floatY, 2, 18, c[31]);
+    r(14, -8 + floatY, 4, 4, c[9]); // Zenith Star Spire
+    r(7, -6 + floatY, 3, 3, c[31]); r(22, -6 + floatY, 3, 3, c[31]);
+    // Six Transcendent Seraphim Wings (Upper, Mid, Lower Prismatic Pairs)
+    r(0, 0 + floatY, 9, 6, c[31]); r(2, 1 + floatY, 6, 4, c[9]);
+    r(23, 0 + floatY, 9, 6, c[31]); r(24, 1 + floatY, 6, 4, c[9]);
+    r(-2, 7 + floatY, 10, 8, c[23]); r(0, 9 + floatY, 7, 5, c[30]);
+    r(24, 7 + floatY, 10, 8, c[23]); r(25, 9 + floatY, 7, 5, c[30]);
+    r(1, 16 + floatY, 8, 8, c[22]); r(3, 18 + floatY, 5, 5, c[27]);
+    r(23, 16 + floatY, 8, 8, c[22]); r(24, 18 + floatY, 5, 5, c[27]);
+    // Shattered Prismatic Diadem & Ascended Visage
+    r(10, 0 + floatY, 12, 4, c[30]);
+    r(11, -3 + floatY, 2, 4, c[9]); r(15, -4 + floatY, 2, 5, c[9]); r(19, -3 + floatY, 2, 4, c[9]);
+    r(12, 4 + floatY, 8, 6, c[9]);
+    r(13, 6 + floatY, 2, 2, c[23]); r(17, 6 + floatY, 2, 2, c[23]); // Void-star eyes
+    // Ascended Golden-Void Armor & Supernova Heart Core
+    r(9, 10 + floatY, 14, 15, c[20]);
+    r(11, 11 + floatY, 10, 13, c[30]);
+    r(12, 12 + floatY, 8, 9, c[22]);
+    r(13, 13 + floatY, 6, 6, pulse);
+    r(14, 14 + floatY, 4, 4, prism);
+    r(15, 15 + floatY, 2, 2, c[9]);
+    // Twin Orbiting Chronos Time-Blades
+    r(4, 10 - floatY, 2, 16, c[31]); r(3, 14 - floatY, 4, 2, c[9]);
+    r(26, 10 + floatY, 2, 16, c[31]); r(25, 14 + floatY, 4, 2, c[9]);
+    // Floating Elemental Prism Satellites
+    r(2, 23 + floatY, 3, 3, c[19]); r(27, 23 - floatY, 3, 3, c[27]);
+    r(9, 25 - floatY, 14, 4, c[21]); r(12, 26 - floatY, 8, 3, c[30]);
+    if (atk) {
+      r(0, 13, 32, 6, c[30]); // Reality-rending Supernova Beam
+      r(0, 15, 32, 2, c[9]);
+    }
+  },
+
+  // --- Floor 80★: Abyssal Kraken (4 Tentacles Phase 1 + True Body Phase 2, Water 💧) ---
+  kraken_ward_tentacle(r, c, pose, frame) {
+    // หนวดม่านวารี (Ward Tentacle - glowing prism water barrier coil)
+    const atk = pose === 'attack';
+    const sway = atk ? -2 : [0, 1, 0, -1][frame % 4];
+    const pulse = atk ? c[9] : frame % 2 ? c[27] : c[26];
+    // Foaming Abyssal Base
+    r(5, 27, 22, 4, c[24]); r(8, 25, 16, 3, c[25]); r(7, 29, 4, 2, c[27]); r(21, 29, 4, 2, c[27]);
+    // Coiling Cyan Tentacle Trunk
+    r(11, 18, 10, 9, c[24]); r(12, 19, 8, 7, c[25]);
+    r(10 + sway, 10, 9, 10, c[24]); r(11 + sway, 11, 7, 8, c[25]);
+    r(13 + sway, 4, 7, 7, c[25]); r(16 + sway, 2, 6, 4, c[26]);
+    r(20 + sway, 4, 3, 4, c[27]); // Curled tip
+    // Luminous Suckers
+    r(11 + sway, 13, 2, 2, c[27]); r(11 + sway, 17, 2, 2, c[27]); r(13, 22, 2, 2, c[27]);
+    // Floating Water-Ward Prism Halo around tentacle
+    r(4 + sway, 7, 24, 2, pulse);
+    r(4 + sway, 15, 24, 2, pulse);
+    r(3 + sway, 9, 2, 6, c[27]); r(27 + sway, 9, 2, 6, c[27]);
+    r(14 + sway, 6, 4, 3, c[9]);
+    if (atk) {
+      r(1, 5, 30, 2, c[9]); r(2, 17, 28, 2, c[27]);
+    }
+  },
+  kraken_heal_tentacle(r, c, pose, frame) {
+    // หนวดฟื้นสมุทร (Heal Tentacle - cradling luminous oceanic pearl)
+    const atk = pose === 'attack';
+    const bob = atk ? -2 : [0, -1, 0, 1][frame % 4];
+    const orbCore = atk ? c[9] : frame % 2 ? c[8] : c[27];
+    // Seafoam Base
+    r(5, 27, 22, 4, c[24]); r(8, 25, 16, 3, c[25]); r(10, 28, 12, 2, c[26]);
+    // Twin Cradling Tendrils
+    r(10, 18, 12, 9, c[24]); r(12, 19, 8, 7, c[26]);
+    r(7, 11, 6, 10, c[25]); r(6, 7, 5, 6, c[26]); r(8, 5, 4, 3, c[27]);
+    r(19, 11, 6, 10, c[25]); r(21, 7, 5, 6, c[26]); r(20, 5, 4, 3, c[27]);
+    // Suckers & Coral Fin Accents
+    r(11, 14, 2, 2, c[8]); r(19, 14, 2, 2, c[8]); r(14, 22, 3, 2, c[8]);
+    // Glowing Healing Sea Pearl suspended between tips
+    r(12, 6 + bob, 8, 8, c[26]);
+    r(13, 7 + bob, 6, 6, orbCore);
+    r(15, 8 + bob, 2, 2, c[9]);
+    // Rising Healing Bubbles
+    r(10, 2 + bob, 2, 2, c[27]); r(21, 1 + bob, 2, 2, c[8]); r(15, 0 + bob, 2, 2, c[9]);
+    if (atk) {
+      r(8, 10, 16, 2, c[9]); r(15, 3, 2, 14, c[8]);
+    }
+  },
+  kraken_ink_tentacle(r, c, pose, frame) {
+    // หนวดหมึกดำบาดาล (Ink Siphon Tentacle - dark violet abyssal stalk dripping ink)
+    const atk = pose === 'attack';
+    const sway = atk ? -3 : [0, -1, 0, 1][frame % 4];
+    const dropY = (frame % 4) * 2;
+    // Dark Ink Pool Base
+    r(4, 27, 24, 4, c[0]); r(6, 25, 20, 3, c[20]); r(9, 28, 14, 2, c[21]);
+    // Whipping Violet-Indigo Tentacle Body
+    r(12, 18, 10, 9, c[20]); r(13, 19, 7, 7, c[21]);
+    r(9 + sway, 10, 9, 10, c[20]); r(10 + sway, 11, 6, 8, c[21]);
+    r(5 + sway, 4, 8, 8, c[21]); r(3 + sway, 6, 5, 5, c[22]);
+    // Glowing Violet Mana-Siphon Suckers
+    r(9 + sway, 12, 2, 2, c[23]); r(10 + sway, 16, 2, 2, c[23]); r(13, 21, 2, 2, c[22]);
+    r(5 + sway, 7, 2, 2, c[31]); // Ink nozzle eye-glow
+    // Dripping Abyssal Ink Globules
+    r(3 + sway, 12 + dropY, 2, 3, c[0]); r(4 + sway, 12 + dropY, 1, 2, c[22]);
+    r(22, 14 + (6 - dropY), 2, 3, c[0]); r(22, 15 + (6 - dropY), 1, 2, c[23]);
+    if (atk) {
+      r(0, 7, 10, 4, c[0]); r(1, 8, 8, 2, c[23]); r(0, 13, 7, 3, c[21]);
+    }
+  },
+  kraken_crush_tentacle(r, c, pose, frame) {
+    // หนวดยักษ์บดขยี้ (Colossal Armored Crush Tentacle - thick spined slammer)
+    const atk = pose === 'attack';
+    const lunge = atk ? -4 : 0;
+    const lift = atk ? 3 : frame % 2 ? -1 : 0;
+    // Heavy Frothing Wave Base
+    r(3, 26, 26, 5, c[24]); r(6, 24, 20, 3, c[25]); r(4, 29, 24, 2, c[27]);
+    // Thick Muscular Armored Tentacle Column
+    r(11, 15, 13, 12, c[2]); r(13, 16, 9, 10, c[24]);
+    r(8 + lunge, 7 + lift, 14, 11, c[2]); r(10 + lunge, 8 + lift, 10, 9, c[24]);
+    // Coiled Heavy Club Tip
+    r(4 + lunge, 2 + lift, 13, 8, c[24]); r(6 + lunge, 4 + lift, 9, 5, c[25]);
+    // Sharp Barnacle / Coral Armor Spikes
+    r(22, 16, 4, 3, c[8]); r(23, 21, 4, 3, c[8]);
+    r(18 + lunge, 6 + lift, 4, 3, c[9]); r(12 + lunge, 0 + lift, 3, 3, c[9]);
+    // Heavy Suckers underneath
+    r(7 + lunge, 10 + lift, 3, 2, c[26]); r(10 + lunge, 15 + lift, 3, 2, c[26]); r(12, 21, 3, 2, c[26]);
+    if (atk) {
+      r(0, 18, 12, 12, c[27]); r(2, 20, 8, 8, c[9]); // Crushing wave slam
+    }
+  },
+  abyssal_kraken(r, c, pose, frame) {
+    // มหาคราเค่นแห่งห้วงบาดาล (Abyssal Kraken True Body - Floor 80★ Phase 2 Boss, auto 2x scale)
+    const atk = pose === 'attack';
+    const floatY = [0, -1, 0, 1][frame % 4];
+    const eyeGlow = atk ? c[9] : frame % 2 ? c[31] : c[30];
+    const waveShift = frame % 2 ? 1 : 0;
+    // Towering Abyssal Mantle & Ocean Crown Fins
+    r(10, 0 + floatY, 12, 4, c[24]); r(12, -2 + floatY, 8, 3, c[25]);
+    r(6, 2 + floatY, 20, 6, c[24]); r(8, 3 + floatY, 16, 4, c[25]);
+    // Sweeping Lateral Crown Fins (Spiny Leviathan Crest)
+    r(2, 4 + floatY, 6, 5, c[25]); r(0, 2 + floatY, 4, 4, c[26]);
+    r(24, 4 + floatY, 6, 5, c[25]); r(28, 2 + floatY, 4, 4, c[26]);
+    // Bioluminescent Mantle Spots
+    r(10, 4 + floatY, 2, 2, c[27]); r(15, 2 + floatY, 2, 2, c[9]); r(20, 4 + floatY, 2, 2, c[27]);
+    // Heavy Armored Brow & Colossal Head
+    r(7, 8 + floatY, 18, 11, c[2]); r(9, 9 + floatY, 14, 9, c[24]);
+    r(11, 10 + floatY, 10, 3, c[25]);
+    // Blazing Abyssal Predator Eyes
+    r(8, 12 + floatY, 5, 3, c[0]); r(9, 12 + floatY, 3, 2, eyeGlow); r(10, 12 + floatY, 1, 1, c[9]);
+    r(19, 12 + floatY, 5, 3, c[0]); r(20, 12 + floatY, 3, 2, eyeGlow); r(21, 12 + floatY, 1, 1, c[9]);
+    // Fanged Abyssal Beak & Maw
+    r(12, 16 + floatY, 8, 5, c[0]);
+    r(13, 16 + floatY, 2, 2, c[9]); r(17, 16 + floatY, 2, 2, c[9]);
+    r(14, 19 + floatY, 4, 2, c[19]); // Inner abyssal tongue/maw glow
+    // Lower Coiling Body & Four Flanking Sub-Tentacles
+    r(1, 15 + floatY, 6, 12, c[24]); r(2, 17 + floatY, 4, 8, c[25]); r(0, 13 + floatY, 3, 5, c[26]);
+    r(25, 15 + floatY, 6, 12, c[24]); r(26, 17 + floatY, 4, 8, c[25]); r(29, 13 + floatY, 3, 5, c[26]);
+    r(6, 20 + floatY, 6, 8, c[24]); r(20, 20 + floatY, 6, 8, c[24]);
+    r(12, 21 + floatY, 8, 7, c[21]); // Deep abyssal underside
+    // Glowing Tentacle Sucker Nodes
+    r(2, 20 + floatY, 2, 2, c[27]); r(28, 20 + floatY, 2, 2, c[27]);
+    r(8, 23 + floatY, 2, 2, c[27]); r(22, 23 + floatY, 2, 2, c[27]);
+    // Roaring Tidal Foam & Abyssal Whirlpool Base
+    r(0, 27, 32, 5, c[24]);
+    r(2 + waveShift, 26, 8, 2, c[27]); r(12 - waveShift, 27, 8, 2, c[9]); r(22 + waveShift, 26, 8, 2, c[27]);
+    if (atk) {
+      r(0, 22, 32, 5, c[27]); r(2, 24, 28, 3, c[9]); // Crashing Tsunami Surge
     }
   },
 };

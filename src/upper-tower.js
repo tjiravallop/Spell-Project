@@ -15,7 +15,31 @@ export const RIFT_ENEMIES = {
 
 export const RIFT_SPELL_BONUS = 25;
 export const RIFT_EXPOSED_BONUS = 35;
-export const isRiftBossExposed = (kind, turn) => Boolean(RIFT_ENEMIES[kind]?.isBoss && turn % 3 === 0);
+export const isRiftBossExposed = (kind, turn) => Boolean(
+  (RIFT_ENEMIES[kind]?.isBoss && turn % 3 === 0)
+  || (['volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(kind) && turn % 4 === 0)
+);
+
+// Floors 1-30: 0%, Floors 31-50: +25% (unchanged), Floors 51-100: progressive Endgame Arcane Resonance
+export function getTowerSpellBonus(room = 0) {
+  if (room < 75) return 0;
+  if (room < 125) return RIFT_SPELL_BONUS;
+  if (room < 150) return 50;
+  if (room < 175) return 80;
+  if (room < 200) return 120;
+  if (room < 225) return 170;
+  return 230;
+}
+
+// Floors 1-50: +3 MP/turn (unchanged), Floors 51-100: +4 to +8 MP/turn to sustain high-tier grand spells
+export function getTurnManaRegen(room = 0) {
+  if (room < 125) return 3;
+  if (room < 150) return 4;
+  if (room < 175) return 5;
+  if (room < 200) return 6;
+  if (room < 225) return 7;
+  return 8;
+}
 
 // Each entry is one floor. Alternatives are chosen once from the run seed.
 export const RIFT_TOWER = [

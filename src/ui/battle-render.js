@@ -31,6 +31,7 @@ import {
   isSanctuary19Unlocked,
   isSanctuaryPost20Unlocked,
   ENEMIES,
+  NETHER_PILLAR_KINDS,
   intent,
 } from '../run.js';
 import { estimateWordCost } from '../combat.js';
@@ -352,7 +353,7 @@ function intentIconHtml(action) {
   if (action.type === 'attack') return icon('sword');
   if (action.type === 'heal') return icon('heal');
   if (action.type === 'charge') return icon('mana');
-  if (action.type === 'ward-grant') return icon('veil');
+  if (action.type === 'ward-grant' || action.type === 'ward-grant-all') return icon('veil');
   if (action.type === 'sealed') return icon('seal');
   if (action.type === 'frozen') return icon('freeze');
   if (action.type === 'recover') return icon('book');
@@ -390,10 +391,19 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const armorText = projectedArmor < enemy.armor ? `${enemy.armor} → ${projectedArmor}` : enemy.armor;
     if (enemy.armor > 0 || enemy.permanentArmorShred) badges.push(`<span class="enemy-badge badge-armor badge-armor-value" title="เกราะลดความเสียหายต่อการโจมตีหนึ่งครั้ง${enemy.permanentArmorShred ? ` · ถูกทุบถาวร ${enemy.permanentArmorShred} หน่วยในศึกนี้` : ''}">🛡 เกราะ ${armorText}</span>`);
     if (enemy.ward > 0) badges.push(`<span class="enemy-badge badge-ward" title="ม่านกันกระสุน 1 ลูกต่อชั้น ลำแสงทะลุม่านได้">🔮 ม่าน ${enemy.ward}</span>`);
-    const exposedHint = isRiftBossExposed(enemy.kind, state.turn) ? `เปิดช่อง · รับดาเมจเวทเพิ่ม ${RIFT_EXPOSED_BONUS}%` : '';
-    if (exposedHint) badges.push(`<span class="enemy-badge badge-push" title="${exposedHint}">เปิดช่อง +${RIFT_EXPOSED_BONUS}%</span>`);
+    const exposedPct = enemy.kind === 'eternity_reborn' ? 50 : RIFT_EXPOSED_BONUS;
+    const exposedHint = (isRiftBossExposed(enemy.kind, state.turn) || enemy.netherExposedTurn === state.turn)
+      ? `เปิดช่อง · รับดาเมจเวทเพิ่ม ${exposedPct}%`
+      : '';
+    if (exposedHint) badges.push(`<span class="enemy-badge badge-push" title="${exposedHint}">เปิดช่อง +${exposedPct}%</span>`);
     const readLabel = enemy.readForm ? WORDS[enemy.readForm].label : '';
-    const readHint = base.repeatReduction ? `จำรูปเวทที่ทำดาเมจล่าสุด · ร่ายรูปเดิมซ้ำลดดาเมจ ${base.repeatReduction}% · เทิร์นเปิดช่องร่ายซ้ำได้เต็มแรง` : '';
+    const hasNetherPillars = enemy.kind === 'nether_dread_lord' && state.enemies.some(ally => NETHER_PILLAR_KINDS.includes(ally.kind));
+    const cursePillarAlive = !hasNetherPillars || state.enemies.some(ally => ally.kind === 'nether_curse_pillar' && ally.hp > 0);
+    const readHint = base.repeatReduction && cursePillarAlive
+      ? (hasNetherPillars
+        ? `คำสาปจากเสาคำสาป · ร่ายรูปเวทเดิมซ้ำลดดาเมจ ${base.repeatReduction}% และโดนสาปย้อนศร −8 HP · โค่นเสาคำสาปเพื่อล้าง!`
+        : `จำรูปเวทที่ทำดาเมจล่าสุด · ร่ายรูปเดิมซ้ำลดดาเมจ ${base.repeatReduction}% · เทิร์นเปิดช่องร่ายซ้ำได้เต็มแรง`)
+      : '';
     if (readHint) badges.push(`<span class="enemy-badge badge-ward" title="${readHint}">${readLabel ? `จำ ${readLabel}${exposedHint ? '' : ` −${base.repeatReduction}%`}` : 'อ่านทางเวท'}</span>`);
     let bossHint = '';
     if (state.room === FLOOR30_BOSS_ROOM && enemy.kind === 'crown_archivist') {
@@ -406,22 +416,80 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     } else if (state.room === FLOOR50_BOSS_ROOM && enemy.kind === 'loom_sovereign') {
       bossHint = 'ท่าหนักทุกสามเทิร์นเพิ่ม 3 ดาเมจต่อลูกสมุนที่ยังอยู่ · กำจัดลูกสมุนเพื่อลดแรงโจมตี';
       badges.push(`<span class="enemy-badge badge-push" title="${bossHint}">ท่าหนัก +3/ลูกสมุน</span>`);
-    } else if (state.room === FLOOR60_BOSS_ROOM && enemy.kind === 'volcano_colossus') {
-      bossHint = 'เกล็ดลาวาหลอมเหลว · มีเกราะลดดาเมจและสะท้อนไฟ 3 หากไม่ใช้น้ำแข็งสยบ';
-      badges.push(`<span class="enemy-badge badge-burn" title="${bossHint}">เกล็ดลาวา</span>`);
-    } else if (state.room === FLOOR70_BOSS_ROOM && enemy.kind === 'thunder_drake_emperor') {
-      bossHint = 'เกราะมหาประจุดารา · สะท้อนสายฟ้า 4 เมื่อมีเกราะหากไม่เจาะทะลวง';
-      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">ประจุดารา</span>`);
-    } else if (state.room === FLOOR80_BOSS_ROOM && enemy.kind === 'ancient_chitin_behemoth') {
+    } else if (enemy.kind === 'volcano_colossus') {
+      bossHint = 'เกราะแมกมา · ใช้น้ำหรือน้ำแข็งดับเกราะ −2 และเปิดช่อง +35% ดาเมจทุกบทที่ 4';
+      badges.push(`<span class="enemy-badge badge-burn" title="${bossHint}">ดับลาวาได้</span>`);
+    } else if (enemy.kind === 'thunder_drake_emperor') {
+      const isGrounded = (status.groundedUntil ?? enemy.groundedUntil ?? 0) >= state.turn;
+      bossHint = isGrounded
+        ? 'ลงกราวด์แล้ว · เกราะมหาประจุดาราไม่ช็อตคืนจนจบเทิร์นนี้'
+        : 'เกราะมหาประจุดารา · สะท้อนสายฟ้า 4 เมื่อมีเกราะ หากไม่ใช้ธาตุดิน (ลงกราวด์) หรือคำว่าเจาะ · เปิดช่อง +35% ในบทที่ 4';
+      badges.push(`<span class="enemy-badge ${isGrounded ? 'badge-armor' : 'badge-ward'}" title="${bossHint}">${isGrounded ? 'ลงกราวด์แล้ว' : 'ประจุดารา 4'}</span>`);
+    } else if (enemy.kind === 'kraken_ward_tentacle') {
+      bossHint = 'เฟส 1/2 · คูลดาวน์ 2 เทิร์น: เทิร์นคี่กางม่าน +1 ให้หนวดอื่นทุกเส้น (ผนึกหยุดได้) · ปราบหนวดครบ 4 เส้นเพื่อเรียกร่างจริง';
+      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">ม่านทุก 2 เทิร์น</span>`);
+    } else if (enemy.kind === 'kraken_heal_tentacle') {
+      bossHint = 'เฟส 1/2 · คูลดาวน์ 2 เทิร์น: เทิร์นคู่ฟื้นหนวดที่ HP% ต่ำสุด +220 HP (อัคคีลดฮีลครึ่งหนึ่ง)';
+      badges.push(`<span class="enemy-badge badge-chill" title="${bossHint}">ฮีล +220</span>`);
+    } else if (enemy.kind === 'kraken_ink_tentacle') {
+      bossHint = 'เฟส 1/2 · คูลดาวน์ 3 เทิร์น: พ่นหมึกดำ 42 ดาเมจ + สูบมานา −2 MP';
+      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">สูบ −2 MP</span>`);
+    } else if (enemy.kind === 'kraken_crush_tentacle') {
+      bossHint = 'เฟส 1/2 · วัฏจักร 3 เทิร์น: โจมตี 52 → ชาร์จพลัง → ฟาดบดขยี้ 92 ดาเมจ!';
+      badges.push(`<span class="enemy-badge badge-push" title="${bossHint}">ชาร์จ 92</span>`);
+    } else if (enemy.kind === 'abyssal_kraken') {
+      const isShocked = (status.abyssalShockUntil ?? enemy.abyssalShockUntil ?? 0) >= state.turn;
+      bossHint = isShocked
+        ? 'ผิวน้ำบาดาลนำไฟฟ้า · ถูกช็อตแล้ว! เกราะลด −2 จนจบเทิร์นนี้ (โดนสายฟ้า +15 ดาเมจแท้)'
+        : 'เฟส 2 ร่างจริง · ผิวน้ำนำไฟฟ้า: โดนสายฟ้า +15 ดาเมจแท้ & ลดเกราะ −2 · บท 2 ฟื้น +120 HP · บท 4 สึนามิ 108 & เปิดช่อง +35%';
+      badges.push(`<span class="enemy-badge ${isShocked ? 'badge-push' : 'badge-chill'}" title="${bossHint}">${isShocked ? 'ช็อตแล้ว −2 เกราะ' : 'นำไฟฟ้า +15 / −2 เกราะ'}</span>`);
+    } else if (enemy.kind === 'ancient_chitin_behemoth') {
       bossHint = 'เกราะไคตินเปลี่ยนตามเทิร์น · ทุบเกราะเพื่อลดค่าป้องกัน หรือใช้คาถาทะลวง';
       badges.push(`<span class="enemy-badge badge-armor" title="${bossHint}">ไคตินหนา</span>`);
+    } else if (enemy.kind === 'nether_leech_pillar') {
+      bossHint = 'เสาดูดวิญญาณ · เทิร์นคี่ฟื้นบอส +180 HP (ผนึกหยุดได้/อัคคีลดครึ่ง) · ลดดาเมจบอส −25%';
+      badges.push(`<span class="enemy-badge badge-chill" title="${bossHint}">ฮีลบอส +180</span>`);
+    } else if (enemy.kind === 'nether_curse_pillar') {
+      bossHint = 'เสาคำสาปต้องห้าม · เทิร์นคี่กางม่านบอส +1 · คงคำสาปร่ายซ้ำ −70% & ย้อนศร −8 HP · ลดดาเมจบอส −25%';
+      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">คำสาปห้ามซ้ำ −8</span>`);
+    } else if (enemy.kind === 'nether_doom_pillar') {
+      bossHint = 'เสาพิพากษานรกานต์ · เสริมดาเมจบอส +18 ตลอดเวลา · บท 3 ชาร์จลำแสง 88 ดาเมจ · ลดดาเมจบอส −25%';
+      badges.push(`<span class="enemy-badge badge-push" title="${bossHint}">เสริมบอส +18 · ชาร์จ 88</span>`);
     } else if (state.room === FLOOR90_BOSS_ROOM && enemy.kind === 'nether_dread_lord') {
-      bossHint = 'ม่านมิติอนันต์ · กางม่าน 2 ชั้นและร่นระยะโจมตี';
-      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">ม่านมิติ 2</span>`);
+      const livePillars = state.enemies.filter(ally => NETHER_PILLAR_KINDS.includes(ally.kind) && ally.hp > 0).length;
+      const isPurged = (status.netherPurgeUntil ?? enemy.netherPurgeUntil ?? 0) >= state.turn;
+      if (livePillars > 0) {
+        bossHint = `พันธสัญญาสามเสา · เสาที่เหลือ ${livePillars} ต้นลดดาเมจบอส −${livePillars * 25}% · โค่นครบ 3 ต้นก่อน HP ≤50% เพื่อเปิดช่อง +35% เทิร์นหน้า (หาก HP ≤50% ก่อน บอสจะสังเวยเสาฮีล +350/ต้น!)`;
+        badges.push(`<span class="enemy-badge badge-armor" title="${bossHint}">พันธสัญญา −${livePillars * 25}%</span>`);
+      } else {
+        bossHint = isPurged
+          ? 'ชำระมลทินแล้ว! · ปิดการสูบเลือด +150 และลดเกราะ −2 จนจบเทิร์นนี้'
+          : 'โหมดปลดผนึก · โจมตีทะลุโล่จะสูบเลือด +150 HP · ใช้ “ไฟ” หรือ “สายฟ้า” ชำระมลทินเพื่อปิดสูบเลือด & ลดเกราะ −2!';
+        badges.push(`<span class="enemy-badge badge-burn" title="${bossHint}">ปลดผนึก · สูบชีพ 150</span>`);
+      }
+      badges.push(`<span class="enemy-badge ${isPurged ? 'badge-push' : 'badge-chill'}" title="${isPurged ? 'ถูกชำระด้วยไฟ/สายฟ้า · ปิดสูบชีพ & เกราะ −2' : 'โจมตีด้วยธาตุไฟหรือสายฟ้าเพื่อชำระมลทิน (−2 เกราะ & ปิดสูบเลือด)'}">${isPurged ? 'ชำระมลทินแล้ว' : 'ไฟ·สายฟ้าชำระ −2 เกราะ'}</span>`);
     } else if (state.room === FLOOR100_BOSS_ROOM && enemy.kind === 'eternity_overlord') {
-      const eternityGuarded = state.enemies.filter(ally => ally.id !== enemy.id && ally.hp > 0).length;
-      bossHint = `จ้าวอนันตกาล · พลังทำลายล้างเพิ่ม +4 ต่อลูกสมุนมิติที่ยังอยู่ (${eternityGuarded} ตัว)`;
-      badges.push(`<span class="enemy-badge badge-push" title="${bossHint}">ท่าหนัก +4/ลูกสมุน</span>`);
+      if (state.eternityPhase === 2) {
+        const isShattered = (status.eternityShatterUntil ?? enemy.eternityShatterUntil ?? 0) >= state.turn;
+        bossHint = isShattered
+          ? 'เฟส 2 ปฏิพากย์เบญจธาตุ · ทลายผลึกแล้ว! (−3 เกราะจนจบเทิร์นนี้) · ม่านสะท้อน 10'
+          : 'เฟส 2 ปฏิพากย์เบญจธาตุ · สลับธาตุทุกเทิร์น (ไฟ→น้ำแข็ง→สายฟ้า→ดิน) · ม่านสะท้อน 10 · ตีจุดอ่อนทลายผลึก +60 แท้ / −3 เกราะ / −1 ม่าน!';
+        badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">เฟส 2 · สลับธาตุ · สะท้อนม่าน 10</span>`);
+        badges.push(`<span class="enemy-badge ${isShattered ? 'badge-push' : 'badge-chill'}" title="${bossHint}">${isShattered ? 'ทลายผลึกแล้ว' : 'ตีจุดอ่อนทลายผลึก'}</span>`);
+      } else {
+        const eternityGuarded = state.enemies.filter(ally => ally.id !== enemy.id && ally.hp > 0).length;
+        bossHint = eternityGuarded > 0
+          ? `เฟส 1 สภากาลอวกาศ · ลูกสมุน ${eternityGuarded} ตัวลดดาเมจบอส −${eternityGuarded * 15}% และเสริมบท 2 +${eternityGuarded * 10} ดาเมจ`
+          : 'เฟส 1 สภากาลอวกาศ · สภาถูกโค่นหมดแล้ว! บอสไร้การคุ้มกัน (≤50% HP เข้าเฟส 2)';
+        badges.push(`<span class="enemy-badge ${eternityGuarded > 0 ? 'badge-armor' : 'badge-push'}" title="${bossHint}">${eternityGuarded > 0 ? `เฟส 1 · สภา −${eternityGuarded * 15}% / +${eternityGuarded * 10}` : 'เฟส 1 · ไร้สภา'}</span>`);
+      }
+    } else if (enemy.kind === 'eternity_reborn') {
+      const isShattered = (status.eternityShatterUntil ?? enemy.eternityShatterUntil ?? 0) >= state.turn;
+      bossHint = isShattered
+        ? 'เฟส 3 ร่างจุตินิรันดร์ · ผลึกแตกแล้ว! (−3 เกราะ & หยุดย้อนเวลาฟื้น +400 HP ในบท 2) · ม่านสะท้อน 10'
+        : 'เฟส 3 ร่างจุตินิรันดร์ · สลับธาตุทุกเทิร์น · ม่านสะท้อน 10 · ตีจุดอ่อนทลายผลึก +100 แท้ / −3 เกราะ / −1 ม่าน & หยุดย้อนเวลา! · บท 4 เปิดช่อง +50%';
+      badges.push(`<span class="enemy-badge badge-burn" title="${bossHint}">เฟส 3 ร่างจุติ · สลับธาตุ · สะท้อน 10</span>`);
+      badges.push(`<span class="enemy-badge ${isShattered ? 'badge-push' : 'badge-chill'}" title="${bossHint}">${isShattered ? 'ผลึกแตก (เวลาหยุด)' : 'ตีจุดอ่อน +100 · หยุดเวลา'}</span>`);
     }
     if (status.chill > 0) badges.push(`<span class="enemy-badge badge-chill">❄ หนาว −${status.chill}</span>`);
     if (status.freeze > 0) badges.push(`<span class="enemy-badge badge-freeze">🧊 แช่แข็ง ${status.freeze}</span>`);
@@ -429,6 +497,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     if (status.wetUntil >= state.turn) badges.push('<span class="enemy-badge badge-chill">เปียก</span>');
     if (status.obscured) badges.push('<span class="enemy-badge badge-ward">เล็ง −4</span>');
     if (state.magmaPuddles?.includes(enemy.slot)) badges.push('<span class="enemy-badge badge-burn">แอ่งแมกม่า</span>');
+    if (status.groundedUntil >= state.turn && enemy.kind !== 'thunder_drake_emperor') badges.push('<span class="enemy-badge badge-armor">ลงกราวด์</span>');
     if (status.healCutUntil >= state.turn) badges.push('<span class="enemy-badge badge-burn">ฮีล ½</span>');
     if (status.lastingChill) badges.push('<span class="enemy-badge badge-chill">หนาว 2 ครั้ง</span>');
     if (status.sealed) badges.push('<span class="enemy-badge badge-ward badge-sealed">ผนึก</span>');

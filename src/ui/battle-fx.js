@@ -167,7 +167,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     if (getSettings().reducedMotion) return;
     const wrap = $('battlefield-wrap') ?? document.querySelector('.battlefield-wrap');
     const battleView = $('battle-view');
-    const isStorm = bossKind === 'tempest_archon';
+    const isStorm = bossKind === 'tempest_archon' || bossKind === 'thunder_drake_emperor' || bossKind === 'abyssal_kraken';
     const wrapClass = intensity === 'boss-ultimate'
       ? (isStorm ? 'camera-shake-boss-ultimate-storm' : 'camera-shake-boss-ultimate-fire')
       : intensity === 'boss-heavy'
@@ -191,7 +191,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     if (!layer || getSettings().reducedMotion) return;
     const state = getState();
     const battlefield = getBattlefield();
-    const isStorm = bossKind === 'tempest_archon';
+    const isStorm = bossKind === 'tempest_archon' || bossKind === 'thunder_drake_emperor' || bossKind === 'abyssal_kraken';
     const themeClass = isStorm ? 'elem-boss-ultimate-storm' : 'elem-boss-ultimate-fire';
     let impactX = 16;
     let impactY = 66;
@@ -259,7 +259,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
 
   function showCombatNumber(event, index) {
     const heals = event.type === 'heal' || event.type === 'room-clear';
-    const incoming = ['attack', 'mirror-reflect', 'ember-thorns', 'storm-static'].includes(event.type);
+    const incoming = ['attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo'].includes(event.type);
     if (!heals && !incoming && event.type !== 'damage') return;
     const amount = event.recovered ?? event.actual ?? event.amount;
     if (!(amount > 0)) return;
@@ -523,12 +523,26 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         changeAnimatedPlayerHp(-event.amount);
         const sourceEnemy = state?.enemies?.find(candidate => candidate.id === event.source);
         const sourceKind = event.sourceKind ?? sourceEnemy?.kind;
-        const isSpecialBoss = Boolean(event.specialBoss || sourceKind === 'ember_overlord' || sourceKind === 'tempest_archon');
+        const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(sourceKind));
         const isUltimate = Boolean(event.ultimate || (isSpecialBoss && (event.rawAttack ?? 0) >= 15));
         if (isUltimate) pulseBossUltimateImpact(sourceKind, 'attack', event.source);
         pulsePlayerHud(event.amount > 0 ? 'hit' : 'shield');
         if (isUltimate) {
-          const skillName = sourceKind === 'tempest_archon' ? '⚡ จ้าวพายุฟาดอสุนีพิพากษา!' : '💥 จ้าวอัคคีทุบพิพากษาเพลิง!';
+          const skillName = sourceKind === 'eternity_reborn'
+            ? '✨ มหาเทพจุตินิรันดร์ซัดซูเปอร์โนวาดับจักรวาล!'
+            : sourceKind === 'eternity_overlord'
+              ? '🌌 มหาเทพอนันตกาลปลดปล่อยคลื่นทำลายกาลอวกาศ!'
+              : sourceKind === 'nether_dread_lord'
+                ? '💀 จอมอสูรนรกานต์ซัดเปลวเพลิงพิพากษา!'
+                : sourceKind === 'abyssal_kraken'
+                  ? '🌊 มหาคราเค่นซัดสึนามิบาดาล!'
+                  : sourceKind === 'tempest_archon'
+                    ? '⚡ จ้าวพายุฟาดอสุนีพิพากษา!'
+                    : sourceKind === 'thunder_drake_emperor'
+                      ? '⚡ มังกรอสุนีฟาดมหาประจุดารา!'
+                      : sourceKind === 'volcano_colossus'
+                        ? '🌋 ยักษ์ภูเขาไฟทุบแมกมาพิโรธ!'
+                        : '💥 จ้าวอัคคีทุบพิพากษาเพลิง!';
           status.textContent = event.amount > 0
             ? `${skillName} เสีย ${event.amount} HP`
             : `${skillName} โล่ต้านไว้ได้ ${event.absorbed}`;
@@ -536,8 +550,21 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           status.textContent = [
             event.absorbed > 0 ? `ป้องกัน ${event.absorbed}` : '',
             event.amount > 0 ? `เสีย ${event.amount} HP` : '',
+            event.manaDrain > 0 ? `สูบมานา −${event.manaDrain} MP` : '',
           ].filter(Boolean).join(' · ') || 'ศัตรูโจมตี 0 ดาเมจ';
         }
+        break;
+      }
+      case 'boss-phase': {
+        audio.play('discover');
+        triggerCameraScreenShake('boss-ultimate', event.sourceKind ?? 'abyssal_kraken');
+        const phaseTheme = (event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn')
+          ? 'grand'
+          : event.sourceKind === 'nether_dread_lord'
+            ? 'death'
+            : 'water';
+        pulseElementalOverlay(phaseTheme, 65, 58, { grand: true, withVignette: true });
+        status.textContent = event.label ?? '🐙 ร่างจริงของบอสปรากฏตัว!';
         break;
       }
       case 'mirror-reflect':
@@ -546,6 +573,16 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         triggerEnemyCardFx(event.source, 'enemy-targeted-pulse');
         pulsePlayerHud(event.amount > 0 ? 'hit' : 'shield');
         status.textContent = event.amount > 0 ? `ม่านกระจกสะท้อน · เสีย ${event.amount} HP` : `โล่รับแรงสะท้อนกระจกได้ ${event.absorbed}`;
+        break;
+      case 'cosmic-echo':
+        changeAnimatedPlayerHp(-event.amount);
+        triggerCameraScreenShake(event.amount > 0 ? 'boss-heavy' : 'tremor', event.sourceKind ?? 'eternity_overlord');
+        triggerEnemyCardFx(event.source, 'enemy-targeted-pulse');
+        pulseElementalOverlay('grand', 16, 66);
+        pulsePlayerHud(event.amount > 0 ? 'hit' : 'shield');
+        status.textContent = event.amount > 0
+          ? `🌌 ม่านดาราจักรสะท้อน · เสีย ${event.amount} HP`
+          : `🌌 โล่รับแรงสะท้อนดาราจักรได้ ${event.absorbed}`;
         break;
       case 'ember-thorns':
         changeAnimatedPlayerHp(-event.amount);
@@ -556,10 +593,22 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         break;
       case 'storm-static':
         changeAnimatedPlayerHp(-event.amount);
-        triggerCameraScreenShake(event.amount > 0 ? 'boss-heavy' : 'tremor', 'tempest_archon');
+        triggerCameraScreenShake(event.amount > 0 ? 'boss-heavy' : 'tremor', event.sourceKind ?? 'tempest_archon');
         triggerEnemyCardFx(event.source, 'enemy-targeted-pulse');
         pulsePlayerHud(event.amount > 0 ? 'hit' : 'shield');
-        status.textContent = event.amount > 0 ? `เกราะอสุนีช็อต · เสีย ${event.amount} HP` : `โล่กันเกราะอสุนีได้ ${event.absorbed}`;
+        status.textContent = event.sourceKind === 'thunder_drake_emperor'
+          ? (event.amount > 0 ? `เกราะประจุดาราช็อต · เสีย ${event.amount} HP` : `โล่กันเกราะประจุดาราได้ ${event.absorbed}`)
+          : (event.amount > 0 ? `เกราะอสุนีช็อต · เสีย ${event.amount} HP` : `โล่กันเกราะอสุนีได้ ${event.absorbed}`);
+        break;
+      case 'nether-curse':
+        changeAnimatedPlayerHp(-event.amount);
+        triggerCameraScreenShake(event.amount > 0 ? 'boss-heavy' : 'tremor', 'nether_dread_lord');
+        triggerEnemyCardFx(event.source, 'enemy-targeted-pulse');
+        pulseElementalOverlay('death', 16, 66);
+        pulsePlayerHud(event.amount > 0 ? 'hit' : 'shield');
+        status.textContent = event.amount > 0
+          ? `💀 คำสาปห้ามร่ายซ้ำย้อนศร · เสีย ${event.amount} HP`
+          : `💀 โล่ต้านคำสาปห้ามร่ายซ้ำได้ ${event.absorbed}`;
         break;
       case 'mana-refund':
         pulsePlayerHud('shield');
@@ -576,13 +625,23 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
       case 'charge': {
         const sourceEnemy = state?.enemies?.find(candidate => candidate.id === event.source);
         const sourceKind = event.sourceKind ?? sourceEnemy?.kind;
-        const isSpecialBoss = Boolean(event.specialBoss || sourceKind === 'ember_overlord' || sourceKind === 'tempest_archon');
+        const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(sourceKind));
         if (isSpecialBoss) {
           triggerCameraScreenShake('boss-heavy', sourceKind);
           pulseBossUltimateImpact(sourceKind, 'charge', event.source);
-          status.textContent = sourceKind === 'tempest_archon'
-            ? '⚡ จ้าวพายุรวมประจุอสุนี · เตรียมฟาดมหาพิพากษา 20 ดาเมจ!'
-            : '🔥 จ้าวอัคคีหลอมแก่นเพลิง · เตรียมฟาดมหาประลัย 16 ดาเมจ!';
+          status.textContent = sourceKind === 'eternity_reborn'
+            ? '✨ มหาเทพจุตินิรันดร์รวบรวมดาราจักรดับสูญ · เตรียมซัดซูเปอร์โนวา 188 ดาเมจ!'
+            : sourceKind === 'eternity_overlord'
+              ? '🌌 มหาเทพอนันตกาลรวบรวมพลังงานกาลอวกาศ · เตรียมปลดปล่อยคลื่นทำลาย 152 ดาเมจ!'
+              : sourceKind === 'nether_dread_lord'
+                ? '💀 จอมอสูรนรกานต์รวบรวมเปลวเพลิงนรกานต์ · เตรียมซัด 128 ดาเมจ!'
+                : sourceKind === 'abyssal_kraken'
+                  ? '🌊 มหาคราเค่นรวบรวมคลื่นห้วงบาดาล · เตรียมซัดสึนามิ 108 ดาเมจ!'
+                  : sourceKind === 'tempest_archon'
+                    ? '⚡ จ้าวพายุรวมประจุอสุนี · เตรียมฟาดมหาพิพากษา 20 ดาเมจ!'
+                    : sourceKind === 'ember_overlord'
+                      ? '🔥 จ้าวอัคคีหลอมแก่นเพลิง · เตรียมฟาดมหาประลัย 16 ดาเมจ!'
+                      : (event.label ?? 'ศัตรูกำลังชาร์จ');
         } else {
           triggerCameraScreenShake('tremor');
           status.textContent = event.label ?? 'ศัตรูกำลังชาร์จ';

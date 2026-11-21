@@ -46,7 +46,7 @@ import { loadRun, saveRun, loadSettings, storeSettings, tutorialSeen, completeTu
 import { Battlefield, fizzleLabel } from './render.js';
 import { GameAudio } from './audio.js';
 import { icon } from './icons.js';
-import { RIFT_SPELL_BONUS } from './upper-tower.js';
+import { getTowerSpellBonus, getTurnManaRegen } from './upper-tower.js';
 import { canFormPhraseInHand, computePlayableCombos } from './combos.js';
 import {
   $,
@@ -516,8 +516,10 @@ function renderBattle() {
   renderRoomTrack(state, busy);
   syncRpgResourceBar();
   renderTurnLabel(state);
-  const roomNotes = ['ฟื้นมานา 3 หน่วยต่อเทิร์น'];
-  if (floorInfo.floor >= 31) roomNotes.push(`ความเสียหายเวท +${RIFT_SPELL_BONUS}% ยกเว้น “${WORDS.death.label}”`);
+  const manaRegen = getTurnManaRegen(state.room);
+  const towerSpellBonus = getTowerSpellBonus(state.room);
+  const roomNotes = [`ฟื้นมานา ${manaRegen} หน่วยต่อเทิร์น`];
+  if (towerSpellBonus > 0) roomNotes.push(`ความเสียหายเวท +${towerSpellBonus}% ยกเว้น “${WORDS.death.label}”`);
   $('stage-bounty-note').textContent = roomNotes.join(' · ');
   $('seed-label').textContent = `SEED ${state.seed}`;
   const parsed = parseSpell(words, p.words);
@@ -549,7 +551,7 @@ function renderBattle() {
     targetId = selectable[0]?.id ?? null;
   }
   if (!selectable.some(enemy => enemy.id === secondTargetId)) secondTargetId = null;
-  $('second-target-label').hidden = !knownSpell || !parsed.ok || parsed.spell.shots !== 2;
+  $('second-target-label').hidden = !knownSpell || !parsed.ok || parsed.spell.shots !== 2 || parsed.spell.form === 'meteor';
   const secondSelect = $('second-target');
   secondSelect.innerHTML = '<option value="">ใช้เป้าหมายแรก</option>' + selectable.map(enemy => `<option value="${enemy.id}">${ENEMY_LABEL(enemy)} · ช่อง ${enemy.slot + 1}</option>`).join('');
   secondSelect.value = secondTargetId ?? '';

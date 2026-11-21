@@ -483,6 +483,16 @@ export class GameAudio {
       this.tone(1020, 0.12, 'sfx', 'square', 0, 420, { gain: 0.32 });
       if (event.amount) this.play('hit');
     }
+    else if (event.type === 'nether-curse') {
+      this.tone(240, 0.16, 'sfx', 'sawtooth', 0, 75, { gain: 0.32 });
+      this.tone(420, 0.12, 'sfx', 'triangle', 0.03, 140, { gain: 0.24 });
+      if (event.amount) this.play('hit');
+    }
+    else if (event.type === 'cosmic-echo') {
+      this.tone(1180, 0.14, 'sfx', 'sine', 0, 590, { gain: 0.30 });
+      this.tone(880, 0.18, 'sfx', 'triangle', 0.02, 330, { gain: 0.28 });
+      if (event.amount) this.play('hit');
+    }
     else if (event.type === 'mana-refund') {
       this.tone(523.25, 0.10, 'sfx', 'sine', 0, 783.99, { gain: 0.25 });
     }

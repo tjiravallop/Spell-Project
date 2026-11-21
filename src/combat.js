@@ -1,6 +1,6 @@
 import { makeShield, shieldLayers, shieldProtection } from './shields.js';
 import { ATTACK_FORMS, FUSED_ELEMENTS, WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS } from './words.js';
-import { RIFT_SPELL_BONUS, RIFT_EXPOSED_BONUS, isRiftBossExposed } from './upper-tower.js';
+import { RIFT_EXPOSED_BONUS, isRiftBossExposed, getTowerSpellBonus, getTurnManaRegen } from './upper-tower.js';
 import {
   ENEMIES,
   FLOOR4_BOUNDARY_ROOM,
@@ -16,6 +16,7 @@ import {
   FLOOR30_BOSS_ROOM,
   FLOOR31_START_ROOM,
   FLOOR40_BOSS_ROOM,
+  FLOOR100_BOSS_ROOM,
   REVISIT_REWARD_RATE,
   applyExpAndGold,
   fallBackOnDefeat,
@@ -50,10 +51,18 @@ import {
   resolveRiftDefeat,
   completeRevisitVictoryToSanctuary,
   isSanctuaryUnlocked,
+  random,
+  KRAKEN_TENTACLE_KINDS,
+  NETHER_PILLAR_KINDS,
+  triggerKrakenPhase2,
+  checkNetherPhase2,
+  checkEternityPhase2,
+  triggerEternityPhase3,
 } from './run.js';
 
 export const WORD_BASE_COST = Object.freeze({
   shot: 1,
+  chakram: WORDS.chakram.cost,
   beam: 2,
   wave: 3,
   storm: WORDS.storm.cost,
@@ -89,6 +98,7 @@ export const WORD_BASE_COST = Object.freeze({
   scald: 7,
   frostvolt: 7,
   pair: 2,
+  barrage: 6,
   blast: 2,
   devastation: WORDS.devastation.cost,
   shield: 3,
@@ -144,12 +154,12 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const target = original.enemies.find(enemy => enemy.id === targetId && enemy.hp > 0);
   const slotTarget = typeof targetId === 'string' && /^slot-[0-4]$/.test(targetId) ? Number(targetId.at(-1)) : null;
   if (spell?.form === 'blackhole' && (slotTarget ?? target?.slot) === undefined) return { ok: false, error: 'เลือกช่องที่จะเปิดหลุมดำ' };
-  if (spell?.type === 'attack' && !['wave', 'blackhole'].includes(spell.form) && !target) return { ok: false, error: 'เลือกศัตรูเป้าหมาย' };
+  if (spell?.type === 'attack' && !['wave', 'blackhole', 'meteor'].includes(spell.form) && !target) return { ok: false, error: 'เลือกศัตรูเป้าหมาย' };
   if (spell?.form === 'death') {
     if (original.deathSpent) return { ok: false, error: 'ใช้คำสั่งตายในศึกนี้ไปแล้ว' };
     if (ENEMIES[target.kind].isBoss) return { ok: false, error: 'บอสต้านคำสั่งตาย' };
   }
-  if (spell?.shots === 2 && !original.enemies.some(enemy => enemy.id === secondTargetId && enemy.hp > 0)) return { ok: false, error: 'เลือกเป้าหมายสำหรับการโจมตีครั้งที่สอง' };
+  if (spell?.shots === 2 && spell.form !== 'meteor' && !original.enemies.some(enemy => enemy.id === secondTargetId && enemy.hp > 0)) return { ok: false, error: 'เลือกเป้าหมายสำหรับการโจมตีครั้งที่สอง' };
 
   const remainingHand = [...original.player.hand];
   for (const id of guard ? [] : rawIds) {
@@ -207,7 +217,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   const secondaryPierceBonus = unlockedSecondaryEffects.reduce((sum, eff) => sum + (eff.pierceBonus ?? 0), 0);
 
   const formUpgradeBonus = phraseUpgradeSum(id => ATTACK_FORMS.includes(id));
-  const auxUpgradeBonus = phraseUpgradeSum(id => ['pair', 'large', 'grand', 'push', 'pull', 'freeze', 'self', 'seal', 'dispel', 'brace'].includes(id));
+  const auxUpgradeBonus = phraseUpgradeSum(id => ['pair', 'barrage', 'large', 'grand', 'push', 'pull', 'freeze', 'self', 'seal', 'dispel', 'brace'].includes(id));
   const pierceUpgradeBonus = (rawIds.includes('pierce') ? (upgrades.pierce ?? 0) : 0) + secondaryPierceBonus;
   const burnUpgradeBonus = rawIds.includes('burn') ? (upgrades.burn ?? 0) : 0;
   const blastUpgradeBonus = phraseUpgradeSum(id => id === 'blast');
@@ -233,9 +243,11 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     sequence: [],
     fizzled,
   };
-  const live = () => enemies.filter(enemy => enemy.hp > 0).sort((a, b) => a.slot - b.slot);
-  const enemyById = id => enemies.find(enemy => enemy.id === id);
+  const live = () => state.enemies.filter(enemy => enemy.hp > 0).sort((a, b) => a.slot - b.slot);
+  const enemyById = id => state.enemies.find(enemy => enemy.id === id);
   const newBurn = new Map();
+  let netherCurseTriggered = false;
+  let prismShatterTriggered = false;
   let block = (guard ? 3 + (hasWorldloom ? 3 : 0) : 0) + secondaryShieldBonus + (hasGaiaEmblem ? 3 : 0);
   player.mana -= cost;
   if (!guard && !fizzled && spell && hasThunderConduit) {
@@ -275,15 +287,32 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
 
   function damage(enemy, strength, element, pierce = 0, attackForm = null) {
     if (enemy.hp <= 0) return;
-    const spellBonus = state.room >= FLOOR31_START_ROOM && element !== 'death' ? RIFT_SPELL_BONUS : 0;
+    const spellBonus = element !== 'death' ? getTowerSpellBonus(state.room) : 0;
     const empowered = strength + strength * spellBonus / 100;
-    const exposedBonus = isRiftBossExposed(enemy.kind, turn) ? RIFT_EXPOSED_BONUS : 0;
+    const exposedBonus = isRiftBossExposed(enemy.kind, turn)
+      ? (enemy.kind === 'eternity_reborn' ? 50 : RIFT_EXPOSED_BONUS)
+      : (enemy.netherExposedTurn === turn ? RIFT_EXPOSED_BONUS : 0);
     const afterArmor = Math.max(0, Math.ceil(empowered + empowered * exposedBonus / 100) - Math.max(0, enemy.armor - pierce));
-    const reduction = attackForm && attackForm === enemy.readForm && !exposedBonus ? ENEMIES[enemy.kind].repeatReduction ?? 0 : 0;
+    const hasNetherPillarsInRoom = state.enemies.some(e => NETHER_PILLAR_KINDS.includes(e.kind));
+    const cursePillarAlive = state.enemies.some(e => e.kind === 'nether_curse_pillar' && e.hp > 0);
+    const repeatCap = enemy.kind === 'nether_dread_lord' && hasNetherPillarsInRoom && !cursePillarAlive
+      ? 0
+      : (ENEMIES[enemy.kind].repeatReduction ?? 0);
+    const reduction = attackForm && attackForm === enemy.readForm && !exposedBonus ? repeatCap : 0;
     const guardedByAllies = state.room === FLOOR30_BOSS_ROOM && enemy.kind === 'crown_archivist'
       && live().some(ally => ally.id !== enemy.id);
-    const baseDmg = Math.ceil(afterArmor * (100 - reduction) / 100 * (guardedByAllies ? 0.75 : 1));
+    const liveNetherPillars = enemy.kind === 'nether_dread_lord'
+      ? live().filter(ally => NETHER_PILLAR_KINDS.includes(ally.kind)).length
+      : 0;
+    const pactFactor = liveNetherPillars > 0 ? Math.max(0.25, 1 - liveNetherPillars * 0.25) : 1;
+    const liveEternityCouncil = state.room === FLOOR100_BOSS_ROOM && enemy.kind === 'eternity_overlord' && !state.eternityPhase
+      ? live().filter(ally => ally.id !== enemy.id).length
+      : 0;
+    const councilFactor = liveEternityCouncil > 0 ? Math.max(0.55, 1 - liveEternityCouncil * 0.15) : 1;
+    const baseDmg = Math.ceil(afterArmor * (100 - reduction) / 100 * (guardedByAllies ? 0.75 : 1) * pactFactor * councilFactor);
     if (guardedByAllies && afterArmor > 0) summary.sequence.push('ตราประสานลดดาเมจบอส 25% เพราะยังมีลูกสมุน');
+    if (liveNetherPillars > 0 && afterArmor > 0) summary.sequence.push(`พันธสัญญา ${liveNetherPillars} เสาลดดาเมจบอส −${liveNetherPillars * 25}%`);
+    if (liveEternityCouncil > 0 && afterArmor > 0) summary.sequence.push(`สภากาลอวกาศ (${liveEternityCouncil} ตน) ลดดาเมจมหาเทพ −${liveEternityCouncil * 15}%`);
 
     const enemyAffinity = enemy.affinity ?? ENEMIES[enemy.kind]?.affinity ?? null;
     const reaction = getWeaknessReaction(element, enemyAffinity);
@@ -301,8 +330,26 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       summary.sequence.push(`🛡 ${ENEMIES[enemy.kind]?.name ?? enemy.kind} ต้านทาน ${ELEMENT_LABELS[reaction.triggerElement]} (−${resistLoss} ดาเมจ)`);
     }
 
-    if (amount > 0 && attackForm && ENEMIES[enemy.kind]?.repeatReduction) {
-      if (reduction && !formsHit.has(enemy.id)) summary.sequence.push(`${ENEMIES[enemy.kind].name} อ่านทาง${WORDS[attackForm].label} · ลดดาเมจ ${reduction}%`);
+    if (amount > 0 && attackForm && repeatCap > 0) {
+      if (reduction && !formsHit.has(enemy.id)) {
+        summary.sequence.push(`${ENEMIES[enemy.kind].name} อ่านทาง${WORDS[attackForm].label} · ลดดาเมจ ${reduction}%`);
+        if (enemy.kind === 'nether_dread_lord' && cursePillarAlive && !netherCurseTriggered && player.hp > 0) {
+          netherCurseTriggered = true;
+          const curse = applyIncomingToPlayer(8);
+          events.push({
+            type: 'nether-curse',
+            source: enemy.id,
+            sourceKind: enemy.kind,
+            amount: curse.actual,
+            absorbed: curse.absorbed,
+            rawAttack: 8,
+            protection: protection(),
+          });
+          summary.sequence.push(curse.actual > 0
+            ? `💀 เสาคำสาปต้องห้ามย้อนศรเวทซ้ำ · เสีย ${curse.actual} HP`
+            : `💀 โล่กันคำสาปย้อนศรได้ ${curse.absorbed}`);
+        }
+      }
       formsHit.set(enemy.id, attackForm);
     }
     const actual = Math.min(amount, enemy.hp);
@@ -424,6 +471,83 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       applyEarthArmorShred(enemy, 2);
     } else if (elements.includes('earth') || elements.includes('dust')) {
       applyEarthArmorShred(enemy, 1);
+    }
+    const hasCoolingElement = elements.some(id => {
+      const comps = getElementComponents(id);
+      return comps.includes('water') || comps.includes('ice');
+    });
+    if (['volcano_colossus', 'magma_tortoise'].includes(enemy.kind) && hasCoolingElement && enemy.armor > 0) {
+      const cooled = Math.min(enemy.armor, 2);
+      enemy.armor = Math.max(0, enemy.armor - cooled);
+      enemy.magmaArmorUntil = turn + 1;
+      events.push({ type: 'armor-shred', target: enemy.id, amount: cooled, armor: enemy.armor });
+      summary.sequence.push(`น้ำ/น้ำแข็งดับลาวา · เกราะ${ENEMIES[enemy.kind].name} −${cooled} (เหลือ ${enemy.armor})`);
+    }
+    const hasEarthElement = elements.some(id => getElementComponents(id).includes('earth'));
+    if (enemy.kind === 'thunder_drake_emperor' && hasEarthElement) {
+      const alreadyGrounded = enemy.groundedUntil >= turn + 1;
+      enemy.groundedUntil = turn + 1;
+      if (!alreadyGrounded) {
+        summary.sequence.push(`ธาตุดินลงกราวด์ · สลายประจุดาราของ${ENEMIES[enemy.kind].name}จนถึงเทิร์นหน้า`);
+      }
+    }
+    const hasLightningElement = elements.some(id => getElementComponents(id).includes('lightning'));
+    if (enemy.kind === 'abyssal_kraken' && hasLightningElement && enemy.hp > 0) {
+      damage(enemy, 15, 'lightning', enemy.armor);
+      const alreadyShocked = enemy.abyssalShockUntil >= turn + 1;
+      enemy.abyssalShockUntil = turn + 1;
+      if (!alreadyShocked && enemy.armor > 0) {
+        const reduced = Math.min(enemy.armor, 2);
+        enemy.armor = Math.max(0, enemy.armor - reduced);
+        events.push({ type: 'armor-shred', target: enemy.id, amount: reduced, armor: enemy.armor });
+        summary.sequence.push(`สายฟ้าช็อตผิวน้ำบาดาล · +15 ดาเมจทะลุเกราะ และลดเกราะ −${reduced} (เหลือ ${enemy.armor})`);
+      } else {
+        summary.sequence.push('สายฟ้าช็อตผิวน้ำบาดาล · +15 ดาเมจทะลุเกราะ');
+      }
+    }
+    const hasPurgeElement = elements.some(id => {
+      const comps = getElementComponents(id);
+      return comps.includes('fire') || comps.includes('lightning');
+    });
+    if (enemy.kind === 'nether_dread_lord' && hasPurgeElement && enemy.hp > 0) {
+      const alreadyPurged = enemy.netherPurgeUntil >= turn + 1;
+      enemy.netherPurgeUntil = turn + 1;
+      if (!alreadyPurged && enemy.armor > 0) {
+        const reduced = Math.min(enemy.armor, 2);
+        enemy.armor = Math.max(0, enemy.armor - reduced);
+        events.push({ type: 'armor-shred', target: enemy.id, amount: reduced, armor: enemy.armor });
+        summary.sequence.push(`เพลิง/อสุนีชำระมลทิน · ตัดการสูบวิญญาณและลดเกราะจอมอสูร −${reduced} (เหลือ ${enemy.armor})`);
+      } else if (!alreadyPurged) {
+        summary.sequence.push('เพลิง/อสุนีชำระมลทิน · ตัดการสูบวิญญาณจอมอสูรจนถึงเทิร์นหน้า');
+      }
+    }
+    const isPrismSovereign = (enemy.kind === 'eternity_overlord' && state.eternityPhase === 2) || enemy.kind === 'eternity_reborn';
+    if (isPrismSovereign && !prismShatterTriggered && enemy.hp > 0) {
+      const prismAffinity = enemy.affinity ?? ENEMIES[enemy.kind]?.affinity ?? null;
+      const prismReaction = getWeaknessReaction(elements, prismAffinity);
+      if (prismReaction.isWeak) {
+        prismShatterTriggered = true;
+        const shatterDmg = enemy.kind === 'eternity_reborn' ? 100 : 60;
+        damage(enemy, shatterDmg, prismReaction.triggerElement ?? elements[0] ?? 'lightning', enemy.armor);
+        if (enemy.hp > 0) {
+          enemy.eternityShatterUntil = turn + 1;
+          const armorLost = Math.min(enemy.armor, 3);
+          if (armorLost > 0) {
+            enemy.armor = Math.max(0, enemy.armor - armorLost);
+            events.push({ type: 'armor-shred', target: enemy.id, amount: armorLost, armor: enemy.armor });
+          }
+          if (enemy.ward > 0) {
+            enemy.ward = Math.max(0, enemy.ward - 1);
+            summary.wards++;
+            events.push({ type: 'dispel', target: enemy.id, amount: 1 });
+          }
+          summary.sequence.push(
+            enemy.kind === 'eternity_reborn'
+              ? `✨ ทลายผลึกธาตุ! +${shatterDmg} ดาเมจแท้ · เกราะ −${armorLost} · หยุดการย้อนกาลเวลา!`
+              : `✨ ทลายผลึกธาตุ! +${shatterDmg} ดาเมจแท้ · เกราะ −${armorLost} และสลายม่าน −1`,
+          );
+        }
+      }
     }
     applyMoisture(enemy, elements);
     if (elements.includes('heatwave')) burnNearby(enemy);
@@ -683,6 +807,23 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
             ? `กระจกสะท้อน −${reflected.actual} HP`
             : `กระจกสะท้อน 0 (กันได้ ${reflected.absorbed})`
         );
+      } else if ((enemy.kind === 'eternity_overlord' && state.eternityPhase === 2) || enemy.kind === 'eternity_reborn') {
+        const reflectAmt = 10;
+        const reflected = applyIncomingToPlayer(reflectAmt, false);
+        events.push({
+          type: 'cosmic-echo',
+          source: enemy.id,
+          sourceKind: enemy.kind,
+          amount: reflected.actual,
+          absorbed: reflected.absorbed,
+          rawAttack: reflectAmt,
+          protection: protection(),
+        });
+        summary.sequence.push(
+          reflected.actual > 0
+            ? `ม่านดาราจักรสะท้อน −${reflected.actual} HP`
+            : `ม่านดาราจักรสะท้อน 0 (กันได้ ${reflected.absorbed})`
+        );
       }
       return;
     }
@@ -762,6 +903,26 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           : `ประจุอัสนี 0 (กันได้ ${staticHit.absorbed})`
       );
     }
+    const groundedCast = elements.some(id => getElementComponents(id).includes('earth'));
+    if (enemy.kind === 'thunder_drake_emperor' && enemy.hp > 0 && enemy.armor > 0
+      && !(enemy.groundedUntil >= turn) && !groundedCast && !spell.pierce) {
+      const starStatic = applyIncomingToPlayer(4, false);
+      events.push({
+        type: 'storm-static',
+        source: enemy.id,
+        sourceKind: enemy.kind,
+        specialBoss: true,
+        amount: starStatic.actual,
+        absorbed: starStatic.absorbed,
+        rawAttack: 4,
+        protection: protection(),
+      });
+      summary.sequence.push(
+        starStatic.actual > 0
+          ? `เกราะประจุดาราช็อต −${starStatic.actual} HP`
+          : `เกราะประจุดารา 0 (กันได้ ${starStatic.absorbed})`
+      );
+    }
   }
 
   function heal(amount, nextTurn = false, healKind = null) {
@@ -819,37 +980,62 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     summary.sequence.push('คำสั่งตายสำเร็จ · ใช้ไปแล้วในศึกนี้');
   } else if (spell.form === 'blackhole') {
     const slot = slotTarget ?? target.slot;
+    const mult = spell.multiplier ?? 1;
+    const bhPower = Math.round(300 * mult) + (upgrades.blackhole ?? 0) * 10;
+    const slamDamage = Math.round(100 * mult);
     state.blackhole = {
       slot,
-      power: Math.round(30 * (spell.multiplier ?? 1)) + (upgrades.blackhole ?? 0),
+      power: bhPower,
       ...(spell.grand ? { grand: true } : {}),
       ...(spell.large ? { large: true } : {}),
     };
     events.push({ type: 'blackhole-open', slot, element: 'blackhole', grand: Boolean(spell.grand), large: Boolean(spell.large) });
-    const nearby = live().filter(enemy => enemy.slot !== slot && Math.abs(enemy.slot - slot) <= 2)
+    const pulledTargets = live()
+      .filter(enemy => enemy.slot !== slot)
       .sort((a, b) => Math.abs(a.slot - slot) - Math.abs(b.slot - slot) || a.slot - b.slot);
-    for (const enemy of nearby) pushEnemy(enemy, Math.sign(slot - enemy.slot));
-    summary.sequence.push(`หลุมดำช่อง ${slot + 1} · ยุบหลังแอ็กชันของคุณเทิร์นหน้า`);
+    for (const enemy of pulledTargets) {
+      if (enemy.hp <= 0) continue;
+      const dir = Math.sign(slot - enemy.slot);
+      while (enemy.hp > 0 && enemy.slot !== slot) {
+        const nextSlot = enemy.slot + dir;
+        const blocker = live().find(other => other.slot === nextSlot);
+        if (blocker) {
+          events.push({ type: 'wall-slam', target: enemy.id, amount: slamDamage });
+          damage(enemy, slamDamage, 'blackhole', enemy.armor, 'blackhole');
+          if (blocker.hp > 0) {
+            events.push({ type: 'wall-slam', target: blocker.id, amount: slamDamage });
+            damage(blocker, slamDamage, 'blackhole', blocker.armor, 'blackhole');
+          }
+          summary.sequence.push(`หลุมดำดูดชนกัน · กระแทกทะลุเกราะ ${slamDamage} ดาเมจ`);
+          break;
+        }
+        enemy.slot = nextSlot;
+        events.push({ type: 'push', target: enemy.id, slot: nextSlot, pulled: true });
+      }
+    }
+    summary.sequence.push(`หลุมดำช่อง ${slot + 1} · ยุบหลังแอ็กชันของคุณเทิร์นหน้า (${bhPower} / ${Math.round(bhPower / 2)} ทะลุเกราะและม่าน)`);
   } else if (spell.form === 'meteor') {
     const mult = spell.multiplier ?? 1;
-    const strikeTargets = spell.meteorPair ? [targetId, secondTargetId] : [targetId];
-    for (const strikeId of strikeTargets) {
+    const dropCount = 3 * (spell.shots ?? 1);
+    let lastImpact = null;
+    for (let drop = 0; drop < dropCount; drop++) {
       if (player.hp <= 0) break;
-      const intended = enemyById(strikeId);
-      const center = intended && intended.hp > 0
-        ? intended
-        : live().sort((a, b) => a.hp - b.hp || Math.abs(a.slot - (intended?.slot ?? 0)) - Math.abs(b.slot - (intended?.slot ?? 0)) || a.slot - b.slot)[0];
-      if (!center) break;
+      const candidates = live();
+      if (!candidates.length) break;
+      const center = candidates[Math.floor(random(state) * candidates.length)];
+      lastImpact = center;
       const targets = live().filter(enemy => Math.abs(enemy.slot - center.slot) <= 1);
       blast(center.id, targets, 'meteor', enemy => {
-        damage(enemy, Math.round((enemy === center ? 28 : 10) * mult) + (upgrades.meteor ?? 0), 'meteor', 0, 'meteor');
+        damage(enemy, Math.round((enemy === center ? 24 : 12) * mult) + (upgrades.meteor ?? 0), 'meteor', 0, 'meteor');
       }, { originSlot: center.slot, grand: Boolean(spell.grand), large: Boolean(spell.large) });
-      summary.sequence.push(`อุกกาบาตช่อง ${center.slot + 1} · กระทบ ${targets.length} เป้า`);
-      if (spell.devastation && targets.length) {
-        const devTargets = live().filter(enemy => Math.abs(enemy.slot - center.slot) <= 2);
-        blast(center.id, devTargets, 'meteor', enemy => {
+      summary.sequence.push(`อุกกาบาตลูกที่ ${drop + 1} ช่อง ${center.slot + 1} · กระทบ ${targets.length} เป้า`);
+    }
+    if (spell.devastation && lastImpact && player.hp > 0) {
+      const devTargets = live().filter(enemy => Math.abs(enemy.slot - lastImpact.slot) <= 2);
+      if (devTargets.length) {
+        blast(lastImpact.id, devTargets, 'meteor', enemy => {
           damage(enemy, Math.round(14 * mult) + devastationUpgradeBonus, 'meteor', 0, 'meteor');
-        }, { originSlot: center.slot, devastation: true, grand: Boolean(spell.grand) });
+        }, { originSlot: lastImpact.slot, devastation: true, grand: Boolean(spell.grand) });
         summary.sequence.push(`${WORDS.devastation.label} · ${devTargets.length} เป้าหมาย`);
       }
     }
@@ -859,7 +1045,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     shieldBlast(detonated.length, spell.element);
   } else if (spell.form === 'shield') {
     const baseLayerCap = (spell.layerHp ?? 6) + shieldUpgradeBonus;
-    const riftDefenseBonus = inRift ? Math.ceil(baseLayerCap * RIFT_SPELL_BONUS / 100) + Math.floor((player.maxHp ?? 36) * 0.025) : 0;
+    const defenseScaleBonus = Math.min(100, getTowerSpellBonus(state.room));
+    const riftDefenseBonus = inRift ? Math.ceil(baseLayerCap * defenseScaleBonus / 100) + Math.floor((player.maxHp ?? 36) * 0.025) : 0;
     const layerCap = baseLayerCap + riftDefenseBonus + (hasWorldloom ? 3 : 0);
     const created = Array.from({ length: spell.layers }, (_, index) => ({
       hp: layerCap,
@@ -884,7 +1071,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     });
     if (spell.healing || secondaryHealBonus > 0) {
       const rawHeal = (spell.healing ?? 0) + healUpgradeBonus + secondaryHealBonus;
-      const riftHealBonus = inRift && rawHeal > 0 ? Math.ceil(rawHeal * RIFT_SPELL_BONUS / 100) + Math.floor((player.maxHp ?? 36) * 0.03) : 0;
+      const riftHealBonus = inRift && rawHeal > 0 ? Math.ceil(rawHeal * defenseScaleBonus / 100) + Math.floor((player.maxHp ?? 36) * 0.03) : 0;
       heal(rawHeal + riftHealBonus, false, 'shield-heal');
     }
     if (hasGaiaEmblem) {
@@ -893,7 +1080,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
   } else if (spell.form === 'heal') {
     const rawHeal = spell.healing + healUpgradeBonus + secondaryHealBonus;
-    const riftHealBonus = inRift && rawHeal > 0 ? Math.ceil(rawHeal * RIFT_SPELL_BONUS / 100) + Math.floor((player.maxHp ?? 36) * 0.04) : 0;
+    const healScaleBonus = Math.min(100, getTowerSpellBonus(state.room));
+    const riftHealBonus = inRift && rawHeal > 0 ? Math.ceil(rawHeal * healScaleBonus / 100) + Math.floor((player.maxHp ?? 36) * 0.04) : 0;
     heal(rawHeal + riftHealBonus);
     if (secondaryShieldBonus > 0) {
       events.push({ type: 'shield', amount: secondaryShieldBonus, secondary: true, shieldKind: 'bonus', protection: protection() });
@@ -919,7 +1107,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const element = elements[0] ?? 'blast';
       const { strength, pierce } = attackPower(elements);
       const name = [spell.grand ? 'มหาระเบิดลูก' : 'ระเบิดลูก', elements.map(id => WORDS[id].label).join('+')].filter(Boolean).join(' ');
-      const strikeTargets = spell.shots === 2 ? [targetId, secondTargetId] : [targetId];
+      const strikeTargets = spell.shots === 2 ? [targetId, secondTargetId] : Array(spell.shots ?? 1).fill(targetId);
       for (const [round, strikeId] of strikeTargets.entries()) {
         if (player.hp <= 0) break;
         const intended = enemyById(strikeId);
@@ -947,7 +1135,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           elementAfterHit(h.enemy, elements, h.power, pierce, sweep, h.slot);
           reactToAttack(h.enemy, elements);
         }
-        const wave = spell.shots === 2 ? ` ระลอก ${round + 1}` : '';
+        const wave = strikeTargets.length > 1 ? ` ระลอก ${round + 1}` : '';
         const blocked = wardedTargets.length ? ` · ติดม่าน ${wardedTargets.length} เป้า` : '';
         summary.sequence.push(`${name}${wave} · ${targets.length} เป้า${blocked}`);
         if (center.hp > 0 && player.hp > 0) {
@@ -958,16 +1146,22 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         }
       }
     } else if (spell.form === 'blast') {
-      const center = enemyById(targetId);
-      const slot = center.slot;
+      const initialCenter = enemyById(targetId);
       const radius = spell.grand ? 2 : 1;
       const elements = spell.elements;
       const element = elements[0] ?? 'blast';
       const { strength, pierce } = attackPower(elements);
       const name = [spell.grand ? 'มหาระเบิด' : 'ระเบิด', elements.map(id => WORDS[id].label).join('+')].filter(Boolean).join(' ');
-      const scales = !spell.blastPair ? [1] : [1, spell.grand ? 0.6 : 1];
+      const scales = spell.barrage ? Array(5).fill(1) : !spell.blastPair ? [1] : [1, spell.grand ? 0.6 : 1];
       for (const [round, scale] of scales.entries()) {
         if (player.hp <= 0) break;
+        const center = spell.barrage
+          ? (initialCenter && initialCenter.hp > 0
+            ? initialCenter
+            : live().sort((a, b) => a.hp - b.hp || Math.abs(a.slot - (initialCenter?.slot ?? 0)) - Math.abs(b.slot - (initialCenter?.slot ?? 0)) || a.slot - b.slot)[0])
+          : initialCenter;
+        if (!center) break;
+        const slot = center.slot;
         const nearby = live().filter(enemy => Math.abs(enemy.slot - slot) <= radius);
         const targets = nearby.filter(enemy => enemy.ward === 0);
         const wardedTargets = nearby.filter(enemy => enemy.ward > 0).map(enemy => enemy.id);
@@ -983,15 +1177,18 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         if (spell.devastation && round === 0 && targets.length && !ignition) {
           ignition = { center: targets.includes(center) ? center : targets[0], slot, strength, pierce, elements };
         }
-        const wave = spell.blastPair ? ` ระลอก ${round + 1}` : '';
+        const wave = scales.length > 1 ? ` ระลอก ${round + 1}` : '';
         const blocked = wardedTargets.length ? ` · ติดม่าน ${wardedTargets.length} เป้า` : '';
         summary.sequence.push(`${name}${wave} · ${targets.length} เป้า${blocked}`);
       }
     } else if (spell.form === 'wave') {
-      const sweeps = [spell.elements];
-      if (spell.secondElement) sweeps.push([spell.secondElement]);
-      else if (spell.wavePair) sweeps.push(spell.elements);
+      const sweeps = spell.barrage ? Array(5).fill(spell.elements) : [spell.elements];
+      if (!spell.barrage) {
+        if (spell.secondElement) sweeps.push([spell.secondElement]);
+        else if (spell.wavePair) sweeps.push(spell.elements);
+      }
       for (const [round, elements] of sweeps.entries()) {
+        if (player.hp <= 0 || !live().length) break;
         const secondWarded = round === 1 && lateGrand && spell.wavePair ? new Set(live().filter(enemy => enemy.ward > 0).map(enemy => enemy.id)) : null;
         const sweep = { chained: false };
         for (const enemy of live()) {
@@ -1002,12 +1199,26 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         }
       }
     } else if (spell.form === 'storm') {
-      const center = enemyById(targetId);
-      const neighbors = live().filter(enemy => Math.abs(enemy.slot - center.slot) === 1);
-      const sweep = { chained: false, warded: new Set(live().filter(enemy => enemy.ward > 0).map(enemy => enemy.id)) };
-      const first = strikeForBlast(center, spell.elements, sweep);
-      for (const enemy of neighbors) impact(enemy, spell.elements, sweep, 0.5);
+      const initialCenter = enemyById(targetId);
+      const stormRounds = spell.barrage ? 5 : 1;
+      let first = null;
+      for (let round = 0; round < stormRounds; round++) {
+        if (player.hp <= 0) break;
+        const center = round === 0
+          ? initialCenter
+          : (initialCenter && initialCenter.hp > 0
+            ? initialCenter
+            : live().sort((a, b) => a.hp - b.hp || Math.abs(a.slot - (initialCenter?.slot ?? 0)) - Math.abs(b.slot - (initialCenter?.slot ?? 0)) || a.slot - b.slot)[0]);
+        if (!center) break;
+        const neighbors = live().filter(enemy => Math.abs(enemy.slot - center.slot) === 1);
+        const sweep = { chained: false, warded: new Set(live().filter(enemy => enemy.ward > 0).map(enemy => enemy.id)) };
+        const roundTrigger = strikeForBlast(center, spell.elements, sweep);
+        if (round === 0) first = roundTrigger;
+        for (const enemy of neighbors) impact(enemy, spell.elements, sweep, 0.5);
+      }
       if (spell.stormPair) {
+        const center = initialCenter;
+        const neighbors = live().filter(enemy => Math.abs(enemy.slot - center.slot) === 1);
         const secondWarded = lateGrand ? new Set(live().filter(enemy => enemy.ward > 0).map(enemy => enemy.id)) : null;
         const secondSweep = { chained: false, warded: new Set(live().filter(enemy => enemy.ward > 0).map(enemy => enemy.id)) };
         const secondCenter = impact(center, spell.elements, secondSweep, 0.6);
@@ -1026,14 +1237,20 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     } else {
       const first = enemyById(targetId);
       strikeForBlast(first);
-      if (spell.shots === 2) {
-        const secondWarded = lateGrand ? new Set(live().filter(enemy => enemy.ward > 0).map(enemy => enemy.id)) : null;
-        const intended = enemyById(secondTargetId);
-        const replacement = intended.hp > 0 ? intended : live().sort((a, b) => a.hp - b.hp || Math.abs(a.slot - intended.slot) - Math.abs(b.slot - intended.slot) || a.slot - b.slot)[0];
-        if (replacement) {
-          const secondTrigger = strikeForBlast(replacement, spell.secondElement ? [spell.secondElement] : spell.elements);
-          if (secondWarded && secondTrigger) secondGrandTrigger = { trigger: secondTrigger, warded: secondWarded };
-        }
+      const totalShots = spell.shots ?? 1;
+      for (let shotIndex = 1; shotIndex < totalShots; shotIndex++) {
+        if (player.hp <= 0) break;
+        const secondWarded = shotIndex === 1 && totalShots === 2 && lateGrand
+          ? new Set(live().filter(enemy => enemy.ward > 0).map(enemy => enemy.id))
+          : null;
+        const intended = enemyById(shotIndex === 1 && totalShots === 2 ? secondTargetId : targetId);
+        const replacement = intended && intended.hp > 0
+          ? intended
+          : live().sort((a, b) => a.hp - b.hp || Math.abs(a.slot - (intended?.slot ?? 0)) - Math.abs(b.slot - (intended?.slot ?? 0)) || a.slot - b.slot)[0];
+        if (!replacement) break;
+        const shotElements = shotIndex === 1 && spell.secondElement ? [spell.secondElement] : spell.elements;
+        const nextTrigger = strikeForBlast(replacement, shotElements);
+        if (secondWarded && nextTrigger) secondGrandTrigger = { trigger: nextTrigger, warded: secondWarded };
       }
     }
     if (spell.waveBlast) expandedBlast(ignition, warded, 'wave');
@@ -1076,7 +1293,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const { slot, power } = pendingBlackhole;
     const targets = live().filter(enemy => Math.abs(enemy.slot - slot) <= 2);
     blast('blackhole', targets, 'blackhole', enemy => {
-      damage(enemy, enemy.slot === slot ? power : power / 2, 'blackhole', 0, 'blackhole');
+      damage(enemy, enemy.slot === slot ? power : Math.round(power / 2), 'blackhole', enemy.armor, 'blackhole');
     }, { originSlot: slot, grand: Boolean(pendingBlackhole.grand), large: Boolean(pendingBlackhole.large) });
     summary.sequence.push(`หลุมดำช่อง ${slot + 1} ยุบ · กระทบ ${targets.length} เป้า`);
   }
@@ -1089,12 +1306,19 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   }
   delete state.magmaPuddles;
   for (const [id, form] of formsHit) enemyById(id).readForm = form;
+  if (player.hp > 0) {
+    checkNetherPhase2(state, summary, events);
+    checkEternityPhase2(state, summary, events);
+  }
   summary.enemyHp = Object.fromEntries(enemies.map(enemy => [enemy.id, enemy.hp]));
   summary.enemyStatus = Object.fromEntries(enemies.map(enemy => [enemy.id, {
     chill: enemy.chill, freeze: enemy.freeze, burn: enemy.burn + (newBurn.get(enemy.id) ?? 0),
     slot: enemy.slot, ward: enemy.ward, sealed: enemy.sealed,
     healCutUntil: enemy.healCutUntil, lastingChill: enemy.lastingChill,
     wetUntil: enemy.wetUntil, obscured: enemy.obscured, armor: enemy.armor,
+    groundedUntil: enemy.groundedUntil, abyssalShockUntil: enemy.abyssalShockUntil,
+    netherPurgeUntil: enemy.netherPurgeUntil, netherExposedTurn: enemy.netherExposedTurn,
+    eternityShatterUntil: enemy.eternityShatterUntil,
   }]));
   summary.enemyActions = {};
   for (const enemy of live()) {
@@ -1114,17 +1338,30 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const { actual, absorbed, effects, explosions } = applyIncomingToPlayer(action.amount, true);
       const attackerBase = ENEMIES[enemy.kind];
       const isBossAttacker = Boolean(attackerBase?.isBoss || isBossRoom(state));
-      const isSpecialBoss = enemy.kind === 'ember_overlord' || enemy.kind === 'tempest_archon';
+      const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind);
       const isUltimateSkill = Boolean(isSpecialBoss && turn % 4 === 0);
       const isHeavyAttack = Boolean(
         action.amount >= 6 ||
         (isBossAttacker && (
           action.amount >= 5 ||
-          ['sentinel', 'storm_titan', 'ember_overlord', 'astral_sentinel', 'thunder_colossus', 'tempest_archon'].includes(enemy.kind) ||
+          ['sentinel', 'storm_titan', 'ember_overlord', 'astral_sentinel', 'thunder_colossus', 'tempest_archon', 'kraken_crush_tentacle', 'abyssal_kraken', 'nether_doom_pillar', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind) ||
           (['boss', 'arch_codex', 'elder_grimoire', 'nexus_codex'].includes(enemy.kind) && turn % 3 === 2) ||
           (['mirror_mage', 'eclipse_mage'].includes(enemy.kind) && turn % 3 !== 1)
         ))
       );
+      let manaDrained = 0;
+      if (action.manaDrain && player.hp > 0) {
+        manaDrained = Math.min(player.mana, action.manaDrain);
+        if (manaDrained > 0) {
+          player.mana -= manaDrained;
+          summary.manaDrained = (summary.manaDrained ?? 0) + manaDrained;
+          summary.sequence.push(
+            enemy.kind === 'eternity_reborn'
+              ? `🌌 มหาเทพอนันตกาลกัดกร่อนมานา −${manaDrained} MP`
+              : `หนวดหมึกดำสูบมานา −${manaDrained} MP`,
+          );
+        }
+      }
       events.push({
         type: 'attack',
         source: enemy.id,
@@ -1132,12 +1369,45 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         amount: actual,
         absorbed,
         rawAttack: action.amount,
+        ...(manaDrained > 0 ? { manaDrain: manaDrained } : {}),
         isBoss: isBossAttacker,
         specialBoss: isSpecialBoss,
         ultimate: isUltimateSkill,
         heavy: isHeavyAttack,
         protection: protection(),
       });
+      if (action.selfHeal && enemy.hp > 0) {
+        const regen = enemyHealing(enemy, action.selfHeal);
+        if (regen > 0) {
+          enemy.hp += regen;
+          events.push({ type: 'heal', source: enemy.id, target: enemy.id, amount: regen });
+          summary.sequence.push(`มหาคราเค่นดูดกลืนกระแสน้ำฟื้น +${regen} HP`);
+        }
+      }
+      if (action.chronoRewind && enemy.hp > 0) {
+        if (enemy.eternityShatterUntil >= turn) {
+          summary.sequence.push('✨ ผลึกธาตุแตก! หยุดการย้อนกาลเวลาฟื้นเลือดของมหาเทพได้สำเร็จ!');
+        } else {
+          const rewound = enemyHealing(enemy, action.chronoRewind);
+          if (rewound > 0) {
+            enemy.hp += rewound;
+            events.push({ type: 'heal', source: enemy.id, target: enemy.id, amount: rewound });
+            summary.sequence.push(`⏳ มหาเทพย้อนกาลเวลาฟื้น +${rewound} HP`);
+          }
+        }
+      }
+      if (action.soulDrain && actual > 0 && enemy.hp > 0) {
+        if (enemy.netherPurgeUntil >= turn) {
+          summary.sequence.push('ติดสถานะชำระมลทิน · จอมอสูรนรกานต์สูบวิญญาณไม่สำเร็จ!');
+        } else {
+          const drained = enemyHealing(enemy, action.soulDrain);
+          if (drained > 0) {
+            enemy.hp += drained;
+            events.push({ type: 'heal', source: enemy.id, target: enemy.id, amount: drained });
+            summary.sequence.push(`💀 จอมอสูรนรกานต์สูบวิญญาณฟื้น +${drained} HP`);
+          }
+        }
+      }
       if (effects.size) {
         const shieldRank = upgrades.shield ?? 0;
         for (const effect of effects) {
@@ -1203,6 +1473,13 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       target.wardGrant = Math.min(2, (target.wardGrant ?? 0) + 1);
       events.push({ type: 'ward-grant', source: enemy.id, target: target.id, slot: target.slot });
       summary.sequence.push(`ช่อง ${target.slot + 1} ได้ม่านเพิ่มเทิร์นหน้า`);
+    } else if (action.type === 'ward-grant-all') {
+      const recipients = (action.targets ?? []).map(enemyById).filter(target => target && target.hp > 0);
+      for (const target of recipients) {
+        target.wardGrant = Math.min(2, (target.wardGrant ?? 0) + (action.amount ?? 1));
+        events.push({ type: 'ward-grant', source: enemy.id, target: target.id, slot: target.slot });
+      }
+      if (recipients.length) summary.sequence.push(`หนวดม่านวารีกางม่าน +1 ให้หนวดอื่น ${recipients.length} เส้นเทิร์นหน้า`);
     } else if (action.type === 'advance') {
       enemy.slot = action.slot;
       events.push({ type: 'push', target: enemy.id, slot: action.slot, advancing: true });
@@ -1237,7 +1514,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           summary.sequence.push(`จ้าวพายุชาร์จประจุฟื้น +${regen} HP`);
         }
       }
-      const isSpecialBoss = enemy.kind === 'ember_overlord' || enemy.kind === 'tempest_archon';
+      const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind);
       events.push({
         type: 'charge',
         label: action.label,
@@ -1248,6 +1525,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       });
     }
   }
+  if (player.hp > 0) {
+    checkNetherPhase2(state, summary, events);
+    checkEternityPhase2(state, summary, events);
+  }
   for (const enemy of live()) {
     const amount = newBurn.get(enemy.id);
     if (amount) { enemy.burn += amount; enemy.burnTurn = turn + 1; }
@@ -1256,6 +1537,11 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (enemy.healCutUntil <= turn) delete enemy.healCutUntil;
     if (enemy.wetUntil <= turn) delete enemy.wetUntil;
     if (enemy.magmaArmorUntil <= turn) delete enemy.magmaArmorUntil;
+    if (enemy.abyssalShockUntil <= turn) delete enemy.abyssalShockUntil;
+    if (enemy.netherPurgeUntil <= turn) delete enemy.netherPurgeUntil;
+    if (enemy.netherExposedTurn <= turn) delete enemy.netherExposedTurn;
+    if (enemy.eternityShatterUntil <= turn) delete enemy.eternityShatterUntil;
+    if (enemy.groundedUntil <= turn) delete enemy.groundedUntil;
     if (enemy.earthArmorUntil <= turn) {
       delete enemy.earthArmorUntil;
       delete enemy.earthArmorShred;
@@ -1277,9 +1563,25 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       if (!state.stats.discovered.includes(phrase)) state.stats.discovered.push(phrase);
     }
   }
+  const krakenPhase2Triggered = player.hp > 0 && !live().length
+    && !state.krakenPhase && state.enemies.some(enemy => KRAKEN_TENTACLE_KINDS.includes(enemy.kind));
+  if (krakenPhase2Triggered) {
+    nextMagmaPuddles.clear();
+    triggerKrakenPhase2(state, summary, events);
+  }
+  const eternityPhase3Triggered = player.hp > 0 && !live().length
+    && state.room === FLOOR100_BOSS_ROOM && state.eternityPhase !== 3
+    && state.enemies.some(enemy => enemy.kind === 'eternity_overlord');
+  if (eternityPhase3Triggered) {
+    nextMagmaPuddles.clear();
+    triggerEternityPhase3(state, summary, events);
+  }
   if (player.hp <= 0) {
     delete state.blackhole;
     delete state.deathSpent;
+    delete state.krakenPhase;
+    delete state.netherPhase;
+    delete state.eternityPhase;
     player.hp = 0;
     if (state.rift) {
       resolveRiftDefeat(state, summary, events);
@@ -1299,6 +1601,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     } else {
       delete state.blackhole;
       delete state.deathSpent;
+      delete state.krakenPhase;
+      delete state.netherPhase;
+      delete state.eternityPhase;
       if (!state.clearedRooms.includes(state.room)) {
         state.clearedRooms.push(state.room);
       }
@@ -1366,7 +1671,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
     if (nextMagmaPuddles.size) state.magmaPuddles = [...nextMagmaPuddles];
     drawCards(state);
-    player.mana = Math.min(getMaxMana(player), player.mana + 3);
+    player.mana = Math.min(getMaxMana(player), player.mana + getTurnManaRegen(state.room));
     prepareEnemies(state);
   }
   summary.hp = player.hp;
