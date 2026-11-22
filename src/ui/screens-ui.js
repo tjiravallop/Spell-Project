@@ -6,6 +6,7 @@ import {
   getCardUpgradeLevel,
   deckCapacity,
   ownsRewardWord,
+  summonStarterBonus,
   getFloorInfo,
   isSanctuaryUnlocked,
 } from '../run.js';
@@ -36,7 +37,8 @@ export function renderRewards(state, reveal) {
     const word = WORDS[id];
     const meta = cardMeta(id);
     const level = getCardUpgradeLevel(state, id);
-    const selectText = ownsRewardWord(state, id)
+    const starter = summonStarterBonus(state, id);
+    const selectText = starter ? `รับอัญเชิญและ${WORDS[starter].label}` : ownsRewardWord(state, id)
       ? level >= MAX_CARD_UPGRADE ? 'เต็ม +10 · รับ 20 ทอง' : `การ์ดซ้ำ · +${level} → +${level + 1}`
       : 'คำใหม่ · เก็บเข้าคลัง';
     return `<button id="reward-${id}" class="reward-card playing-card word-${id} ${rarityClass(word)} ${meta.roleClass}" data-reward="${id}" style="--reveal-delay:${index * 85}ms">${playingCardFace(state, id, { bodyExtra: `<p class="reward-desc">${word.description}</p><span class="reward-select">${selectText}</span>` })}</button>`;

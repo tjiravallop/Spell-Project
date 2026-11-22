@@ -209,7 +209,7 @@ export class Battlefield {
     const victoryHold = Math.round((lastEvent?.type === 'room-clear' ? 900 : 0) / speed);
     const actionEvents = victoryHold ? events.slice(0, -1) : events;
     const rawEnds = actionEvents.map(event => {
-      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'shield-delay', 'fizzle', 'blackhole-open', 'boss-phase', 'timestop', 'ascension', 'ascension-ready', 'summon', 'summon_invoke', 'summon_strike', 'summon_relay', 'summon_counter', 'summon_break'].includes(event.type)
+      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'shield-delay', 'fizzle', 'blackhole-open', 'boss-phase', 'timestop', 'ascension', 'ascension-ready', 'summon', 'summon_invoke', 'summon_strike', 'summon_relay', 'summon_counter', 'summon_break', 'summon_rebirth'].includes(event.type)
         || Boolean(event.specialBoss && event.type === 'charge');
       const ultBonus = (event.ultimate && event.type === 'attack') ? 180 : event.type === 'boss-phase' ? 280 : 0;
       const wardHold = event.type === 'projectile' && event.blocked ? 160 : 0;
@@ -1800,8 +1800,10 @@ export class Battlefield {
           g.stroke();
           g.restore();
         }
-        if (event.amount > 0) {
-          const label = event.type === 'summon_relay' ? `🔄 สตรีคส่งไม้ต่อ −${event.amount}` : `⚔️ หมัดประสาน −${event.amount}`;
+        if (event.blocked) {
+          this.drawFloatingPopup(targetX, 98 - Math.round(frac * 14), 'ม่านรับหมัดประสาน', pal.core, pal.primary);
+        } else if (event.amount > 0) {
+          const label = event.relay ? `🔄 สตรีคส่งไม้ต่อ −${event.amount}` : `⚔️ หมัดประสาน −${event.amount}`;
           this.drawFloatingPopup(targetX, 98 - Math.round(frac * 14), label, pal.core, pal.primary);
         }
       }
@@ -1818,9 +1820,15 @@ export class Battlefield {
             this.drawHitBurstVfx(targetX, 124, pal.primary, frac, elem, now, 1);
           }
         }
-        if (event.amount > 0) {
+        if (event.blocked) {
+          this.drawFloatingPopup(targetX, 96 - Math.round(frac * 14), 'ม่านรับแรงสวน', pal.core, pal.primary);
+        } else if (event.amount > 0) {
           this.drawFloatingPopup(targetX, 96 - Math.round(frac * 14), `⚡ ตีสวน −${event.amount}`, pal.core, pal.primary);
         }
+      }
+
+      if (event.type === 'summon_rebirth') {
+        this.drawFloatingPopup(88, 94, 'ฟีนิกซ์เกิดใหม่', C[31], ELEMENT_IMPACT.fire.primary);
       }
 
       if (event.type === 'summon_break') {

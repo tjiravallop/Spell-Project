@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WORDS, CREATURE_WORDS, CREATURE_STATS, parseSpell } from '../src/words.js';
-import { createRun, getRewardPoolForRoom, getCardSecondaryEffect, hasCardSecondaryUpgrade, battleSpellCost } from '../src/run.js';
+import { createRun, createEnemy, enterRoom, makeRewards, chooseReward, equipWords, getRewardPoolForRoom, getCardSecondaryEffect, hasCardSecondaryUpgrade, battleSpellCost } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
-import { validateRun } from '../src/save.js';
+import { validateRun, saveRun, loadRun, SAVE_KEY } from '../src/save.js';
 
 test('Summon System: Grammar, Syntax, and Parsing', () => {
   // 1. Verify summon card and all 27 creatures exist in WORDS
@@ -224,7 +224,7 @@ test('Summon System: Turn 2 Summon Chaining / Succession Relay Strike ("ลื�
 
   // Turn 2: Player forgets or chains summon: casts Golem (Water)!
   // Dog must NOT simply vanish! It must perform a Succession Relay Strike, deal strike damage,
-  // trigger Scald (Fire + Water) to reduce enemy armor, and hand off the frontline to Golem!
+  // trigger Mist (Fire + Water) to obscure the enemy, and hand off the frontline to Golem!
   res1.state.player.hand = ['summon', 'golem', 'water'];
   res1.state.player.mana = 20;
   const res2 = simulateTurn(res1.state, ['summon', 'golem', 'water'], 'e1');
@@ -242,9 +242,9 @@ test('Summon System: Turn 2 Summon Chaining / Succession Relay Strike ("ลื�
   assert.equal(relayEvt.newCreature, 'golem');
   assert.ok(res2.events.some(e => e.type === 'summon_depart' && e.creature === 'dog'), 'Dog departed after relay');
 
-  // 3. Scald elemental reaction: Fire dog + Water golem shredded 2 armor
-  assert.equal(res2.state.enemies[0].permanentArmorShred, 2, 'Scald should apply 2 permanent armor shred');
-  assert.equal(res2.state.enemies[0].armor, 1, 'Scald should reduce armor from 3 to 1');
+  // Mist obscures the next enemy attack; the enemy consumes it on action.
+  assert.ok(res2.summary.sequence.some(line => line.includes(WORDS.mist.label)));
+  assert.equal(res2.state.enemies[0].armor, 3);
 
   // 4. New summon (Golem) is active with full stats
   assert.ok(res2.state.player.summon, 'New summon (Golem) must be active on field');
@@ -294,4 +294,113 @@ test('Summon System: All 27 Creatures drawSummonSprite and Audio presets execute
       ga.playElementalBurst(elem);
     }, `Audio elemental burst for ${elem} should execute cleanly`);
   }
+});
+
+test('Summon starter reward unlocks the pair and the loaded deck keeps access to it', () => {
+  let state = createRun('summon-starter');
+  state.room = 2;
+  makeRewards(state);
+  assert.ok(state.rewards.includes('summon'));
+  state = chooseReward(state, 'summon');
+  assert.ok(state.collection.includes('dog'));
+  state = equipWords(state, ['shot', 'fire', 'ice', 'shield', 'pair', 'summon', 'dog']);
+  assert.ok(state.player.hand.includes('summon'));
+  assert.ok(state.player.hand.includes('dog'));
+  const next = simulateTurn(state, ['summon', 'dog']);
+  assert.ok(next.ok);
+  assert.ok(next.state.player.hand.includes('summon'));
+  assert.ok(next.state.player.hand.includes('dog'));
+});
+
+test('Summon strike applies one tower bonus without mutating the input target', () => {
+  const state = createRun('summon-scaling', false, ['summon', 'dog']);
+  state.room = 75;
+  state.player.words = ['shot', 'fire', 'ice', 'summon', 'dog'];
+  state.player.hand = [];
+  state.enemies = [{ ...createEnemy('striker'), hp: 60, maxHp: 60 }];
+  state.turn = 2;
+  state.player.summon = { creatureId: 'dog', name: 'สุนัข', hp: 14, strike: 12, turnCreated: 1 };
+  const before = structuredClone(state);
+  const next = simulateTurn(state, 'guard', state.enemies[0].id);
+  assert.deepEqual(state, before);
+  assert.equal(next.events.find(event => event.type === 'summon_strike').amount, 15);
+  assert.equal(next.state.enemies[0].hp, 45);
+});
+
+test('Summon hits absorb a ward layer and leave an opening against a renewable ward', () => {
+  const state = createRun('summon-ward', false, ['summon', 'dog']);
+  state.room = 50;
+  state.player.words = ['shot', 'fire', 'ice', 'summon', 'dog'];
+  state.player.hand = ['summon', 'dog'];
+  state.enemies = [createEnemy('aether_warden', 0, 50)];
+  state.enemies[0].ward = 2;
+  const first = simulateTurn(state, ['summon', 'dog']);
+  const counter = first.events.find(event => event.type === 'summon_counter');
+  assert.equal(counter.blocked, true);
+  assert.equal(first.state.enemies[0].hp, state.enemies[0].hp);
+  assert.equal(first.state.enemies[0].ward, 0);
+  const followup = simulateTurn(first.state, 'guard', state.enemies[0].id);
+  assert.ok(followup.events.find(event => event.type === 'summon_strike').amount > 0);
+});
+
+test('A lethal single hit triggers the first counter before the summon breaks', () => {
+  const state = createRun('summon-lethal', false, ['summon', 'golem']);
+  state.player.words = ['shot', 'fire', 'ice', 'summon', 'golem'];
+  state.player.hand = ['summon', 'golem', 'fire'];
+  state.turn = 49;
+  state.enemies = [{ ...createEnemy('striker'), hp: 100, maxHp: 100 }];
+  const result = simulateTurn(state, ['summon', 'golem', 'fire']);
+  const types = result.events.map(event => event.type);
+  const counter = result.events.find(event => event.type === 'summon_counter');
+  assert.equal(counter.amount, 13);
+  assert.ok(types.indexOf('summon_counter') < types.indexOf('summon_break'));
+  assert.equal(result.state.enemies[0].burn, 3);
+  assert.equal(result.state.player.hp, state.player.hp);
+  assert.equal(result.state.player.summon, undefined);
+});
+
+test('Turtle break creates a persistent shield that survives saving and reloading', () => {
+  const state = createRun('summon-turtle', false, ['summon', 'turtle']);
+  state.player.words = ['shot', 'fire', 'ice', 'summon', 'turtle'];
+  enterRoom(state);
+  state.player.hand = ['summon', 'turtle'];
+  state.turn = 32;
+  const result = simulateTurn(state, ['summon', 'turtle']);
+  assert.equal(result.state.player.summon, undefined);
+  assert.deepEqual(result.state.player.shield.layers, [6, 8]);
+  const values = new Map();
+  const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
+  assert.equal(saveRun(result.state, storage).ok, true);
+  assert.deepEqual(loadRun(storage).state.player.shield.layers, [6, 8]);
+  const leaked = structuredClone(result.state);
+  leaked.turn = 1;
+  leaked.player.shield = null;
+  leaked.player.summon = { creatureId: 'dog', hp: 11, turnCreated: 1 };
+  values.set(SAVE_KEY, JSON.stringify(leaked));
+  assert.equal(loadRun(storage).state.player.summon, undefined);
+});
+
+test('Summon +7 does not grant cheat death and Phoenix +7 hatches only once', () => {
+  const state = createRun('summon-phoenix', false, ['summon', 'phoenix']);
+  state.player.words = ['shot', 'fire', 'ice', 'summon', 'phoenix'];
+  state.player.hp = 5;
+  state.player.cardUpgrades = { summon: 7, phoenix: 7 };
+  state.player.hand = [];
+  state.turn = 4;
+  state.player.summon = { creatureId: 'phoenix', name: 'ฟีนิกซ์', hp: 5, maxHp: 50, ward: 0, armor: 0, counter: 0, turnCreated: 4 };
+  state.enemies = [{ ...createEnemy('ember_overlord'), hp: 100 }];
+  const fatal = simulateTurn(state, 'guard');
+  assert.equal(fatal.state.player.hp, 0);
+  assert.ok(!fatal.events.some(event => event.type === 'cheat_death'));
+
+  state.player.hp = 36;
+  state.turn = 60;
+  state.player.summon.turnCreated = 60;
+  state.enemies = [{ ...createEnemy('striker'), hp: 100 }];
+  const first = simulateTurn(state, 'guard');
+  assert.equal(first.state.player.summon.hp, 25);
+  assert.ok(first.events.some(event => event.type === 'summon_rebirth'));
+  first.state.player.summon.turnCreated = first.state.turn;
+  const next = simulateTurn(first.state, 'guard');
+  assert.equal(next.state.player.summon, undefined);
 });

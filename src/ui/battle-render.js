@@ -513,11 +513,12 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     if (status.sealed) badges.push('<span class="enemy-badge badge-ward badge-sealed">ผนึก</span>');
     if (status.slot !== enemy.slot) badges.push(`<span class="enemy-badge badge-push">↪ ไปช่อง ${status.slot + 1}</span>`);
 
-    const activeSummon = state.player?.summon && state.player.summon.hp > 0;
-    const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind);
-    const isUltimateSkill = Boolean(isSpecialBoss && state.turn % 4 === 0);
-    const isAoE = Boolean(action.aoe || isUltimateSkill);
-    const targetLabel = (activeSummon && action.type === 'attack') ? (isAoE ? ' <small class="text-danger">(AoE)</small>' : ` <small class="text-warning">🎯แนวหน้า</small>`) : '';
+    const activeSummon = state.player?.summon;
+    const targetLabel = activeSummon?.hp > 0 && action.type === 'attack'
+      ? action.aoe && !activeSummon.aoeIntercept
+        ? ' <small class="text-danger">AoE · โดนผู้เล่น</small>'
+        : action.aoe ? ' <small class="text-warning">AoE · แนวหน้าสกัด</small>' : ' <small class="text-warning">🎯แนวหน้า</small>'
+      : '';
 
     const intentClass = action.type === 'attack' && action.amount >= 6 ? 'heavy' : action.type;
     const baseIntentLabel = action.shortLabel ?? (action.type === 'attack' ? `${icon('sword')} ${action.amount}` : action.type === 'heal' ? `${icon('heal')} ${action.amount}` : action.type === 'charge' ? 'ชาร์จ' : action.type === 'sealed' ? 'ติดผนึก' : action.type === 'recover' ? 'เปิดช่อง' : 'แช่แข็ง');
@@ -526,6 +527,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
     const predicted = finalHp ?? after;
     const projectedLabel = projectedAction.type === 'dead' ? ' → 0'
       : projectedAction.type === 'timestop' ? ' → หยุดเวลา'
+      : projectedAction.type === 'summon-stunned' ? ' → สตั๊น'
       : projectedAction.type === 'sealed' && action.type !== 'sealed' ? ' → ผนึก'
         : projectedAction.type === 'frozen' && action.type !== 'frozen' ? ' → แช่แข็ง'
         : projectedAction.shortLabel && projectedAction.shortLabel !== action.shortLabel ? ` → ${projectedAction.shortLabel}`

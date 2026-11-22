@@ -187,7 +187,10 @@ export function validateRun(state) {
   const completedEternity = state.room === FLOOR100_BOSS_ROOM && !state.rift
     && (state.phase === 'won' || state.phase === 'sanctuary')
     && state.enemies?.length === 1 && state.enemies[0]?.kind === 'eternity_reborn' && state.enemies[0]?.hp === 0;
-  const expectedKinds = state.krakenPhase === 2
+  const completedKraken = state.room === FLOOR80_BOSS_ROOM && !state.rift
+    && state.phase === 'sanctuary' && state.enemies?.length === 1
+    && state.enemies[0]?.kind === 'abyssal_kraken' && state.enemies[0]?.hp === 0;
+  const expectedKinds = state.krakenPhase === 2 || completedKraken
     ? ['abyssal_kraken']
     : (state.eternityPhase === 3 || completedEternity)
       ? ['eternity_reborn']
@@ -213,6 +216,7 @@ export function validateRun(state) {
     if (enemy.earthArmorUntil !== undefined && !integer(enemy.earthArmorUntil, state.turn, state.turn + 1)) invalid();
     if (enemy.earthArmorShred !== undefined && !integer(enemy.earthArmorShred, 1, 2)) invalid();
     if (enemy.permanentArmorShred !== undefined && !integer(enemy.permanentArmorShred, 0, 10)) invalid();
+    if (enemy.summonWardBreakUntil !== undefined && !integer(enemy.summonWardBreakUntil, state.turn, state.turn + 1)) invalid();
     if (enemy.healCutUntil !== undefined && !integer(enemy.healCutUntil, state.turn, state.turn + 2)) invalid();
     const legacyHpList = previousEnemyHp[enemy.kind];
     if ((enemy.maxHp !== encounterMaxHp(enemy.kind, state.room) && (!legacyHpList || !legacyHpList.includes(enemy.maxHp)))
@@ -315,7 +319,15 @@ export function loadRun(storage) {
       if (!raw) continue;
       hadData = true;
       try {
-        const state = validateRun(JSON.parse(raw));
+        const decoded = JSON.parse(raw);
+        if (object(decoded) && object(decoded.player)) {
+          const summon = decoded.player.summon ?? decoded.summon;
+          if (summon && (decoded.phase !== 'battle' || decoded.turn === 1 || summon.turnCreated > decoded.turn)) {
+            delete decoded.summon;
+            delete decoded.player.summon;
+          }
+        }
+        const state = validateRun(decoded);
         if (state.phase === 'lost') clearLostRunProgress(state);
         else repairEarlyDeck(state);
         if (state.hpCurveVersion === undefined) {

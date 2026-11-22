@@ -121,7 +121,7 @@ export const SHOP_ITEMS = Object.freeze({
     id: 'smithing_stone',
     name: 'หินตีบวกอักษร',
     icon: '⚒️',
-    cost: 350,
+    cost: 75,
     oneTime: false,
     vaultOnly: true,
     badge: 'เพิ่มโอกาสสำเร็จ +15%',
@@ -1384,9 +1384,9 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
       return {
         ...base,
         id: 'golem_colossus_core',
-        badge: `🗿 สะท้อน ${reflect}${breakShield ? ' · แตกให้โล่ 15/ม่าน 1' : ''}${titanSunder ? ' · หมัด 45 แท้/เกราะ 0/สตั๊น' : ''}`,
-        label: `แกนศิลาไททัน สะท้อน ${reflect} แท้${breakShield ? ' & แตกมอบโล่ 15/ม่าน 1' : ''}${titanSunder ? ' & หมัดกัมปนาท 45 แท้ ลบเกราะ 0 สตั๊น 1 เทิร์น' : ''}`,
-        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): โดนตีสะท้อน ${reflect} ดาเมจแท้${breakShield ? ' · เมื่อแตกโอนพลังเป็นโล่ 15 หน่วยและม่าน 1 ชั้นให้ผู้เล่น' : ''}${titanSunder ? ' · หมัดประสานกัมปนาท 45 ดาเมจแท้ ลบเกราะเป้าหมายเป็น 0 ถาวร และสตั๊น 1 เทิร์น' : ''}`,
+        badge: `🗿 สะท้อน ${reflect}${breakShield ? ' · แตกให้โล่ 15' : ''}${titanSunder ? ' · หมัด +8/ลบเกราะ/สตั๊น' : ''}`,
+        label: `แกนศิลาไททัน สะท้อน ${reflect} แท้${breakShield ? ' & แตกมอบโล่ 15' : ''}${titanSunder ? ' & หมัดกัมปนาท +8 ลบเกราะและสตั๊น' : ''}`,
+        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): โดนตีสะท้อน ${reflect} ดาเมจแท้${breakShield ? ' · เมื่อแตกโอนพลังเป็นโล่ 15 หน่วยให้ผู้เล่น' : ''}${titanSunder ? ' · หมัดประสานกัมปนาท +8 (+12 เมื่อร่ายมหา) ข้ามเกราะ ลบเกราะเป้าหมายถาวรและสตั๊นในเทิร์นนี้' : ''}`,
         golemReflectDmg: reflect,
         golemBreakShield: breakShield,
         golemTitanSunder: titanSunder,
@@ -1414,9 +1414,9 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
       return {
         ...base,
         id: 'phoenix_immortal_rebirth',
-        badge: `🪶 จุติไข่ 1 ครั้ง${cleanseHeal ? ' · ล้างดีบัฟ/ฮีล 15' : ''}${playerRevive ? ' · ชุบชีวิตผู้เล่น 100%' : ''}`,
-        label: `วิหคเพลิงอมตะ จุติจากไข่ 1 ครั้ง${cleanseHeal ? ' & ล้างดีบัฟ & ฮีล 15 HP' : ''}${playerRevive ? ' & ชุบชีวิตผู้เล่นเลือดเต็ม/มานาเต็ม' : ''}`,
-        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อฟีนิกซ์แตก จะกลายเป็นไข่และฟื้นคืนชีพ 1 ครั้งด้วย 50% HP${cleanseHeal ? ' · สวนกลับชำระล้างดีบัฟผู้เล่นและฟื้น +15 HP' : ''}${playerRevive ? ' · หากผู้เล่นพลาดท่าถึงชีวิต ฟีนิกซ์สละชีพชุบชีวิตผู้เล่นกลับมาด้วยเลือดเต็ม 100% และมานาเต็ม 12 MP ทันที' : ''}`,
+        badge: `🪶 จุติไข่ 1 ครั้ง${cleanseHeal ? ' · สวนกลับฮีล 15' : ''}${playerRevive ? ' · ชุบชีวิตผู้เล่น 100%' : ''}`,
+        label: `วิหคเพลิงอมตะ จุติจากไข่ 1 ครั้ง${cleanseHeal ? ' & สวนกลับฮีล 15 HP' : ''}${playerRevive ? ' & ชุบชีวิตผู้เล่นเลือดเต็ม/มานาเต็ม' : ''}`,
+        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อฟีนิกซ์แตก จะกลายเป็นไข่และฟื้นคืนชีพ 1 ครั้งด้วย 50% HP${cleanseHeal ? ' · เมื่อสวนกลับโดนเป้าหมายจะฟื้น +15 HP' : ''}${playerRevive ? ' · หากผู้เล่นพลาดท่าถึงชีวิต ฟีนิกซ์สละชีพชุบชีวิตผู้เล่นกลับมาด้วยเลือดเต็ม 100% และมานาเต็มทันที' : ''}`,
         phoenixEggRevive: eggRevive,
         phoenixCleanseHeal: cleanseHeal,
         phoenixPlayerRevive: playerRevive,
@@ -1431,7 +1431,7 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
         id: 'dog_pack_alpha',
         badge: `🐕 จั่ว +1 · เจาะ +${pierceBonus}${alphaDouble ? ' · หมัดแฝดจั่ว +1' : ''}`,
         label: `จ่าฝูงหมาล่าเนื้อ จั่ว +1 ใบ & เจาะ +${pierceBonus}${alphaDouble ? ' & หมัดประสานคู่' : ''}`,
-        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อลงสนามจั่ว +1 ใบ และเจาะเกราะ +${pierceBonus}${alphaDouble ? ' · หมัดประสานออกท่าเบิ้ล 2 ครั้งและจั่วเพิ่มอีก +1 ใบ' : ''}`,
+        description: `ปลดล็อกที่ +7 (+9/+10 แรงขึ้น): เมื่อลงสนามจั่ว +1 ใบ และเจาะเกราะ +${pierceBonus}${alphaDouble ? ' · หมัดประสานตามด้วยหมัดที่สองแรง 50% และจั่วอีก 1 ใบถ้ามือยังไม่เต็ม' : ''}`,
         creatureDrawOnSummon: drawBonus,
         pierceBonus,
         dogAlphaDoubleStrike: alphaDouble,
@@ -1486,7 +1486,7 @@ export function getCardSecondaryEffect(wordId, level = CARD_SECONDARY_UNLOCK_LEV
 
 export function describeCardUpgradeEffect(wordId, level = 0) {
   const nextLv = Math.max(1, level);
-  if (wordId === 'summon') return `HP สิ่งอัญเชิญทุกตัว +${nextLv * 2} · ดาเมจ +${nextLv * 2}% · ลดดาเมจรับ -${Math.floor(nextLv / 3)}`;
+  if (wordId === 'summon') return `HP สิ่งอัญเชิญทุกตัว +${nextLv * 2} · ดาเมจ +${nextLv * 2}%`;
   if (CREATURE_STATS[wordId]) {
     const stats = CREATURE_STATS[wordId];
     const hpInc = (stats.growthHp * nextLv).toFixed(1).replace(/\.0$/, '');
@@ -2130,6 +2130,10 @@ export function openHand(state) {
   const element = pick(draw, deck.filter(id => ELEMENTS.includes(id)));
   const hand = [form, element];
   const openingSize = 5 + (getEquippedRelics(state.player).includes('crown_of_eternity_100') ? 2 : 0);
+  if (deck.includes('summon')) {
+    const companions = deck.filter(id => CREATURE_WORDS.includes(id));
+    if (companions.length) hand.push('summon', pick(draw, companions));
+  }
   const remaining = deck.filter(id => !hand.includes(id));
   while (hand.length < openingSize && remaining.length) {
     const id = pick(draw, remaining);
@@ -2143,11 +2147,18 @@ export function openHand(state) {
   state.handRng = draw.rng;
 }
 
-export function drawCards(state, count = TURN_DRAW) {
+export function drawCards(state, count = TURN_DRAW, prepareSummon = false) {
   const { hand } = state.player;
   const deck = activeBattleDeck(state);
   const draw = { rng: state.handRng };
-  for (let i = 0; i < count; i++) hand.push(pick(draw, deck));
+  const companions = prepareSummon ? deck.filter(id => CREATURE_WORDS.includes(id)) : [];
+  for (let i = 0; i < count; i++) {
+    const drawn = pick(draw, deck);
+    if (companions.length && deck.includes('summon') && !hand.includes('summon')) hand.push('summon');
+    else if (companions.length && deck.includes('summon') && !hand.some(id => CREATURE_WORDS.includes(id))) {
+      hand.push(companions[Math.floor(deck.indexOf(drawn) * companions.length / deck.length)]);
+    } else hand.push(drawn);
+  }
   state.handRng = draw.rng;
 }
 
@@ -2280,6 +2291,7 @@ export function prepareEnemies(state) {
     }
     if (enemy.permanentArmorShred) enemy.armor = Math.max(0, enemy.armor - enemy.permanentArmorShred);
     else if (enemy.earthArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - (enemy.earthArmorShred ?? 1));
+    if (enemy.summonWardBreakUntil === state.turn) enemy.ward = 0;
     if (enemy.wardGrant) {
       if (enemy.hp > 0) enemy.ward = Math.min(3, enemy.ward + enemy.wardGrant);
       delete enemy.wardGrant;
@@ -2496,7 +2508,13 @@ export function recoverAfterRoom(state) {
   return recovery;
 }
 
+export function clearSummon(state) {
+  delete state.player.summon;
+  delete state.summon;
+}
+
 export function enterRoom(state) {
+  clearSummon(state);
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
@@ -2996,8 +3014,20 @@ export function fillRewardChoices(state) {
   }
 }
 
+export function summonStarterBonus(state, wordId) {
+  return wordId === 'summon' && !state.collection.some(id => CREATURE_WORDS.includes(id)) ? 'dog' : null;
+}
+
 export function makeRewards(state) {
   state.rewards = [];
+  if (state.room === 2 && !ownsRewardWord(state, 'summon')) {
+    state.rewards.push('summon');
+  } else if (state.room === 2 && summonStarterBonus(state, 'summon')) {
+    state.rewards.push('dog');
+  }
+  if (state.room === FLOOR51_START_ROOM + 2 && state.collection.includes('summon') && !state.collection.some(id => CREATURE_STATS[id]?.aoeIntercept)) {
+    state.rewards.push('gargoyle');
+  }
   fillRewardChoices(state);
   state.phase = 'reward';
 }
@@ -3102,6 +3132,11 @@ export function chooseReward(original, id) {
   if (!START_WORDS.includes(id)) {
     if (!state.learned.includes(id)) state.learned.push(id);
     if (!state.collection.includes(id)) state.collection.push(id);
+  }
+  const starter = summonStarterBonus(state, id);
+  if (starter) {
+    state.learned.push(starter);
+    state.collection.push(starter);
   }
   state.rewardedBossRooms ??= [];
   if (!state.rewardedBossRooms.includes(state.room)) state.rewardedBossRooms.push(state.room);
@@ -3222,6 +3257,7 @@ export function isSanctuaryFloorUnlocked(state, floorKey) {
 }
 
 function resetPlayerForSanctuaryFallback(state) {
+  clearSummon(state);
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
@@ -3242,6 +3278,7 @@ function resetPlayerForSanctuaryFallback(state) {
 }
 
 export function clearLostRunProgress(state) {
+  clearSummon(state);
   state.collection = [];
   state.learned = [];
   state.player.words = [...START_WORDS];
@@ -3428,6 +3465,7 @@ export function enterSanctuary(original, options = {}) {
     }
   }
   const state = structuredClone(original);
+  clearSummon(state);
   delete state.replayReturn;
   if (state.rift) {
     state.room = state.rift.returnRoom;
@@ -4393,11 +4431,12 @@ export function intent(enemy, turn, enemies = [], room = 0) {
       type: 'attack',
       amount,
       soulDrain: 150,
+      ...(isMajorClimaxRelease && { aoe: true }),
       shortLabel: purged ? `โจมตี ${amount} (ชำระแล้ว)` : `โจมตี ${amount} · สูบชีพ 150`,
       label: purged
         ? `โจมตี ${amount} · ติดสถานะชำระมลทิน (ตัดการสูบวิญญาณ)`
         : `โหมดปลดผนึก: โจมตี ${amount} · หากทะลุโล่เข้าเลือดจะสูบวิญญาณฟื้น +150 HP`,
     };
   }
-  return { type: 'attack', amount, label: `โจมตี ${amount}${netherDoomBonus ? ` (เสาพิพากษาเสริม +${netherDoomBonus})` : ''}${loomAllies ? ` · ลูกสมุน ${loomAllies} ตัวเสริม ${loomAllies * 3}` : ''}${eternityAllies ? ` · สภาแห่งกาล ${eternityAllies} ตัวเสริม ${eternityAllies * 10}` : ''}` };
+  return { type: 'attack', amount, ...(isMajorClimaxRelease && { aoe: true }), label: `โจมตี ${amount}${netherDoomBonus ? ` (เสาพิพากษาเสริม +${netherDoomBonus})` : ''}${loomAllies ? ` · ลูกสมุน ${loomAllies} ตัวเสริม ${loomAllies * 3}` : ''}${eternityAllies ? ` · สภาแห่งกาล ${eternityAllies} ตัวเสริม ${eternityAllies * 10}` : ''}` };
 }

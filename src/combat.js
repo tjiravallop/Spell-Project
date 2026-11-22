@@ -46,6 +46,7 @@ import {
   makeRewards,
   recoverAfterRoom,
   enterRoom,
+  clearSummon,
   prepareEnemies,
   drawCards,
   isBossRoom,
@@ -716,6 +717,88 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
   }
 
+  function applyBossElementEffects(enemy, elements) {
+    const hasCoolingElement = elements.some(id => {
+      const comps = getElementComponents(id);
+      return comps.includes('water') || comps.includes('ice');
+    });
+    if (['volcano_colossus', 'magma_tortoise'].includes(enemy.kind) && hasCoolingElement && enemy.armor > 0) {
+      const cooled = Math.min(enemy.armor, 2);
+      enemy.armor = Math.max(0, enemy.armor - cooled);
+      enemy.magmaArmorUntil = turn + 1;
+      events.push({ type: 'armor-shred', target: enemy.id, amount: cooled, armor: enemy.armor });
+      summary.sequence.push(`น้ำ/น้ำแข็งดับลาวา · เกราะ${ENEMIES[enemy.kind].name} −${cooled} (เหลือ ${enemy.armor})`);
+    }
+    const hasEarthElement = elements.some(id => getElementComponents(id).includes('earth'));
+    if (enemy.kind === 'thunder_drake_emperor' && hasEarthElement) {
+      const alreadyGrounded = enemy.groundedUntil >= turn + 1;
+      enemy.groundedUntil = turn + 1;
+      if (!alreadyGrounded) {
+        summary.sequence.push(`ธาตุดินลงกราวด์ · สลายประจุดาราของ${ENEMIES[enemy.kind].name}จนถึงเทิร์นหน้า`);
+      }
+    }
+    const hasLightningElement = elements.some(id => getElementComponents(id).includes('lightning'));
+    if (enemy.kind === 'abyssal_kraken' && hasLightningElement && enemy.hp > 0) {
+      damage(enemy, 15, 'lightning', enemy.armor);
+      const alreadyShocked = enemy.abyssalShockUntil >= turn + 1;
+      enemy.abyssalShockUntil = turn + 1;
+      if (!alreadyShocked && enemy.armor > 0) {
+        const reduced = Math.min(enemy.armor, 2);
+        enemy.armor = Math.max(0, enemy.armor - reduced);
+        events.push({ type: 'armor-shred', target: enemy.id, amount: reduced, armor: enemy.armor });
+        summary.sequence.push(`สายฟ้าช็อตผิวน้ำบาดาล · +15 ดาเมจทะลุเกราะ และลดเกราะ −${reduced} (เหลือ ${enemy.armor})`);
+      } else {
+        summary.sequence.push('สายฟ้าช็อตผิวน้ำบาดาล · +15 ดาเมจทะลุเกราะ');
+      }
+    }
+    const hasPurgeElement = elements.some(id => {
+      const comps = getElementComponents(id);
+      return comps.includes('fire') || comps.includes('lightning');
+    });
+    if (enemy.kind === 'nether_dread_lord' && hasPurgeElement && enemy.hp > 0) {
+      const alreadyPurged = enemy.netherPurgeUntil >= turn + 1;
+      enemy.netherPurgeUntil = turn + 1;
+      if (!alreadyPurged && enemy.armor > 0) {
+        const reduced = Math.min(enemy.armor, 2);
+        enemy.armor = Math.max(0, enemy.armor - reduced);
+        events.push({ type: 'armor-shred', target: enemy.id, amount: reduced, armor: enemy.armor });
+        summary.sequence.push(`เพลิง/อสุนีชำระมลทิน · ตัดการสูบวิญญาณและลดเกราะจอมอสูร −${reduced} (เหลือ ${enemy.armor})`);
+      } else if (!alreadyPurged) {
+        summary.sequence.push('เพลิง/อสุนีชำระมลทิน · ตัดการสูบวิญญาณจอมอสูรจนถึงเทิร์นหน้า');
+      }
+    }
+    const isPrismSovereign = (enemy.kind === 'eternity_overlord' && state.eternityPhase === 2) || enemy.kind === 'eternity_reborn';
+    if (isPrismSovereign && !prismShatterTriggered && enemy.hp > 0) {
+      const prismAffinity = enemy.affinity ?? ENEMIES[enemy.kind]?.affinity ?? null;
+      const prismReaction = getWeaknessReaction(elements, prismAffinity);
+      if (prismReaction.isWeak) {
+        prismShatterTriggered = true;
+        const shatterDmg = enemy.kind === 'eternity_reborn' ? 100 : 60;
+        const shatterElement = prismReaction.triggerElement ?? elements[0] ?? 'lightning';
+        events.push({ type: 'prism-shatter', target: enemy.id, element: shatterElement, amount: shatterDmg });
+        damage(enemy, shatterDmg, shatterElement, enemy.armor);
+        if (enemy.hp > 0) {
+          enemy.eternityShatterUntil = turn + 1;
+          const armorLost = Math.min(enemy.armor, 3);
+          if (armorLost > 0) {
+            enemy.armor = Math.max(0, enemy.armor - armorLost);
+            events.push({ type: 'armor-shred', target: enemy.id, amount: armorLost, armor: enemy.armor });
+          }
+          if (enemy.ward > 0) {
+            enemy.ward = Math.max(0, enemy.ward - 1);
+            summary.wards++;
+            events.push({ type: 'dispel', target: enemy.id, amount: 1 });
+          }
+          summary.sequence.push(
+            enemy.kind === 'eternity_reborn'
+              ? `✨ ทลายผลึกธาตุ! +${shatterDmg} ดาเมจแท้ · เกราะ −${armorLost} · หยุดการย้อนกาลเวลา!`
+              : `✨ ทลายผลึกธาตุ! +${shatterDmg} ดาเมจแท้ · เกราะ −${armorLost} และสลายม่าน −1`,
+          );
+        }
+      }
+    }
+  }
+
   function hit(enemy, strength, pierce, elements) {
     const fusedReaction = elements.length > 1 ? getFusedElementFromComponents(elements[0], elements[1]) : null;
     const effectiveElements = fusedReaction ? [...elements, fusedReaction] : elements;
@@ -924,85 +1007,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (secondaryDispelArmorShred > 0 && spell?.dispel && enemy.hp > 0) {
       applyEarthArmorShred(enemy, secondaryDispelArmorShred);
     }
-    const hasCoolingElement = elements.some(id => {
-      const comps = getElementComponents(id);
-      return comps.includes('water') || comps.includes('ice');
-    });
-    if (['volcano_colossus', 'magma_tortoise'].includes(enemy.kind) && hasCoolingElement && enemy.armor > 0) {
-      const cooled = Math.min(enemy.armor, 2);
-      enemy.armor = Math.max(0, enemy.armor - cooled);
-      enemy.magmaArmorUntil = turn + 1;
-      events.push({ type: 'armor-shred', target: enemy.id, amount: cooled, armor: enemy.armor });
-      summary.sequence.push(`น้ำ/น้ำแข็งดับลาวา · เกราะ${ENEMIES[enemy.kind].name} −${cooled} (เหลือ ${enemy.armor})`);
-    }
-    const hasEarthElement = elements.some(id => getElementComponents(id).includes('earth'));
-    if (enemy.kind === 'thunder_drake_emperor' && hasEarthElement) {
-      const alreadyGrounded = enemy.groundedUntil >= turn + 1;
-      enemy.groundedUntil = turn + 1;
-      if (!alreadyGrounded) {
-        summary.sequence.push(`ธาตุดินลงกราวด์ · สลายประจุดาราของ${ENEMIES[enemy.kind].name}จนถึงเทิร์นหน้า`);
-      }
-    }
-    const hasLightningElement = elements.some(id => getElementComponents(id).includes('lightning'));
-    if (enemy.kind === 'abyssal_kraken' && hasLightningElement && enemy.hp > 0) {
-      damage(enemy, 15, 'lightning', enemy.armor);
-      const alreadyShocked = enemy.abyssalShockUntil >= turn + 1;
-      enemy.abyssalShockUntil = turn + 1;
-      if (!alreadyShocked && enemy.armor > 0) {
-        const reduced = Math.min(enemy.armor, 2);
-        enemy.armor = Math.max(0, enemy.armor - reduced);
-        events.push({ type: 'armor-shred', target: enemy.id, amount: reduced, armor: enemy.armor });
-        summary.sequence.push(`สายฟ้าช็อตผิวน้ำบาดาล · +15 ดาเมจทะลุเกราะ และลดเกราะ −${reduced} (เหลือ ${enemy.armor})`);
-      } else {
-        summary.sequence.push('สายฟ้าช็อตผิวน้ำบาดาล · +15 ดาเมจทะลุเกราะ');
-      }
-    }
-    const hasPurgeElement = elements.some(id => {
-      const comps = getElementComponents(id);
-      return comps.includes('fire') || comps.includes('lightning');
-    });
-    if (enemy.kind === 'nether_dread_lord' && hasPurgeElement && enemy.hp > 0) {
-      const alreadyPurged = enemy.netherPurgeUntil >= turn + 1;
-      enemy.netherPurgeUntil = turn + 1;
-      if (!alreadyPurged && enemy.armor > 0) {
-        const reduced = Math.min(enemy.armor, 2);
-        enemy.armor = Math.max(0, enemy.armor - reduced);
-        events.push({ type: 'armor-shred', target: enemy.id, amount: reduced, armor: enemy.armor });
-        summary.sequence.push(`เพลิง/อสุนีชำระมลทิน · ตัดการสูบวิญญาณและลดเกราะจอมอสูร −${reduced} (เหลือ ${enemy.armor})`);
-      } else if (!alreadyPurged) {
-        summary.sequence.push('เพลิง/อสุนีชำระมลทิน · ตัดการสูบวิญญาณจอมอสูรจนถึงเทิร์นหน้า');
-      }
-    }
-    const isPrismSovereign = (enemy.kind === 'eternity_overlord' && state.eternityPhase === 2) || enemy.kind === 'eternity_reborn';
-    if (isPrismSovereign && !prismShatterTriggered && enemy.hp > 0) {
-      const prismAffinity = enemy.affinity ?? ENEMIES[enemy.kind]?.affinity ?? null;
-      const prismReaction = getWeaknessReaction(elements, prismAffinity);
-      if (prismReaction.isWeak) {
-        prismShatterTriggered = true;
-        const shatterDmg = enemy.kind === 'eternity_reborn' ? 100 : 60;
-        const shatterElement = prismReaction.triggerElement ?? elements[0] ?? 'lightning';
-        events.push({ type: 'prism-shatter', target: enemy.id, element: shatterElement, amount: shatterDmg });
-        damage(enemy, shatterDmg, shatterElement, enemy.armor);
-        if (enemy.hp > 0) {
-          enemy.eternityShatterUntil = turn + 1;
-          const armorLost = Math.min(enemy.armor, 3);
-          if (armorLost > 0) {
-            enemy.armor = Math.max(0, enemy.armor - armorLost);
-            events.push({ type: 'armor-shred', target: enemy.id, amount: armorLost, armor: enemy.armor });
-          }
-          if (enemy.ward > 0) {
-            enemy.ward = Math.max(0, enemy.ward - 1);
-            summary.wards++;
-            events.push({ type: 'dispel', target: enemy.id, amount: 1 });
-          }
-          summary.sequence.push(
-            enemy.kind === 'eternity_reborn'
-              ? `✨ ทลายผลึกธาตุ! +${shatterDmg} ดาเมจแท้ · เกราะ −${armorLost} · หยุดการย้อนกาลเวลา!`
-              : `✨ ทลายผลึกธาตุ! +${shatterDmg} ดาเมจแท้ · เกราะ −${armorLost} และสลายม่าน −1`,
-          );
-        }
-      }
-    }
+    applyBossElementEffects(enemy, elements);
     applyMoisture(enemy, elements);
     if (elements.includes('magma') && secondaryMagmaBurnBonus > 0 && enemy.hp > 0) {
       newBurn.set(enemy.id, (newBurn.get(enemy.id) ?? 0) + secondaryMagmaBurnBonus);
@@ -1858,6 +1863,118 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     }
   }
 
+  const summonLevel = upgrades.summon ?? 0;
+  const summonInTower = getFloorInfo(state.room, state.rooms?.length).floor;
+  const summonStuns = new Set();
+
+  function summonEffect(id) {
+    return hasCardSecondaryUpgrade(state, id) || (ascended && uniquePhraseIds.includes(id))
+      ? getCardSecondaryEffect(id, Math.max(7, upgrades[id] ?? 0)) : null;
+  }
+
+  function refundSummonMana(amount) {
+    const refund = Math.min(amount, getMaxMana(player) - player.mana);
+    if (refund <= 0) return;
+    player.mana += refund;
+    summary.manaRefunded = (summary.manaRefunded ?? 0) + refund;
+    summary.manaAfterCast = player.mana;
+    events.push({ type: 'mana-refund', amount: refund });
+  }
+
+  function grantSummonShield(amount, expires) {
+    const layers = shieldLayers(player.shield);
+    if (layers.length >= 12) return;
+    player.shield = makeShield([...layers, { hp: amount, expires, effect: null, triggered: false }]);
+    events.push({ type: 'shield', amount, shieldKind: 'bonus', protection: protection() });
+  }
+
+  function stripSummonTargetWard(enemy, amount) {
+    const removed = Math.min(amount, enemy.ward ?? 0);
+    if (!removed) return false;
+    enemy.ward -= removed;
+    enemy.summonWardBreakUntil = turn + 1;
+    events.push({ type: 'dispel', target: enemy.id, amount: removed });
+    return true;
+  }
+
+  function summonHit(enemy, strength, element, pierce = 0, bypassWard = false) {
+    if (strength <= 0 || enemy.hp <= 0) return { amount: 0 };
+    if (!bypassWard && stripSummonTargetWard(enemy, 1)) {
+      summary.wards++;
+      return { amount: 0, blocked: true };
+    }
+    const before = enemy.hp;
+    damage(enemy, strength, element || 'physical', pierce);
+    const amount = before - enemy.hp;
+    if (getElementComponents(element).length) applyBossElementEffects(enemy, [element]);
+    return { amount };
+  }
+
+  function summonReaction(enemy, unit, castElements, strength) {
+    if (!unit.element || enemy.hp <= 0) return;
+    const element = castElements.find(id => id && id !== unit.element);
+    const fusion = getFusedElementFromComponents(unit.element, element);
+    if (!fusion) return;
+    const wet = enemy.wetUntil >= turn;
+    if (fusion === 'scald' || fusion === 'permafrost') applyEarthArmorShred(enemy, 2);
+    if (fusion === 'hail' || fusion === 'frostvolt') {
+      if (wet || enemy.chill > 0 || fusion === 'hail') {
+        enemy.freeze = Math.max(enemy.freeze ?? 0, 1);
+        delete enemy.wetUntil;
+        events.push({ type: 'status', status: 'freeze', target: enemy.id });
+      }
+    } else applyMoisture(enemy, [fusion]);
+    if (['shockstream', 'frostvolt', 'thunderstorm'].includes(fusion)) {
+      const neighbor = live().find(other => other.id !== enemy.id && Math.abs(other.slot - enemy.slot) === 1);
+      if (neighbor) summonHit(neighbor, Math.ceil(strength / 2), fusion, 2);
+    }
+    summary.sequence.push(`ผสานธาตุ ${WORDS[fusion].label}`);
+  }
+
+  function summonFollowup(unit, castElements, relay = false) {
+    const selected = enemyById(targetId);
+    const enemy = selected?.hp > 0 ? selected : live()[0];
+    if (!enemy) return;
+    const id = unit.creatureId;
+    const effect = summonEffect(id);
+    const element = unit.element || 'strike';
+    const titan = Boolean(effect?.golemTitanSunder);
+    const dragonTrueDamage = Boolean(effect?.dragonTrueDamage);
+    let strength = unit.strike;
+    let pierce = (unit.element === 'asani' ? 4 : unit.element === 'lightning' ? 2 : 0)
+      + (effect?.pierceBonus ?? 0);
+    if (id === 'dog' || id === 'frog') pierce += 2;
+    if (id === 'cat' && (enemy.burn || enemy.chill || enemy.freeze || enemy.obscured || enemy.sealed || enemy.wetUntil >= turn)) {
+      strength = Math.ceil(strength * 1.5);
+    }
+    if (id === 'lion' || (id === 'croc' && enemy.wetUntil >= turn)) strength = Math.ceil(strength * 1.5);
+    if (id === 'boar' || id === 'hornet' || dragonTrueDamage || titan) pierce = enemy.armor;
+    if (id === 'siren' || id === 'kraken') stripSummonTargetWard(enemy, 1);
+    if (titan) strength += unit.isGrand ? 12 : 8;
+    const result = summonHit(enemy, strength, element, pierce, dragonTrueDamage || id === 'bird');
+    events.push({ type: 'summon_strike', source: 'summon', creature: id, element: unit.element, target: enemy.id, relay, ...result });
+    summary.sequence.push(result.blocked
+      ? `${unit.name} ออกหมัดประสาน · ม่านรับไว้`
+      : `${unit.name} ออกหมัดประสาน ${result.amount} ดาเมจ`);
+    if (!result.blocked) {
+      if (titan && enemy.hp > 0) {
+        applyEarthArmorShred(enemy, ENEMIES[enemy.kind].armor + enemy.armor);
+        summonStuns.add(enemy.id);
+        events.push({ type: 'status', status: 'freeze', target: enemy.id });
+      } else if (id === 'bear' || id === 'golem') applyEarthArmorShred(enemy, 2);
+      if (titan || id === 'eagle' || id === 'hydra') {
+        const splash = live().filter(other => other.id !== enemy.id && (titan || Math.abs(other.slot - enemy.slot) === 1));
+        for (const other of splash) summonHit(other, Math.round(strength * 0.35), element, pierce);
+      }
+      if (effect?.dogAlphaDoubleStrike) {
+        summonHit(enemy, Math.ceil(strength * 0.5), element, pierce);
+        if (player.hand.length < getHandLimit(player)) drawCards(state, 1);
+      }
+      summonReaction(enemy, unit, castElements, strength);
+    }
+    if (summonLevel >= 10) refundSummonMana(2);
+  }
+
   if (guard) {
     events.push({ type: 'shield', amount: block, shieldKind: 'guard', protection: protection() });
   } else if (fizzled) {
@@ -1868,73 +1985,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     const prevSummon = state.player.summon;
     let resonanceWard = 0;
     if (prevSummon && prevSummon.turnCreated < turn && prevSummon.hp > 0) {
-      // "พันธสัญญาผลัดเปลี่ยน (Summon Succession Relay Strike)"
-      // หากผู้เล่นร่ายอัญเชิญซ้ำในเทิร์นถัดไป ตัวเก่าจะออกหมัดประสานส่งท้ายก่อนส่งไม้ต่อให้ตัวใหม่!
-      const strikeTarget = (target && target.hp > 0 ? enemyById(target.id) : null) ?? live()[0];
-      if (strikeTarget) {
-        let strikeDmg = prevSummon.strike;
-        const towerBonus = getTowerSpellBonus(state.room);
-        strikeDmg = Math.round(strikeDmg * (1 + towerBonus));
-
-        const targetAffinity = strikeTarget.affinity ?? ENEMIES[strikeTarget.kind]?.affinity;
-        if (prevSummon.element && targetAffinity) {
-          const weak = getWeaknessReaction(prevSummon.element, targetAffinity);
-          if (weak.isWeak) {
-            strikeDmg += Math.ceil(strikeDmg * 0.25);
-          }
-        }
-
-        const creatureLv = upgrades[prevSummon.creatureId] ?? 0;
-        if (prevSummon.creatureId === 'golem' && creatureLv >= 10) {
-          const sunderDmg = prevSummon.isGrand ? 68 : 45;
-          strikeTarget.armor = 0;
-          strikeTarget.sealed = true;
-          damage(strikeTarget, sunderDmg, 'strike', 0);
-          for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
-            damage(ally, 15, 'strike', 0);
-          }
-          summary.sequence.push(`ไททันทลายปฐพี! สตรีคทำลายล้าง ${sunderDmg} ดาเมจแท้ ลบเกราะเหลือ 0 และสตั๊นเป้าหมาย!`);
-        } else if (prevSummon.creatureId === 'dragon' && creatureLv >= 10) {
-          damage(strikeTarget, strikeDmg, prevSummon.element || 'strike', 0);
-          summary.sequence.push(`มหาวินาศเพลิงกัลป์ ${strikeDmg} ดาเมจแท้ข้ามม่านและเกราะ!`);
-        } else {
-          const pierceAmt = prevSummon.element === 'lightning' || prevSummon.element === 'asani' ? 2 : 0;
-          damage(strikeTarget, strikeDmg, prevSummon.element || 'strike', Math.max(0, strikeTarget.armor - pierceAmt));
-          summary.sequence.push(`🔄 พันธสัญญาผลัดเปลี่ยน! ${prevSummon.name} ออกหมัดประสานส่งท้าย ${strikeDmg} ดาเมจใส่ ${strikeTarget.name || strikeTarget.kind}`);
-        }
-
-        events.push({
-          type: 'summon_strike',
-          source: 'summon',
-          creature: prevSummon.creatureId,
-          element: prevSummon.element,
-          target: strikeTarget.id,
-          amount: strikeDmg,
-        });
-
-        // Elemental relay reaction between prior summon and incoming summon
-        if (spell.element && prevSummon.element) {
-          if (spell.element === prevSummon.element) {
-            resonanceWard = 1;
-            summary.sequence.push(`✨ เรโซแนนซ์ธาตุ${ELEMENT_LABELS[spell.element] || spell.element}! มอบม่านป้องกัน +1 ชั้นแก่ผู้สืบทอด`);
-            events.push({ type: 'ward-grant', target: 'player' });
-          } else {
-            const pElem = spell.element;
-            const sElem = prevSummon.element;
-            if ((pElem === 'fire' && sElem === 'ice') || (pElem === 'ice' && sElem === 'fire') || (pElem === 'fire' && sElem === 'water') || (pElem === 'water' && sElem === 'fire')) {
-              applyEarthArmorShred(strikeTarget, 2);
-              summary.sequence.push('ไอเดือด (Scald) ระเหยฉับพลัน! ละลายเกราะเป้าหมาย -2 ถาวร!');
-            } else if ((pElem === 'water' && sElem === 'lightning') || (pElem === 'lightning' && sElem === 'water') || (pElem === 'ice' && sElem === 'lightning') || (pElem === 'lightning' && sElem === 'ice')) {
-              for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
-                damage(ally, Math.ceil(strikeDmg / 2), 'lightning', ally.armor);
-              }
-              summary.sequence.push('กระแสคลื่นตัวนำยวดยิ่ง! ช็อตสายฟ้ากระจายทั่วสนาม!');
-            } else if ((pElem === 'water' && sElem === 'ice') || (pElem === 'ice' && sElem === 'water')) {
-              strikeTarget.sealed = true;
-              summary.sequence.push('เยือกแข็งสมบูรณ์ แช่แข็งเป้าหมาย 1 เทิร์น!');
-            }
-          }
-        }
+      summonFollowup(prevSummon, [spell.element], true);
+      if (spell.element && spell.element === prevSummon.element) {
+        resonanceWard = 1;
+        summary.sequence.push('ธาตุตรงกัน · สิ่งอัญเชิญตัวใหม่ได้ม่าน 1 ชั้น');
       }
 
       events.push({
@@ -1948,10 +2002,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       summary.sequence.push(`${prevSummon.name} ส่งไม้ต่อพันธสัญญาให้ ${WORDS[spell.creature]?.label || spell.creature} แล้วสลายตัว`);
     }
 
-    if (state.player.summon) {
-      delete state.player.summon;
-      delete state.summon;
-    }
+    clearSummon(state);
     const cStats = CREATURE_STATS[spell.creature] || {
       name: WORDS[spell.creature]?.label || spell.creature,
       cost: 1,
@@ -1964,11 +2015,13 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       growthDmg: 1.0,
       glyph: '⛧',
     };
-    const summonLv = upgrades.summon ?? 0;
+    const summonLv = summonLevel;
     const creatureLv = upgrades[spell.creature] ?? 0;
+    const creatureEffect = summonEffect(spell.creature);
     const globalHpBonus = summonLv * 2;
     const creatureHpBonus = Math.round(cStats.growthHp * creatureLv);
-    let baseHp = cStats.baseHp + globalHpBonus + creatureHpBonus;
+    const endurance = 1 + Math.max(0, summonInTower - 5) * 0.025;
+    let baseHp = (cStats.baseHp + globalHpBonus + creatureHpBonus + (creatureEffect?.creatureBonusHp ?? 0)) * endurance;
 
     const elem = spell.element;
     if (elem === 'earth' || elem === 'magma') {
@@ -1976,12 +2029,15 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     } else if (elem === 'pathaphi') {
       baseHp = Math.round(baseHp * 1.35);
     }
-    const maxHp = spell.grand ? Math.round(baseHp * 1.5) : baseHp;
+    const maxHp = Math.round(baseHp * (spell.grand ? 1.5 : 1));
 
-    const globalDmgMult = 1 + (summonLv * 0.02);
-    const creatureDmgBonus = creatureLv * cStats.growthDmg;
-    let baseCounter = Math.round((cStats.baseCounter + creatureDmgBonus) * globalDmgMult);
-    let baseStrike = Math.round((cStats.baseStrike + creatureDmgBonus) * globalDmgMult);
+    const globalDmgMult = 1 + summonLv * 0.02;
+    const endgameFloors = Math.max(0, summonInTower - 50);
+    const creatureDmgBonus = creatureLv * cStats.growthDmg + (creatureEffect?.creatureBonusDmg ?? 0);
+    const counterTraining = 1 + endgameFloors * 0.032;
+    let baseCounter = Math.round((cStats.baseCounter + creatureDmgBonus) * globalDmgMult * counterTraining);
+    const strikeTraining = 1 + Math.max(0, summonInTower - 5) * 0.018 + endgameFloors * (0.03 + cStats.cost / 450);
+    const baseStrike = Math.round((cStats.baseStrike + creatureDmgBonus) * globalDmgMult * strikeTraining);
 
     if (elem === 'fire' || elem === 'magma' || elem === 'scald' || elem === 'plasma') {
       baseCounter = Math.round(baseCounter * 1.25);
@@ -1998,27 +2054,27 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     let ward = (cStats.ward ?? 0) + resonanceWard;
     if (secondaryActive('summon') && summonLv >= 9) ward += 1;
 
-    if (secondaryActive('summon') && summonLv >= 7) {
-      const refund = 1;
-      player.mana = Math.min(getMaxMana(player), player.mana + refund);
-      summary.manaRefunded = (summary.manaRefunded ?? 0) + refund;
-      summary.sequence.push('พันธสัญญาเร่งรัด คืน +1 มานา');
+    if (secondaryActive('summon') && summonLv >= 7) refundSummonMana(1);
+    if (creatureEffect?.creatureDrawOnSummon) {
+      drawCards(state, creatureEffect.creatureDrawOnSummon);
+      summary.sequence.push('จ่าฝูงนักล่า จั่วเพิ่ม 1 ใบ');
     }
-
-    if (spell.creature === 'dog' && (upgrades.dog ?? 0) >= 7) {
+    if (spell.creature === 'turtle') grantSummonShield(6 + creatureLv, turn + 1);
+    if (spell.creature === 'sprite') {
+      refundSummonMana(2);
       drawCards(state, 1);
-      summary.sequence.push('จ่าฝูงนักล่า จั่วการ์ด +1 ใบ');
     }
-    if (spell.creature === 'turtle') {
-      const turtleShield = 6 + (upgrades.turtle ?? 0);
-      block += turtleShield;
-      events.push({ type: 'shield', amount: turtleShield, shieldKind: 'bonus', protection: protection() });
-      summary.sequence.push(`กระดองเต่าศิลา มอบโล่ป้องกัน +${turtleShield} หน่วย`);
+    if (creatureEffect?.dragonRoarDebuff) {
+      for (const enemy of live()) {
+        enemy.chill += creatureEffect.dragonRoarDebuff;
+        enemy.lastingChill = true;
+      }
     }
-    if (elem === 'water') {
-      heal(2, false, 'summon-water');
-    } else if (elem === 'wari') {
-      heal(4, false, 'summon-wari');
+    if (elem === 'water' || elem === 'wari') {
+      heal((elem === 'wari' ? 4 : 2) + Math.floor(endgameFloors * 0.65), false, 'summon-water');
+    } else if (elem === 'earth' || elem === 'pathaphi') {
+      const cover = Math.floor(endgameFloors * (elem === 'pathaphi' ? 1.35 : 0.9));
+      if (cover > 0) grantSummonShield(cover, turn + 1);
     }
 
     const summonUnit = {
@@ -2038,14 +2094,6 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
 
     state.player.summon = summonUnit;
     state.summon = summonUnit;
-    events.push({
-      type: 'summon',
-      creature: spell.creature,
-      element: spell.element,
-      hp: maxHp,
-      maxHp,
-      isGrand: Boolean(spell.grand),
-    });
     events.push({
       type: 'summon_invoke',
       creature: spell.creature,
@@ -2615,79 +2663,11 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     checkEternityPhase2(state, summary, events);
   }
 
-  // Handle Proactive Strike for summons existing from prior turn ("ตีด้วยความตั้งใจของมันเองที่เทิร์นถัดไป = หาย")
-  if (state.player.summon && state.player.summon.turnCreated < turn && state.player.summon.hp > 0) {
-    const sUnit = state.player.summon;
-    const strikeTarget = target && target.hp > 0 ? target : live()[0];
-    if (strikeTarget) {
-      let strikeDmg = sUnit.strike;
-      const towerBonus = getTowerSpellBonus(state.room);
-      strikeDmg = Math.round(strikeDmg * (1 + towerBonus));
-
-      const targetAffinity = strikeTarget.affinity ?? ENEMIES[strikeTarget.kind]?.affinity;
-      if (sUnit.element && targetAffinity) {
-        const weak = getWeaknessReaction(sUnit.element, targetAffinity);
-        if (weak.isWeak) {
-          strikeDmg += Math.ceil(strikeDmg * 0.25);
-        }
-      }
-
-      const creatureLv = upgrades[sUnit.creatureId] ?? 0;
-      if (sUnit.creatureId === 'golem' && creatureLv >= 10) {
-        const sunderDmg = sUnit.isGrand ? 68 : 45;
-        strikeTarget.armor = 0;
-        strikeTarget.sealed = true;
-        damage(strikeTarget, sunderDmg, 'strike', 0);
-        for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
-          damage(ally, 15, 'strike', 0);
-        }
-        summary.sequence.push(`หมัดกัมปนาทล้างพิภพ (Titan Sunder) ${sunderDmg} ดาเมจแท้ ลบเกราะเหลือ 0 และสตั๊นเป้าหมาย!`);
-      } else if (sUnit.creatureId === 'dragon' && creatureLv >= 10) {
-        damage(strikeTarget, strikeDmg, sUnit.element || 'strike', 0);
-        summary.sequence.push(`มหาวินาศเพลิงกัลป์ ${strikeDmg} ดาเมจแท้ข้ามม่านและเกราะ!`);
-      } else {
-        const pierceAmt = sUnit.element === 'lightning' || sUnit.element === 'asani' ? 2 : 0;
-        damage(strikeTarget, strikeDmg, sUnit.element || 'strike', Math.max(0, strikeTarget.armor - pierceAmt));
-        summary.sequence.push(`${sUnit.name} ออกหมัดประสาน ${strikeDmg} ดาเมจใส่ ${strikeTarget.name || strikeTarget.kind}`);
-      }
-      events.push({
-        type: 'summon_strike',
-        creature: sUnit.creatureId,
-        element: sUnit.element,
-        target: strikeTarget.id,
-        amount: strikeDmg,
-      });
-
-      if (spell?.element && sUnit.element && spell.element !== sUnit.element) {
-        const pElem = spell.element;
-        const sElem = sUnit.element;
-        if ((pElem === 'fire' && sElem === 'ice') || (pElem === 'ice' && sElem === 'fire')) {
-          applyEarthArmorShred(strikeTarget, 2);
-          summary.sequence.push('ไอเดือด (Scald) ละลายเกราะเป้าหมาย -2 ถาวร!');
-        } else if ((pElem === 'water' && sElem === 'lightning') || (pElem === 'lightning' && sElem === 'water')) {
-          for (const ally of live().filter(e => e.id !== strikeTarget.id)) {
-            damage(ally, Math.ceil(strikeDmg / 2), 'lightning', ally.armor);
-          }
-          summary.sequence.push('กระแสช็อตน้ำ-สายฟ้า ชิ่งสายฟ้ากระจายทั่วสนาม!');
-        } else if ((pElem === 'water' && sElem === 'ice') || (pElem === 'ice' && sElem === 'water')) {
-          strikeTarget.sealed = true;
-          summary.sequence.push('เยือกแข็งสมบูรณ์ แช่แข็งเป้าหมาย 1 เทิร์น!');
-        }
-      }
-    }
-
-    const sLv = upgrades.summon ?? 0;
-    if (secondaryActive('summon') && sLv >= 10) {
-      const refund = 2;
-      player.mana = Math.min(getMaxMana(player), player.mana + refund);
-      summary.manaRefunded = (summary.manaRefunded ?? 0) + refund;
-      summary.sequence.push('พันธสัญญาเทวาคุ้มเกล้า ฟื้นคืน +2 มานา');
-    }
-
-    events.push({ type: 'summon_depart', creature: sUnit.creatureId });
-    summary.sequence.push(`${sUnit.name} ปฏิบัติหน้าที่เสร็จสิ้น สลายตัวออกจากสนามรบ`);
-    delete state.player.summon;
-    delete state.summon;
+  if (player.summon?.hp > 0 && player.summon.turnCreated < turn) {
+    const unit = player.summon;
+    summonFollowup(unit, spell?.elements ?? [spell?.element]);
+    events.push({ type: 'summon_depart', creature: unit.creatureId });
+    clearSummon(state);
   }
 
   summary.enemyHp = Object.fromEntries(enemies.map(enemy => [enemy.id, enemy.hp]));
@@ -2726,7 +2706,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       }
       if (player.hp > 0) checkEternityPhase2(state, summary, events);
     }
-    const action = intent(enemy, turn, enemies, state.room);
+    const action = summonStuns.has(enemy.id)
+      ? { type: 'summon-stunned', amount: 0, label: 'สตั๊น · ข้ามเทิร์น' }
+      : intent(enemy, turn, enemies, state.room);
     summary.enemyActions[enemy.id] = action;
     if (action.type === 'attack') {
       enemy.chill = enemy.lastingChill ? 4 : 0;
@@ -2735,7 +2717,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const attackerBase = ENEMIES[enemy.kind];
       const isBossAttacker = Boolean(attackerBase?.isBoss || isBossRoom(state));
       const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind);
-      const isUltimateSkill = Boolean(isSpecialBoss && turn % 4 === 0);
+      const isUltimateSkill = Boolean(action.aoe);
       const isHeavyAttack = Boolean(
         action.amount >= 6 ||
         (isBossAttacker && (
@@ -2745,17 +2727,36 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           (['mirror_mage', 'eclipse_mage'].includes(enemy.kind) && turn % 3 !== 1)
         ))
       );
-      const isAoE = Boolean(action.aoe || isUltimateSkill);
+      const isAoE = Boolean(action.aoe);
 
       function triggerSummonCounter(sUnit, targetEnemy) {
         if (!targetEnemy || targetEnemy.hp <= 0) return;
-        let counterDmg = sUnit.counter || 0;
-        if (sUnit.element === 'fire') counterDmg = Math.ceil(counterDmg * 1.25);
-        if (sUnit.element === 'akki') counterDmg = Math.ceil(counterDmg * 1.40);
-        const pierce = (sUnit.element === 'lightning' ? 2 : sUnit.element === 'asani' ? 4 : 0);
-        damage(targetEnemy, counterDmg, sUnit.element || 'physical', pierce);
-        summary.sequence.push(`⚔️ ${sUnit.name} สวนกลับใส่ ${ENEMIES[targetEnemy.kind]?.name || targetEnemy.kind} ทำดาเมจ ${counterDmg} หน่วย!`);
-        events.push({ type: 'summon_counter', source: 'summon', target: targetEnemy.id, amount: counterDmg, element: sUnit.element });
+        const id = sUnit.creatureId;
+        const counterDmg = sUnit.counter || 0;
+        const effect = summonEffect(id);
+        const pierce = (sUnit.element === 'lightning' ? 2 : sUnit.element === 'asani' ? 4 : 0)
+          + (id === 'boar' ? 4 : id === 'skeleton' ? 3 : 0) + (effect?.pierceBonus ?? 0);
+        const result = summonHit(targetEnemy, counterDmg, sUnit.element, pierce, id === 'eagle');
+        events.push({ type: 'summon_counter', source: 'summon', target: targetEnemy.id, element: sUnit.element, ...result });
+        summary.sequence.push(result.blocked ? `${sUnit.name} สวนกลับ · ม่านรับไว้` : `${sUnit.name} สวนกลับ ${result.amount} ดาเมจ`);
+        if (result.blocked || targetEnemy.hp <= 0) return;
+
+        if (id === 'snake' || id === 'hornet') summonHit(targetEnemy, id === 'snake' ? 4 : 6, 'physical', targetEnemy.armor, true);
+        if (id === 'bat') heal(2, false, 'summon-bat');
+        if (id === 'frog' || id === 'siren') targetEnemy.wetUntil = Math.max(targetEnemy.wetUntil ?? 0, turn + 2);
+        if (id === 'spider' || id === 'kraken') targetEnemy.chill += id === 'spider' ? 3 : 6;
+        if (id === 'rat') applyEarthArmorShred(targetEnemy, 1);
+        if (id === 'wolf') newBurn.set(targetEnemy.id, (newBurn.get(targetEnemy.id) ?? 0) + 4);
+        if (id === 'bear') pushEnemy(targetEnemy, 1);
+        if (id === 'behemoth') for (const other of live()) applyEarthArmorShred(other, 2);
+        if (id === 'hydra') {
+          for (const other of live().filter(e => Math.abs(e.slot - targetEnemy.slot) === 1)) {
+            summonHit(other, Math.ceil(counterDmg * 0.5), sUnit.element, pierce);
+          }
+        }
+        if (effect?.phoenixCleanseHeal) {
+          heal(effect.phoenixCleanseHeal, false, 'summon-phoenix');
+        }
 
         const elem = sUnit.element;
         if (elem === 'fire') {
@@ -2805,8 +2806,19 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       function triggerSummonOnBreak(sUnit, attackerEnemy) {
         const elem = sUnit.element;
         events.push({ type: 'summon_break', element: elem, creature: sUnit.creatureId });
-        if (sUnit.creatureId === 'turtle') {
-          player.shield = addShieldLayer(player.shield, { hp: 8, effect: 'turtle_shell', expires: turn + 2 });
+        const id = sUnit.creatureId;
+        const effect = summonEffect(id);
+        if (id === 'wolf' && attackerEnemy?.hp > 0) {
+          attackerEnemy.chill += 4;
+          attackerEnemy.lastingChill = true;
+        }
+        if (id === 'slime' && attackerEnemy?.hp > 0) attackerEnemy.chill += 4;
+        if (id === 'rat' && attackerEnemy?.hp > 0) attackerEnemy.healCutUntil = turn + 2;
+        if (id === 'skeleton' && attackerEnemy?.hp > 0) summonHit(attackerEnemy, 14, 'physical', attackerEnemy.armor, true);
+        if (id === 'sprite') heal(12, false, 'summon-sprite');
+        if (effect?.golemBreakShield) grantSummonShield(effect.golemBreakShield, turn + 2);
+        if (id === 'turtle') {
+          grantSummonShield(8, turn + 2);
           summary.sequence.push('🐢 กระดองเต่าแตกสลาย มอบโล่ป้องกัน +8 ให้ผู้เล่น!');
         }
         if (elem === 'fire') {
@@ -2878,6 +2890,31 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         }
       }
 
+      function hurtSummon(unit, incoming, overflowAllowed) {
+        const taken = Math.min(unit.hp, incoming);
+        const overflow = incoming - taken;
+        unit.hp -= taken;
+        events.push({ type: 'summon_hit', source: enemy.id, target: 'summon', damage: taken, hpRemaining: unit.hp });
+        if (taken > 0 && !unit.countered && enemy.hp > 0) {
+          unit.countered = true;
+          triggerSummonCounter(unit, enemy);
+        }
+        if (unit.hp === 0) {
+          if (!overflowAllowed && overflow > 0) summary.blocked += overflow;
+          const effect = summonEffect(unit.creatureId);
+          if (effect?.phoenixEggRevive && !unit.rebirthUsed) {
+            unit.rebirthUsed = true;
+            unit.hp = Math.ceil(unit.maxHp / 2);
+            events.push({ type: 'summon_rebirth', target: 'summon', hp: unit.hp });
+            summary.sequence.push(`ฟีนิกซ์เกิดจากไข่ · ${unit.hp} HP`);
+          } else {
+            triggerSummonOnBreak(unit, enemy);
+            clearSummon(state);
+          }
+        }
+        return overflowAllowed ? overflow : 0;
+      }
+
       let actual = 0;
       let absorbed = 0;
       let effects = new Set();
@@ -2887,8 +2924,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
 
       if (summon && summon.hp > 0 && !isAoE) {
         let hitSummon = true;
-        if ((summon.element === 'wind' || summon.element === 'vayu') && !summon.hasDodged) {
-          const dodgeChance = summon.element === 'vayu' ? 0.40 : 0.25;
+        if ((summon.element === 'wind' || summon.element === 'vayu' || summon.creatureId === 'bird') && !summon.hasDodged) {
+          const dodgeChance = Math.max(summon.creatureId === 'bird' ? 0.20 : 0,
+            summon.element === 'vayu' ? 0.40 : summon.element === 'wind' ? 0.25 : 0);
           if (random(state) < dodgeChance) {
             hitSummon = false;
             summon.hasDodged = true;
@@ -2908,45 +2946,14 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           let summonDmg = action.amount;
           if (summon.element === 'ice') summonDmg = Math.max(1, summonDmg - 1);
           if (summon.element === 'heman') summonDmg = Math.max(1, summonDmg - 2);
-          const armorReduction = Math.min(summon.armor || 0, Math.max(0, summonDmg - 1));
+          const innateReduction = summon.creatureId === 'croc' ? 2 : summon.creatureId === 'lion' ? 3 : 0;
+          const armorReduction = Math.min(summon.armor + innateReduction, Math.max(0, summonDmg - 1));
           summonDmg -= armorReduction;
-
-          const creatureLv = upgrades[summon.creatureId] ?? 0;
-          if (summon.creatureId === 'dragon' && creatureLv >= 7) {
-            const reflectDmg = Math.floor(action.amount * 0.5);
-            if (reflectDmg > 0 && enemy.hp > 0) {
-              damage(enemy, reflectDmg, 'dragon_reflect');
-              summary.sequence.push(`🐉 มังกรสะท้อนเกล็ดเพลิง ${reflectDmg} ดาเมจใส่ ${attackerBase?.name || enemy.kind}!`);
-            }
-          } else if (summon.creatureId === 'golem' && creatureLv >= 7) {
-            if (enemy.hp > 0) {
-              damage(enemy, 8, 'golem_reflect');
-              summary.sequence.push(`🗿 โกเลมสะท้อนแรงกระแทกศิลา 8 ดาเมจใส่ ${attackerBase?.name || enemy.kind}!`);
-            }
-          }
-
-          if (summonDmg >= summon.hp) {
-            // Overkill Shield-Gate: Excess damage completely absorbed
-            const actualTaken = summon.hp;
-            const overkillBlocked = summonDmg - actualTaken;
-            summon.hp = 0;
-            absorbed = action.amount;
-            summary.blocked += overkillBlocked;
-            events.push({ type: 'summon_break', source: enemy.id, target: 'summon', damage: actualTaken, overkillBlocked });
-            summary.sequence.push(`🛡️💥 ${summon.name} สละชีพรับการโจมตี ${action.amount} หน่วย! (Overkill Shield-Gate สลายดาเมจส่วนเกิน ${overkillBlocked} หน่วย ผู้เล่นปลอดภัย 0 ดาเมจ!)`);
-            triggerSummonOnBreak(summon, enemy);
-            delete state.player.summon;
-            delete state.summon;
-          } else {
-            summon.hp -= summonDmg;
-            absorbed = action.amount;
-            events.push({ type: 'summon_hit', source: enemy.id, target: 'summon', damage: summonDmg, hpRemaining: summon.hp });
-            summary.sequence.push(`🛡️ ${summon.name} ยืนหยัดรับการโจมตี ${summonDmg} หน่วย (เหลือ ${summon.hp}/${summon.maxHp} HP)`);
-            if (!summon.countered && enemy.hp > 0) {
-              summon.countered = true;
-              triggerSummonCounter(summon, enemy);
-            }
-          }
+          const effect = summonEffect(summon.creatureId);
+          const reflect = effect?.golemReflectDmg ?? Math.floor(action.amount * (effect?.dragonReflectPct ?? 0) / 100);
+          summonHit(enemy, reflect, 'physical', enemy.armor, true);
+          hurtSummon(summon, summonDmg, false);
+          absorbed = action.amount;
         } else {
           absorbed = action.amount;
         }
@@ -2968,15 +2975,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           }
         }
       } else if (summon && summon.hp > 0 && isAoE && summon.aoeIntercept) {
-        const absorbedBySummon = Math.min(summon.hp, action.amount);
-        summon.hp -= absorbedBySummon;
-        const overflow = action.amount - absorbedBySummon;
-        summary.sequence.push(`🛡️ ${summon.name} สกัดกั้นรับท่ากวาดล้าง AoE แทนผู้เล่น! (รับไว้ ${absorbedBySummon} HP, ทะลุสู่ผู้เล่น ${overflow} ดาเมจ)`);
-        if (summon.hp <= 0) {
-          triggerSummonOnBreak(summon, enemy);
-          delete state.player.summon;
-          delete state.summon;
-        }
+        const overflow = hurtSummon(summon, action.amount, true);
+        const absorbedBySummon = action.amount - overflow;
+        summary.sequence.push(`${summon.name} สกัด AoE ${absorbedBySummon} ดาเมจ · ส่วนเกิน ${overflow}`);
         if (overflow > 0) {
           const res = applyIncomingToPlayer(overflow, true, enemy);
           actual = res.actual;
@@ -3020,14 +3021,12 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         if (activeS && activeS.creatureId === 'phoenix' && (upgrades.phoenix ?? 0) >= 10) {
           player.hp = player.maxHp;
           player.mana = getMaxMana(player);
-          delete state.player.summon;
-          delete state.summon;
+          clearSummon(state);
           events.push({ type: 'phoenix_revive', target: 'player', hp: player.hp, mana: player.mana });
           summary.sequence.push(`🔥🕊️ นิพพานฟีนิกซ์ขั้นสูงสุด (+10)! ฟีนิกซ์สละชีพชุบชีวิตผู้เล่นคืนสู่พลังเต็มเปี่ยม (HP ${player.hp}/${player.maxHp}, MP ${player.mana})!`);
-        } else if (activeS && activeS.hp > 0 && (hasCardSecondaryUpgrade(state, 'summon', 'sovereign_soul_aegis') || (upgrades.summon ?? 0) >= 10)) {
+        } else if (activeS && activeS.hp > 0 && summonLevel >= 10) {
           player.hp = 1;
-          delete state.player.summon;
-          delete state.summon;
+          clearSummon(state);
           events.push({ type: 'cheat_death', target: 'player', hp: 1 });
           summary.sequence.push(`👑 Sovereign Soul Aegis (+10 อัญเชิญ)! ดวงจิตสิ่งอัญเชิญสละชีพรับความตายแทนผู้เล่น! (ฟื้นคืนสติที่ 1 HP)`);
         }
@@ -3165,8 +3164,8 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       summary.sequence.push(`ช่อง ${enemy.slot + 1} ข้ามท่าสนับสนุน`);
     } else if (action.type === 'recover') {
       events.push({ type: 'recover', source: enemy.id, label: action.shortLabel });
-    } else if (action.type === 'frozen') {
-      enemy.freeze--;
+    } else if (action.type === 'frozen' || action.type === 'summon-stunned') {
+      if (action.type === 'frozen') enemy.freeze--;
       events.push({ type: 'frozen', source: enemy.id });
     } else if (action.type === 'charge') {
       if (enemy.kind === 'ember_overlord') {
@@ -3206,6 +3205,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (newLingeringBurn.has(enemy.id)) enemy.lingeringBurn = true;
   }
   for (const enemy of enemies) {
+    if (enemy.summonWardBreakUntil <= turn) delete enemy.summonWardBreakUntil;
     if (enemy.healCutUntil <= turn) delete enemy.healCutUntil;
     if (enemy.wetUntil <= turn) delete enemy.wetUntil;
     if (enemy.magmaArmorUntil <= turn) delete enemy.magmaArmorUntil;
@@ -3254,6 +3254,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     triggerEternityPhase3(state, summary, events);
   }
   if (player.hp <= 0) {
+    clearSummon(state);
     delete state.blackhole;
     delete state.deathSpent;
     delete state.legendaryTurns;
@@ -3275,6 +3276,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       }
     }
   } else if (!live().length) {
+    clearSummon(state);
     player.elementBuffs = {};
     if (state.rift) {
       resolveRiftBattleVictory(state, summary, events);
@@ -3371,7 +3373,10 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       }
     }
     if (nextMagmaPuddles.size) state.magmaPuddles = [...nextMagmaPuddles];
-    drawCards(state);
+    if (player.summon?.creatureId === 'hydra') {
+      player.summon.hp = Math.min(player.summon.maxHp, player.summon.hp + 6);
+    }
+    drawCards(state, undefined, guard || spell?.form === 'summon');
     player.mana = Math.min(getMaxMana(player), player.mana + getTurnManaRegen(state.room));
     if (timeStopped) {
       const amount = Math.min(getMaxMana(player) - player.mana, upgrades.timestop ?? 0);
