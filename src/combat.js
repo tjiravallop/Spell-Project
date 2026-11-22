@@ -2101,6 +2101,11 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       element: spell.element,
       hp: maxHp,
       maxHp,
+      armor,
+      ward,
+      counter,
+      strike,
+      aoeIntercept: Boolean(cStats.aoeIntercept),
       isGrand: Boolean(spell.grand),
     });
     summary.sequence.push(`อัญเชิญ ${cStats.name}${spell.element ? `ธาตุ${ELEMENT_LABELS[spell.element] || spell.element}` : ''} (${maxHp} HP) ยืนแนวหน้า`);

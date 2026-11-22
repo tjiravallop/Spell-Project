@@ -1,5 +1,5 @@
 import { makeShield, shieldLayers } from './shields.js';
-import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS, CREATURE_WORDS, CREATURE_STATS, lightDamagePenalty, ascensionCost } from './words.js';
+import { WORDS, START_WORDS, ELEMENTS, ATTACK_FORMS, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, CREATURE_WORDS, CREATURE_STATS, lightDamagePenalty, ascensionCost } from './words.js';
 import { RIFT_ENEMIES, RIFT_TOWER, SPACED_FLOORS } from './upper-tower.js';
 import { MIDDLE_BATTLES, MIDDLE_ENEMIES } from './middle-tower.js';
 import {
@@ -2126,9 +2126,11 @@ const activeBattleDeck = state => state.player.words.filter(id => !isBattleWordS
 export function openHand(state) {
   const deck = activeBattleDeck(state);
   const draw = { rng: seedNumber(JSON.stringify([state.seed, state.room, state.turn])) };
-  const form = pick(draw, deck.filter(id => ATTACK_FORMS.includes(id)));
-  const element = pick(draw, deck.filter(id => ELEMENTS.includes(id)));
-  const hand = [form, element];
+  const forms = deck.filter(id => ATTACK_FORMS.includes(id));
+  const elements = deck.filter(id => ELEMENTS.includes(id));
+  const hand = [];
+  if (forms.length) hand.push(pick(draw, forms));
+  if (elements.length) hand.push(pick(draw, elements));
   const openingSize = 5 + (getEquippedRelics(state.player).includes('crown_of_eternity_100') ? 2 : 0);
   if (deck.includes('summon')) {
     const companions = deck.filter(id => CREATURE_WORDS.includes(id));
@@ -2763,6 +2765,7 @@ export function getRewardPoolForRoom(state, roomIndex) {
     if (id === 'pull') return roomIndex >= PULL_REWARD_ROOM;
     if (UPPER_REWARD_WORDS.includes(id)) return roomIndex >= FLOOR25_BOSS_ROOM;
     if (Object.hasOwn(SECOND_TIER_ELEMENTS, id)) return roomIndex >= FLOOR30_BOSS_ROOM;
+    if (Object.hasOwn(FUSED_ELEMENTS, id)) return roomIndex >= FLOOR30_BOSS_ROOM;
     return roomIndex >= getFloorStartRoom(3) || !START_WORDS.includes(id);
   });
 }
@@ -2772,7 +2775,8 @@ export function getRewardPool(state) {
 }
 
 export function rewardRarityRates(floor) {
-  if (floor <= 10) return { epic: 1, legendary: 0.1 };
+  if (floor <= 5) return { epic: 0, legendary: 0 };
+  if (floor <= 10) return { epic: 0.5, legendary: 0.05 };
   if (floor <= 20) return { epic: 2.5, legendary: 0.25 };
   if (floor <= 30) return { epic: 5, legendary: 0.75 };
   if (floor <= 40) return { epic: 10, legendary: 2 };
@@ -2784,13 +2788,38 @@ export function rewardRarityRates(floor) {
   return { epic: 32, legendary: 12 };
 }
 
+const REGULAR_RARITY_WEIGHTS = Object.freeze([
+  ['common', 55],
+  ['rare', 30],
+  ['special', 15],
+]);
+
+function pickWeightedRegular(state, regular) {
+  const buckets = REGULAR_RARITY_WEIGHTS
+    .map(([rarity, weight]) => ({
+      weight,
+      items: regular.filter(id => (WORDS[id].rarity ?? 'common') === rarity),
+    }))
+    .filter(bucket => bucket.items.length > 0);
+  if (!buckets.length) return pick(state, regular);
+  const totalWeight = buckets.reduce((sum, bucket) => sum + bucket.weight, 0);
+  let roll = random(state) * totalWeight;
+  for (const bucket of buckets) {
+    roll -= bucket.weight;
+    if (roll < 0) return pick(state, bucket.items);
+  }
+  return pick(state, buckets[buckets.length - 1].items);
+}
+
 export function drawRewardForFloor(state, pool, floor) {
   const { epic, legendary } = rewardRarityRates(floor);
   const roll = random(state) * 100;
   const regular = pool.filter(id => !['epic', 'legendary'].includes(WORDS[id].rarity));
   const rarity = roll < legendary ? 'legendary' : roll < legendary + epic ? 'epic' : null;
   const high = rarity ? pool.filter(id => WORDS[id].rarity === rarity) : [];
-  return pick(state, high.length ? high : regular.length ? regular : pool);
+  if (high.length) return pick(state, high);
+  if (regular.length) return pickWeightedRegular(state, regular);
+  return pick(state, pool);
 }
 
 function drawReward(state, pool) {
@@ -3003,12 +3032,17 @@ export function resolveRiftDefeat(state, summary, events) {
 
 export function fillRewardChoices(state) {
   const pool = getRewardPool(state);
+  const { floor } = getFloorInfo(state.room, state.rooms.length);
   for (const id of state.rewards) {
     const index = pool.indexOf(id);
     if (index !== -1) pool.splice(index, 1);
   }
   while (state.rewards.length < 3 && pool.length) {
-    const word = drawReward(state, pool);
+    const hasEarlyHighRarity = floor <= 20 && state.rewards.some(id => ['epic', 'legendary'].includes(WORDS[id]?.rarity));
+    const drawPool = hasEarlyHighRarity
+      ? pool.filter(id => !['epic', 'legendary'].includes(WORDS[id]?.rarity))
+      : pool;
+    const word = drawReward(state, drawPool.length ? drawPool : pool);
     state.rewards.push(word);
     pool.splice(pool.indexOf(word), 1);
   }
@@ -3374,14 +3408,21 @@ export function fallBackToUpperSanctuary(state) {
   return fallBackOnDefeat(state);
 }
 
+export function hasValidDeckCore(words) {
+  if (!Array.isArray(words)) return false;
+  const hasAttackCore = words.some(word => ATTACK_FORMS.includes(word)) && words.some(word => ELEMENTS.includes(word));
+  const hasSummonCore = words.includes('summon') && words.some(word => CREATURE_WORDS.includes(word));
+  return hasAttackCore || hasSummonCore;
+}
+
 export function validateDeckWords(original, words) {
   const available = [...START_WORDS, ...original.collection];
   const cap = deckCapacity(original);
   if (!Array.isArray(words) || words.length !== cap || new Set(words).size !== words.length || words.some(word => !available.includes(word))) {
     throw new Error('ชุดคำไม่ถูกต้อง');
   }
-  if (!words.some(word => ATTACK_FORMS.includes(word)) || !words.some(word => ELEMENTS.includes(word))) {
-    throw new Error('พกอย่างน้อยหนึ่งรูปทรงโจมตีและหนึ่งธาตุ');
+  if (!hasValidDeckCore(words)) {
+    throw new Error('พกอย่างน้อยหนึ่งรูปทรงโจมตีคู่ธาตุ หรือ “อัญเชิญ” คู่สัตว์อัญเชิญ');
   }
 }
 

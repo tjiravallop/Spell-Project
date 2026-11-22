@@ -209,7 +209,7 @@ export class Battlefield {
     const victoryHold = Math.round((lastEvent?.type === 'room-clear' ? 900 : 0) / speed);
     const actionEvents = victoryHold ? events.slice(0, -1) : events;
     const rawEnds = actionEvents.map(event => {
-      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'shield-delay', 'fizzle', 'blackhole-open', 'boss-phase', 'timestop', 'ascension', 'ascension-ready', 'summon', 'summon_invoke', 'summon_strike', 'summon_relay', 'summon_counter', 'summon_break', 'summon_rebirth'].includes(event.type)
+      const action = ['projectile', 'attack', 'mirror-reflect', 'ember-thorns', 'storm-static', 'nether-curse', 'cosmic-echo', 'blast', 'shield', 'shield-delay', 'fizzle', 'blackhole-open', 'boss-phase', 'timestop', 'ascension', 'ascension-ready', 'summon', 'summon_invoke', 'summon_hit', 'summon_strike', 'summon_relay', 'summon_counter', 'summon_break', 'summon_rebirth'].includes(event.type)
         || Boolean(event.specialBoss && event.type === 'charge');
       const ultBonus = (event.ultimate && event.type === 'attack') ? 180 : event.type === 'boss-phase' ? 280 : 0;
       const wardHold = event.type === 'projectile' && event.blocked ? 160 : 0;
@@ -248,6 +248,8 @@ export class Battlefield {
     const newPuddles = new Set();
     let oldBlackhole = this.state?.blackhole?.slot;
     let newBlackhole;
+    const initialSummon = this.state?.player?.summon || this.state?.summon;
+    let curSummon = initialSummon && initialSummon.hp > 0 ? { ...initialSummon } : null;
     const deathStartMs = {};
     this.snapshots = [];
     this.contacts = [];
@@ -259,6 +261,7 @@ export class Battlefield {
         wards: { ...curWards },
         puddles: new Set([...oldPuddles, ...newPuddles]),
         blackholes: new Set([oldBlackhole, newBlackhole].filter(slot => slot !== undefined)),
+        summon: curSummon ? { ...curSummon } : null,
       });
       const ev = this.events[i];
       if (!ev) break;
@@ -313,6 +316,32 @@ export class Battlefield {
       else if (ev.type === 'brace') curProtection = ev.protection;
       else if (ev.type === 'attack' || ev.type === 'mirror-reflect' || ev.type === 'ember-thorns' || ev.type === 'storm-static' || ev.type === 'nether-curse' || ev.type === 'cosmic-echo') curProtection = ev.protection;
       else if (ev.type === 'blast' && ev.protection) curProtection = ev.protection;
+      if (ev.type === 'summon_invoke') {
+        curSummon = {
+          creatureId: ev.creature,
+          name: ev.name || ev.creature,
+          element: ev.element,
+          isGrand: Boolean(ev.isGrand),
+          hp: ev.hp,
+          maxHp: ev.maxHp ?? ev.hp,
+          armor: ev.armor ?? 0,
+          ward: ev.ward ?? 0,
+          counter: ev.counter ?? 0,
+          strike: ev.strike ?? 0,
+          aoeIntercept: Boolean(ev.aoeIntercept),
+        };
+      } else if (ev.type === 'summon_hit' && curSummon) {
+        curSummon = {
+          ...curSummon,
+          hp: Math.max(0, ev.hpRemaining ?? (curSummon.hp - (ev.damage ?? 0))),
+        };
+      } else if (ev.type === 'ward_absorb' && ev.target === 'summon' && curSummon) {
+        curSummon = { ...curSummon, ward: Math.max(0, (curSummon.ward ?? 0) - 1) };
+      } else if (ev.type === 'summon_rebirth' && curSummon) {
+        curSummon = { ...curSummon, hp: ev.hp ?? Math.ceil((curSummon.maxHp ?? 1) / 2) };
+      } else if (['summon_break', 'summon_depart', 'phoenix_revive', 'cheat_death'].includes(ev.type)) {
+        curSummon = null;
+      }
     }
     this.deathStartMs = deathStartMs;
   }
@@ -734,7 +763,9 @@ export class Battlefield {
       ? Math.round(Math.sin((progress || 0) * Math.PI) * 16)
       : (event && event.type === 'summon_counter' && !this.settings.reducedMotion)
         ? Math.round(Math.sin((progress || 0) * Math.PI) * 8)
-        : 0;
+        : (event && event.type === 'summon_hit' && !this.settings.reducedMotion && frame % 2)
+          ? -3
+          : 0;
     const sx = x + lunge;
     const r = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(sx + a - 12, baseline + b - 24, w, h); };
     const bob = this.settings.reducedMotion ? 0 : [0, -1, 0, 1][frame % 4];
@@ -1122,7 +1153,7 @@ export class Battlefield {
       this.pixelEllipse(this.puddleX(Number(this.target.at(-1))), 150, 15, 4, elementColor.blackhole, false);
     }
 
-    const isCastingEvent = ['projectile', 'shield', 'shield-delay', 'heal', 'blast', 'fizzle', 'blackhole-open', 'timestop', 'ascension'].includes(event?.type)
+    const isCastingEvent = ['projectile', 'shield', 'shield-delay', 'heal', 'blast', 'fizzle', 'blackhole-open', 'timestop', 'ascension', 'summon', 'summon_invoke'].includes(event?.type)
       || (event?.type === 'damage' && event.element === 'death');
     const playerPose = isCastingEvent ? 'cast' : event?.type === 'attack' && impact && event.amount > 0 ? 'hurt' : this.state?.player.hp === 0 ? 'dead' : 'idle';
     g.fillStyle = C[0]; g.fillRect(38, 146, 27, 3);
@@ -1176,8 +1207,25 @@ export class Battlefield {
       this.barrierLabel(51, 79, shieldHit ? `กัน ${event.absorbed}${shieldBroke ? ` · ${shieldName}แตก` : ''}` : `${shieldName} ${protection.amount}`, shieldHit ? C[9] : C[8]);
     }
 
-    const activeSummon = this.state?.player?.summon || this.state?.summon;
-    if (activeSummon && activeSummon.hp > 0) {
+    let activeSummon = playing && snap ? snap.summon : (this.state?.player?.summon || this.state?.summon);
+    if (event?.type === 'summon_invoke') {
+      activeSummon = {
+        creatureId: event.creature,
+        name: event.name || event.creature,
+        element: event.element,
+        isGrand: Boolean(event.isGrand),
+        hp: event.hp,
+        maxHp: event.maxHp ?? event.hp,
+      };
+    } else if (event?.type === 'summon_hit' && activeSummon) {
+      activeSummon = {
+        ...activeSummon,
+        hp: Math.max(0, event.hpRemaining ?? (activeSummon.hp - (event.damage ?? 0))),
+      };
+    } else if (event?.type === 'summon_rebirth' && activeSummon) {
+      activeSummon = { ...activeSummon, hp: event.hp ?? Math.ceil((activeSummon.maxHp ?? 1) / 2) };
+    }
+    if (activeSummon && (activeSummon.hp > 0 || event?.type === 'summon_hit')) {
       this.drawSummonSprite(activeSummon, 88, 147, frame, event, progress);
     }
 
@@ -1845,6 +1893,26 @@ export class Battlefield {
           }
         }
         this.drawFloatingPopup(88, 110 - Math.round(frac * 16), 'แตกสลาย!', pal.primary, pal.secondary);
+      }
+
+      if (event.type === 'summon_hit') {
+        const frac = this.settings.reducedMotion ? 1 : progress;
+        if (!this.settings.reducedMotion) {
+          this.drawHitBurstVfx(88, 132, C[18], frac, 'fire', now, 0.8);
+        }
+        if (event.damage > 0) {
+          this.drawFloatingPopup(88, 104 - Math.round(frac * 14), `−${event.damage}`, C[9], C[18]);
+        }
+      }
+
+      if (event.type === 'dodge' && event.target === 'summon') {
+        const frac = this.settings.reducedMotion ? 1 : progress;
+        this.drawFloatingPopup(88, 102 - Math.round(frac * 14), '💨 หลบพ้น!', C[9], C[27]);
+      }
+
+      if (event.type === 'ward_absorb' && event.target === 'summon') {
+        const frac = this.settings.reducedMotion ? 1 : progress;
+        this.drawFloatingPopup(88, 102 - Math.round(frac * 14), '🛡️ ม่านรับไว้!', '#f9eeff', '#b275f0');
       }
 
       if (event.type === 'summon_depart') {

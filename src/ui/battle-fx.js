@@ -2,6 +2,7 @@ import { WORDS, elementFamily, ELEMENT_ICONS, ELEMENT_LABELS } from '../words.js
 import { ETERNITY_PHASE_HP, ETERNITY_FIRST_FORM_HP, eternityHealth, ENEMIES, RELIC_DRAFT_CATALOG } from '../run.js';
 import { damageLabel, fizzleLabel, wardLabel } from '../render.js';
 import { $, queueFxClassRestart, upperCheckpoint, checkpointFloor } from './dom.js';
+import { renderSummonCardHtml } from './battle-render.js';
 
 export const CAMERA_SHAKE_CLASSES = [
   'camera-shake-damage',
@@ -153,6 +154,41 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
   let animEternityPhase = 1;
   let animPlayerHp = 0;
   let animPlayerMaxHp = 0;
+  let animSummon = null;
+
+  function syncAnimatedSummonCard(fxClass = null) {
+    const list = $('enemy-list');
+    if (!list || typeof list.querySelector !== 'function') return;
+    const existing = list.querySelector('.summon-card');
+    if (!animSummon || !(animSummon.hp > 0)) {
+      existing?.remove();
+      return;
+    }
+    if (!existing) {
+      if (typeof list.insertAdjacentHTML === 'function') {
+        list.insertAdjacentHTML('afterbegin', renderSummonCardHtml(animSummon));
+      } else {
+        list.innerHTML = renderSummonCardHtml(animSummon) + (list.innerHTML ?? '');
+      }
+      const created = list.querySelector('.summon-card');
+      if (created && fxClass) queueFxClassRestart(created, ['enemy-hit-shake', 'enemy-acting-lunge', 'enemy-targeted-pulse'], fxClass);
+      return;
+    }
+    const maxHp = Math.max(1, animSummon.maxHp ?? animSummon.hp);
+    const pctStr = `${Math.max(0, Math.min(100, (animSummon.hp / maxHp) * 100))}%`;
+    const hpText = existing.querySelector('.enemy-hp-text');
+    const hpTrail = existing.querySelector('.enemy-hp-trail');
+    const hpFill = existing.querySelector('.enemy-hp-fill');
+    if (hpText) hpText.textContent = `${animSummon.hp}/${maxHp}`;
+    if (hpTrail) hpTrail.style.width = pctStr;
+    if (hpFill) hpFill.style.width = pctStr;
+    const wardBadge = existing.querySelector('[data-summon-ward]');
+    if (wardBadge) {
+      if ((animSummon.ward ?? 0) > 0) wardBadge.textContent = `🔮 ม่าน ${animSummon.ward}`;
+      else wardBadge.remove();
+    }
+    if (fxClass) queueFxClassRestart(existing, ['enemy-hit-shake', 'enemy-acting-lunge', 'enemy-targeted-pulse'], fxClass);
+  }
 
   function beginTurnAnimation(state) {
     const numbers = $('combat-numbers');
@@ -162,6 +198,8 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     animEnemyHp = Object.fromEntries(state.enemies.map(e => [e.id, e.hp]));
     animPlayerHp = state.player.hp;
     animPlayerMaxHp = state.player.maxHp;
+    const active = state.player?.summon || state.summon;
+    animSummon = active && active.hp > 0 ? { ...active } : null;
   }
 
   function changeAnimatedPlayerHp(amount, maxGain = 0) {
@@ -771,6 +809,98 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
                 : event.targetFloor === 9
                   ? 'พ่ายแพ้บอสชั้น 10 · ร่วงกลับจุดพักชั้น 9'
                   : 'พ่ายแพ้ในชั้น 5–8 · ร่วงกลับจุดพักชั้น 4 (เริ่ม 5-1 ใหม่)';
+        break;
+      case 'summon':
+      case 'summon_invoke': {
+        animSummon = {
+          creatureId: event.creature,
+          name: event.name || WORDS[event.creature]?.label || event.creature,
+          element: event.element,
+          isGrand: Boolean(event.isGrand),
+          hp: event.hp,
+          maxHp: event.maxHp ?? event.hp,
+          armor: event.armor ?? 0,
+          ward: event.ward ?? 0,
+          counter: event.counter ?? 0,
+          strike: event.strike ?? 0,
+          aoeIntercept: Boolean(event.aoeIntercept),
+        };
+        const existingCard = $('enemy-list')?.querySelector?.('.summon-card');
+        existingCard?.remove();
+        syncAnimatedSummonCard('enemy-targeted-pulse');
+        pulseSpellSlotsElem(event.element ?? 'shield');
+        pulseElementalOverlay(event.element ?? 'shield', 28, 66, { grand: Boolean(event.isGrand) });
+        const elemName = event.element ? `ธาตุ${ELEMENT_LABELS[event.element] || WORDS[event.element]?.label || event.element}` : '';
+        status.textContent = `✨ อัญเชิญ ${animSummon.name}${elemName} (${animSummon.hp} HP) ยืนแนวหน้า`;
+        break;
+      }
+      case 'summon_hit': {
+        if (animSummon) {
+          animSummon.hp = Math.max(0, event.hpRemaining ?? (animSummon.hp - (event.damage ?? 0)));
+          syncAnimatedSummonCard('enemy-hit-shake');
+        }
+        status.textContent = `แนวหน้ารับการโจมตี −${event.damage ?? 0} HP${animSummon && animSummon.hp > 0 ? ` (เหลือ ${animSummon.hp}/${animSummon.maxHp})` : ''}`;
+        break;
+      }
+      case 'summon_counter':
+        status.textContent = event.blocked
+          ? 'สิ่งอัญเชิญสวนกลับ · ม่านศัตรูรับไว้'
+          : `⚡ สิ่งอัญเชิญสวนกลับ −${event.amount ?? 0} ดาเมจ`;
+        break;
+      case 'summon_strike':
+      case 'summon_relay':
+        status.textContent = event.blocked
+          ? 'สิ่งอัญเชิญออกหมัดประสาน · ม่านศัตรูรับไว้'
+          : `${event.relay ? '🔄 ส่งไม้ต่อ' : '⚔️ หมัดประสาน'} −${event.amount ?? 0} ดาเมจ`;
+        break;
+      case 'summon_rebirth': {
+        if (animSummon) {
+          animSummon.hp = event.hp ?? Math.ceil((animSummon.maxHp ?? 1) / 2);
+          syncAnimatedSummonCard('enemy-targeted-pulse');
+        }
+        status.textContent = `🔥 ฟีนิกซ์เกิดใหม่จากไข่ (${event.hp ?? animSummon?.hp ?? 0} HP)`;
+        break;
+      }
+      case 'summon_break':
+        animSummon = null;
+        syncAnimatedSummonCard();
+        status.textContent = '💥 สิ่งอัญเชิญแตกสลาย!';
+        break;
+      case 'summon_depart':
+        animSummon = null;
+        syncAnimatedSummonCard();
+        status.textContent = '✨ สิ่งอัญเชิญสิ้นสุดพันธสัญญาและสลายตัว';
+        break;
+      case 'dodge':
+        if (event.target === 'summon') {
+          syncAnimatedSummonCard('enemy-acting-lunge');
+          status.textContent = '💨 สิ่งอัญเชิญหลบการโจมตีได้!';
+        }
+        break;
+      case 'ward_absorb':
+        if (event.target === 'summon') {
+          if (animSummon) animSummon.ward = Math.max(0, (animSummon.ward ?? 0) - 1);
+          syncAnimatedSummonCard('enemy-targeted-pulse');
+          status.textContent = '🛡️ ม่านคุ้มภัยของสิ่งอัญเชิญรับการโจมตีไว้ได้!';
+        }
+        break;
+      case 'phoenix_revive':
+        animSummon = null;
+        syncAnimatedSummonCard();
+        if (event.hp) {
+          animPlayerHp = event.hp;
+          renderPlayerHp(animPlayerHp, animPlayerMaxHp);
+        }
+        pulsePlayerHud('heal');
+        status.textContent = '🔥 ฟีนิกซ์สละชีพชุบชีวิตผู้เล่นเต็มพลัง!';
+        break;
+      case 'cheat_death':
+        animSummon = null;
+        syncAnimatedSummonCard();
+        animPlayerHp = event.hp ?? 1;
+        renderPlayerHp(animPlayerHp, animPlayerMaxHp);
+        pulsePlayerHud('shield');
+        status.textContent = '👑 สิ่งอัญเชิญสละชีพรับความตายแทนผู้เล่น (เหลือ 1 HP)';
         break;
       case 'room-clear':
         if (event.recovered) changeAnimatedPlayerHp(event.recovered);

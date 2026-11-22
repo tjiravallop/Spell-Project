@@ -30,6 +30,7 @@ import {
   createEnemy,
   chooseReward,
   equipWords,
+  updateSanctuaryLoadout,
   enterSanctuary,
   getSanctuaryCheckpoints,
   isSanctuaryFloorUnlocked,
@@ -470,11 +471,37 @@ function restore() {
   render();
 }
 
+function syncSanctuaryEquipped({ requireComplete = false, notifyInvalid = false } = {}) {
+  if (state?.phase !== 'sanctuary') return true;
+  const cap = deckCapacity(state);
+  const currentWords = state.player?.words ?? [];
+  const sameDeck = equipped.length === currentWords.length
+    && equipped.every(id => currentWords.includes(id));
+  if (sameDeck) return true;
+  if (equipped.length !== cap) {
+    if (requireComplete) {
+      toast(`ชุดคำที่ปรับยังไม่ครบ (${equipped.length}/${cap} คำ) · กรุณาเลือกให้ครบก่อนออกเดินทาง`);
+      return false;
+    }
+    return true;
+  }
+  try {
+    state = updateSanctuaryLoadout(state, equipped);
+    equipped = [...state.player.words];
+    persist();
+    return true;
+  } catch (error) {
+    if (notifyInvalid || requireComplete) toast(error.message);
+    return !requireComplete;
+  }
+}
+
 const sanctuaryCtx = {
   getState: () => state,
   setState: next => { state = next; },
   getEquipped: () => equipped,
   setEquipped: next => { equipped = next; },
+  syncSanctuaryEquipped,
   syncRpgResourceBar,
   getRecentRelicDropId: () => recentRelicDropId,
   syncDiscoveredFromState,
@@ -1452,6 +1479,7 @@ document.addEventListener('click', event => {
   }
   if (busy) return;
   if (button.dataset.enterSanctuary !== undefined) {
+    if (state?.phase === 'sanctuary' && !syncSanctuaryEquipped({ requireComplete: true, notifyInvalid: true })) return;
     try {
       const raw = button.dataset.enterSanctuary;
       const targetFloor = raw.startsWith('pre') || raw.startsWith('post') ? raw : Number(raw);
@@ -1467,9 +1495,11 @@ document.addEventListener('click', event => {
     return;
   }
   if (button.dataset.enterRift !== undefined) {
+    if (state?.phase === 'sanctuary' && !syncSanctuaryEquipped({ requireComplete: true, notifyInvalid: true })) return;
     const tier = Number(button.dataset.enterRift);
     try {
       state = startRiftRun(state, tier);
+      equipped = [...state.player.words];
       recentRelicDropId = null;
       $('battle-tools').close();
       sanctuaryMenu.close();
@@ -1480,11 +1510,13 @@ document.addEventListener('click', event => {
     return;
   }
   if (button.dataset.revisitRoom !== undefined) {
+    if (state?.phase === 'sanctuary' && !syncSanctuaryEquipped({ requireComplete: true, notifyInvalid: true })) return;
     const targetRoom = Number(button.dataset.revisitRoom);
     try {
       const fInfo = getFloorInfo(targetRoom, state.rooms.length);
       const wasCleared = isRoomRevisit(state, targetRoom);
       state = revisitRoom(state, targetRoom);
+      equipped = [...state.player.words];
       recentRelicDropId = null;
       $('battle-tools').close();
       sanctuaryMenu.close();
@@ -1556,9 +1588,19 @@ document.addEventListener('click', event => {
   if (button.dataset.sanctuaryEquip && state.phase === 'sanctuary') {
     const id = button.dataset.sanctuaryEquip;
     const cap = deckCapacity(state);
-    if (equipped.includes(id)) equipped = equipped.filter(word => word !== id);
-    else if (equipped.length < cap) equipped.push(id);
-    else { toast('ถอดการ์ดหนึ่งใบก่อนเลือกใบใหม่'); return; }
+    if (equipped.includes(id)) {
+      equipped = equipped.filter(word => word !== id);
+      audio.play('remove');
+    } else if (equipped.length < cap) {
+      equipped.push(id);
+      audio.play('place');
+    } else {
+      toast('ถอดการ์ดหนึ่งใบก่อนเลือกใบใหม่');
+      return;
+    }
+    if (equipped.length === cap) {
+      syncSanctuaryEquipped({ requireComplete: false, notifyInvalid: true });
+    }
     preserveFocus(renderSanctuary);
     return;
   }

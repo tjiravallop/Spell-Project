@@ -3,6 +3,7 @@ import {
   ENEMIES,
   getHandLimit,
   getMaxMana,
+  hasValidDeckCore,
   MAX_MANA,
   TURN_DRAW,
   SHOP_ITEMS,
@@ -239,7 +240,7 @@ export function validateRun(state) {
     && !(state.phase === 'reward' && state.room >= FLOOR21_START_ROOM)
     || state.phase === 'loadout' && state.room === state.rooms.length - 1
     || state.phase === 'won' && ![8, state.rooms.length - 1].includes(state.room)) invalid();
-  if (!p.words.some(id => ATTACK_FORMS.includes(id)) || !p.words.some(id => ELEMENTS.includes(id))) invalid();
+  if (!hasValidDeckCore(p.words)) invalid();
   if (state.rulesVersion === 2) {
     openHand(state);
     state.rulesVersion = 3;

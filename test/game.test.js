@@ -4,8 +4,8 @@ import { parseSpell, WORDS, RARITIES, START_WORDS, ELEMENTS, SECOND_TIER_ELEMENT
 import {
   createRun, createEnemy, prepareEnemies, chooseReward, equipWords, makeRewards, intent, discardOverflow, isBossRoom, ENEMIES,
   getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPre10Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
-  enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom,
-  getRewardPool, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
+  enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom, updateSanctuaryLoadout,
+  getRewardPool, getRewardPoolForRoom, rewardRarityRates, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
   getCardSecondaryEffect, describeCardUpgradeEffect, getCardUpgradeCost, getCardUpgradeSuccessRate, CARD_RARITY_COST_MULTIPLIER, CARD_RARITY_RATE_PENALTY, SHOP_ITEMS,
   FLOOR5_START_ROOM, FLOOR6_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR14_BOUNDARY_ROOM, FLOOR15_START_ROOM, FLOOR16_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR19_BOUNDARY_ROOM, FLOOR20_BOSS_ROOM,
   FLOOR21_START_ROOM, FLOOR24_BOUNDARY_ROOM, FLOOR25_BOSS_ROOM, FLOOR26_START_ROOM, FLOOR29_BOUNDARY_ROOM, FLOOR30_BOSS_ROOM, FLOOR31_START_ROOM, FLOOR40_BOSS_ROOM, FLOOR50_BOSS_ROOM, TOTAL_TOWER_ROOMS, UPPER_RESTS,
@@ -2506,8 +2506,9 @@ test('Floors 11-18 mirror structure (11-13 -> Sanct 14, 15-18 -> Sanct 19), card
   assert.equal(beat18.state.phase, 'reward');
   const duplicate = beat18.state.rewards[0];
   assert.equal(saveRun(beat18.state, storage).ok, true);
+  const prevUpgrade = pre18.player.cardUpgrades[duplicate] || 0;
   const claimed = chooseReward(loadRun(storage).state, duplicate);
-  assert.equal(claimed.player.cardUpgrades[duplicate], 1);
+  assert.equal(claimed.player.cardUpgrades[duplicate], prevUpgrade + 1);
   assert.deepEqual(claimed.collection, pre18.collection);
   assert.equal(claimed.phase, 'sanctuary');
   assert.equal(claimed.sanctuaryFloor, 'pre20');
@@ -4620,6 +4621,103 @@ test('new cards (spear, empower, bless, fill, blood, mana) respect rarities, gra
   // Forecast/UI helper parity for free mana fill at 0 MP
   assert.ok(canFormPhraseInHand(fm10, ['fill', 'mana']));
   assert.equal(canFormPhraseInHand(fm10, ['fill', 'mana']).cost, 0);
+});
+
+test('Sanctuary deck swap persists into next floor battle and local save', () => {
+  const run = createRun('sanctuary-swap-test');
+  run.room = FLOOR5_START_ROOM;
+  run.highestRoom = FLOOR5_START_ROOM;
+  run.sanctuaryUnlocked = true;
+  run.collection = ['beam', 'wave', 'wind', 'earth'];
+  run.learned = [...run.collection];
+  const entered = enterSanctuary(run);
+  assert.equal(entered.phase, 'sanctuary');
+
+  // With START_WORDS (5) + 4 collected words, deck capacity is 7
+  const swappedDeck = ['beam', 'wind', 'earth', 'shield', 'fire', 'ice', 'pair'];
+
+  const updated = updateSanctuaryLoadout(entered, swappedDeck);
+  assert.deepEqual(updated.player.words, swappedDeck);
+
+  // Proceeding to the next floor must keep the swapped deck in player.words and draw opening hand exclusively from it
+  const nextBattle = revisitRoom(updated, FLOOR5_START_ROOM);
+  assert.equal(nextBattle.phase, 'battle');
+  assert.deepEqual(nextBattle.player.words, swappedDeck);
+  assert.ok(nextBattle.player.hand.length > 0);
+  for (const cardId of nextBattle.player.hand) {
+    assert.ok(swappedDeck.includes(cardId), `Opening hand card ${cardId} must belong to swapped deck`);
+  }
+
+  // Validating/reloading persisted state preserves swapped deck
+  const validated = validateRun(JSON.parse(JSON.stringify(nextBattle)));
+  assert.ok(validated);
+  assert.deepEqual(validated.player.words, swappedDeck);
+});
+
+test('Early floor drop rates gate fused epic elements, avoid Floor 1-5 epics, and cap early boss high-rarity cards', () => {
+  // Floor 1-5 must have 0% epic and 0% legendary
+  for (let f = 1; f <= 5; f++) {
+    assert.deepEqual(rewardRarityRates(f), { epic: 0, legendary: 0 });
+  }
+  // Floor 6-10 tightened to 0.5% epic / 0.05% legendary
+  for (let f = 6; f <= 10; f++) {
+    assert.deepEqual(rewardRarityRates(f), { epic: 0.5, legendary: 0.05 });
+  }
+
+  // Fused elements (7 MP epic) must not appear in reward pools before Floor 30 boss
+  const baseRun = createRun('fused-gate-test');
+  const fusedIds = Object.keys(FUSED_ELEMENTS);
+  assert.equal(fusedIds.length, 15);
+  const poolEarly = getRewardPoolForRoom(baseRun, FLOOR10_BOSS_ROOM - 1);
+  for (const fusedId of fusedIds) {
+    assert.equal(poolEarly.includes(fusedId), false, `Fused element ${fusedId} should not drop before Floor 30`);
+  }
+  const poolFloor29 = getRewardPoolForRoom(baseRun, FLOOR29_BOUNDARY_ROOM);
+  for (const fusedId of fusedIds) {
+    assert.equal(poolFloor29.includes(fusedId), false, `Fused element ${fusedId} should not drop on Floor 29`);
+  }
+  const poolFloor30 = getRewardPoolForRoom(baseRun, FLOOR30_BOSS_ROOM);
+  for (const fusedId of fusedIds) {
+    assert.equal(poolFloor30.includes(fusedId), true, `Fused element ${fusedId} should unlock at Floor 30`);
+  }
+
+  // Across 200 seeds on Floors 1-5, zero epic/legendary drops occur
+  const earlyBossRooms = [];
+  const sample = createRun('early-boss-scan');
+  for (let r = 0; r < FLOOR6_START_ROOM; r++) {
+    if (getFloorInfo(r, sample.rooms.length).isBoss) earlyBossRooms.push(r);
+  }
+  assert.ok(earlyBossRooms.length > 0);
+  for (let s = 0; s < 200; s++) {
+    const run = createRun(`floor1-5-seed-${s}`);
+    for (const r of earlyBossRooms) {
+      run.room = r;
+      makeRewards(run);
+      assert.equal(run.rewards.length, 3);
+      for (const id of run.rewards) {
+        const rarity = WORDS[id]?.rarity;
+        assert.notEqual(rarity, 'epic', `Seed ${s} room ${r} dropped epic ${id} on Floor 1-5`);
+        assert.notEqual(rarity, 'legendary', `Seed ${s} room ${r} dropped legendary ${id} on Floor 1-5`);
+      }
+    }
+  }
+
+  // On Floors 6-20, no single 3-card boss reward screen may offer >= 2 epic/legendary cards
+  const midBossRooms = [];
+  for (let r = FLOOR6_START_ROOM; r <= FLOOR20_BOSS_ROOM; r++) {
+    if (getFloorInfo(r, sample.rooms.length).isBoss) midBossRooms.push(r);
+  }
+  assert.ok(midBossRooms.length > 0);
+  for (let s = 0; s < 300; s++) {
+    const run = createRun(`floor6-20-seed-${s}`);
+    for (const r of midBossRooms) {
+      run.room = r;
+      makeRewards(run);
+      assert.equal(run.rewards.length, 3);
+      const highRarityCount = run.rewards.filter(id => WORDS[id]?.rarity === 'epic' || WORDS[id]?.rarity === 'legendary').length;
+      assert.ok(highRarityCount <= 1, `Seed ${s} room ${r} offered ${highRarityCount} epic/legendary cards in one screen`);
+    }
+  }
 });
 
 

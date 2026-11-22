@@ -391,13 +391,20 @@ export function renderSanctuary(ctx) {
 
   const activeEquipped = ctx.getEquipped();
   const cap = deckCapacity(state);
+  const deckMatchesState = activeEquipped.length === p.words.length
+    && activeEquipped.every(id => p.words.includes(id));
   if ($('sanctuary-deck-count')) {
-    $('sanctuary-deck-count').textContent = `เลือก ${activeEquipped.length} / ${cap} คำ`;
+    $('sanctuary-deck-count').textContent = activeEquipped.length === cap && deckMatchesState
+      ? `เลือก ${activeEquipped.length} / ${cap} คำ · ✓ บันทึกแล้ว`
+      : activeEquipped.length === cap
+        ? `เลือก ${activeEquipped.length} / ${cap} คำ · รอบันทึก`
+        : `เลือก ${activeEquipped.length} / ${cap} คำ · ยังไม่ครบ`;
   }
   renderForge(state);
   const wordsEl = $('sanctuary-words');
   if (wordsEl) {
-    wordsEl.innerHTML = [...START_WORDS, ...state.collection].map(id => {
+    const ownedWordIds = [...new Set([...START_WORDS, ...(state.collection ?? [])])];
+    wordsEl.innerHTML = ownedWordIds.map(id => {
       const checked = activeEquipped.includes(id);
       const word = WORDS[id];
       const meta = cardMeta(id);
@@ -407,6 +414,9 @@ export function renderSanctuary(ctx) {
   }
   if ($('sanctuary-save-deck')) {
     $('sanctuary-save-deck').disabled = activeEquipped.length !== cap;
+    $('sanctuary-save-deck').textContent = activeEquipped.length === cap && deckMatchesState
+      ? '✓ บันทึกชุดคำแล้ว (ปิดหน้าต่าง)'
+      : 'บันทึกชุดคำที่เลือก';
   }
 
   const ownedRelics = p.relics ?? [];
@@ -580,6 +590,10 @@ export function bindSanctuaryEvents(ctx) {
   });
 
   sanctuaryMenu.addEventListener('close', () => {
+    const state = ctx.getState();
+    if (state?.phase === 'sanctuary' && typeof ctx.syncSanctuaryEquipped === 'function') {
+      ctx.syncSanctuaryEquipped({ requireComplete: false, notifyInvalid: false });
+    }
     if (!forgeImpactTimer && !forgeStage.classList.contains('is-striking')) return;
     clearTimeout(forgeImpactTimer);
     forgeImpactTimer = 0;
@@ -640,11 +654,14 @@ export function bindSanctuaryEvents(ctx) {
 
   $('sanctuary-save-deck')?.addEventListener('click', () => {
     try {
-      ctx.setState(updateSanctuaryLoadout(ctx.getState(), ctx.getEquipped()));
+      const next = updateSanctuaryLoadout(ctx.getState(), ctx.getEquipped());
+      ctx.setState(next);
+      ctx.setEquipped([...next.player.words]);
       ctx.persist();
       ctx.audio.play('place');
       ctx.toast('📖 บันทึกชุดคำประจำตัวเรียบร้อยแล้ว');
       renderSanctuary(ctx);
+      if (sanctuaryMenu.open) sanctuaryMenu.close();
     } catch (error) { ctx.toast(error.message); }
   });
 }

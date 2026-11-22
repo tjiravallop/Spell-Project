@@ -539,19 +539,23 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
   }).join('');
 
   if (state.player?.summon && state.player.summon.hp > 0) {
-    const s = state.player.summon;
-    const elemLabel = s.element ? (ELEMENT_LABELS[s.element] || s.element) : 'ไร้ธาตุ';
-    const summonBadges = [
-      `<span class="enemy-badge badge-affinity">ธาตุ ${elemLabel}</span>`,
-      s.armor > 0 ? `<span class="enemy-badge badge-armor">🛡 เกราะ ${s.armor}</span>` : '',
-      s.ward > 0 ? `<span class="enemy-badge badge-ward">🔮 ม่าน ${s.ward}</span>` : '',
-      `<span class="enemy-badge badge-burn">⚔ สวน ${s.counter}</span>`,
-      `<span class="enemy-badge badge-push">⚡ หมัด ${s.strike}</span>`,
-    ].filter(Boolean).join('');
-    const sHpPct = `${Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100))}%`;
-    const summonCardHtml = `<div class="enemy-card summon-card" style="--enemy-x:17%;--enemy-y:56%;border:1px solid #ffd700;box-shadow:0 0 8px rgba(255,215,0,0.3);pointer-events:none;" title="${escape(s.name)} · แนวหน้าคุ้มกัน"><span class="enemy-mobile-heading"><strong>⭐ ${escape(s.name)}</strong><small>แนวหน้า</small></span><span class="enemy-intent intent-attack">🛡️ คุ้มกันผู้เล่น</span><span class="enemy-hp-text">${s.hp}/${s.maxHp}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${sHpPct}"></i><i class="enemy-hp-fill" style="width:${sHpPct};background:#4ade80;"></i></span><span class="enemy-info">${summonBadges}</span></div>`;
-    $('enemy-list').innerHTML = summonCardHtml + $('enemy-list').innerHTML;
+    $('enemy-list').innerHTML = renderSummonCardHtml(state.player.summon) + $('enemy-list').innerHTML;
   }
+}
+
+export function renderSummonCardHtml(s) {
+  if (!s || !(s.hp > 0)) return '';
+  const elemLabel = s.element ? (ELEMENT_LABELS[s.element] || WORDS[s.element]?.label || s.element) : 'ไร้ธาตุ';
+  const summonBadges = [
+    `<span class="enemy-badge badge-affinity">ธาตุ ${escape(elemLabel)}</span>`,
+    s.armor > 0 ? `<span class="enemy-badge badge-armor">🛡 เกราะ ${s.armor}</span>` : '',
+    s.ward > 0 ? `<span class="enemy-badge badge-ward" data-summon-ward>🔮 ม่าน ${s.ward}</span>` : '',
+    `<span class="enemy-badge badge-burn">⚔ สวน ${s.counter ?? 0}</span>`,
+    `<span class="enemy-badge badge-push">⚡ หมัด ${s.strike ?? 0}</span>`,
+  ].filter(Boolean).join('');
+  const maxHp = Math.max(1, s.maxHp ?? s.hp);
+  const sHpPct = `${Math.max(0, Math.min(100, (s.hp / maxHp) * 100))}%`;
+  return `<div class="enemy-card summon-card" data-summon-card="true" style="--enemy-x:17%;--enemy-y:56%;border:1px solid #ffd700;box-shadow:0 0 8px rgba(255,215,0,0.3);pointer-events:none;" title="${escape(s.name)} · แนวหน้าคุ้มกัน"><span class="enemy-mobile-heading"><strong>⭐ ${escape(s.name)}</strong><small>แนวหน้า</small></span><span class="enemy-intent intent-attack">🛡️ คุ้มกันผู้เล่น</span><span class="enemy-hp-text">${s.hp}/${maxHp}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${sHpPct}"></i><i class="enemy-hp-fill" style="width:${sHpPct};background:#4ade80;"></i></span><span class="enemy-info">${summonBadges}</span></div>`;
 }
 
 let lastRenderedSlotState = { room: null, words: [] };

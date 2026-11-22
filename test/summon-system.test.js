@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WORDS, CREATURE_WORDS, CREATURE_STATS, parseSpell } from '../src/words.js';
-import { createRun, createEnemy, enterRoom, makeRewards, chooseReward, equipWords, getRewardPoolForRoom, getCardSecondaryEffect, hasCardSecondaryUpgrade, battleSpellCost } from '../src/run.js';
+import { createRun, createEnemy, enterRoom, enterSanctuary, updateSanctuaryLoadout, revisitRoom, FLOOR5_START_ROOM, makeRewards, chooseReward, equipWords, getRewardPoolForRoom, getCardSecondaryEffect, hasCardSecondaryUpgrade, battleSpellCost } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
 import { validateRun, saveRun, loadRun, SAVE_KEY } from '../src/save.js';
+import { Battlefield } from '../src/render.js';
 
 test('Summon System: Grammar, Syntax, and Parsing', () => {
   // 1. Verify summon card and all 27 creatures exist in WORDS
@@ -425,5 +426,151 @@ test('Wari counter and break wet duration survives save validation', () => {
   const loaded = loadRun(storage);
   assert.equal(loaded.ok, true);
   assert.equal(loaded.state.enemies[0].wetUntil, res.state.turn + 2);
+});
+
+test('Summon appears immediately on summon_invoke in Battlefield snapshots and draw before enemy attacks', () => {
+  const state = createRun('summon-immediate-render', false, ['summon', 'dog']);
+  state.player.words = ['shot', 'fire', 'ice', 'summon', 'dog'];
+  state.player.hand = ['summon', 'dog', 'fire'];
+  state.enemies = [{ ...createEnemy('striker'), hp: 40, maxHp: 40 }];
+  assert.equal(state.player.summon, undefined);
+
+  const res = simulateTurn(state, ['summon', 'dog', 'fire'], state.enemies[0].id);
+  assert.ok(res.ok);
+  const invokeIdx = res.events.findIndex(e => e.type === 'summon_invoke');
+  const hitIdx = res.events.findIndex(e => e.type === 'summon_hit');
+  const attackIdx = res.events.findIndex(e => e.type === 'attack');
+  assert.ok(invokeIdx >= 0, 'summon_invoke event must be emitted');
+  assert.ok(hitIdx > invokeIdx, 'summon_hit must follow summon_invoke');
+  assert.ok(attackIdx > hitIdx, 'attack must follow summon_hit');
+  assert.equal(typeof res.events[invokeIdx].counter, 'number');
+  assert.equal(typeof res.events[invokeIdx].strike, 'number');
+
+  // Minimal stub canvas/context for Battlefield headless test
+  const noop = () => {};
+  const ctx = {
+    imageSmoothingEnabled: false,
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    globalAlpha: 1,
+    font: '',
+    textAlign: '',
+    fillRect: noop,
+    clearRect: noop,
+    drawImage: noop,
+    save: noop,
+    restore: noop,
+    translate: noop,
+    beginPath: noop,
+    moveTo: noop,
+    lineTo: noop,
+    stroke: noop,
+    fill: noop,
+    arc: noop,
+    ellipse: noop,
+    fillText: noop,
+    strokeText: noop,
+    measureText: () => ({ width: 20 }),
+  };
+  const stubCanvas = { width: 320, height: 180, id: 'test-canvas', getContext: () => ctx };
+  const prevCreateElement = globalThis.document?.createElement;
+  const prevDoc = globalThis.document;
+  const prevImage = globalThis.Image;
+  const prevRaf = globalThis.requestAnimationFrame;
+  const prevCaf = globalThis.cancelAnimationFrame;
+  globalThis.Image = class {
+    constructor() { this.complete = false; this.naturalWidth = 0; }
+    set src(v) { this._src = v; }
+    get src() { return this._src; }
+  };
+  globalThis.requestAnimationFrame = () => 0;
+  globalThis.cancelAnimationFrame = () => {};
+  globalThis.document = {
+    createElement: () => ({ width: 320, height: 180, getContext: () => ctx }),
+  };
+  try {
+    const bf = new Battlefield(stubCanvas, { reducedMotion: true, combatSpeed: 1 });
+    bf.set(state, state.enemies[0].id); // pre-turn state: player.summon is undefined!
+    bf.animate(res.events, noop, noop);
+
+    // Immediately after summon_invoke (and BEFORE summon_hit / attack), snapshot has active summon!
+    assert.equal(bf.snapshots[invokeIdx].summon, null);
+    assert.ok(bf.snapshots[invokeIdx + 1].summon, 'Snapshot immediately after summon_invoke must contain summon');
+    assert.equal(bf.snapshots[invokeIdx + 1].summon.creatureId, 'dog');
+    assert.equal(bf.snapshots[invokeIdx + 1].summon.hp, res.events[invokeIdx].hp);
+
+    // After summon_hit, snapshot reflects reduced summon HP
+    assert.equal(bf.snapshots[hitIdx + 1].summon.hp, res.events[hitIdx].hpRemaining);
+
+    // During summon_invoke event frame itself, draw() must invoke drawSummonSprite immediately!
+    const drawnDuringInvoke = [];
+    const origDrawSummon = bf.drawSummonSprite.bind(bf);
+    bf.drawSummonSprite = (summon, ...args) => {
+      drawnDuringInvoke.push(summon);
+      return origDrawSummon(summon, ...args);
+    };
+    const invokeMidTime = bf.started + (bf.eventStart(invokeIdx) + bf.eventEnds[invokeIdx]) / 2;
+    bf.draw(invokeMidTime);
+    assert.equal(drawnDuringInvoke.length, 1, 'Summon sprite must draw immediately during summon_invoke event');
+    assert.equal(drawnDuringInvoke[0].creatureId, 'dog');
+  } finally {
+    if (prevRaf === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = prevRaf;
+    if (prevCaf === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = prevCaf;
+    if (prevImage === undefined) delete globalThis.Image;
+    else globalThis.Image = prevImage;
+    if (prevDoc === undefined) delete globalThis.document;
+    else {
+      globalThis.document = prevDoc;
+      if (prevCreateElement) globalThis.document.createElement = prevCreateElement;
+    }
+  }
+});
+
+test('Pure summon deck without attack forms is valid in Sanctuary, loadout, opening hand, combat, and local save', () => {
+  const storage = { data: new Map(), getItem(k) { return this.data.get(k) ?? null; }, setItem(k, v) { this.data.set(k, String(v)); }, removeItem(k) { this.data.delete(k); } };
+  const run = createRun('pure-summon-deck');
+  run.room = FLOOR5_START_ROOM;
+  run.highestRoom = FLOOR5_START_ROOM;
+  run.sanctuaryUnlocked = true;
+  run.collection = ['summon', 'dog', 'turtle', 'wolf', 'heal', 'self'];
+  run.learned = [...run.collection];
+  const sanct = enterSanctuary(run);
+
+  // 1. Pure summon deck WITH elements, ZERO attack forms (no shot/beam/wave/etc.)
+  const pureWithElements = ['summon', 'dog', 'turtle', 'fire', 'ice', 'shield', 'pair'];
+  const updatedWithElem = updateSanctuaryLoadout(sanct, pureWithElements);
+  assert.deepEqual(updatedWithElem.player.words, pureWithElements);
+  const battleWithElem = revisitRoom(updatedWithElem, FLOOR5_START_ROOM);
+  assert.equal(battleWithElem.phase, 'battle');
+  assert.equal(battleWithElem.player.hand.every(id => typeof id === 'string' && pureWithElements.includes(id)), true);
+  assert.ok(battleWithElem.player.hand.includes('summon'));
+  assert.ok(battleWithElem.player.hand.some(id => id === 'dog' || id === 'turtle'));
+  assert.equal(saveRun(battleWithElem, storage).ok, true);
+  assert.equal(loadRun(storage).ok, true);
+
+  // 2. Pure colorless summon deck: ZERO attack forms AND ZERO elements!
+  const pureColorless = ['summon', 'dog', 'turtle', 'wolf', 'shield', 'heal', 'self'];
+  const updatedColorless = updateSanctuaryLoadout(sanct, pureColorless);
+  assert.deepEqual(updatedColorless.player.words, pureColorless);
+  const battleColorless = revisitRoom(updatedColorless, FLOOR5_START_ROOM);
+  assert.equal(battleColorless.phase, 'battle');
+  assert.equal(battleColorless.player.hand.length, 5);
+  assert.equal(battleColorless.player.hand.every(id => typeof id === 'string' && pureColorless.includes(id)), true);
+  assert.ok(battleColorless.player.hand.includes('summon'));
+  const creatureInHand = battleColorless.player.hand.find(id => CREATURE_WORDS.includes(id));
+  assert.ok(creatureInHand, 'Opening hand for pure summon deck must include a creature');
+  const turn = simulateTurn(battleColorless, ['summon', creatureInHand], battleColorless.enemies[0].id);
+  assert.equal(turn.ok, true);
+  assert.equal(saveRun(turn.state, storage).ok, true);
+  assert.equal(loadRun(storage).ok, true);
+
+  // 3. Summon WITHOUT any creature and WITHOUT any attack form must still be rejected to prevent soft-lock
+  assert.throws(
+    () => updateSanctuaryLoadout(sanct, ['summon', 'fire', 'ice', 'shield', 'pair', 'heal', 'self']),
+    /อัญเชิญ/,
+  );
 });
 
