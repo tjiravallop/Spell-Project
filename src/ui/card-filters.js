@@ -5,15 +5,19 @@ import { cardMeta, escape } from './dom.js';
 const filters = {
   forge: { search: '', role: '', rarity: '', status: '' },
   inventory: { search: '', role: '', rarity: '', status: '' },
+  deck: { search: '', role: '', rarity: '', status: '' },
 };
 
 export function cardFilterControls(surface) {
   const current = filters[surface];
   const options = (entries, selected) => entries.map(([value, label]) => `<option value="${value}"${value === selected ? ' selected' : ''}>${label}</option>`).join('');
-  const search = `<label>ค้นหาการ์ด<input type="search" data-card-filter="search" value="${escape(current.search)}" placeholder="ชื่อการ์ด เช่น ไฟ" autocomplete="off"></label>`;
-  const advanced = `<label>ประเภท<select data-card-filter="role">${options([['', 'ทุกประเภท'], ['role-form', 'รูปแบบโจมตี'], ['role-element', 'ธาตุ'], ['role-defense', 'ป้องกัน'], ['role-support', 'ฟื้นฟู / เป้าหมาย'], ['role-mod', 'คำเสริม']], current.role)}</select></label>
+  const search = `<label>ค้นหาการ์ด<input type="search" data-card-filter="search" value="${escape(current.search)}" placeholder="ชื่อการ์ด เช่น ไฟ หรือ หมา" autocomplete="off"></label>`;
+  const statusOptions = surface === 'deck'
+    ? [['', 'ทุกสถานะ'], ['deck', '✓ พกในสำรับ'], ['unequipped', 'ยังไม่พก'], ['upgraded', 'ตีบวกแล้ว'], ['unupgraded', 'ยังไม่ตีบวก'], ['max', 'ตีบวกเต็ม +10']]
+    : [['', 'ทุกสถานะ'], ['deck', 'พกในสำรับ'], ['upgraded', 'ตีบวกแล้ว'], ['unupgraded', 'ยังไม่ตีบวก'], ['max', 'ตีบวกเต็ม +10']];
+  const advanced = `<label>ประเภท<select data-card-filter="role">${options([['', 'ทุกประเภท'], ['role-form', 'รูปแบบโจมตี'], ['role-element', 'ธาตุ'], ['role-summon', 'อัญเชิญ / สัตว์'], ['role-defense', 'ป้องกัน'], ['role-support', 'ฟื้นฟู / บัพ'], ['role-mod', 'คำเสริม']], current.role)}</select></label>
     <label>ความหายาก<select data-card-filter="rarity">${options([['', 'ทุกระดับ'], ...Object.entries(RARITIES)], current.rarity)}</select></label>
-    <label>สถานะ<select data-card-filter="status">${options([['', 'ทุกสถานะ'], ['deck', 'พกในสำรับ'], ['upgraded', 'ตีบวกแล้ว'], ['unupgraded', 'ยังไม่ตีบวก'], ['max', 'ตีบวกเต็ม +10']], current.status)}</select></label>
+    <label>สถานะ<select data-card-filter="status">${options(statusOptions, current.status)}</select></label>
     <button type="button" class="secondary-button card-filter-reset" data-card-filter-reset>ล้างตัวกรอง</button>`;
   const controls = surface === 'forge'
     ? `${search}<details class="forge-filters"><summary>ตัวกรอง</summary><div>${advanced}</div></details>`
@@ -24,7 +28,8 @@ export function cardFilterControls(surface) {
 }
 
 export function applyCardFilters(panel, state) {
-  const filter = filters[panel?.dataset.cardFilterPanel];
+  const surface = panel?.dataset.cardFilterPanel;
+  const filter = filters[surface];
   if (!filter || !state?.player) return;
   const query = filter.search.trim().toLocaleLowerCase();
   const cards = panel.querySelectorAll('[data-filter-card]');
@@ -34,8 +39,12 @@ export function applyCardFilters(panel, state) {
     const word = WORDS[id];
     if (!word) continue;
     const level = getCardUpgradeLevel(state, id);
+    const isEquipped = surface === 'deck' && typeof card.getAttribute === 'function' && card.getAttribute('aria-pressed') !== null
+      ? card.getAttribute('aria-pressed') === 'true'
+      : state.player.words.includes(id);
     const matchesStatus = !filter.status
-      || (filter.status === 'deck' && state.player.words.includes(id))
+      || (filter.status === 'deck' && isEquipped)
+      || (filter.status === 'unequipped' && !isEquipped)
       || (filter.status === 'upgraded' && level > 0)
       || (filter.status === 'unupgraded' && level === 0)
       || (filter.status === 'max' && level >= MAX_CARD_UPGRADE);

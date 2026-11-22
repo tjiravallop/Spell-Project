@@ -3816,6 +3816,74 @@ export function updateSanctuaryLoadout(original, words) {
   validateDeckWords(original, words);
   const state = structuredClone(original);
   state.player.words = [...words];
+  state.player.hand = (state.player.hand ?? []).filter(id => state.player.words.includes(id));
+  return state;
+}
+
+export const MAX_DECK_PRESETS = 3;
+
+export function getSanctuaryDeckPresets(state) {
+  const raw = Array.isArray(state?.player?.deckPresets) ? state.player.deckPresets : [];
+  return Array.from({ length: MAX_DECK_PRESETS }, (_, idx) => {
+    const entry = raw[idx];
+    if (!entry || typeof entry !== 'object' || !Array.isArray(entry.words)) return null;
+    return {
+      name: typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : `ชุดคำ ${idx + 1}`,
+      words: [...entry.words],
+    };
+  });
+}
+
+function defaultDeckPresetName(words, slotIndex) {
+  const hasAttack = words.some(id => ATTACK_FORMS.includes(id));
+  const hasSummon = words.includes('summon') && words.some(id => CREATURE_WORDS.includes(id));
+  if (hasSummon && !hasAttack) return `สายอัญเชิญ #${slotIndex + 1}`;
+  if (hasSummon && hasAttack) return `สายผสมอัญเชิญ #${slotIndex + 1}`;
+  return `ชุดคำ #${slotIndex + 1}`;
+}
+
+export function saveSanctuaryDeckPreset(original, slotIndex, words = original?.player?.words, name = '') {
+  if (original?.phase !== 'sanctuary') throw new Error('บันทึกชุดคำด่วนได้เฉพาะในชั้นพัก');
+  if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= MAX_DECK_PRESETS) {
+    throw new Error('ช่องชุดคำด่วนไม่ถูกต้อง');
+  }
+  validateDeckWords(original, words);
+  const state = structuredClone(original);
+  state.player.words = [...words];
+  state.player.hand = (state.player.hand ?? []).filter(id => state.player.words.includes(id));
+  const presets = getSanctuaryDeckPresets(state);
+  const cleanName = typeof name === 'string' && name.trim()
+    ? name.trim().slice(0, 40)
+    : defaultDeckPresetName(words, slotIndex);
+  presets[slotIndex] = { name: cleanName, words: [...words] };
+  state.player.deckPresets = presets;
+  return state;
+}
+
+export function applySanctuaryDeckPreset(original, slotIndex) {
+  if (original?.phase !== 'sanctuary') throw new Error('สลับชุดคำด่วนได้เฉพาะในชั้นพัก');
+  if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= MAX_DECK_PRESETS) {
+    throw new Error('ช่องชุดคำด่วนไม่ถูกต้อง');
+  }
+  const presets = getSanctuaryDeckPresets(original);
+  const preset = presets[slotIndex];
+  if (!preset) throw new Error('ช่องนี้ยังไม่ได้บันทึกชุดคำไว้');
+  validateDeckWords(original, preset.words);
+  const state = structuredClone(original);
+  state.player.words = [...preset.words];
+  state.player.hand = (state.player.hand ?? []).filter(id => state.player.words.includes(id));
+  return state;
+}
+
+export function deleteSanctuaryDeckPreset(original, slotIndex) {
+  if (original?.phase !== 'sanctuary') throw new Error('ลบชุดคำด่วนได้เฉพาะในชั้นพัก');
+  if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= MAX_DECK_PRESETS) {
+    throw new Error('ช่องชุดคำด่วนไม่ถูกต้อง');
+  }
+  const state = structuredClone(original);
+  const presets = getSanctuaryDeckPresets(state);
+  presets[slotIndex] = null;
+  state.player.deckPresets = presets;
   return state;
 }
 

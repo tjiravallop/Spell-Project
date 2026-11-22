@@ -8,6 +8,7 @@ import {
   TURN_DRAW,
   SHOP_ITEMS,
   MAX_BELT_ITEMS,
+  MAX_DECK_PRESETS,
   MAX_RELIC_SLOTS,
   MAX_CARD_UPGRADE,
   FLOOR21_START_ROOM,
@@ -241,6 +242,14 @@ export function validateRun(state) {
     || state.phase === 'loadout' && state.room === state.rooms.length - 1
     || state.phase === 'won' && ![8, state.rooms.length - 1].includes(state.room)) invalid();
   if (!hasValidDeckCore(p.words)) invalid();
+  if (p.deckPresets !== undefined) {
+    if (!Array.isArray(p.deckPresets) || p.deckPresets.length > MAX_DECK_PRESETS) invalid();
+    for (const preset of p.deckPresets) {
+      if (preset === null) continue;
+      if (!object(preset) || typeof preset.name !== 'string' || preset.name.length > 40) invalid();
+      if (!words(preset.words, 5, 7) || preset.words.some(id => !START_WORDS.includes(id) && !state.collection.includes(id)) || !hasValidDeckCore(preset.words)) invalid();
+    }
+  }
   if (state.rulesVersion === 2) {
     openHand(state);
     state.rulesVersion = 3;

@@ -1,4 +1,4 @@
-import { WORDS, RARITIES, elementFamily } from '../words.js';
+import { WORDS, RARITIES, CREATURE_WORDS, elementFamily } from '../words.js';
 import {
   UPPER_RESTS,
   getCardUpgradeLevel,
@@ -77,6 +77,7 @@ export const CARD_META = Object.freeze({
 });
 
 export function cardMeta(id) {
+  if (id === 'summon' || CREATURE_WORDS.includes(id)) return { roleClass: 'role-summon' };
   return CARD_META[elementFamily(id)] ?? { roleClass: 'role-mod' };
 }
 

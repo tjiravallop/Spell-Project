@@ -262,11 +262,13 @@
         </section>
 
         <div id="sanctuary-deck-panel" hidden>
-          <section class="sanctuary-panel">
+          <section id="sanctuary-deck-section" class="sanctuary-panel" data-card-filter-panel="deck">
             <div class="sanctuary-panel-head">
               <h2>📖 แท่นปรับชุดคำประจำตัว</h2>
               <span id="sanctuary-deck-count" class="sanctuary-rule-pill">7 / 7 คำ</span>
             </div>
+            <div id="sanctuary-deck-presets" class="sanctuary-deck-presets" aria-label="ชุดคำด่วน (Preset)"></div>
+            <div id="sanctuary-deck-filters"></div>
             <div id="sanctuary-words" class="loadout-words"></div>
             <button id="sanctuary-save-deck" class="secondary-button" type="button">บันทึกชุดคำที่เลือก</button>
           </section>

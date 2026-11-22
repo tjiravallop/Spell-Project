@@ -590,6 +590,58 @@ test('card filter controls filter forge and inventory cards by search, role, rar
   }
 });
 
+test('Sanctuary deck filter surface supports role-summon and live equipped/unequipped filtering', () => {
+  const html = cardFilterControls('deck');
+  assert.match(html, /value="role-summon"/);
+  assert.match(html, /value="unequipped"/);
+
+  const state = createRun('deck-filter-test', false);
+  const cards = [
+    { dataset: { filterCard: 'shot' }, hidden: false, getAttribute: a => (a === 'aria-pressed' ? 'true' : null) },
+    { dataset: { filterCard: 'summon' }, hidden: false, getAttribute: a => (a === 'aria-pressed' ? 'false' : null) },
+    { dataset: { filterCard: 'dog' }, hidden: false, getAttribute: a => (a === 'aria-pressed' ? 'false' : null) },
+    { dataset: { filterCard: 'fire' }, hidden: false, getAttribute: a => (a === 'aria-pressed' ? 'true' : null) },
+  ];
+  const count = { textContent: '' };
+  const empty = { hidden: true };
+  const controls = [
+    { dataset: { cardFilter: 'search' }, value: '' },
+    { dataset: { cardFilter: 'role' }, value: '' },
+    { dataset: { cardFilter: 'rarity' }, value: '' },
+    { dataset: { cardFilter: 'status' }, value: '' },
+  ];
+  const panel = {
+    dataset: { cardFilterPanel: 'deck' },
+    querySelectorAll: selector => selector === '[data-filter-card]' ? cards : selector === '[data-card-filter]' ? controls : [],
+    querySelector: selector => selector === '[data-card-filter-count]' ? count : selector === '[data-card-filter-empty]' ? empty : null,
+  };
+  const listeners = new Map();
+  const oldDoc = globalThis.document;
+  globalThis.document = { addEventListener: (type, fn) => listeners.set(type, fn) };
+  try {
+    bindCardFilters(() => state);
+    const dispatch = (control, value) => {
+      control.value = value;
+      listeners.get('change')({ target: { closest: sel => sel === '[data-card-filter]' ? { ...control, closest: s => s === '[data-card-filter-panel]' ? panel : null } : null } });
+    };
+    dispatch(controls[1], 'role-summon');
+    assert.deepEqual(cards.filter(c => !c.hidden).map(c => c.dataset.filterCard), ['summon', 'dog']);
+    assert.equal(count.textContent, 'แสดง 2 จาก 4 ใบ');
+
+    dispatch(controls[1], '');
+    dispatch(controls[3], 'unequipped');
+    assert.deepEqual(cards.filter(c => !c.hidden).map(c => c.dataset.filterCard), ['summon', 'dog']);
+
+    dispatch(controls[3], 'deck');
+    assert.deepEqual(cards.filter(c => !c.hidden).map(c => c.dataset.filterCard), ['shot', 'fire']);
+
+    listeners.get('click')({ target: { closest: sel => sel === '[data-card-filter-reset]' ? { closest: s => s === '[data-card-filter-panel]' ? panel : null } : null } });
+    assert.equal(count.textContent, 'แสดง 4 จาก 4 ใบ');
+  } finally {
+    globalThis.document = oldDoc;
+  }
+});
+
 test('renderWordBank renders button-based discard cards and alert banner during overflow', () => {
   const elements = {
     'hand-count': { textContent: '' },

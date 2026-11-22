@@ -5,6 +5,7 @@ import {
   createRun, createEnemy, prepareEnemies, chooseReward, equipWords, makeRewards, intent, discardOverflow, isBossRoom, ENEMIES,
   getFloorInfo, nextExpForLevel, levelUpRewards, isSanctuaryUnlocked, isSanctuary9Unlocked, isSanctuaryPre10Unlocked, isSanctuaryPost10Unlocked, isSanctuary14Unlocked, isSanctuary19Unlocked, isSanctuaryPost20Unlocked,
   enterSanctuary, restAtSanctuary, buyShopItem, getAvailableShopItems, moveBeltToStash, moveStashToBelt, useInventoryItem, upgradeWordCard, useBattleItem, revisitRoom, updateSanctuaryLoadout,
+  getSanctuaryDeckPresets, saveSanctuaryDeckPreset, applySanctuaryDeckPreset, deleteSanctuaryDeckPreset,
   getRewardPool, getRewardPoolForRoom, rewardRarityRates, RELIC_DRAFT_CATALOG, MAX_RELIC_SLOTS, getEquippedRelics, equipRelic, unequipRelic,
   getCardSecondaryEffect, describeCardUpgradeEffect, getCardUpgradeCost, getCardUpgradeSuccessRate, CARD_RARITY_COST_MULTIPLIER, CARD_RARITY_RATE_PENALTY, SHOP_ITEMS,
   FLOOR5_START_ROOM, FLOOR6_START_ROOM, FLOOR10_BOSS_ROOM, FLOOR11_START_ROOM, FLOOR13_BOSS_ROOM, FLOOR14_BOUNDARY_ROOM, FLOOR15_START_ROOM, FLOOR16_START_ROOM, FLOOR18_BOSS_ROOM, FLOOR19_BOUNDARY_ROOM, FLOOR20_BOSS_ROOM,
@@ -4652,6 +4653,45 @@ test('Sanctuary deck swap persists into next floor battle and local save', () =>
   const validated = validateRun(JSON.parse(JSON.stringify(nextBattle)));
   assert.ok(validated);
   assert.deepEqual(validated.player.words, swappedDeck);
+});
+
+test('Sanctuary 3-slot deck presets save, switch between attack and pure-summon decks, delete, and survive local save', () => {
+  let run = createRun('sanctuary-presets-test');
+  run.highestRoom = FLOOR5_START_ROOM;
+  run.sanctuaryUnlocked = true;
+  run.collection = ['beam', 'wind', 'summon', 'dog', 'turtle', 'heal', 'self'];
+  run.learned = [...run.collection];
+  run = revisitRoom(run, FLOOR5_START_ROOM);
+  let sanct = enterSanctuary(run);
+
+  const elementalDeck = ['beam', 'wind', 'fire', 'ice', 'shield', 'pair', 'shot'];
+  const pureSummonDeck = ['summon', 'dog', 'turtle', 'shield', 'heal', 'self', 'pair'];
+
+  sanct = saveSanctuaryDeckPreset(sanct, 0, elementalDeck);
+  sanct = saveSanctuaryDeckPreset(sanct, 1, pureSummonDeck);
+  const presets = getSanctuaryDeckPresets(sanct);
+  assert.equal(presets.length, 3);
+  assert.deepEqual(presets[0].words, elementalDeck);
+  assert.match(presets[1].name, /อัญเชิญ/);
+  assert.deepEqual(presets[1].words, pureSummonDeck);
+  assert.equal(presets[2], null);
+
+  // Switch back to slot 0 in one click
+  sanct = applySanctuaryDeckPreset(sanct, 0);
+  assert.deepEqual(sanct.player.words, elementalDeck);
+
+  // Switch to pure-summon slot 1 and verify save/load validation passes right in Sanctuary!
+  sanct = applySanctuaryDeckPreset(sanct, 1);
+  assert.deepEqual(sanct.player.words, pureSummonDeck);
+  const validatedInSanct = validateRun(JSON.parse(JSON.stringify(sanct)));
+  assert.ok(validatedInSanct);
+  assert.deepEqual(validatedInSanct.player.deckPresets[0].words, elementalDeck);
+  assert.deepEqual(validatedInSanct.player.deckPresets[1].words, pureSummonDeck);
+
+  // Delete slot 0
+  sanct = deleteSanctuaryDeckPreset(sanct, 0);
+  assert.equal(getSanctuaryDeckPresets(sanct)[0], null);
+  assert.throws(() => applySanctuaryDeckPreset(sanct, 0));
 });
 
 test('Early floor drop rates gate fused epic elements, avoid Floor 1-5 epics, and cap early boss high-rarity cards', () => {

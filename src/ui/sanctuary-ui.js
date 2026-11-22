@@ -26,6 +26,10 @@ import {
   getSanctuaryContinueRoom,
   restAtSanctuary,
   updateSanctuaryLoadout,
+  getSanctuaryDeckPresets,
+  saveSanctuaryDeckPreset,
+  applySanctuaryDeckPreset,
+  deleteSanctuaryDeckPreset,
   ENEMIES,
   RIFT_TIERS,
   isRiftUnlocked,
@@ -401,6 +405,36 @@ export function renderSanctuary(ctx) {
         : `เลือก ${activeEquipped.length} / ${cap} คำ · ยังไม่ครบ`;
   }
   renderForge(state);
+  const presetsEl = $('sanctuary-deck-presets');
+  if (presetsEl) {
+    const presets = getSanctuaryDeckPresets(state);
+    presetsEl.innerHTML = presets.map((preset, idx) => {
+      const isActive = Boolean(
+        preset
+        && preset.words.length === activeEquipped.length
+        && preset.words.every(id => activeEquipped.includes(id))
+      );
+      const cardsSummary = preset
+        ? preset.words.map(id => escape(WORDS[id]?.label ?? id)).join(' · ')
+        : 'ยังว่าง — จัดคำให้ครบแล้วกดบันทึกเพื่อสลับเด็คไวในคลิกเดียว';
+      return `<article class="deck-preset-slot ${preset ? 'is-filled' : 'is-empty'} ${isActive ? 'is-active' : ''}" data-preset-slot="${idx}">
+        <div class="deck-preset-head">
+          <strong>${escape(preset ? preset.name : `ชุดคำด่วน #${idx + 1}`)}</strong>
+          <span class="deck-preset-badge">${isActive ? '✦ ใช้งานอยู่' : preset ? `${preset.words.length} คำ` : 'ว่าง'}</span>
+        </div>
+        <p class="deck-preset-cards">${cardsSummary}</p>
+        <div class="deck-preset-actions">
+          ${preset ? `<button type="button" class="${isActive ? 'secondary-button' : 'primary-button'} deck-preset-btn" data-apply-preset="${idx}" ${isActive ? 'disabled' : ''}>${isActive ? '✓ ใช้อยู่' : 'ใช้ชุดนี้'}</button>` : ''}
+          <button type="button" class="secondary-button deck-preset-btn" data-save-preset="${idx}" ${activeEquipped.length !== cap ? 'disabled' : ''}>${preset ? 'บันทึกทับ' : 'บันทึกชุดนี้'}</button>
+          ${preset ? `<button type="button" class="secondary-button deck-preset-btn is-danger" data-delete-preset="${idx}" aria-label="ลบชุดคำช่องที่ ${idx + 1}">ลบ</button>` : ''}
+        </div>
+      </article>`;
+    }).join('');
+  }
+  const deckFiltersEl = $('sanctuary-deck-filters');
+  if (deckFiltersEl && !deckFiltersEl.firstElementChild) {
+    deckFiltersEl.innerHTML = cardFilterControls('deck');
+  }
   const wordsEl = $('sanctuary-words');
   if (wordsEl) {
     const ownedWordIds = [...new Set([...START_WORDS, ...(state.collection ?? [])])];
@@ -409,9 +443,11 @@ export function renderSanctuary(ctx) {
       const word = WORDS[id];
       const meta = cardMeta(id);
       const statusBadge = `<span class="equip-state-badge ${checked ? 'is-equipped' : ''}">${checked ? '✓ พกแล้ว' : 'เลือกพก'}</span>`;
-      return `<button type="button" class="secondary-button equip-card playing-card word-${id} ${rarityClass(word)} ${meta.roleClass}" data-sanctuary-equip="${id}" aria-pressed="${checked}" title="${word.description}">${playingCardFace(state, id, { headerRight: statusBadge })}</button>`;
+      return `<button type="button" class="secondary-button equip-card playing-card word-${id} ${rarityClass(word)} ${meta.roleClass}" data-sanctuary-equip="${id}" data-filter-card="${id}" aria-pressed="${checked}" title="${word.description}">${playingCardFace(state, id, { headerRight: statusBadge })}</button>`;
     }).join('');
   }
+  const deckSection = $('sanctuary-deck-section');
+  if (deckSection) applyCardFilters(deckSection, state);
   if ($('sanctuary-save-deck')) {
     $('sanctuary-save-deck').disabled = activeEquipped.length !== cap;
     $('sanctuary-save-deck').textContent = activeEquipped.length === cap && deckMatchesState
@@ -650,6 +686,51 @@ export function bindSanctuaryEvents(ctx) {
     const trigger = $('sanctuary-view').querySelector('[data-sanctuary-menu="tome"]');
     trigger.focus();
     ctx.openTools('tome');
+  });
+
+  $('sanctuary-deck-presets')?.addEventListener('click', event => {
+    const saveBtn = event.target.closest('[data-save-preset]');
+    if (saveBtn) {
+      const slot = Number(saveBtn.dataset.savePreset);
+      try {
+        const next = saveSanctuaryDeckPreset(ctx.getState(), slot, ctx.getEquipped());
+        ctx.setState(next);
+        ctx.setEquipped([...next.player.words]);
+        ctx.persist();
+        ctx.audio.play('place');
+        const saved = getSanctuaryDeckPresets(next)[slot];
+        ctx.toast(`💾 บันทึก “${saved?.name ?? `ชุดคำ #${slot + 1}`}” แล้ว`);
+        renderSanctuary(ctx);
+      } catch (error) { ctx.toast(error.message); }
+      return;
+    }
+    const applyBtn = event.target.closest('[data-apply-preset]');
+    if (applyBtn) {
+      const slot = Number(applyBtn.dataset.applyPreset);
+      try {
+        const next = applySanctuaryDeckPreset(ctx.getState(), slot);
+        ctx.setState(next);
+        ctx.setEquipped([...next.player.words]);
+        ctx.persist();
+        ctx.audio.play('place');
+        const applied = getSanctuaryDeckPresets(next)[slot];
+        ctx.toast(`⚡ สลับเป็น “${applied?.name ?? `ชุดคำ #${slot + 1}`}” พร้อมลุยทันที`);
+        renderSanctuary(ctx);
+      } catch (error) { ctx.toast(error.message); }
+      return;
+    }
+    const delBtn = event.target.closest('[data-delete-preset]');
+    if (delBtn) {
+      const slot = Number(delBtn.dataset.deletePreset);
+      try {
+        const next = deleteSanctuaryDeckPreset(ctx.getState(), slot);
+        ctx.setState(next);
+        ctx.persist();
+        ctx.audio.play('clear');
+        ctx.toast(`🗑 ล้างชุดคำด่วนช่องที่ ${slot + 1} แล้ว`);
+        renderSanctuary(ctx);
+      } catch (error) { ctx.toast(error.message); }
+    }
   });
 
   $('sanctuary-save-deck')?.addEventListener('click', () => {
