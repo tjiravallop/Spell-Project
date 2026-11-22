@@ -2266,7 +2266,7 @@ export function prepareEnemies(state) {
     }
     if (enemy.kind === 'nether_dread_lord') {
       const phase = state.turn % 4;
-      enemy.ward = enemy.hp > 0 && (phase === 1 ? 2 : phase === 3 ? 1 : 0);
+      enemy.ward = enemy.hp > 0 ? (phase === 1 ? 2 : phase === 3 ? 1 : 0) : 0;
       enemy.armor = phase === 1 ? 5 : phase === 2 ? 6 : phase === 3 ? 4 : 0;
     }
     if (enemy.kind === 'eternity_overlord') {
@@ -2277,7 +2277,7 @@ export function prepareEnemies(state) {
     }
     if (enemy.kind === 'eternity_reborn') {
       const phase = state.turn % 4;
-      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3 ? 2 : phase === 2 ? 1 : 0);
+      enemy.ward = enemy.hp > 0 ? (phase === 1 || phase === 3 ? 2 : phase === 2 ? 1 : 0) : 0;
       enemy.armor = phase === 1 ? 6 : phase === 2 ? 7 : phase === 3 ? 5 : 0;
       enemy.affinity = getEternityShiftAffinity(state.turn);
     }

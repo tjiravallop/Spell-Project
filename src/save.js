@@ -205,7 +205,7 @@ export function validateRun(state) {
     if (enemy.obscured !== undefined && typeof enemy.obscured !== 'boolean') invalid();
     if (enemy.readForm !== undefined && (!ENEMIES[enemy.kind].repeatReduction
       || ![...ATTACK_FORMS, 'blast', 'blackhole', 'meteor'].includes(enemy.readForm))) invalid();
-    if (enemy.wetUntil !== undefined && !integer(enemy.wetUntil, state.turn, state.turn + 1)) invalid();
+    if (enemy.wetUntil !== undefined && !integer(enemy.wetUntil, state.turn, state.turn + 2)) invalid();
     if (enemy.magmaArmorUntil !== undefined && !integer(enemy.magmaArmorUntil, state.turn, state.turn + 1)) invalid();
     if (enemy.abyssalShockUntil !== undefined && !integer(enemy.abyssalShockUntil, state.turn, state.turn + 1)) invalid();
     if (enemy.netherPurgeUntil !== undefined && !integer(enemy.netherPurgeUntil, state.turn, state.turn + 1)) invalid();

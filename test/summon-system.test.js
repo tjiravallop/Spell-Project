@@ -404,3 +404,26 @@ test('Summon +7 does not grant cheat death and Phoenix +7 hatches only once', ()
   const next = simulateTurn(first.state, 'guard');
   assert.equal(next.state.player.summon, undefined);
 });
+
+test('Wari counter and break wet duration survives save validation', () => {
+  const state = createRun('summon-wari-save', false, ['summon', 'dog', 'wari']);
+  state.player.words = ['shot', 'fire', 'ice', 'summon', 'dog', 'wari'];
+  enterRoom(state);
+  state.player.hand = ['summon', 'dog', 'wari'];
+  state.player.mana = 20;
+
+  // Turn 1: Summon dog with wari
+  const res = simulateTurn(state, ['summon', 'dog', 'wari'], state.enemies[0].id);
+  assert.ok(res.ok);
+  // Enemy attacks, dog counters with wari, applying wetUntil = turn + 3 (= 4)
+  assert.equal(res.state.enemies[0].wetUntil, res.state.turn + 2);
+
+  // Validate that the save system accepts wetUntil at state.turn + 2
+  const values = new Map();
+  const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
+  assert.equal(saveRun(res.state, storage).ok, true);
+  const loaded = loadRun(storage);
+  assert.equal(loaded.ok, true);
+  assert.equal(loaded.state.enemies[0].wetUntil, res.state.turn + 2);
+});
+

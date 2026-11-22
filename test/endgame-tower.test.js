@@ -1083,6 +1083,39 @@ test('Floor 90★ Nether Dread Lord: Tri-Pillar Pact, 2-Path Phase 2 (Pact Broke
   assert.ok(win90.state.player.relics.includes('void_annihilator_90'));
 });
 
+test('Floor 90 Nether Dread Lord and Floor 100 Eternity Reborn dead ward values are integer 0, not false', () => {
+  const storage = new MemoryStorage();
+  const state = createRun('boss-dead-ward-test', false);
+  state.room = FLOOR90_BOSS_ROOM;
+  state.turn = 5;
+  state.enemies = [
+    createEnemy('nether_dread_lord', 0, FLOOR90_BOSS_ROOM),
+    createEnemy('nether_leech_pillar', 1, FLOOR90_BOSS_ROOM),
+    createEnemy('nether_curse_pillar', 2, FLOOR90_BOSS_ROOM),
+    createEnemy('nether_doom_pillar', 3, FLOOR90_BOSS_ROOM),
+  ];
+  state.enemies[0].hp = 0; // Dread Lord dies before pillars
+  state.enemies[1].hp = 0;
+  state.enemies[2].hp = 500;
+  state.enemies[3].hp = 0;
+
+  prepareEnemies(state);
+  assert.strictEqual(state.enemies[0].ward, 0, 'Dead nether_dread_lord ward must be numeric 0, not false');
+  assert.equal(typeof state.enemies[0].ward, 'number');
+  assert.equal(saveRun(state, storage).ok, true, 'Save must succeed when Dread Lord dies before pillars');
+
+  // Test eternity_reborn when dead
+  state.room = FLOOR100_BOSS_ROOM;
+  state.eternityPhase = 3;
+  state.enemies = [
+    createEnemy('eternity_reborn', 0, FLOOR100_BOSS_ROOM),
+  ];
+  state.enemies[0].hp = 0;
+  prepareEnemies(state);
+  assert.strictEqual(state.enemies[0].ward, 0, 'Dead eternity_reborn ward must be numeric 0, not false');
+  assert.equal(typeof state.enemies[0].ward, 'number');
+});
+
 test('Floor 100★★★ Eternity Overlord: 3-Phase Tri-Cycle (Council, Prism Shift, Secret Resurrection Eternity Reborn) & Save/Load', () => {
   const storage = new MemoryStorage();
   const base = createRun('floor100-eternity-seed');
