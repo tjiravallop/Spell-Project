@@ -136,3 +136,47 @@ test('Dual-Element Shields: Split 2 layers vs Fused 1 dual layer', () => {
   assert.equal(shieldFused.spell.layers, 1);
   assert.deepEqual(shieldFused.spell.layerEffects, [['fire', 'ice']]);
 });
+
+test('3-Way Balance: [คำ ธาตุ คู่] vs [ธาตุ คู่ ธาตุ] vs [ธาตุ ธาตุ คู่]', () => {
+  // 1. [คำ ธาตุ คู่] (Mono Double Cast): 3 words, pure element, 2 shots of same element
+  const mono = parseSpell(['shot', 'fire', 'pair']);
+  assert.equal(mono.ok, true);
+  assert.equal(mono.ids.length, 3);
+  assert.equal(mono.spell.shots, 2);
+  assert.equal(mono.spell.secondElement, undefined);
+
+  // 2. [รูปทรง ธาตุ คู่ ธาตุ] (Fused Synthesis): 4 words, 1 shot, fuses reaction, discounted cost 5 MP
+  const fused = parseSpell(['shot', 'fire', 'pair', 'ice']);
+  assert.equal(fused.ok, true);
+  assert.equal(fused.ids.length, 4);
+  assert.equal(fused.spell.shots, 1);
+  assert.equal(fused.cost, 5); // Fused discount
+  assert.deepEqual(fused.spell.elements, ['fire', 'ice']);
+
+  // 3. [รูปทรง ธาตุ ธาตุ คู่] (Split Chain Combo): 4 words, 2 shots, dual targets, cost 6 MP
+  const split = parseSpell(['shot', 'fire', 'ice', 'pair']);
+  assert.equal(split.ok, true);
+  assert.equal(split.ids.length, 4);
+  assert.equal(split.spell.shots, 2);
+  assert.equal(split.cost, 6); // Pays for both spells
+  assert.equal(split.spell.secondElement, 'ice');
+
+  // Combat behavior:
+  // Armored target with 3 armor:
+  const enemyArmored = { id: 'target-0', kind: 'armored', name: 'หุ้มเกราะ', hp: 30, maxHp: 30, armor: 3, ward: 0, slot: 0 };
+
+  // Fused shot (Fire + Ice) triggers Scald Reaction (shreds 2 armor!)
+  const stateFused = createBattleState(['shot', 'fire', 'pair', 'ice'], [{ ...enemyArmored }]);
+  const simFused = simulateTurn(stateFused, ['shot', 'fire', 'pair', 'ice'], 'target-0', 'target-0');
+  assert.equal(simFused.ok, true);
+  // Armor was shredded by 2 from Scald reaction!
+  const targetAfterFused = simFused.state.enemies.find(e => e.id === 'target-0');
+  assert.equal(targetAfterFused.armor, 1); // 3 - 2 = 1 armor left!
+
+  // Split shot (Fire, then Ice) does NOT trigger Scald reaction (it's 2 separate shots)
+  const stateSplit = createBattleState(['shot', 'fire', 'ice', 'pair'], [{ ...enemyArmored }]);
+  const simSplit = simulateTurn(stateSplit, ['shot', 'fire', 'ice', 'pair'], 'target-0', 'target-0');
+  assert.equal(simSplit.ok, true);
+  const targetAfterSplit = simSplit.state.enemies.find(e => e.id === 'target-0');
+  assert.equal(targetAfterSplit.armor, 3); // Armor remains 3 (no fusion reaction)!
+});

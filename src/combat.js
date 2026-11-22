@@ -1,5 +1,5 @@
 import { makeShield, shieldLayers, shieldProtection } from './shields.js';
-import { ATTACK_FORMS, BATTLE_LIMITED_WORDS, FUSED_ELEMENTS, WORDS, CREATURE_STATS, CREATURE_WORDS, elementFamily, getElementComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS, lightDamagePenalty } from './words.js';
+import { ATTACK_FORMS, BATTLE_LIMITED_WORDS, FUSED_ELEMENTS, WORDS, CREATURE_STATS, CREATURE_WORDS, elementFamily, getElementComponents, getFusedElementFromComponents, fireShieldLayers, parseSpell, getWeaknessReaction, ELEMENT_LABELS, lightDamagePenalty } from './words.js';
 import { RIFT_EXPOSED_BONUS, isRiftBossExposed, getTowerSpellBonus, getTurnManaRegen } from './upper-tower.js';
 import {
   ENEMIES,
@@ -717,7 +717,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   }
 
   function hit(enemy, strength, pierce, elements) {
-    const families = elements.map(elementFamily);
+    const fusedReaction = elements.length > 1 ? getFusedElementFromComponents(elements[0], elements[1]) : null;
+    const effectiveElements = fusedReaction ? [...elements, fusedReaction] : elements;
+    const families = effectiveElements.map(elementFamily);
     const wasWet = enemy.wetUntil >= turn;
     const wasChilledBeforeHit = enemy.chill > 0;
     const wasBurnedBeforeHit = enemy.burn > 0;
@@ -823,34 +825,34 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     if (spell?.form === 'storm' && secondaryStormChillBonus > 0) {
       enemy.chill += secondaryStormChillBonus;
     }
-    const frozen = elements.some(id => ['ice', 'heman', 'wari', 'chillgale', 'frostvolt'].includes(id));
+    const frozen = effectiveElements.some(id => ['ice', 'heman', 'wari', 'chillgale', 'frostvolt'].includes(id));
     if (frozen) {
-      const iceUpgradeChill = elements.includes('ice') ? Math.floor((upgrades.ice ?? 0) / 3) + secondaryChillBonus : 0;
-      const hemanUpgradeChill = elements.includes('heman') ? Math.floor((upgrades.heman ?? 0) / 2) + secondaryHemanChillBonus : 0;
-      const wariUpgradeChill = elements.includes('wari') ? secondaryWariChillBonus : 0;
-      const chillgaleUpgradeChill = elements.includes('chillgale') ? Math.floor((upgrades.chillgale ?? 0) / 2) + secondaryChillgaleChillBonus : 0;
-      const frostvoltUpgradeChill = elements.includes('frostvolt') ? Math.floor((upgrades.frostvolt ?? 0) / 2) : 0;
-      enemy.chill += ((elements.includes('ice') || elements.includes('heman') || elements.includes('chillgale') || elements.includes('frostvolt')) ? 4 : 2)
+      const iceUpgradeChill = effectiveElements.includes('ice') ? Math.floor((upgrades.ice ?? 0) / 3) + secondaryChillBonus : 0;
+      const hemanUpgradeChill = effectiveElements.includes('heman') ? Math.floor((upgrades.heman ?? 0) / 2) + secondaryHemanChillBonus : 0;
+      const wariUpgradeChill = effectiveElements.includes('wari') ? secondaryWariChillBonus : 0;
+      const chillgaleUpgradeChill = effectiveElements.includes('chillgale') ? Math.floor((upgrades.chillgale ?? 0) / 2) + secondaryChillgaleChillBonus : 0;
+      const frostvoltUpgradeChill = effectiveElements.includes('frostvolt') ? Math.floor((upgrades.frostvolt ?? 0) / 2) : 0;
+      enemy.chill += ((effectiveElements.includes('ice') || effectiveElements.includes('heman') || effectiveElements.includes('chillgale') || effectiveElements.includes('frostvolt')) ? 4 : 2)
         + iceUpgradeChill + hemanUpgradeChill + wariUpgradeChill + chillgaleUpgradeChill + frostvoltUpgradeChill;
     }
-    if (elements.includes('pathaphi') && secondaryPathaphiChillBonus > 0) {
+    if (effectiveElements.includes('pathaphi') && secondaryPathaphiChillBonus > 0) {
       enemy.chill += secondaryPathaphiChillBonus;
     }
-    if (elements.includes('permafrost') && secondaryPermafrostChillBonus > 0) {
+    if (effectiveElements.includes('permafrost') && secondaryPermafrostChillBonus > 0) {
       enemy.chill += secondaryPermafrostChillBonus;
     }
-    if (elements.includes('mist')) {
+    if (effectiveElements.includes('mist')) {
       const mistChill = Math.floor((upgrades.mist ?? 0) / 2) + secondaryMistChillBonus;
       if (mistChill > 0) enemy.chill += mistChill;
     }
-    if (elements.includes('scald')) {
+    if (effectiveElements.includes('scald')) {
       const scaldChill = Math.floor((upgrades.scald ?? 0) / 2) + secondaryScaldChillBonus;
       if (scaldChill > 0) enemy.chill += scaldChill;
     }
-    if (elements.includes('dust') && secondaryDustObscure) {
+    if (effectiveElements.includes('dust') && secondaryDustObscure) {
       enemy.obscured = true;
     }
-    if (elements.includes('heman') && secondaryHemanSplashChill > 0) {
+    if (effectiveElements.includes('heman') && secondaryHemanSplashChill > 0) {
       for (const adj of live()) {
         if (Math.abs(adj.slot - enemy.slot) === 1) {
           adj.chill += secondaryHemanSplashChill;
@@ -858,7 +860,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         }
       }
     }
-    if (elements.includes('chillgale') && secondaryChillgaleSplashChill > 0) {
+    if (effectiveElements.includes('chillgale') && secondaryChillgaleSplashChill > 0) {
       for (const adj of live()) {
         if (Math.abs(adj.slot - enemy.slot) === 1) {
           adj.chill += secondaryChillgaleSplashChill;
@@ -867,43 +869,43 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         }
       }
     }
-    if (elements.includes('heman') && secondaryHemanFreezeChilled && wasChilledBeforeHit) {
+    if (effectiveElements.includes('heman') && secondaryHemanFreezeChilled && wasChilledBeforeHit) {
       enemy.freeze += 1;
       events.push({ type: 'status', status: 'freeze', target: enemy.id });
       summary.sequence.push(`เหมันต์เยือกแข็งแช่แข็งช่อง ${enemy.slot + 1}!`);
     }
-    if (elements.includes('heman') || elements.includes('chillgale') || (elements.includes('ice') && secondaryLastingChill)) {
+    if (effectiveElements.includes('heman') || effectiveElements.includes('chillgale') || (effectiveElements.includes('ice') && secondaryLastingChill)) {
       enemy.lastingChill = true;
     }
-    if (elements.includes('akki')) enemy.healCutUntil = turn + 1 + secondaryAkkiHealCutExtend;
-    if (elements.includes('pathaphi')) {
+    if (effectiveElements.includes('akki')) enemy.healCutUntil = turn + 1 + secondaryAkkiHealCutExtend;
+    if (effectiveElements.includes('pathaphi')) {
       applyEarthArmorShred(enemy, 2 + secondaryPathaphiShredBonus);
       if (secondaryPathaphiZeroArmorDmg > 0 && enemy.hp > 0 && enemy.armor === 0) {
         damage(enemy, secondaryPathaphiZeroArmorDmg, 'pathaphi', enemy.armor);
         summary.sequence.push(`ปฐพีกระแทกเป้าไร้เกราะ +${secondaryPathaphiZeroArmorDmg} ดาเมจแท้`);
       }
-    } else if (elements.includes('permafrost')) {
+    } else if (effectiveElements.includes('permafrost')) {
       applyEarthArmorShred(enemy, 2 + secondaryPermafrostShredBonus);
       if (secondaryPermafrostFreezeZeroArmor && enemy.hp > 0 && enemy.armor === 0) {
         enemy.freeze += 1;
         events.push({ type: 'status', status: 'freeze', target: enemy.id });
         summary.sequence.push(`เยือกศิลาแช่แข็งเป้าไร้เกราะช่อง ${enemy.slot + 1}!`);
       }
-    } else if (elements.includes('scald')) {
+    } else if (effectiveElements.includes('scald')) {
       applyEarthArmorShred(enemy, 2 + secondaryScaldShredBonus);
       if (secondaryScaldZeroArmorDmg > 0 && enemy.hp > 0 && enemy.armor === 0) {
         damage(enemy, secondaryScaldZeroArmorDmg, 'scald', enemy.armor);
         summary.sequence.push(`ไอเดือดช็อกเป้าไร้เกราะ +${secondaryScaldZeroArmorDmg} ดาเมจแท้`);
       }
-    } else if (elements.includes('earth')) {
+    } else if (effectiveElements.includes('earth')) {
       applyEarthArmorShred(enemy, 1 + secondaryEarthShredBonus);
-    } else if (elements.includes('dust')) {
+    } else if (effectiveElements.includes('dust')) {
       applyEarthArmorShred(enemy, 1 + secondaryDustShredBonus);
     }
-    if (elements.includes('mudmire') && secondaryMudmireArmorShred > 0 && enemy.hp > 0) {
+    if (effectiveElements.includes('mudmire') && secondaryMudmireArmorShred > 0 && enemy.hp > 0) {
       applyEarthArmorShred(enemy, secondaryMudmireArmorShred);
     }
-    if (elements.includes('plasma') && secondaryPlasmaArmorShred > 0 && enemy.hp > 0) {
+    if (effectiveElements.includes('plasma') && secondaryPlasmaArmorShred > 0 && enemy.hp > 0) {
       applyEarthArmorShred(enemy, secondaryPlasmaArmorShred);
     }
     if (spell?.form === 'chakram' && secondaryChakramArmorShred > 0 && enemy.hp > 0) {
@@ -1492,23 +1494,25 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
   }
 
   function elementAfterHit(enemy, elements, strength, pierce, sweep, slot, pushCardEmpowers = false) {
-    if (elements.includes('magma')) leaveMagma(slot);
-    const gust = elements.some(id => ['wind', 'vayu', 'thunderstorm', 'dust', 'heatwave', 'chillgale'].includes(id));
+    const fusedReaction = elements.length > 1 ? getFusedElementFromComponents(elements[0], elements[1]) : null;
+    const effectiveElements = fusedReaction ? [...elements, fusedReaction] : elements;
+    if (effectiveElements.includes('magma')) leaveMagma(slot);
+    const gust = effectiveElements.some(id => ['wind', 'vayu', 'thunderstorm', 'dust', 'heatwave', 'chillgale'].includes(id));
     if (gust) {
-      const zapOpts = elements.includes('thunderstorm') ? { zapStrength: strength, zapPierce: pierce } : {};
+      const zapOpts = effectiveElements.includes('thunderstorm') ? { zapStrength: strength, zapPierce: pierce } : {};
       pushEnemy(enemy, 1, pushCardEmpowers ? { fromPushCard: true, steps: 2, ...zapOpts } : zapOpts);
     }
-    if (elements.includes('monsoon')) {
+    if (effectiveElements.includes('monsoon')) {
       for (const target of live()) {
         if (target.id !== enemy.id || !pushCardEmpowers) pushEnemy(target, 1, { sourceElement: 'monsoon' });
       }
     }
-    if (elements.includes('magnet')) pullNeighborsToward(enemy);
+    if (effectiveElements.includes('magnet')) pullNeighborsToward(enemy);
     const conduitBonus = hasThunderConduit ? 6 : 0;
-    const hasLightningElem = elements.some(id => getElementComponents(id).includes('lightning'));
-    if (elements.includes('frostvolt')) chainLightning(enemy, strength, pierce, sweep, 'frostvolt', spell.form, conduitBonus);
-    else if (elements.includes('thunderstorm')) chainLightning(enemy, strength, pierce, sweep, 'thunderstorm', spell.form, conduitBonus);
-    else if (elements.includes('asani')) chainLightning(enemy, strength, pierce, sweep, 'asani', spell.form, conduitBonus);
+    const hasLightningElem = effectiveElements.some(id => getElementComponents(id).includes('lightning'));
+    if (effectiveElements.includes('frostvolt')) chainLightning(enemy, strength, pierce, sweep, 'frostvolt', spell.form, conduitBonus);
+    else if (effectiveElements.includes('thunderstorm')) chainLightning(enemy, strength, pierce, sweep, 'thunderstorm', spell.form, conduitBonus);
+    else if (effectiveElements.includes('asani')) chainLightning(enemy, strength, pierce, sweep, 'asani', spell.form, conduitBonus);
     else if (hasThunderConduit && hasLightningElem) chainLightning(enemy, 0, pierce, sweep, 'lightning', spell.form, 6);
     return gust;
   }

@@ -239,6 +239,18 @@ export function getElementComponents(element) {
   return [];
 }
 
+export function getFusedElementFromComponents(elem1, elem2) {
+  if (!elem1 || !elem2 || elem1 === elem2) return null;
+  const comps1 = getElementComponents(elem1);
+  const comps2 = getElementComponents(elem2);
+  const allComps = [...new Set([...comps1, ...comps2])];
+  if (allComps.length !== 2) return null;
+  for (const [fused, comps] of Object.entries(FUSION_COMPONENTS)) {
+    if (comps.includes(allComps[0]) && comps.includes(allComps[1])) return fused;
+  }
+  return null;
+}
+
 export function getWeaknessReaction(element, targetAffinity) {
   if (!targetAffinity || !ELEMENT_VULNERABILITY[targetAffinity]) {
     return { isWeak: false, isResist: false, multiplier: 1, triggerElement: null };
