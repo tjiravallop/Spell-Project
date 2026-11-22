@@ -581,11 +581,11 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
       const paired = fourth === 'pair';
       return finish({ type: 'attack', form: 'blast', elements: [second], multiplier: 1.5, blastPair: paired, cost: 6 + WORDS[second].cost + (paired ? 3 : 0) });
     }
-    const paired = third === 'pair';
+    const paired = third === 'pair' || fourth === 'pair';
     const dual = ELEMENTS.includes(third);
     if (third && !dual && !paired) return invalid(2);
     if (dual && second === third) return fail(2, 'ระเบิดสองธาตุต้องใช้คำธาตุคนละชื่อ');
-    if (fourth) return invalid(3);
+    if (fourth && !(dual && fourth === 'pair')) return invalid(3);
     const elements = (dual ? [second, third] : second ? [second] : []).sort();
     const cost = WORDS.blast.cost + elements.reduce((sum, id) => sum + WORDS[id].cost, 0) - (dual ? 1 : 0) + (paired ? 3 : 0);
     return finish({ type: 'attack', form: 'blast', elements, multiplier: 1, blastPair: paired, cost });
@@ -676,6 +676,16 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
       } else {
         return invalid(3);
       }
+    } else if (ELEMENTS.includes(third) && fourth === 'pair') {
+      if (third === second) {
+        buffPct = Math.round(buffPct * 1.5);
+        buffTurns += 1;
+        cost += 3;
+      } else {
+        elements = [second, third].sort();
+        buffPct = Math.round((elemTierPct(second) + elemTierPct(third)) / 2);
+        cost = baseHeadCost + WORDS[second].cost + WORDS[third].cost - 1;
+      }
     } else if (third) {
       return invalid(grand ? 3 : 2);
     }
@@ -704,7 +714,7 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
     if (second && !elements.length) return invalid(grand ? 2 : 1);
     if (third && (!elements.length || (!dual && !stormMods.includes(third)))) return invalid(2);
     const largePairCombo = third === 'large' && fourth === 'pair';
-    if (fourth && !(dual && fourth === 'blast') && !largePairCombo) return invalid(3);
+    if (fourth && !(dual && (fourth === 'blast' || fourth === 'pair')) && !largePairCombo) return invalid(3);
     if (dual && second === third) return fail(2, 'พายุสองธาตุต้องใช้คำธาตุคนละชื่อ');
     if (dual) elements.push(third);
     const stormPair = third === 'pair' || fourth === 'pair';
@@ -842,6 +852,11 @@ export function parseSpell(wordIds, library = Object.keys(WORDS)) {
   const baseMult = form === 'chakram' ? 1.8 : form === 'axe' ? 0.8 : 1;
   const spell = { type: 'attack', form, elements: [element], shots: 1, blasts: 0, multiplier: baseMult, cost: baseCost };
   if (!third) return finish(spell);
+  if (grand && ELEMENTS.includes(third) && !fourth) {
+    if (third === element) return fail(3, 'คาถาผสานสองธาตุต้องใช้คำธาตุคนละชื่อ');
+    const dualCost = baseCost + WORDS[third].cost - 1;
+    return finish({ ...spell, elements: [element, third].sort(), cost: dualCost });
+  }
   if (fused) {
     return finish({ ...spell, elements: [element, fourth].sort(), multiplier: baseMult * (element === fourth ? 1.5 : 1), cost: 2 * baseCost + WORDS[fourth].cost - WORDS[element].cost - 1 });
   }
