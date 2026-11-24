@@ -625,6 +625,8 @@ export class GameAudio {
     if (event.type === 'projectile') {
       if (event.blocked) {
         this.play('ward');
+      } else if (event.spearPierceSilentLaunch) {
+        this.playElementalBurst(event.element ?? 'fire');
       } else if (event.form === 'chakram') {
         this.play('chakram');
       } else if (event.form === 'spear') {

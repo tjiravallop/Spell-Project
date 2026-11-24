@@ -1879,7 +1879,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     return gust;
   }
 
-  function impact(enemy, elements = spell.elements, sweep, targetScale = 1) {
+  function impact(enemy, elements = spell.elements, sweep, targetScale = 1, projectileMeta = null) {
     if (player.hp <= 0 || enemy.hp <= 0) return;
     const { strength, pierce } = attackPower(elements, targetScale);
     const hadWardBeforeDispel = enemy.ward > 0;
@@ -1937,6 +1937,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       large: Boolean(spell.large),
       shellBlast: Boolean(spell.shellBlast),
       ...(spell.barrage && !barrageSfxEmitted ? { barrage: true } : {}),
+      ...(projectileMeta ?? {}),
       visualModifiers: rawIds.filter(id => ['burn', 'freeze', 'pierce', 'seal', 'dispel', 'push', 'pull'].includes(id)),
     });
     if (spell.barrage && !barrageSfxEmitted) barrageSfxEmitted = true;
@@ -3090,12 +3091,25 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         const finaleScale = ((spell.barrage && secondaryBarrageFinaleDouble && shotIndex === totalShots - 1) ? 2 : 1) * pairMult * rampMult;
         const primarySlot = currentTarget.slot;
         const behind = live().find(enemy => enemy.slot === primarySlot + 1);
-        const frontStrike = impact(currentTarget, shotElements, undefined, 0.8 * finaleScale);
+        const spearGroup = behind ? `spear-${shotIndex}` : null;
+        const frontStrike = impact(
+          currentTarget,
+          shotElements,
+          undefined,
+          0.8 * finaleScale,
+          spearGroup ? { spearGroup, spearPhase: 'front', pierceTarget: behind.id } : null,
+        );
         if (frontStrike && warded && !ignition) {
           ignition = { ...frontStrike, center: currentTarget, slot: primarySlot, elements: shotElements };
         }
         if (behind && behind.hp > 0 && player.hp > 0) {
-          const backStrike = impact(behind, shotElements, undefined, spearBackFactor * finaleScale);
+          const backStrike = impact(
+            behind,
+            shotElements,
+            undefined,
+            spearBackFactor * finaleScale,
+            { spearGroup, spearPhase: 'pierce', pierceFrom: currentTarget.id },
+          );
           if (frontStrike && backStrike && secondarySpearDoubleManaRefund > 0 && !spearDoubleManaRefunded) {
             spearDoubleManaRefunded = true;
             const refund = Math.min(getMaxMana(player) - player.mana, secondarySpearDoubleManaRefund);
@@ -3616,12 +3630,16 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
 
       let actual = 0;
       let absorbed = 0;
+      let playerShieldAbsorbed = 0;
+      let hitSummonFrontline = false;
       let effects = new Set();
       let explosions = [];
       let manaDrained = 0;
       const summon = state.player.summon;
+      const attackInsertIdx = events.length;
 
       if (summon && summon.hp > 0 && !isAoE) {
+        hitSummonFrontline = true;
         let hitSummon = true;
         if ((summon.element === 'wind' || summon.element === 'vayu' || summon.creatureId === 'bird') && !summon.hasDodged) {
           const dodgeChance = Math.max(summon.creatureId === 'bird' ? 0.20 : 0,
@@ -3650,7 +3668,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
             + (cGearDef.damageReduction ?? 0)
             + (cGearDef.flatReduce ?? 0)
             + gear.summonFlatDamageReduction;
-          const armorReduction = Math.min(summon.armor + innateReduction, Math.max(0, summonDmg - 1));
+          const armorReduction = Math.min((summon.armor ?? 0) + innateReduction, Math.max(0, summonDmg - 1));
           summonDmg -= armorReduction;
           if (summon.creatureId === 'siren' && gear.counterWetOnHit > 0 && enemy.hp > 0) {
             enemy.wetUntil = Math.max(enemy.wetUntil ?? 0, turn + 2);
@@ -3687,10 +3705,29 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           }
         }
       } else if (summon && summon.hp > 0 && isAoE && summon.aoeIntercept) {
-        const interceptIncoming = gear.aoeInterceptDamageReductionPct > 0
-          ? Math.max(1, Math.round(incomingAttackAmt * (100 - gear.aoeInterceptDamageReductionPct) / 100))
-          : incomingAttackAmt;
-        const rawOverflow = hurtSummon(summon, interceptIncoming, true);
+        hitSummonFrontline = true;
+        let rawOverflow = 0;
+        let wardBlockedAoe = false;
+        if (summon.ward > 0) {
+          summon.ward--;
+          wardBlockedAoe = true;
+          events.push({ type: 'ward_absorb', target: 'summon', source: enemy.id });
+          summary.sequence.push(`🛡️ ${summon.name} ใช้ม่านคุ้มภัยสลายท่ากวาดล้าง AoE ทั้งหมด! (เหลือม่าน ${summon.ward} ชั้น)`);
+        } else {
+          let interceptIncoming = gear.aoeInterceptDamageReductionPct > 0
+            ? Math.max(1, Math.round(incomingAttackAmt * (100 - gear.aoeInterceptDamageReductionPct) / 100))
+            : incomingAttackAmt;
+          if (summon.element === 'ice') interceptIncoming = Math.max(1, interceptIncoming - 1);
+          if (summon.element === 'heman') interceptIncoming = Math.max(1, interceptIncoming - 2);
+          const cGearDef = gear.summonCreatureBonus[summon.creatureId] ?? {};
+          const innateReduction = (summon.creatureId === 'croc' ? 2 : summon.creatureId === 'lion' ? 3 : 0)
+            + (cGearDef.damageReduction ?? 0)
+            + (cGearDef.flatReduce ?? 0)
+            + gear.summonFlatDamageReduction;
+          const armorReduction = Math.min((summon.armor ?? 0) + innateReduction, Math.max(0, interceptIncoming - 1));
+          interceptIncoming -= armorReduction;
+          rawOverflow = hurtSummon(summon, interceptIncoming, true);
+        }
         const overflow = (summon.creatureId === 'behemoth' && gear.behemothZeroOverflow)
           ? 0
           : (rawOverflow > 0 && gear.aoeOverflowReductionPct > 0
@@ -3713,19 +3750,25 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         if (overflow > 0) {
           const res = applyIncomingToPlayer(overflow, true, enemy, null, action.pierceArmor ?? 0);
           actual = res.actual;
+          playerShieldAbsorbed = res.absorbed;
           absorbed = absorbedBySummon + res.absorbed;
           effects = res.effects;
           explosions = res.explosions;
         } else {
           actual = 0;
+          playerShieldAbsorbed = 0;
           absorbed = absorbedBySummon;
         }
         if (action.manaDrain && player.hp > 0) {
-          manaDrained = Math.min(player.mana, action.manaDrain);
-          if (manaDrained > 0) {
-            player.mana -= manaDrained;
-            summary.manaDrained = (summary.manaDrained ?? 0) + manaDrained;
-            summary.sequence.push(`หนวดหมึกดำสูบมานา −${manaDrained} MP`);
+          if (!wardBlockedAoe) {
+            manaDrained = Math.min(player.mana, action.manaDrain);
+            if (manaDrained > 0) {
+              player.mana -= manaDrained;
+              summary.manaDrained = (summary.manaDrained ?? 0) + manaDrained;
+              summary.sequence.push(`หนวดหมึกดำสูบมานา −${manaDrained} MP`);
+            }
+          } else {
+            summary.sequence.push('ม่านคุ้มภัยสลายคลื่นสูบมานาสำเร็จ!');
           }
         }
       } else {
@@ -3749,6 +3792,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         }
         const res = applyIncomingToPlayer(incomingAttackAmt, true, enemy, null, action.pierceArmor ?? 0);
         actual = res.actual;
+        playerShieldAbsorbed = res.absorbed;
         absorbed = res.absorbed;
         effects = res.effects;
         explosions = res.explosions;
@@ -3813,10 +3857,12 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           summary.sequence.push(`👑 Sovereign Soul Aegis (+10 อัญเชิญ)! ดวงจิตสิ่งอัญเชิญสละชีพรับความตายแทนผู้เล่น! (ฟื้นคืนสติที่ 1 HP)`);
         }
       }
-      events.push({
+      const attackEvent = {
         type: 'attack',
         source: enemy.id,
         sourceKind: enemy.kind,
+        ...(hitSummonFrontline ? { target: 'summon', summonAbsorbed: Math.max(0, absorbed - playerShieldAbsorbed) } : {}),
+        playerAbsorbed: playerShieldAbsorbed,
         amount: actual,
         absorbed,
         rawAttack: incomingAttackAmt,
@@ -3826,7 +3872,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
         ultimate: isUltimateSkill,
         heavy: isHeavyAttack,
         protection: protection(),
-      });
+      };
+      if (hitSummonFrontline) events.splice(attackInsertIdx, 0, attackEvent);
+      else events.push(attackEvent);
       if (action.selfHeal && enemy.hp > 0) {
         const regen = enemyHealing(enemy, action.selfHeal);
         if (regen > 0) {

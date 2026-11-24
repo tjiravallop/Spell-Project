@@ -87,6 +87,7 @@ import {
   CAMERA_SHAKE_CLASSES,
   BATTLE_VIEW_SHAKE_CLASSES,
   resetPlayerHpFx,
+  resetPlayerManaFx,
   pulsePlayerHud,
   renderShieldStatus,
   renderEternityMeter,
@@ -389,7 +390,10 @@ function setCastFx(fx) {
 function changeScreen(next) {
   if (screen !== next) {
     $('battle-tools').close();
-    if (next !== 'battle' || screen !== 'battle') resetPlayerHpFx();
+    if (next !== 'battle' || screen !== 'battle') {
+      resetPlayerHpFx();
+      resetPlayerManaFx();
+    }
   }
   if (next !== 'sanctuary') {
     sanctuaryMenu.close();
@@ -983,7 +987,7 @@ function playTurn(result, parsed = null, knownSpell = false, newlyDiscovered = f
   }] : result.events;
   busy = true;
   pending = result;
-  battleFx.beginTurnAnimation(state);
+  battleFx.beginTurnAnimation(state, result);
   if (parsed?.ok && parsed.spell && result.events.some(e => ['projectile', 'blast', 'damage'].includes(e.type))) {
     const s = parsed.spell;
     unlockAchievement('first_spell');

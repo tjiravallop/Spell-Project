@@ -77,7 +77,17 @@ body[data-screen="battle"] main { width: min(calc(100% - 28px), 1180px); margin-
 #battle-view .resource { gap: 7px; min-height: 23px; }
 #battle-view .resource strong { font-size: 16px; }
 #battle-view .mana-resource { color: var(--mana-blue); }
+#battle-view #mana-value.has-preview { color: #ffe082; }
 #battle-view #mana-value.is-short { color: var(--danger); }
+#battle-view #mana-value.mana-value-spend { color: #ffd180; animation: manaValueBump .34s cubic-bezier(.2, 1.25, .35, 1); }
+#battle-view #mana-value.mana-value-gain { color: #9be8ff; animation: manaValueBump .34s cubic-bezier(.2, 1.25, .35, 1); }
+#battle-view .mana-resource.mana-change-spend .mana-pip.full { filter: brightness(1.18); }
+#battle-view .mana-resource.mana-change-gain .mana-pip.full { background: #a7e4ff; border-color: #e4f7ff; box-shadow: 0 0 6px rgba(155, 232, 255, .75); }
+@keyframes manaValueBump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
 #battle-view .mana-pip { transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
 #battle-view .mana-pip.full { background: var(--mana-blue); border-color: #a6d4ff; }
 #battle-view .mana-pip.will-spend {

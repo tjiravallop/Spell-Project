@@ -52,7 +52,7 @@ import {
   rarityClass,
   playingCardFace,
 } from './dom.js';
-import { renderPlayerHp } from './battle-fx.js';
+import { renderPlayerHp, renderPlayerMana } from './battle-fx.js';
 
 export function renderTurnLabel(state) {
   const el = $('turn-label');
@@ -277,31 +277,7 @@ export function syncManaPipsPreview(state, pendingCost = 0) {
   const p = state?.player;
   if (!p) return;
   const maxMana = getMaxMana(p);
-  const manaEl = $('mana-value');
-  const pipsEl = $('mana-pips');
-  const cost = Math.max(0, Number(pendingCost) || 0);
-  const short = cost > p.mana;
-  if (manaEl) {
-    manaEl.textContent = `${p.mana} / ${maxMana}`;
-    manaEl.classList.toggle('is-short', short);
-    manaEl.title = short
-      ? `มานาไม่พอ (ต้องการ ${cost} · ขาด ${cost - p.mana})`
-      : cost > 0
-        ? `คาถาบนแท่นใช้ ${cost} มานา (จะเหลือ ${p.mana - cost})`
-        : `มานา ${p.mana} / ${maxMana}`;
-  }
-  if (pipsEl) {
-    const count = Math.min(maxMana, 16);
-    const filled = Math.ceil(count * p.mana / maxMana);
-    const spendPips = cost > 0 ? Math.min(count, Math.ceil(count * cost / maxMana)) : 0;
-    pipsEl.classList.toggle('has-shortage', short);
-    pipsEl.innerHTML = Array.from({ length: count }, (_, i) => {
-      const isFull = i < filled;
-      const willSpend = isFull && spendPips > 0 && i >= Math.max(0, filled - spendPips);
-      const isDeficit = !isFull && short && i < spendPips;
-      return `<i class="mana-pip ${isFull ? 'full' : ''} ${willSpend ? 'will-spend' : ''} ${isDeficit ? 'insufficient' : ''}"></i>`;
-    }).join('');
-  }
+  renderPlayerMana(p.mana, maxMana, { pendingCost, animate: !(Number(pendingCost) > 0) });
 }
 
 export function renderBattleStory(state, collapsedStoryIds) {

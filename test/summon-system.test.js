@@ -438,11 +438,13 @@ test('Summon appears immediately on summon_invoke in Battlefield snapshots and d
   const res = simulateTurn(state, ['summon', 'dog', 'fire'], state.enemies[0].id);
   assert.ok(res.ok);
   const invokeIdx = res.events.findIndex(e => e.type === 'summon_invoke');
-  const hitIdx = res.events.findIndex(e => e.type === 'summon_hit');
   const attackIdx = res.events.findIndex(e => e.type === 'attack');
+  const hitIdx = res.events.findIndex(e => e.type === 'summon_hit');
   assert.ok(invokeIdx >= 0, 'summon_invoke event must be emitted');
-  assert.ok(hitIdx > invokeIdx, 'summon_hit must follow summon_invoke');
-  assert.ok(attackIdx > hitIdx, 'attack must follow summon_hit');
+  assert.ok(attackIdx > invokeIdx, 'enemy attack must follow summon_invoke');
+  assert.ok(hitIdx > attackIdx, 'summon_hit must follow the enemy attack animation');
+  assert.equal(res.events[attackIdx].target, 'summon', 'enemy attack must target summon');
+  assert.equal(res.events[attackIdx].playerAbsorbed, 0, 'summon tanking must not count as player shield absorb');
   assert.equal(typeof res.events[invokeIdx].counter, 'number');
   assert.equal(typeof res.events[invokeIdx].strike, 'number');
 
@@ -613,4 +615,297 @@ test('Summon Base Cost 3 MP and Weighted In-Combat Draw', () => {
   assert.equal(midState.player.hand.length, 3);
   assert.ok(midState.player.hand.every(w => deck.includes(w)));
 });
+
+test('Regression: Enemy attack VFX targets summon (x=88) without triggering player shield hit, multi-enemy gang-up reduces HP accurately, and AoE intercept applies summon armor', () => {
+  const state = createRun('summon-vfx-target', false, ['summon', 'gargoyle']);
+  state.collection = ['summon', 'gargoyle'];
+  state.player.words = ['shot', 'fire', 'ice', 'summon', 'gargoyle'];
+  state.player.hand = ['summon', 'gargoyle'];
+  state.player.mana = 12;
+  state.turn = 4; // AoE turn for ember_overlord
+  state.enemies = [{ ...createEnemy('ember_overlord', 0), hp: 200, maxHp: 200 }];
+
+  const res = simulateTurn(state, ['summon', 'gargoyle'], state.enemies[0].id);
+  assert.ok(res.ok);
+  const atk = res.events.find(e => e.type === 'attack');
+  const hit = res.events.find(e => e.type === 'summon_hit');
+  assert.ok(atk, 'attack event must exist');
+  assert.ok(hit, 'summon_hit event must exist');
+  assert.equal(atk.target, 'summon', 'AoE intercept attack must target summon');
+  assert.equal(atk.playerAbsorbed, 0, 'player shield absorb must be 0 when gargoyle intercepts without overflow');
+  assert.ok(res.events.indexOf(atk) < res.events.indexOf(hit), 'attack event must precede summon_hit');
+  // Gargoyle has 3 armor; incoming AoE 16 should be reduced by 3 armor -> 13 damage instead of 16
+  assert.equal(hit.damage, 13, 'AoE intercept must apply summon armor reduction (16 - 3 = 13)');
+  assert.equal(res.state.player.summon.hp, res.state.player.summon.maxHp - 13);
+
+  // Verify drawEnemyAttackVfx receives targetX = 88 (summon position) instead of 51 (wizard)
+  const noop = () => {};
+  const ctx = {
+    imageSmoothingEnabled: false,
+    fillStyle: '', strokeStyle: '', lineWidth: 1, globalAlpha: 1, font: '', textAlign: '',
+    fillRect: noop, clearRect: noop, drawImage: noop, save: noop, restore: noop, translate: noop,
+    beginPath: noop, moveTo: noop, lineTo: noop, stroke: noop, fill: noop, arc: noop, ellipse: noop,
+    fillText: noop, strokeText: noop, measureText: () => ({ width: 20 }),
+  };
+  const stubCanvas = { width: 320, height: 180, id: 'test-canvas', getContext: () => ctx };
+  const prevDoc = globalThis.document;
+  const prevImage = globalThis.Image;
+  const prevRaf = globalThis.requestAnimationFrame;
+  const prevCaf = globalThis.cancelAnimationFrame;
+  globalThis.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; } set src(v) { this._src = v; } get src() { return this._src; } };
+  globalThis.requestAnimationFrame = () => 0;
+  globalThis.cancelAnimationFrame = () => {};
+  globalThis.document = { createElement: () => ({ width: 320, height: 180, getContext: () => ctx }) };
+  try {
+    const bf = new Battlefield(stubCanvas, { reducedMotion: false, combatSpeed: 1 });
+    bf.set(state, state.enemies[0].id);
+    bf.animate(res.events, noop, noop);
+    const attackAnimIdx = bf.events.findIndex(e => e.type === 'attack');
+    const capturedTargets = [];
+    const origDrawEnemyAtk = bf.drawEnemyAttackVfx.bind(bf);
+    bf.drawEnemyAttackVfx = (enemyX, targetX, ...rest) => {
+      capturedTargets.push(targetX);
+      return origDrawEnemyAtk(enemyX, targetX, ...rest);
+    };
+    const midMs = bf.started + (bf.eventStart(attackAnimIdx) + bf.eventEnds[attackAnimIdx]) / 2;
+    bf.draw(midMs);
+    assert.deepEqual(capturedTargets, [88], 'Enemy attack VFX must aim at summon position x=88');
+
+    // Multi-enemy gang-up: 3 enemies attack; first two kill summon (targeted at x=88), third hits wizard (x=51)
+    const gangState = createRun('summon-gang-up', false, ['summon', 'slime']);
+    gangState.player.words = ['shot', 'fire', 'ice', 'summon', 'slime'];
+    gangState.player.hand = ['summon', 'slime'];
+    gangState.player.mana = 20;
+    gangState.player.hp = 80;
+    gangState.player.maxHp = 80;
+    gangState.enemies = [
+      { ...createEnemy('striker', 0), id: 'g-0', hp: 50, maxHp: 50, slot: 0 },
+      { ...createEnemy('striker', 1), id: 'g-1', hp: 50, maxHp: 50, slot: 1 },
+      { ...createEnemy('striker', 2), id: 'g-2', hp: 50, maxHp: 50, slot: 2 },
+    ];
+    const gangRes = simulateTurn(gangState, ['summon', 'slime'], 'g-0');
+    assert.ok(gangRes.ok);
+    const gangInvoke = gangRes.events.find(e => e.type === 'summon_invoke');
+    const gangHits = gangRes.events.filter(e => e.type === 'summon_hit');
+    const gangAtks = gangRes.events.filter(e => e.type === 'attack');
+    assert.equal(gangAtks.length, 3, 'All 3 enemies attack');
+    assert.equal(gangHits.length, 3);
+    const d0 = gangAtks[0].rawAttack;
+    const d1 = gangAtks[1].rawAttack;
+    const d2 = gangAtks[2].rawAttack;
+    assert.ok(d0 > 0 && d1 > 0 && d2 > 0, 'Each enemy must deal positive attack damage');
+    assert.equal(gangHits[0].hpRemaining, gangInvoke.hp - d0);
+    assert.equal(gangHits[1].hpRemaining, gangInvoke.hp - d0 - d1);
+    assert.equal(gangHits[2].hpRemaining, gangInvoke.hp - d0 - d1 - d2);
+    assert.equal(gangRes.state.player.summon.hp, gangInvoke.hp - d0 - d1 - d2, 'Summon HP after 3 enemies gang up equals exact sum of hits');
+    assert.equal(gangRes.state.player.hp, 80, 'Player takes 0 HP while summon tanks all 3 hits');
+
+    // Now test 3 enemies when summon starts with 5 HP (dies on 2nd 3-dmg hit -> 3rd enemy hits wizard at x=51)
+    const gangState2 = createRun('summon-gang-up-2', false, ['shot', 'fire']);
+    gangState2.player.words = ['shot', 'fire', 'ice', 'shield', 'heal'];
+    gangState2.player.hand = ['shot', 'fire'];
+    gangState2.player.mana = 20;
+    gangState2.player.hp = 80;
+    gangState2.player.maxHp = 80;
+    gangState2.turn = 2;
+    const preSummon = {
+      creatureId: 'slime', name: 'สไลม์', element: null, isGrand: false,
+      hp: 5, maxHp: 12, armor: 0, ward: 0, counter: 2, strike: 0, aoeIntercept: false,
+      turnCreated: 2, countered: false, hasDodged: false,
+    };
+    gangState2.player.summon = preSummon;
+    gangState2.summon = preSummon;
+    gangState2.enemies = [
+      { ...createEnemy('striker', 0), id: 'h-0', hp: 50, maxHp: 50, slot: 0 },
+      { ...createEnemy('striker', 1), id: 'h-1', hp: 50, maxHp: 50, slot: 1 },
+      { ...createEnemy('striker', 2), id: 'h-2', hp: 50, maxHp: 50, slot: 2 },
+    ];
+    const gangRes2 = simulateTurn(gangState2, ['shot', 'fire'], 'h-0');
+    assert.ok(gangRes2.ok);
+    const atks2 = gangRes2.events.filter(e => e.type === 'attack');
+    assert.equal(atks2.length, 3);
+    assert.equal(atks2[0].target, 'summon', '1st attack aims at summon');
+    assert.equal(atks2[1].target, 'summon', '2nd attack aims at summon (lethal)');
+    assert.equal(atks2[2].target, undefined, '3rd attack after summon break aims at wizard');
+    assert.ok(atks2[2].amount > 0, '3rd attack damages player');
+    const bf2 = new Battlefield(stubCanvas, { reducedMotion: false, combatSpeed: 1 });
+    bf2.set(gangState2, 'h-0');
+    bf2.animate(gangRes2.events, noop, noop);
+    const gangTargets = [];
+    const origDraw2 = bf2.drawEnemyAttackVfx.bind(bf2);
+    bf2.drawEnemyAttackVfx = (enemyX, targetX, ...rest) => {
+      gangTargets.push(targetX);
+      return origDraw2(enemyX, targetX, ...rest);
+    };
+    bf2.events.forEach((ev, idx) => {
+      if (ev.type === 'attack') {
+        const mid = bf2.started + (bf2.eventStart(idx) + bf2.eventEnds[idx]) / 2;
+        bf2.draw(mid);
+      }
+    });
+    assert.deepEqual(gangTargets, [88, 88, 51], 'Enemy VFX must hit summon (88) while alive and switch to wizard (51) after summon breaks');
+  } finally {
+    if (prevRaf === undefined) delete globalThis.requestAnimationFrame; else globalThis.requestAnimationFrame = prevRaf;
+    if (prevCaf === undefined) delete globalThis.cancelAnimationFrame; else globalThis.cancelAnimationFrame = prevCaf;
+    if (prevImage === undefined) delete globalThis.Image; else globalThis.Image = prevImage;
+    if (prevDoc === undefined) delete globalThis.document; else globalThis.document = prevDoc;
+  }
+
+  // Verify loadRun preserves shared reference between state.summon and state.player.summon
+  const saveState = createRun('save-summon-ref', false, ['summon', 'slime']);
+  saveState.collection = ['summon', 'slime'];
+  saveState.player.words = ['shot', 'fire', 'ice', 'summon', 'slime'];
+  saveState.player.hand = ['summon', 'slime'];
+  saveState.player.mana = 12;
+  const saveRes = simulateTurn(saveState, ['summon', 'slime'], saveState.enemies[0].id);
+  assert.ok(saveRes.ok && saveRes.state.player.summon, 'Summon should survive turn 1 in room 0');
+  const values = new Map();
+  const storage = { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v) };
+  assert.equal(saveRun(saveRes.state, storage).ok, true);
+  const loaded = loadRun(storage);
+  assert.equal(loaded.ok, true);
+  assert.ok(loaded.state.player.summon, 'Loaded run must retain active summon');
+  assert.strictEqual(loaded.state.summon, loaded.state.player.summon, 'Loaded state.summon and state.player.summon must share one reference');
+});
+
+test('Regression: Spear merges front+back targets into one continuous piercing projectile animation', () => {
+  const state = createRun('spear-single-pierce', false, ['spear', 'fire']);
+  state.player.words = ['spear', 'fire', 'ice', 'pair', 'shield'];
+  state.player.hand = ['spear', 'fire', 'pair'];
+  state.player.mana = 12;
+  state.enemies = [
+    { ...createEnemy('striker', 0), id: 'enemy-0', hp: 50, maxHp: 50, slot: 0 },
+    { ...createEnemy('striker', 1), id: 'enemy-1', hp: 50, maxHp: 50, slot: 1 },
+  ];
+  const res = simulateTurn(state, ['spear', 'fire'], 'enemy-0');
+  assert.ok(res.ok);
+  assert.ok(res.state.enemies[0].hp < 50 && res.state.enemies[1].hp < 50, 'Both front and back enemies take spear damage');
+
+  const pairRes = simulateTurn(state, ['spear', 'fire', 'pair'], 'enemy-0', 'enemy-0');
+  assert.ok(pairRes.ok);
+
+  const noop = () => {};
+  const ctx = {
+    imageSmoothingEnabled: false,
+    fillStyle: '', strokeStyle: '', lineWidth: 1, globalAlpha: 1, font: '', textAlign: '',
+    fillRect: noop, clearRect: noop, drawImage: noop, save: noop, restore: noop, translate: noop,
+    beginPath: noop, moveTo: noop, lineTo: noop, stroke: noop, fill: noop, arc: noop, ellipse: noop,
+    fillText: noop, strokeText: noop, measureText: () => ({ width: 20 }),
+  };
+  const stubCanvas = { width: 320, height: 180, id: 'test-canvas', getContext: () => ctx };
+  const prevDoc = globalThis.document;
+  const prevImage = globalThis.Image;
+  const prevRaf = globalThis.requestAnimationFrame;
+  const prevCaf = globalThis.cancelAnimationFrame;
+  globalThis.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; } set src(v) { this._src = v; } get src() { return this._src; } };
+  globalThis.requestAnimationFrame = () => 0;
+  globalThis.cancelAnimationFrame = () => {};
+  globalThis.document = { createElement: () => ({ width: 320, height: 180, getContext: () => ctx }) };
+  try {
+    const bf = new Battlefield(stubCanvas, { reducedMotion: false, combatSpeed: 1 });
+    bf.set(state, 'enemy-0');
+    bf.animate(res.events, noop, noop);
+    const spearEvents = bf.events.filter(e => e.type === 'projectile' && e.form === 'spear');
+    assert.equal(spearEvents.length, 1, 'Spear piercing 2 targets must animate as ONE single spear projectile event');
+    assert.equal(spearEvents[0].target, 'enemy-0');
+    assert.equal(spearEvents[0].pierceHit.target, 'enemy-1');
+    const spearContacts = bf.contacts.filter(c => c.event.type === 'projectile' && c.event.form === 'spear');
+    assert.equal(spearContacts.length, 2, 'Unified spear must trigger front and back hit contacts sequentially');
+    assert.ok(spearContacts[0].at < spearContacts[1].at, 'Front contact must land before back pierce contact');
+    assert.equal(spearContacts[1].event.spearPierceSilentLaunch, true, 'Back pierce contact must not replay launch SFX');
+
+    // Pair + Spear should produce 2 unified piercing spears (not 4 separate spears)
+    bf.animate(pairRes.events, noop, noop);
+    const pairSpears = bf.events.filter(e => e.type === 'projectile' && e.form === 'spear');
+    assert.equal(pairSpears.length, 2, 'Pair + Spear piercing 2 targets must animate as 2 unified spears, not 4');
+    assert.ok(pairSpears.every(e => e.pierceHit?.target === 'enemy-1'), 'Each Pair+Spear thrust must pierce through to enemy-1');
+  } finally {
+    if (prevRaf === undefined) delete globalThis.requestAnimationFrame; else globalThis.requestAnimationFrame = prevRaf;
+    if (prevCaf === undefined) delete globalThis.cancelAnimationFrame; else globalThis.cancelAnimationFrame = prevCaf;
+    if (prevImage === undefined) delete globalThis.Image; else globalThis.Image = prevImage;
+    if (prevDoc === undefined) delete globalThis.document; else globalThis.document = prevDoc;
+  }
+});
+
+test('Regression: Real-time mana preview, immediate deduction on cast, refund, and drain update HUD live', async () => {
+  const { createBattleFxController, renderPlayerMana, resetPlayerManaFx } = await import('../src/ui/battle-fx.js');
+  const makeClassList = () => {
+    const set = new Set();
+    return {
+      add: (...cls) => cls.forEach(c => set.add(c)),
+      remove: (...cls) => cls.forEach(c => set.delete(c)),
+      toggle: (c, force) => (force === undefined ? (set.has(c) ? (set.delete(c), false) : (set.add(c), true)) : (force ? set.add(c) : set.delete(c), Boolean(force))),
+      contains: c => set.has(c),
+    };
+  };
+  const makeEl = () => ({
+    textContent: '',
+    innerHTML: '',
+    title: '',
+    hidden: false,
+    isConnected: true,
+    dataset: {},
+    style: { setProperty() {} },
+    classList: makeClassList(),
+    closest: () => null,
+    querySelector: () => null,
+    replaceChildren() { this.innerHTML = ''; },
+  });
+  const elements = {
+    'mana-value': makeEl(),
+    'mana-pips': makeEl(),
+    'hp-value': makeEl(),
+    'hp-meter': makeEl(),
+    'hp-meter-trail': makeEl(),
+    'animation-status-text': makeEl(),
+    'combat-numbers': makeEl(),
+    'shield-status': makeEl(),
+  };
+  const prevDoc = globalThis.document;
+  const prevRaf = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = cb => { cb(); return 0; };
+  globalThis.document = {
+    getElementById: id => elements[id] ?? null,
+    querySelector: () => null,
+  };
+  try {
+    resetPlayerManaFx();
+    // 1. Staging preview shows remaining mana in text (works on mobile too)
+    renderPlayerMana(12, 12, { pendingCost: 4, animate: false });
+    assert.equal(elements['mana-value'].textContent, '12→8 / 12');
+    assert.equal(elements['mana-value'].classList.contains('has-preview'), true);
+
+    // 1b. Shortage preview marks shortage clearly
+    renderPlayerMana(3, 12, { pendingCost: 5, animate: false });
+    assert.equal(elements['mana-value'].textContent, '3 / 12 (−5)');
+    assert.equal(elements['mana-value'].classList.contains('is-short'), true);
+
+    // 2. Casting immediately deducts mana on beginTurnAnimation
+    const state = createRun('mana-realtime', false);
+    state.player.mana = 12;
+    const fx = createBattleFxController({
+      getState: () => state,
+      getTargetId: () => state.enemies[0]?.id,
+      getSettings: () => ({ reducedMotion: true, combatSpeed: 1 }),
+      getAudio: () => ({ combat() {}, play() {} }),
+      getBattlefield: () => ({ enemyX: () => 200, snapshots: [] }),
+    });
+    fx.beginTurnAnimation(state, { summary: { cost: 5 } });
+    assert.equal(elements['mana-value'].textContent, '7 / 12');
+
+    // 3. Mid-turn mana refund ticks mana UP live
+    fx.handleCombatStep({ type: 'mana-refund', amount: 2 }, 0);
+    assert.equal(elements['mana-value'].textContent, '9 / 12');
+
+    // 4. Mid-turn enemy manaDrain ticks mana DOWN live
+    fx.handleCombatStep({ type: 'attack', source: 'enemy-0', amount: 0, absorbed: 0, playerAbsorbed: 0, manaDrain: 3 }, 1);
+    assert.equal(elements['mana-value'].textContent, '6 / 12');
+  } finally {
+    if (prevRaf === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = prevRaf;
+    if (prevDoc === undefined) delete globalThis.document;
+    else globalThis.document = prevDoc;
+  }
+});
+
 

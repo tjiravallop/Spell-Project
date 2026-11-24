@@ -1,5 +1,5 @@
 import { WORDS, elementFamily, ELEMENT_ICONS, ELEMENT_LABELS } from '../words.js';
-import { ETERNITY_PHASE_HP, ETERNITY_FIRST_FORM_HP, eternityHealth, ENEMIES, RELIC_DRAFT_CATALOG } from '../run.js';
+import { ETERNITY_PHASE_HP, ETERNITY_FIRST_FORM_HP, eternityHealth, ENEMIES, RELIC_DRAFT_CATALOG, getMaxMana } from '../run.js';
 import { damageLabel, fizzleLabel, wardLabel } from '../render.js';
 import { $, queueFxClassRestart, upperCheckpoint, checkpointFloor } from './dom.js';
 import { renderSummonCardHtml } from './battle-render.js';
@@ -19,9 +19,14 @@ export const BATTLE_VIEW_SHAKE_CLASSES = [
 ];
 
 let lastPlayerHpWidth = null;
+let lastPlayerMana = null;
 
 export function resetPlayerHpFx() {
   lastPlayerHpWidth = null;
+}
+
+export function resetPlayerManaFx() {
+  lastPlayerMana = null;
 }
 
 const ETERNITY_PHASE_NAMES = ['สภากาลอวกาศ', 'ผลึกสลับธาตุ', 'ร่างจุตินิรันดร์'];
@@ -76,6 +81,57 @@ export function renderPlayerHp(hp, maxHp) {
     if (valueEl) queueFxClassRestart(valueEl, ['hp-value-hit', 'hp-value-heal'], pct < lastPlayerHpWidth ? 'hp-value-hit' : 'hp-value-heal');
   }
   lastPlayerHpWidth = pct;
+}
+
+export function renderPlayerMana(mana, maxMana, { pendingCost = 0, animate = true } = {}) {
+  const safeMax = Math.max(1, Number(maxMana) || 1);
+  const current = Math.max(0, Math.min(safeMax, Number(mana) || 0));
+  const cost = Math.max(0, Number(pendingCost) || 0);
+  const short = cost > current;
+  const manaEl = $('mana-value');
+  const pipsEl = $('mana-pips');
+  const resourceEl = manaEl?.closest?.('.mana-resource');
+
+  if (manaEl) {
+    if (cost > 0) {
+      manaEl.textContent = short
+        ? `${current} / ${safeMax} (−${cost})`
+        : `${current}→${current - cost} / ${safeMax}`;
+    } else {
+      manaEl.textContent = `${current} / ${safeMax}`;
+    }
+    manaEl.classList.toggle('is-short', short);
+    manaEl.classList.toggle('has-preview', cost > 0 && !short);
+    manaEl.title = short
+      ? `มานาไม่พอ (ต้องการ ${cost} · ขาด ${cost - current})`
+      : cost > 0
+        ? `คาถาบนแท่นใช้ ${cost} มานา (จะเหลือ ${current - cost})`
+        : `มานา ${current} / ${safeMax}`;
+  }
+
+  if (pipsEl) {
+    const count = Math.min(safeMax, 16);
+    const filled = Math.ceil(count * current / safeMax);
+    const spendPips = cost > 0 ? Math.min(count, Math.ceil(count * cost / safeMax)) : 0;
+    pipsEl.classList.toggle('has-shortage', short);
+    pipsEl.innerHTML = Array.from({ length: count }, (_, i) => {
+      const isFull = i < filled;
+      const willSpend = isFull && spendPips > 0 && i >= Math.max(0, filled - spendPips);
+      const isDeficit = !isFull && short && i < spendPips;
+      return `<i class="mana-pip ${isFull ? 'full' : ''} ${willSpend ? 'will-spend' : ''} ${isDeficit ? 'insufficient' : ''}"></i>`;
+    }).join('');
+  }
+
+  if (animate && lastPlayerMana !== null && current !== lastPlayerMana) {
+    const spent = current < lastPlayerMana;
+    if (resourceEl) {
+      queueFxClassRestart(resourceEl, ['mana-change-spend', 'mana-change-gain'], spent ? 'mana-change-spend' : 'mana-change-gain');
+    }
+    if (manaEl) {
+      queueFxClassRestart(manaEl, ['mana-value-spend', 'mana-value-gain'], spent ? 'mana-value-spend' : 'mana-value-gain');
+    }
+  }
+  lastPlayerMana = current;
 }
 
 export function triggerEnemyCardFx(enemyId, fxClass) {
@@ -154,13 +210,15 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
   let animEternityPhase = 1;
   let animPlayerHp = 0;
   let animPlayerMaxHp = 0;
+  let animPlayerMana = 0;
+  let animPlayerMaxMana = 12;
   let animSummon = null;
 
   function syncAnimatedSummonCard(fxClass = null) {
     const list = $('enemy-list');
     if (!list || typeof list.querySelector !== 'function') return;
     const existing = list.querySelector('.summon-card');
-    if (!animSummon || !(animSummon.hp > 0)) {
+    if (!animSummon) {
       existing?.remove();
       return;
     }
@@ -171,7 +229,10 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         list.innerHTML = renderSummonCardHtml(animSummon) + (list.innerHTML ?? '');
       }
       const created = list.querySelector('.summon-card');
-      if (created && fxClass) queueFxClassRestart(created, ['enemy-hit-shake', 'enemy-acting-lunge', 'enemy-targeted-pulse'], fxClass);
+      if (created) {
+        created.classList.toggle('dead', !(animSummon.hp > 0));
+        if (fxClass) queueFxClassRestart(created, ['enemy-hit-shake', 'enemy-acting-lunge', 'enemy-targeted-pulse'], fxClass);
+      }
       return;
     }
     const maxHp = Math.max(1, animSummon.maxHp ?? animSummon.hp);
@@ -182,6 +243,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     if (hpText) hpText.textContent = `${animSummon.hp}/${maxHp}`;
     if (hpTrail) hpTrail.style.width = pctStr;
     if (hpFill) hpFill.style.width = pctStr;
+    existing.classList.toggle('dead', !(animSummon.hp > 0));
     const wardBadge = existing.querySelector('[data-summon-ward]');
     if (wardBadge) {
       if ((animSummon.ward ?? 0) > 0) wardBadge.textContent = `🔮 ม่าน ${animSummon.ward}`;
@@ -190,7 +252,13 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     if (fxClass) queueFxClassRestart(existing, ['enemy-hit-shake', 'enemy-acting-lunge', 'enemy-targeted-pulse'], fxClass);
   }
 
-  function beginTurnAnimation(state) {
+  function changeAnimatedPlayerMana(amount, maxGain = 0) {
+    animPlayerMaxMana = Math.max(1, animPlayerMaxMana + maxGain);
+    animPlayerMana = Math.max(0, Math.min(animPlayerMaxMana, animPlayerMana + amount));
+    renderPlayerMana(animPlayerMana, animPlayerMaxMana, { pendingCost: 0, animate: true });
+  }
+
+  function beginTurnAnimation(state, result = null) {
     const numbers = $('combat-numbers');
     if (numbers && typeof numbers.replaceChildren === 'function') numbers.replaceChildren();
     else if (numbers) numbers.innerHTML = '';
@@ -198,6 +266,14 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     animEnemyHp = Object.fromEntries(state.enemies.map(e => [e.id, e.hp]));
     animPlayerHp = state.player.hp;
     animPlayerMaxHp = state.player.maxHp;
+    animPlayerMaxMana = getMaxMana(state.player);
+    animPlayerMana = state.player.mana;
+    const spentCost = Math.max(0, Number(result?.summary?.cost) || 0);
+    if (spentCost > 0) {
+      changeAnimatedPlayerMana(-spentCost);
+    } else {
+      renderPlayerMana(animPlayerMana, animPlayerMaxMana, { pendingCost: 0, animate: false });
+    }
     const active = state.player?.summon || state.summon;
     animSummon = active && active.hp > 0 ? { ...active } : null;
   }
@@ -282,14 +358,14 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     }
   }
 
-  function pulseBossUltimateImpact(bossKind, mode = 'attack', sourceId = 'enemy-0') {
+  function pulseBossUltimateImpact(bossKind, mode = 'attack', sourceId = 'enemy-0', targetXOverride = null) {
     const layer = $('canvas-impact-layer');
     if (!layer || getSettings().reducedMotion) return;
     const state = getState();
     const battlefield = getBattlefield();
     const isStorm = bossKind === 'tempest_archon' || bossKind === 'thunder_drake_emperor' || bossKind === 'abyssal_kraken';
     const themeClass = isStorm ? 'elem-boss-ultimate-storm' : 'elem-boss-ultimate-fire';
-    let impactX = 16;
+    let impactX = targetXOverride ?? 16;
     let impactY = 66;
     if (mode === 'charge') {
       const enemy = state?.enemies?.find(candidate => candidate.id === sourceId);
@@ -644,13 +720,17 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         }
         break;
       case 'attack': {
-        changeAnimatedPlayerHp(-event.amount);
+        const hitsSummon = event.target === 'summon';
+        const playerAbsorbed = event.playerAbsorbed ?? (hitsSummon ? 0 : (event.absorbed ?? 0));
+        if (event.amount > 0) changeAnimatedPlayerHp(-event.amount);
+        if (event.manaDrain > 0) changeAnimatedPlayerMana(-event.manaDrain);
         const sourceEnemy = state?.enemies?.find(candidate => candidate.id === event.source);
         const sourceKind = event.sourceKind ?? sourceEnemy?.kind;
         const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(sourceKind));
         const isUltimate = Boolean(event.ultimate || (isSpecialBoss && (event.rawAttack ?? 0) >= 15));
-        if (isUltimate) pulseBossUltimateImpact(sourceKind, 'attack', event.source);
-        pulsePlayerHud(event.amount > 0 ? 'hit' : 'shield');
+        if (isUltimate) pulseBossUltimateImpact(sourceKind, 'attack', event.source, hitsSummon && !(event.amount > 0) ? 27.5 : 16);
+        if (event.amount > 0) pulsePlayerHud('hit');
+        else if (playerAbsorbed > 0) pulsePlayerHud('shield');
         if (isUltimate) {
           const skillName = sourceKind === 'eternity_reborn'
             ? '✨ มหาเทพจุตินิรันดร์ซัดซูเปอร์โนวาดับจักรวาล!'
@@ -677,10 +757,17 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
                                 : '💥 จ้าวอัคคีทุบพิพากษาเพลิง!';
           status.textContent = event.amount > 0
             ? `${skillName} เสีย ${event.amount} HP`
-            : `${skillName} โล่ต้านไว้ได้ ${event.absorbed}`;
+            : hitsSummon
+              ? `${skillName} สิ่งอัญเชิญรับไว้แทน`
+              : `${skillName} โล่ต้านไว้ได้ ${playerAbsorbed}`;
+        } else if (hitsSummon && !(event.amount > 0)) {
+          status.textContent = [
+            `สิ่งอัญเชิญแนวหน้ารับการโจมตี`,
+            event.manaDrain > 0 ? `สูบมานา −${event.manaDrain} MP` : '',
+          ].filter(Boolean).join(' · ');
         } else {
           status.textContent = [
-            event.absorbed > 0 ? `ป้องกัน ${event.absorbed}` : '',
+            playerAbsorbed > 0 ? `ป้องกัน ${playerAbsorbed}` : '',
             event.amount > 0 ? `เสีย ${event.amount} HP` : '',
             event.manaDrain > 0 ? `สูบมานา −${event.manaDrain} MP` : '',
           ].filter(Boolean).join(' · ') || 'ศัตรูโจมตี 0 ดาเมจ';
@@ -758,6 +845,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         break;
       }
       case 'mana-refund':
+        if (event.amount > 0) changeAnimatedPlayerMana(event.amount);
         pulsePlayerHud('shield');
         status.textContent = event.restored
           ? `เติมมานา +${event.amount} MP`
@@ -898,6 +986,10 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         if (event.hp) {
           animPlayerHp = event.hp;
           renderPlayerHp(animPlayerHp, animPlayerMaxHp);
+        }
+        if (event.mana !== undefined) {
+          animPlayerMana = event.mana;
+          renderPlayerMana(animPlayerMana, animPlayerMaxMana, { pendingCost: 0, animate: true });
         }
         pulsePlayerHud('heal');
         status.textContent = '🔥 ฟีนิกซ์สละชีพชุบชีวิตผู้เล่นเต็มพลัง!';

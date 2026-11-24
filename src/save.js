@@ -397,9 +397,20 @@ export function loadRun(storage) {
           if (summon && (decoded.phase !== 'battle' || decoded.turn === 1 || summon.turnCreated > decoded.turn)) {
             delete decoded.summon;
             delete decoded.player.summon;
+          } else if (summon && summon.hp > 0) {
+            decoded.player.summon = summon;
+            decoded.summon = summon;
           }
         }
         const state = validateRun(decoded);
+        if (state.player.summon && state.player.summon.hp > 0) {
+          state.summon = state.player.summon;
+        } else if (state.summon && state.summon.hp > 0) {
+          state.player.summon = state.summon;
+        } else {
+          delete state.summon;
+          delete state.player.summon;
+        }
         if (state.phase === 'lost') clearLostRunProgress(state);
         else repairEarlyDeck(state);
         if (state.hpCurveVersion === undefined) {
