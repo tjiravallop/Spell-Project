@@ -353,50 +353,39 @@ test('Second-tier summon marks stay on body pixels of every normal and Grand spr
   }
 });
 
-test('All fused summon pairs render two-tone bodies within their original silhouettes', async () => {
+test('All fused summons use the base element body tint and distinct accent marks', async () => {
   const { SUMMON_ART } = await import('../src/summon-art.js');
-  const fusedElements = Object.keys(FUSION_COMPONENTS);
   for (const [creatureId, art] of Object.entries(SUMMON_ART)) {
     for (const isGrand of [false, true]) {
       const scale = isGrand ? art.grandScale : 1;
       const left = 88 - Math.floor(art.width * scale / 2);
       const height = Math.round(art.height * scale);
       const top = 147 - height - Math.min(Math.round(art.lift * scale), 141 - height);
+      const bodyPixels = new Set(art.pixels.flatMap((row, y) => row.flatMap((material, x) =>
+        material && !['ink', 'spark', 'core'].includes(material)
+          ? [`${left + Math.round(x * scale)},${top + Math.round(y * scale)}`] : []
+      )));
       const variants = new Set();
-      for (const element of fusedElements) {
-        const canvas = [];
-        let shadow = true;
-        const ctx = { fillRect(x, y, width, height) {
-          if (shadow) {
-            shadow = false;
-            return;
-          }
-          for (let row = y; row < y + height; row++) {
-            (canvas[row] ??= Array(320)).fill(this.fillStyle, x, x + width);
-          }
-        } };
-        Battlefield.prototype.drawSummonSprite.call({ ctx, settings: { reducedMotion: true }, pixelEllipse() {} }, {
-          creatureId, element, isGrand, hp: 20, maxHp: 20,
-        }, 88, 147, 0, null, 0, true);
-        const body = new Map();
-        for (const [y, row] of art.pixels.entries()) {
-          for (const [x, material] of row.entries()) {
-            const color = canvas[top + Math.round(y * scale)]?.[left + Math.round(x * scale)];
-            if (!material) {
-              assert.equal(color, undefined, `${creatureId} ${element} silhouette`);
-            } else if (material === 'ink') {
-              assert.equal(color, art.colors.ink, `${creatureId} ${element} outline`);
-            } else if (material !== 'core' && material !== 'spark') {
-              assert.match(color, /^#[0-9a-f]{6}$/i);
-              if (!body.has(material)) body.set(material, new Set());
-              body.get(material).add(color);
-            }
-          }
+      for (const [element, [baseElement]] of Object.entries(FUSION_COMPONENTS)) {
+        const [base, fused] = [baseElement, element].map(element => {
+          const paints = [];
+          const ctx = { fillRect(x, y, w, h) { paints.push([x, y, w, h, this.fillStyle]); } };
+          Battlefield.prototype.drawSummonSprite.call({ ctx, settings: { reducedMotion: true }, pixelEllipse() {} }, {
+            creatureId, element, isGrand, hp: 20, maxHp: 20,
+          }, 88, 147, 0, null, 0, true);
+          return paints.slice(1);
+        });
+        for (const [index, [material]] of art.rows.flat().entries()) {
+          if (material === 'spark' || material === 'core') continue;
+          assert.deepEqual(fused[index], base[index], `${creatureId} ${element} ${material}`);
         }
-        assert.ok([...body.values()].some(colors => colors.size > 1), `${creatureId} ${element} Grand=${isGrand}`);
-        variants.add(JSON.stringify([...body.values()].map(colors => [...colors])));
+        const mark = fused.slice(base.length);
+        assert.ok(mark.length >= 8, `${creatureId} ${element} Grand=${isGrand}`);
+        assert.ok(mark.every(([x, y]) => bodyPixels.has(`${x},${y}`)), `${creatureId} ${element}`);
+        assert.equal(new Set(mark.map(([, , , , color]) => color)).size, 2, `${creatureId} ${element}`);
+        variants.add(JSON.stringify(mark));
       }
-      assert.equal(variants.size, fusedElements.length, creatureId);
+      assert.equal(variants.size, Object.keys(FUSION_COMPONENTS).length, creatureId);
     }
   }
 });

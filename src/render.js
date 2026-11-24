@@ -144,12 +144,33 @@ const ELEMENT_IMPACT = Object.freeze({
   },
 });
 const elementColor = Object.fromEntries(Object.entries(ELEMENT_IMPACT).map(([id, palette]) => [id, palette.primary]));
-const fusedSummonPalettes = Object.fromEntries(Object.entries(FUSION_COMPONENTS).map(([id, components]) => [
-  id, {
+const fusedSummonMarks = {
+  magma:      ['..++...', '...##..', '.###++.', '+##.##.', '.+...#+'],
+  mudmire:    ['....+..', '..##...', '.####+.', '+##..##', '..+++..'],
+  dust:       ['...++..', '.###...', '+..###+', '...##..', '.++....'],
+  permafrost: ['...#...', '..#+#..', '+#..##.', '.##+#.+', '..+#...'],
+  magnet:     ['.#+.+#.', '+##.##+', '.#...#.', '.##.##.', '...+...'],
+  mist:       ['..+++..', '.##..++', '...###.', '+##....', '..+##+.'],
+  hail:       ['.+...+.', '..#.#..', '.#+#..+', '+..##..', '..+..#.'],
+  monsoon:    ['..###+.', '.##...+', '+#..##.', '.#...#+', '..###..'],
+  shockstream:['...#+..', '..##...', '.+####.', '....##+', '..##+..'],
+  thunderstorm:['..++##.', '.###...', '+##.##+', '...##..', '..#+...'],
+  heatwave:   ['.+..#+.', '..##.#.', '.##.##+', '+#..##.', '.+##+..'],
+  chillgale:  ['...#..+', '.##+##.', '+..#...', '.##+##+', '...#...'],
+  plasma:     ['..#..+.', '.+###..', '##+.+##', '..###+.', '.+..#..'],
+  scald:      ['..#..+.', '.#+.#..', '.#..#+.', '..##...', '+####+.'],
+  frostvolt:  ['...##..', '..##.+.', '.+####+', '...##..', '..##...'],
+};
+const fusedSummonPalettes = new Map(Object.entries(FUSION_COMPONENTS).map(([id, [base, accent]]) => {
+  const body = ELEMENT_IMPACT[base];
+  const mark = ELEMENT_IMPACT[accent];
+  return [id, {
     ...ELEMENT_IMPACT[id],
-    componentTints: components.map(component => ELEMENT_IMPACT[component].summonTint ?? ELEMENT_IMPACT[component].primary),
-  },
-]));
+    summonTint: body.summonTint ?? body.primary,
+    summonMark: fusedSummonMarks[id],
+    markColors: { '#': mark.rim, '+': mark.primary },
+  }];
+}));
 elementColor['akki-blast'] = elementColor.akki;
 export const vfxScale = source => (source?.grand ? 5 : source?.large ? 2 : 1);
 
@@ -923,7 +944,7 @@ export class Battlefield {
     }
 
     if (art) {
-      drawSummonArt(g, art, sx - Math.floor(art.width * scale / 2), artTop, scale, fusedSummonPalettes[elem] ?? elemImpact);
+      drawSummonArt(g, art, sx - Math.floor(art.width * scale / 2), artTop, scale, fusedSummonPalettes.get(elem) ?? elemImpact);
     } else if (cid === 'bird') {
       r(13, 5 + bob, 6, 6, bodyColor);
       r(19, 7 + bob, 4, 2, rimColor);

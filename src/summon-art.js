@@ -572,14 +572,24 @@ const toHex = channels => '#' + channels.map(channel => Math.round(channel).toSt
 
 function placeElementMark(art, palette) {
   if (!palette.summonMark) return [];
-  const pattern = palette.summonMark.flatMap((row, y) => Array.from(row, (pixel, x) =>
-    pixel === '.' ? null : [x, y, pixel === '#' ? palette.core : palette.rim]
+  const colors = palette.markColors ?? { '#': palette.core, '+': palette.rim };
+  return fitElementMark(art, palette.summonMark, colors)
+    ?? fitElementMark(art, palette.summonMark.map(row => row.slice(1, -1)), colors)
+    ?? [];
+}
+
+function fitElementMark(art, stencil, colors) {
+  const pattern = stencil.flatMap((row, y) => Array.from(row, (pixel, x) =>
+    pixel === '.' ? null : [x, y, colors[pixel]]
   ).filter(Boolean));
+  const width = stencil[0].length;
+  const height = stencil.length;
   let bestDistance = Infinity;
   let origin;
-  for (let y = 0; y <= art.height - 5; y++) {
-    for (let x = 0; x <= art.width - 5; x++) {
-      const distance = (x + 2 - art.width * 0.44) ** 2 + (y + 2 - art.height * 0.52) ** 2;
+  for (let y = 0; y <= art.height - height; y++) {
+    for (let x = 0; x <= art.width - width; x++) {
+      const distance = (x + (width - 1) / 2 - art.width * 0.44) ** 2
+        + (y + (height - 1) / 2 - art.height * 0.52) ** 2;
       if (distance >= bestDistance) continue;
       // Keep the mark inside the body and clear of outlines and existing glints.
       if (!pattern.every(([dx, dy]) => isBodyMaterial(art.pixels[y + dy][x + dx]))) continue;
@@ -587,7 +597,7 @@ function placeElementMark(art, palette) {
       origin = [x, y];
     }
   }
-  if (!origin) return [];
+  if (!origin) return null;
   const [x, y] = origin;
   return pattern.map(([dx, dy, color]) => [x + dx, y + dy, color]);
 }
@@ -606,25 +616,6 @@ function tintMaterials(art, palette, tint) {
   return colors;
 }
 
-function fusedRows(art, palette) {
-  const blend = rgb(palette.primary);
-  const tones = palette.componentTints.map(hex => mix(rgb(hex), blend, 0.24));
-  const [first, second, seam] = [...tones, mix(mix(tones[0], tones[1], 0.5), rgb(palette.core), 0.54)]
-    .map(tint => tintMaterials(art, palette, tint));
-  for (const material of Object.keys(seam)) {
-    if (isBodyMaterial(material)) seam[material] = toHex(mix(rgb(seam[material]), rgb(palette.core), 0.42));
-  }
-  return art.pixels.map((row, y) => {
-    // Dither the diagonal in small steps to follow the pixel grid.
-    const edge = Math.round(art.width * 0.59 + (art.height * 0.5 - y) * 0.4) + [0, 1, 0, -1][Math.floor(y / 2) % 4];
-    return pixelSpans(row.map((material, x) => {
-      if (!isBodyMaterial(material)) return first[material];
-      if (x === edge && isBodyMaterial(row[x - 1]) && isBodyMaterial(row[x + 1])) return seam[material];
-      return (x <= edge ? first : second)[material];
-    }));
-  });
-}
-
 function elementVariantFor(art, palette) {
   let variants = elementalVariants.get(art);
   if (!variants) {
@@ -634,7 +625,7 @@ function elementVariantFor(art, palette) {
   if (variants.has(palette)) return variants.get(palette);
 
   const colors = tintMaterials(art, palette, rgb(palette.summonTint ?? palette.primary));
-  const rows = palette.componentTints ? fusedRows(art, palette) : art.rows.map(row =>
+  const rows = art.rows.map(row =>
     row.map(([material, start, end]) => [colors[material], start, end]));
   const variant = { rows, mark: placeElementMark(art, palette) };
   variants.set(palette, variant);
