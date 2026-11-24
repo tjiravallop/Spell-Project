@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WORDS, CREATURE_WORDS, CREATURE_STATS, parseSpell } from '../src/words.js';
+import { WORDS, CREATURE_WORDS, CREATURE_STATS, FUSION_COMPONENTS, SECOND_TIER_ELEMENTS, parseSpell } from '../src/words.js';
 import { createRun, createEnemy, enterRoom, enterSanctuary, updateSanctuaryLoadout, revisitRoom, FLOOR5_START_ROOM, makeRewards, chooseReward, equipWords, getRewardPoolForRoom, getCardSecondaryEffect, hasCardSecondaryUpgrade, battleSpellCost, drawCards } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
 import { validateRun, saveRun, loadRun, SAVE_KEY } from '../src/save.js';
@@ -252,6 +252,153 @@ test('Summon System: Turn 2 Summon Chaining / Succession Relay Strike ("ลื�
   assert.equal(res2.state.player.summon.creatureId, 'golem');
   assert.equal(res2.state.player.summon.element, 'water');
   assert.equal(res2.state.player.summon.turnCreated, 2, 'Golem turnCreated must be turn 2');
+});
+
+test('Refreshed Grand summon sprites peak at 4x on arrival and settle within the canvas', async () => {
+  const { Battlefield } = await import('../src/render.js');
+  const { SUMMON_ART } = await import('../src/summon-art.js');
+  assert.deepEqual(Object.keys(SUMMON_ART).sort(), [...CREATURE_WORDS].sort());
+  for (const [creatureId, art] of Object.entries(SUMMON_ART)) {
+    const colors = new Set(Object.values(art.colors));
+    const bounds = (isGrand, { reducedMotion = true, arriving = false, progress = 0 } = {}) => {
+      const box = { left: Infinity, top: Infinity, right: 0, bottom: 0 };
+      const ctx = {
+        fillRect(x, y, width, height) {
+          if (!colors.has(this.fillStyle)) return;
+          box.left = Math.min(box.left, x);
+          box.top = Math.min(box.top, y);
+          box.right = Math.max(box.right, x + width);
+          box.bottom = Math.max(box.bottom, y + height);
+        },
+      };
+      const battlefield = { ctx, settings: { reducedMotion }, pixelEllipse() {} };
+      Battlefield.prototype.drawSummonSprite.call(battlefield, {
+        creatureId, isGrand, hp: 20, maxHp: 20,
+      }, 88, 147, 0, arriving ? { type: 'summon_invoke' } : null, progress);
+      return box;
+    };
+    const normal = bounds(false);
+    const grand = bounds(true);
+    const peak = bounds(true, { reducedMotion: false, arriving: true, progress: 0.28 });
+    const width = box => box.right - box.left;
+    assert.equal(width(peak), width(normal) * 4, creatureId);
+    assert.equal(width(grand), Math.round(width(normal) * art.grandScale), creatureId);
+    assert.equal(width(bounds(true, { reducedMotion: false, arriving: true, progress: 1 })), width(grand), creatureId);
+    assert.equal(width(bounds(true, { arriving: true, progress: 0.28 })), width(grand), creatureId);
+    assert.ok(peak.top >= 0 && peak.bottom <= 147, creatureId);
+    assert.ok(grand.right - grand.left > normal.right - normal.left, creatureId);
+    assert.ok(grand.bottom - grand.top > normal.bottom - normal.top, creatureId);
+    assert.ok(Math.abs((grand.left + grand.right) / 2 - 88) <= 1, creatureId);
+    assert.ok(grand.bottom <= normal.bottom && normal.bottom <= 147, creatureId);
+  }
+});
+
+test('Summon elements tint body materials while keeping the pixel outline', async () => {
+  const { Battlefield } = await import('../src/render.js');
+  const { SUMMON_ART } = await import('../src/summon-art.js');
+  const art = SUMMON_ART.bear;
+  const colorsAt = (role, element) => {
+    const row = art.rows.findIndex(spans => spans.some(([material]) => material === role));
+    const [, start] = art.rows[row].find(([material]) => material === role);
+    const px = 88 - Math.floor(art.width / 2) + start;
+    const py = 147 - art.height + row;
+    let color;
+    const ctx = {
+      fillRect(x, y, w, h) {
+        if (px >= x && px < x + w && py >= y && py < y + h) color = this.fillStyle;
+      },
+    };
+    Battlefield.prototype.drawSummonSprite.call({ ctx, settings: { reducedMotion: true }, pixelEllipse() {} }, {
+      creatureId: 'bear', element, hp: 20, maxHp: 20,
+    }, 88, 147, 0, null, 0);
+    return color;
+  };
+  const elements = ['fire', 'ice', 'lightning', 'earth', 'water', 'wind'];
+  const body = elements.map(element => colorsAt('fur', element));
+  assert.equal(colorsAt('fur', null), art.colors.fur);
+  assert.ok(body.every(color => color && color !== art.colors.fur));
+  assert.equal(new Set(body).size, elements.length);
+  for (const element of elements) assert.equal(colorsAt('ink', element), art.colors.ink);
+});
+
+test('Second-tier summon marks stay on body pixels of every normal and Grand sprite', async () => {
+  const { SUMMON_ART } = await import('../src/summon-art.js');
+  for (const [creatureId, art] of Object.entries(SUMMON_ART)) {
+    for (const isGrand of [false, true]) {
+      const scale = isGrand ? art.grandScale : 1;
+      const left = 88 - Math.floor(art.width * scale / 2);
+      const height = Math.round(art.height * scale);
+      const top = 147 - height - Math.min(Math.round(art.lift * scale), 141 - height);
+      const bodyPixels = new Set(art.pixels.flatMap((row, y) => row.flatMap((material, x) =>
+        material && !['ink', 'spark', 'core'].includes(material)
+          ? [`${left + Math.round(x * scale)},${top + Math.round(y * scale)}`] : []
+      )));
+      const patterns = new Set();
+      for (const [element, baseElement] of Object.entries(SECOND_TIER_ELEMENTS)) {
+        const [base, advanced] = [baseElement, element].map(element => {
+          const paints = [];
+          const ctx = { fillRect(x, y) { paints.push(`${x},${y}`); } };
+          Battlefield.prototype.drawSummonSprite.call({ ctx, settings: { reducedMotion: true }, pixelEllipse() {} }, {
+            creatureId, element, isGrand, hp: 20, maxHp: 20,
+          }, 88, 147, 0, null, 0, true);
+          return paints;
+        });
+        const pattern = advanced.slice(base.length);
+        assert.ok(pattern.length >= 8, `${creatureId} ${element} Grand=${isGrand}`);
+        assert.ok(pattern.every(pixel => bodyPixels.has(pixel)), `${creatureId} ${element}`);
+        patterns.add(pattern.join(' '));
+      }
+      assert.equal(patterns.size, Object.keys(SECOND_TIER_ELEMENTS).length, creatureId);
+    }
+  }
+});
+
+test('All fused summon pairs render two-tone bodies within their original silhouettes', async () => {
+  const { SUMMON_ART } = await import('../src/summon-art.js');
+  const fusedElements = Object.keys(FUSION_COMPONENTS);
+  for (const [creatureId, art] of Object.entries(SUMMON_ART)) {
+    for (const isGrand of [false, true]) {
+      const scale = isGrand ? art.grandScale : 1;
+      const left = 88 - Math.floor(art.width * scale / 2);
+      const height = Math.round(art.height * scale);
+      const top = 147 - height - Math.min(Math.round(art.lift * scale), 141 - height);
+      const variants = new Set();
+      for (const element of fusedElements) {
+        const canvas = [];
+        let shadow = true;
+        const ctx = { fillRect(x, y, width, height) {
+          if (shadow) {
+            shadow = false;
+            return;
+          }
+          for (let row = y; row < y + height; row++) {
+            (canvas[row] ??= Array(320)).fill(this.fillStyle, x, x + width);
+          }
+        } };
+        Battlefield.prototype.drawSummonSprite.call({ ctx, settings: { reducedMotion: true }, pixelEllipse() {} }, {
+          creatureId, element, isGrand, hp: 20, maxHp: 20,
+        }, 88, 147, 0, null, 0, true);
+        const body = new Map();
+        for (const [y, row] of art.pixels.entries()) {
+          for (const [x, material] of row.entries()) {
+            const color = canvas[top + Math.round(y * scale)]?.[left + Math.round(x * scale)];
+            if (!material) {
+              assert.equal(color, undefined, `${creatureId} ${element} silhouette`);
+            } else if (material === 'ink') {
+              assert.equal(color, art.colors.ink, `${creatureId} ${element} outline`);
+            } else if (material !== 'core' && material !== 'spark') {
+              assert.match(color, /^#[0-9a-f]{6}$/i);
+              if (!body.has(material)) body.set(material, new Set());
+              body.get(material).add(color);
+            }
+          }
+        }
+        assert.ok([...body.values()].some(colors => colors.size > 1), `${creatureId} ${element} Grand=${isGrand}`);
+        variants.add(JSON.stringify([...body.values()].map(colors => [...colors])));
+      }
+      assert.equal(variants.size, fusedElements.length, creatureId);
+    }
+  }
 });
 
 test('Summon System: All 27 Creatures drawSummonSprite and Audio presets execute without errors', async () => {

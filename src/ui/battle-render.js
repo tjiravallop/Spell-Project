@@ -1,4 +1,4 @@
-import { WORDS, BATTLE_LIMITED_WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, ELEMENT_VULNERABILITY, ELEMENT_SECONDARY_VULNERABILITY, ELEMENT_LABELS, ELEMENT_GLYPHS, ELEMENT_ICONS } from '../words.js';
+import { WORDS, BATTLE_LIMITED_WORDS, CREATURE_WORDS, elementFamily, fireShieldLayers, SECOND_TIER_ELEMENTS, FUSED_ELEMENTS, ELEMENT_VULNERABILITY, ELEMENT_SECONDARY_VULNERABILITY, ELEMENT_LABELS, ELEMENT_GLYPHS, ELEMENT_ICONS } from '../words.js';
 import {
   getHandLimit,
   battleSpellCost,
@@ -704,7 +704,12 @@ export function renderSlots({ state, words, selectedSlot, busy, castFxState }, p
 
 export function getKnownCastableInHand(state, accountDiscovered) {
   const knownKeys = new Set([...accountDiscovered, ...(state?.stats?.discovered ?? []), ...state.player.hand.filter(id => BATTLE_LIMITED_WORDS.includes(id))]);
-  const catOrder = { combo_attack: 0, combo_shield: 1, combo_heal: 2 };
+  const categoryFor = spell => {
+    if (spell.type === 'summon') return { category: 'อัญเชิญ', kindClass: 'combo-summon', catRank: 1 };
+    if (spell.form === 'heal' || spell.healing > 0) return { category: 'ฟื้นฟู', kindClass: 'combo-heal', catRank: 3 };
+    if (spell.type === 'self') return { category: 'โล่', kindClass: 'combo-shield', catRank: 2 };
+    return { category: 'โจมตี', kindClass: 'combo-attack', catRank: 0 };
+  };
   const castable = [];
   const shortMana = [];
   let cardsOnlyCount = 0;
@@ -719,38 +724,24 @@ export function getKnownCastableInHand(state, accountDiscovered) {
         const detonateOk = cardsMatch.spell.form !== 'detonate' || fireShieldLayers(state.player.shield, cardsMatch.spell.element).length > 0;
         const cost = battleSpellCost(state, cardsMatch);
         if (detonateOk && cost > state.player.mana) {
-          const isHeal = cardsMatch.spell.form === 'heal' || cardsMatch.spell.healing > 0;
-          const isDefense = cardsMatch.spell.type === 'self';
-          const category = isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
-          const kindClass = isHeal ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack';
-          const catRank = isHeal ? catOrder.combo_heal : isDefense ? catOrder.combo_shield : catOrder.combo_attack;
           shortMana.push({
             key,
             phrase: cardsMatch.ids,
             expression: cardsMatch.expression,
             cost,
-            category,
-            kindClass,
-            catRank,
+            ...categoryFor(cardsMatch.spell),
           });
         }
       }
       continue;
     }
-    const isHeal = recipe.spell.form === 'heal' || recipe.spell.healing > 0;
-    const isDefense = recipe.spell.type === 'self';
-    const category = isHeal ? 'ฟื้นฟู' : isDefense ? 'โล่' : 'โจมตี';
-    const kindClass = isHeal ? 'combo-heal' : isDefense ? 'combo-shield' : 'combo-attack';
-    const catRank = isHeal ? catOrder.combo_heal : isDefense ? catOrder.combo_shield : catOrder.combo_attack;
     const effectDesc = describeFormulaEffect({ phrase: recipe.ids, spell: recipe.spell });
     castable.push({
       key,
       phrase: recipe.ids,
       expression: recipe.expression,
       cost: recipe.cost,
-      category,
-      kindClass,
-      catRank,
+      ...categoryFor(recipe.spell),
       effectDesc,
     });
   }
@@ -1051,9 +1042,18 @@ export function renderTutorial({ state, settings, dismissedRoom, words }) {
   else if (state.room === FLOOR21_START_ROOM) text = 'อาลักษณ์สลับฮีลกับเติมม่าน เลข # บนเจตนาบอกช่องของเพื่อนที่มันจะช่วย';
   else if (state.room === FLOOR21_START_ROOM + 1) text = 'โกเลมชาร์จก่อนฟาดหนักหนึ่งเทิร์น ดูเลขบนป้ายชาร์จเพื่อเตรียมโล่หรือลดแรงโจมตีด้วยน้ำแข็ง';
   else if (state.room === FLOOR21_START_ROOM + 2) text = 'ผู้พิทักษ์เลือกเติมม่านให้เพื่อนที่สัดส่วน HP ต่ำสุด ผลคาดการณ์จะแสดงเมื่อเป้าหมายเปลี่ยน';
-  else if (state.enemies.some(e => e.kind === 'elite')) text = 'บอสมีม่านในเทิร์นคี่ ใช้ “ลูก ไฟ คู่” เปิดม่านแล้วทำดาเมจ หรือรอเทิร์นคู่เพื่อยิงตอนม่านหาย';
-  else if (state.enemies.some(e => e.ward > 0) && state.player.words.includes('pair')) text = 'เมื่อศัตรูมีม่าน ใช้ “ลูก ไฟ คู่” ให้ลูกแรกเปิดม่านและลูกที่สองทำดาเมจ ถ้าคำยังไม่ครบ ให้กด “ตั้งรับ” เพื่อรอจั่ว';
-  else if (state.enemies.length > 1 && state.player.words.includes('blast')) text = '“ลูก ไฟ ระเบิด” โดนเป้าหมายและตัวที่อยู่ติดซ้ายขวา ลองเล็งตัวตรงกลาง';
+  else if (state.enemies.some(e => e.hp > 0 && e.ward > 0)) {
+    const deck = state.player.words;
+    if (deck.includes('summon') && deck.some(id => CREATURE_WORDS.includes(id))) {
+      text = 'ม่านที่สิ่งอัญเชิญโจมตีจะหยุดฟื้น 1 เทิร์น';
+    } else if (deck.includes('beam')) {
+      text = 'ใช้ “ลำแสง” โจมตีทะลุม่าน';
+    } else if (['shot', 'fire', 'pair'].every(id => deck.includes(id))) {
+      text = 'ใช้ “ลูก ไฟ คู่” ลูกแรกเปิดม่าน ลูกถัดไปทำดาเมจ';
+    } else {
+      text = 'ม่านรับการโจมตีหนึ่งครั้งต่อชั้น ดูจำนวนม่านใต้แถบ HP';
+    }
+  } else if (state.enemies.length > 1 && state.player.words.includes('blast')) text = '“ลูก ไฟ ระเบิด” โดนเป้าหมายและตัวที่อยู่ติดซ้ายขวา ลองเล็งตัวตรงกลาง';
   else if (state.enemies.some(e => e.armor)) text = 'เกราะหักดาเมจทุกครั้ง สายฟ้าข้ามเกราะได้ 2 หน่วย และโล่ช่วยรับการโจมตีหนัก';
   else text = 'ดูเจตนาศัตรูก่อนร่าย น้ำแข็งลดแรงโจมตีครั้งถัดไป และโล่ที่เหลืออยู่ต่อได้อีกหนึ่งเทิร์น';
   $('tutorial-text').textContent = text;

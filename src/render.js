@@ -1,10 +1,11 @@
 import { shieldProtection } from './shields.js';
 import { ENEMIES, FLOOR21_START_ROOM, RELIC_DRAFT_CATALOG, getFloorInfo } from './run.js';
-import { elementFamily } from './words.js';
+import { elementFamily, FUSION_COMPONENTS } from './words.js';
 import { middleSprites } from './middle-sprites.js';
 import { loadSpriteArt, spriteFrame } from './sprite-art.js';
 import { drawTowerFittings, towerArtPalette, towerEnemyArt } from './tower-enemy-art.js';
 import { drawNewTowerSprite, GEAR_RIFT_SPRITE_KINDS } from './tower-pixel-sprites.js';
+import { drawSummonArt, SUMMON_ART } from './summon-art.js';
 
 export const PALETTE = ['#10191b', '#172326', '#203033', '#2b3d3c', '#3b4b46', '#536454', '#718063', '#9da77c', '#cbd5a1', '#eff0c4', '#332d2b', '#514036', '#765740', '#a57a50', '#d3aa6b', '#efd19a', '#4d3036', '#7b464c', '#b46c67', '#e29d83', '#3d374e', '#60516f', '#907ba6', '#bca5d2', '#335250', '#53857b', '#8bb7a0', '#b7d9bd', '#7e512e', '#b98745', '#e4b659', '#f5db87'];
 const C = PALETTE;
@@ -56,6 +57,7 @@ const ELEMENT_IMPACT = Object.freeze({
   ice: {
     core: '#f2ffff',
     primary: '#29d6ff',
+    summonTint: '#9ceeff',
     secondary: '#0077c2',
     rim: '#a6f4ff',
   },
@@ -74,6 +76,7 @@ const ELEMENT_IMPACT = Object.freeze({
   water: {
     core: '#ebffff',
     primary: '#3cb9f5',
+    summonTint: '#387dea',
     secondary: '#175a94',
     rim: '#8ee3ff',
   },
@@ -95,11 +98,26 @@ const ELEMENT_IMPACT = Object.freeze({
     secondary: '#7b2cbf',
     rim: '#e0aaff',
   },
-  akki: { core: '#fff6b7', primary: '#ff5741', secondary: '#a32251', rim: '#ffad69' },
-  heman: { core: '#e7f1ff', primary: '#7aa8ff', secondary: '#4a50be', rim: '#9ed8ff' },
-  asani: { core: '#fff2ff', primary: '#dba1ff', secondary: '#7934ca', rim: '#ffda98' },
-  pathaphi: { core: '#fff3c4', primary: '#e0a84d', secondary: '#74481e', rim: '#f7d588' },
-  wari: { core: '#e9ffff', primary: '#44d0ff', secondary: '#14629c', rim: '#a8f2ff' },
+  akki: {
+    core: '#fff6b7', primary: '#ff5741', secondary: '#a32251', rim: '#ffad69',
+    summonTint: '#ee3050', summonMark: ['..+..', '..#+.', '.+##.', '+###+', '.+#+.'],
+  },
+  heman: {
+    core: '#e7f1ff', primary: '#7aa8ff', secondary: '#4a50be', rim: '#9ed8ff',
+    summonTint: '#8b92ff', summonMark: ['+.+.+', '.###.', '+###+', '.###.', '+.+.+'],
+  },
+  asani: {
+    core: '#fff2ff', primary: '#dba1ff', secondary: '#7934ca', rim: '#ffda98',
+    summonTint: '#bd6bff', summonMark: ['..+#.', '.+#..', '.##+.', '..#+.', '.#+..'],
+  },
+  pathaphi: {
+    core: '#fff3c4', primary: '#e0a84d', secondary: '#74481e', rim: '#f7d588',
+    summonTint: '#af755d', summonMark: ['..+..', '.+#+.', '+###+', '.+#+.', '..+..'],
+  },
+  wari: {
+    core: '#e9ffff', primary: '#44d0ff', secondary: '#14629c', rim: '#a8f2ff',
+    summonTint: '#28c7cd', summonMark: ['..+..', '.+#+.', '.###.', '+###+', '.+++.'],
+  },
   magma: { core: '#ffed99', primary: '#ff8543', secondary: '#b73e23', rim: '#ffc354' },
   mudmire: { core: '#f5ecd5', primary: '#8b6c42', secondary: '#4e3b20', rim: '#c2a677' },
   dust: { core: '#f7f4ea', primary: '#b8a98a', secondary: '#6b5e43', rim: '#e2d8c3' },
@@ -120,9 +138,18 @@ const ELEMENT_IMPACT = Object.freeze({
   death: { core: '#fff3fa', primary: '#e679af', secondary: '#672245', rim: '#ffacca' },
   meteor: { core: '#fff6cf', primary: '#ff9a50', secondary: '#aa3824', rim: '#ffd263' },
   veil: { core: '#f2ecff', primary: '#b3b1ff', secondary: '#484893', rim: '#d8d3ff' },
-  vayu: { core: '#f3fff3', primary: '#94e7ae', secondary: '#398d82', rim: '#c8f9c0' },
+  vayu: {
+    core: '#f3fff3', primary: '#94e7ae', secondary: '#398d82', rim: '#c8f9c0',
+    summonTint: '#65d56e', summonMark: ['..+++', '.+#..', '+###+', '...#+', '.+++.'],
+  },
 });
 const elementColor = Object.fromEntries(Object.entries(ELEMENT_IMPACT).map(([id, palette]) => [id, palette.primary]));
+const fusedSummonPalettes = Object.fromEntries(Object.entries(FUSION_COMPONENTS).map(([id, components]) => [
+  id, {
+    ...ELEMENT_IMPACT[id],
+    componentTints: components.map(component => ELEMENT_IMPACT[component].summonTint ?? ELEMENT_IMPACT[component].primary),
+  },
+]));
 elementColor['akki-blast'] = elementColor.akki;
 export const vfxScale = source => (source?.grand ? 5 : source?.large ? 2 : 1);
 
@@ -841,7 +868,7 @@ export class Battlefield {
     this.pixelDiamond(orbX, orbY, orbR, color, C[9]);
   }
 
-  drawSummonSprite(summon, x, baseline, frame, event, progress) {
+  drawSummonSprite(summon, x, baseline, frame, event, progress, deferHealth = false) {
     const g = this.ctx;
     const summonBeingHit = event && (
       event.type === 'summon_hit'
@@ -854,10 +881,23 @@ export class Battlefield {
         : (summonBeingHit && !this.settings.reducedMotion && frame % 2)
           ? -3
           : 0;
+    const cid = summon.creatureId;
+    const art = Object.hasOwn(SUMMON_ART, cid) ? SUMMON_ART[cid] : null;
+    const grand = Boolean(art && summon.isGrand);
+    let scale = grand ? art.grandScale : 1;
+    if (grand && event?.type === 'summon_invoke' && !this.settings.reducedMotion) {
+      const time = Math.max(0, Math.min(1, progress ?? 0));
+      const pulse = Math.min(time / 0.28, (1 - time) / 0.72);
+      const smooth = pulse * pulse * (3 - 2 * pulse);
+      scale += (4 - scale) * smooth;
+    }
     const sx = x + lunge;
     const r = (a, b, w, h, c) => { g.fillStyle = c; g.fillRect(sx + a - 12, baseline + b - 24, w, h); };
     const bob = this.settings.reducedMotion ? 0 : [0, -1, 0, 1][frame % 4];
     const elem = summon.element;
+    const artHeight = art ? Math.round(art.height * scale) : 0;
+    const lift = art ? Math.min(Math.round(art.lift * scale), Math.max(0, baseline - artHeight - 6)) : 0;
+    const artTop = art ? baseline - artHeight - lift + (lift ? bob : 0) : null;
     const elemImpact = ELEMENT_IMPACT[elem] || null;
     const bodyColor = elemImpact ? elemImpact.secondary : C[12];
     const highlight = elemImpact ? elemImpact.primary : C[14];
@@ -865,9 +905,12 @@ export class Battlefield {
     const rimColor = elemImpact ? elemImpact.rim : C[30];
 
     // Summon shadow and aura
-    g.fillStyle = C[0]; g.fillRect(sx - 12, baseline - 1, 24, 3);
+    const auraRadius = art ? Math.round(art.width * scale * (lift ? 0.31 : 0.43)) : 12;
+    g.fillStyle = C[0];
+    g.fillRect(sx - auraRadius, baseline - 1, auraRadius * 2, 3);
     const auraColor = elementColor[elem] ?? C[28];
-    this.pixelEllipse(sx, baseline - 1, 12, 3, auraColor, false);
+    this.pixelEllipse(sx, baseline - 1, auraRadius, 3, auraColor, false);
+    if (grand) this.pixelEllipse(sx, baseline - 1, auraRadius + 3, 5, rimColor, false);
 
     // Ambient floating elemental sparks
     if (elem && !this.settings.reducedMotion) {
@@ -879,21 +922,8 @@ export class Battlefield {
       }
     }
 
-    // Creature-specific 16-bit pixel silhouettes across all 27 creatures
-    const cid = summon.creatureId;
-    if (cid === 'dog') {
-      r(14, 5 + bob, 7, 6, bodyColor);
-      r(12, 5 + bob, 3, 5, highlight);
-      r(15, 4 + bob, 3, 4, highlight);
-      r(19, 8 + bob, 4, 3, highlight);
-      r(22, 8 + bob, 2, 2, C[0]);
-      r(17, 7 + bob, 2, 2, coreColor);
-      r(13, 10 + bob, 3, 2, rimColor);
-      r(5, 9 + bob, 10, 8, bodyColor);
-      r(5, 17 + bob, 3, 7, bodyColor);
-      r(12, 17 + bob, 3, 7, bodyColor);
-      r(2, 6 + bob, 3, 4, highlight);
-      r(4, 9 + bob, 2, 3, bodyColor);
+    if (art) {
+      drawSummonArt(g, art, sx - Math.floor(art.width * scale / 2), artTop, scale, fusedSummonPalettes[elem] ?? elemImpact);
     } else if (cid === 'bird') {
       r(13, 5 + bob, 6, 6, bodyColor);
       r(19, 7 + bob, 4, 2, rimColor);
@@ -903,17 +933,6 @@ export class Battlefield {
       r(2, 12 + bob, 5, 4, highlight);
       r(9, 17 + bob, 2, 4, rimColor);
       r(12, 17 + bob, 2, 4, rimColor);
-    } else if (cid === 'cat') {
-      r(12, 2 + bob, 3, 4, highlight);
-      r(16, 2 + bob, 3, 4, highlight);
-      r(12, 5 + bob, 7, 6, bodyColor);
-      r(14, 7 + bob, 2, 2, rimColor);
-      r(17, 7 + bob, 2, 2, rimColor);
-      r(6, 10 + bob, 8, 7, bodyColor);
-      r(2, 7 + bob, 3, 2, highlight);
-      r(2, 9 + bob, 2, 6, bodyColor);
-      r(6, 17 + bob, 2, 7, bodyColor);
-      r(12, 17 + bob, 2, 7, bodyColor);
     } else if (cid === 'snake') {
       r(12, 4 + bob, 8, 7, highlight);
       r(14, 5 + bob, 6, 5, bodyColor);
@@ -930,16 +949,6 @@ export class Battlefield {
       r(10, 13 + bob, 4, 4, rimColor);
       r(8, 11 + bob, 2, 3, C[0]);
       r(14, 11 + bob, 2, 3, C[0]);
-    } else if (cid === 'bat') {
-      r(0, 6 + bob, 8, 11, highlight);
-      r(16, 6 + bob, 8, 11, highlight);
-      r(8, 8 + bob, 8, 9, bodyColor);
-      r(8, 4 + bob, 3, 4, bodyColor);
-      r(13, 4 + bob, 3, 4, bodyColor);
-      r(10, 9 + bob, 2, 2, rimColor);
-      r(13, 9 + bob, 2, 2, rimColor);
-      r(10, 13 + bob, 1, 2, coreColor);
-      r(13, 13 + bob, 1, 2, coreColor);
     } else if (cid === 'turtle') {
       r(4, 8 + bob, 16, 11, bodyColor);
       r(3, 17 + bob, 18, 3, highlight);
@@ -960,37 +969,6 @@ export class Battlefield {
       r(18, 13 + bob, 4, 9, bodyColor);
       r(7, 19 + bob, 3, 4, bodyColor);
       r(14, 19 + bob, 3, 4, bodyColor);
-    } else if (cid === 'spider') {
-      r(9, 7 + bob, 6, 6, bodyColor);
-      r(6, 12 + bob, 12, 9, highlight);
-      r(10, 8 + bob, 2, 2, rimColor);
-      r(13, 8 + bob, 2, 2, rimColor);
-      r(0, 5 + bob, 4, 8, bodyColor);
-      r(20, 5 + bob, 4, 8, bodyColor);
-      r(1, 12 + bob, 4, 10, bodyColor);
-      r(19, 12 + bob, 4, 10, bodyColor);
-    } else if (cid === 'rat') {
-      r(17, 11 + bob, 4, 3, highlight);
-      r(20, 11 + bob, 2, 2, C[0]);
-      r(12, 6 + bob, 4, 4, highlight);
-      r(15, 6 + bob, 4, 4, highlight);
-      r(6, 10 + bob, 10, 8, bodyColor);
-      r(0, 16 + bob, 3, 2, highlight);
-      r(3, 14 + bob, 2, 4, highlight);
-      r(5, 16 + bob, 2, 2, bodyColor);
-      r(7, 18 + bob, 2, 5, bodyColor);
-      r(13, 18 + bob, 2, 5, bodyColor);
-    } else if (cid === 'wolf') {
-      r(12, 4 + bob, 8, 7, bodyColor);
-      r(11, 1 + bob, 3, 4, highlight);
-      r(15, 1 + bob, 3, 4, highlight);
-      r(18, 7 + bob, 6, 4, highlight);
-      r(14, 6 + bob, 2, 2, rimColor);
-      r(8, 7 + bob, 6, 8, highlight);
-      r(4, 10 + bob, 10, 8, bodyColor);
-      r(0, 11 + bob, 4, 8, highlight);
-      r(5, 17 + bob, 3, 7, bodyColor);
-      r(13, 17 + bob, 3, 7, bodyColor);
     } else if (cid === 'bear') {
       r(4, 5 + bob, 16, 13, bodyColor);
       r(13, 3 + bob, 3, 3, highlight);
@@ -999,14 +977,6 @@ export class Battlefield {
       r(16, 7 + bob, 2, 2, coreColor);
       r(5, 17 + bob, 5, 7, bodyColor);
       r(14, 17 + bob, 5, 7, bodyColor);
-    } else if (cid === 'eagle') {
-      r(18, 7 + bob, 5, 4, rimColor);
-      r(14, 5 + bob, 3, 3, coreColor);
-      r(9, 3 + bob, 6, 4, highlight);
-      r(2, 7 + bob, 8, 11, highlight);
-      r(9, 8 + bob, 8, 9, bodyColor);
-      r(9, 18 + bob, 3, 5, rimColor);
-      r(14, 18 + bob, 3, 5, rimColor);
     } else if (cid === 'boar') {
       r(18, 9 + bob, 3, 4, coreColor);
       r(19, 7 + bob, 2, 3, coreColor);
@@ -1016,137 +986,6 @@ export class Battlefield {
       r(4, 7 + bob, 13, 11, bodyColor);
       r(5, 18 + bob, 3, 6, bodyColor);
       r(13, 18 + bob, 3, 6, bodyColor);
-    } else if (cid === 'croc') {
-      r(13, 10 + bob, 10, 4, bodyColor);
-      r(15, 12 + bob, 7, 1, coreColor);
-      r(5, 7 + bob, 10, 3, highlight);
-      r(4, 9 + bob, 12, 8, bodyColor);
-      r(5, 17 + bob, 4, 6, bodyColor);
-      r(13, 17 + bob, 4, 6, bodyColor);
-      r(0, 12 + bob, 5, 5, highlight);
-    } else if (cid === 'skeleton') {
-      r(10, 2 + bob, 7, 6, coreColor);
-      r(12, 4 + bob, 2, 2, C[0]);
-      r(11, 8 + bob, 5, 7, coreColor);
-      r(11, 15 + bob, 5, 3, coreColor);
-      r(10, 18 + bob, 2, 6, coreColor);
-      r(14, 18 + bob, 2, 6, coreColor);
-      r(17, 4 + bob, 2, 8, coreColor);
-      r(17, 2 + bob, 6, 2, rimColor);
-    } else if (cid === 'hornet') {
-      r(2, 11 + bob, 8, 8, highlight);
-      r(4, 13 + bob, 2, 6, C[0]);
-      r(7, 12 + bob, 2, 5, C[0]);
-      r(1, 17 + bob, 3, 3, C[0]);
-      r(9, 10 + bob, 2, 4, bodyColor);
-      r(11, 7 + bob, 6, 6, bodyColor);
-      r(15, 7 + bob, 3, 3, rimColor);
-      r(7, 2 + bob, 7, 5, coreColor);
-      r(13, 1 + bob, 6, 5, coreColor);
-      r(11, 15 + bob, 2, 6, bodyColor);
-      r(14, 15 + bob, 2, 6, bodyColor);
-    } else if (cid === 'golem') {
-      r(2, 3 + bob, 20, 8, bodyColor);
-      r(4, 9 + bob, 16, 9, bodyColor);
-      r(10, 11 + bob, 4, 4, coreColor);
-      r(9, 5 + bob, 6, 2, rimColor);
-      r(0, 8 + bob, 4, 12, highlight);
-      r(20, 8 + bob, 4, 12, highlight);
-      r(5, 18 + bob, 5, 6, bodyColor);
-      r(14, 18 + bob, 5, 6, bodyColor);
-    } else if (cid === 'lion') {
-      r(9, 2 + bob, 11, 11, highlight);
-      r(13, 5 + bob, 5, 5, bodyColor);
-      r(15, 6 + bob, 2, 2, rimColor);
-      r(4, 9 + bob, 11, 8, bodyColor);
-      r(5, 17 + bob, 3, 7, bodyColor);
-      r(12, 17 + bob, 3, 7, bodyColor);
-      r(1, 9 + bob, 2, 7, bodyColor);
-      r(0, 8 + bob, 3, 3, highlight);
-    } else if (cid === 'siren') {
-      r(9, 2 + bob, 8, 8, highlight);
-      r(10, 7 + bob, 5, 6, bodyColor);
-      r(12, 5 + bob, 2, 2, coreColor);
-      r(6, 8 + bob, 4, 4, bodyColor);
-      r(15, 8 + bob, 4, 4, bodyColor);
-      r(7, 13 + bob, 9, 6, highlight);
-      r(4, 18 + bob, 14, 4, rimColor);
-      r(3, 16 + bob, 2, 2, coreColor);
-      r(18, 16 + bob, 2, 2, coreColor);
-    } else if (cid === 'gargoyle') {
-      r(10, 3 + bob, 6, 6, bodyColor);
-      r(9, 1 + bob, 2, 3, highlight);
-      r(15, 1 + bob, 2, 3, highlight);
-      r(11, 5 + bob, 2, 2, rimColor);
-      r(14, 5 + bob, 2, 2, rimColor);
-      r(4, 21 + bob, 16, 3, C[11]);
-      r(2, 4 + bob, 6, 12, highlight);
-      r(18, 4 + bob, 6, 12, highlight);
-      r(7, 18 + bob, 3, 4, bodyColor);
-      r(14, 18 + bob, 3, 4, bodyColor);
-    } else if (cid === 'sprite') {
-      r(11, 6 + bob, 4, 7, bodyColor);
-      r(12, 5 + bob, 2, 2, coreColor);
-      r(3, 2 + bob, 8, 9, coreColor);
-      r(14, 2 + bob, 8, 9, coreColor);
-      r(16, 7 + bob, 3, 3, rimColor);
-      r(8, 16 + bob, 2, 2, coreColor);
-      r(13, 17 + bob, 2, 2, rimColor);
-      r(10, 19 + bob, 2, 2, highlight);
-    } else if (cid === 'hydra') {
-      r(2, 3 + bob, 5, 4, highlight);
-      r(4, 6 + bob, 3, 6, bodyColor);
-      r(3, 4 + bob, 2, 2, rimColor);
-      r(10, 0 + bob, 5, 4, highlight);
-      r(11, 3 + bob, 3, 8, bodyColor);
-      r(12, 1 + bob, 2, 2, rimColor);
-      r(17, 3 + bob, 5, 4, highlight);
-      r(16, 6 + bob, 3, 6, bodyColor);
-      r(18, 4 + bob, 2, 2, rimColor);
-      r(4, 11 + bob, 16, 8, bodyColor);
-      r(5, 18 + bob, 4, 6, bodyColor);
-      r(14, 18 + bob, 4, 6, bodyColor);
-    } else if (cid === 'behemoth') {
-      r(2, 4 + bob, 20, 14, bodyColor);
-      r(20, 6 + bob, 4, 4, coreColor);
-      r(4, 2 + bob, 4, 3, highlight);
-      r(10, 2 + bob, 4, 3, highlight);
-      r(15, 2 + bob, 4, 3, highlight);
-      r(17, 7 + bob, 2, 2, rimColor);
-      r(3, 17 + bob, 6, 7, bodyColor);
-      r(14, 17 + bob, 6, 7, bodyColor);
-    } else if (cid === 'kraken') {
-      r(6, 2 + bob, 12, 9, bodyColor);
-      r(10, 7 + bob, 4, 3, rimColor);
-      r(11, 8 + bob, 2, 1, C[0]);
-      r(0, 9 + bob, 4, 12, highlight);
-      r(2, 12 + bob, 2, 2, coreColor);
-      r(5, 11 + bob, 3, 11, bodyColor);
-      r(10, 11 + bob, 3, 12, highlight);
-      r(15, 11 + bob, 3, 11, bodyColor);
-      r(19, 9 + bob, 4, 12, highlight);
-      r(20, 12 + bob, 2, 2, coreColor);
-    } else if (cid === 'dragon') {
-      r(12, 1 + bob, 3, 4, highlight);
-      r(16, 1 + bob, 3, 4, rimColor);
-      r(17, 6 + bob, 6, 4, highlight);
-      r(15, 5 + bob, 2, 2, rimColor);
-      r(0, 2 + bob, 9, 12, highlight);
-      r(8, 2 + bob, 4, 8, bodyColor);
-      r(9, 9 + bob, 7, 8, coreColor);
-      r(8, 17 + bob, 3, 7, bodyColor);
-      r(14, 17 + bob, 3, 7, bodyColor);
-      r(1, 13 + bob, 5, 5, highlight);
-    } else if (cid === 'phoenix') {
-      r(11, 0 + bob, 4, 5, rimColor);
-      r(17, 5 + bob, 4, 3, rimColor);
-      r(14, 4 + bob, 2, 2, coreColor);
-      r(0, 3 + bob, 9, 11, highlight);
-      r(15, 3 + bob, 8, 10, highlight);
-      r(9, 7 + bob, 7, 8, coreColor);
-      r(2, 15 + bob, 3, 9, rimColor);
-      r(6, 17 + bob, 3, 7, highlight);
-      r(9, 18 + bob, 2, 6, coreColor);
     } else {
       r(6, 4 + bob, 12, 16, bodyColor);
       r(8, 6 + bob, 8, 12, highlight);
@@ -1156,18 +995,21 @@ export class Battlefield {
       r(17, 10 + bob, 3, 8, bodyColor);
     }
 
-    // Overhead HP Bar
-    const hpRatio = Math.max(0, Math.min(1, summon.hp / Math.max(1, summon.maxHp)));
-    const barW = 20;
-    const barX = sx - barW / 2;
-    const barY = baseline - 28 + bob;
-    const fillW = hpRatio > 0 ? Math.max(1, Math.round(barW * hpRatio)) : 0;
-    const fillColor = hpRatio > 0.5 ? C[26] : hpRatio > 0.25 ? C[30] : C[18];
-    g.fillStyle = C[0]; g.fillRect(barX - 1, barY - 1, barW + 2, 4);
-    g.fillStyle = C[16]; g.fillRect(barX, barY, barW, 2);
-    if (fillW > 0) {
-      g.fillStyle = fillColor; g.fillRect(barX, barY, fillW, 2);
-    }
+    const drawHealth = () => {
+      const hpRatio = Math.max(0, Math.min(1, summon.hp / Math.max(1, summon.maxHp)));
+      const barW = art ? Math.min(32, Math.max(20, Math.round(art.width * scale * 0.65))) : 20;
+      const barX = sx - Math.floor(barW / 2);
+      const barY = artTop === null ? baseline - 28 + bob : Math.max(5, artTop - 5);
+      const fillW = hpRatio > 0 ? Math.max(1, Math.round(barW * hpRatio)) : 0;
+      const fillColor = hpRatio > 0.5 ? C[26] : hpRatio > 0.25 ? C[30] : C[18];
+      g.fillStyle = C[0]; g.fillRect(barX - 1, barY - 1, barW + 2, 4);
+      g.fillStyle = C[16]; g.fillRect(barX, barY, barW, 2);
+      if (fillW > 0) {
+        g.fillStyle = fillColor; g.fillRect(barX, barY, fillW, 2);
+      }
+    };
+    if (deferHealth) return drawHealth;
+    drawHealth();
   }
 
   draw(now) {
@@ -1245,6 +1087,31 @@ export class Battlefield {
       this.pixelEllipse(this.puddleX(Number(this.target.at(-1))), 150, 15, 4, elementColor.blackhole, false);
     }
 
+    let activeSummon = playing && snap ? snap.summon : (this.state?.player?.summon || this.state?.summon);
+    if (event?.type === 'summon_invoke') {
+      activeSummon = {
+        creatureId: event.creature,
+        name: event.name || event.creature,
+        element: event.element,
+        isGrand: Boolean(event.isGrand),
+        hp: event.hp,
+        maxHp: event.maxHp ?? event.hp,
+      };
+    } else if (event?.type === 'summon_hit' && activeSummon) {
+      activeSummon = {
+        ...activeSummon,
+        hp: Math.max(0, event.hpRemaining ?? (activeSummon.hp - (event.damage ?? 0))),
+      };
+    } else if (event?.type === 'summon_rebirth' && activeSummon) {
+      activeSummon = { ...activeSummon, hp: event.hp ?? Math.ceil((activeSummon.maxHp ?? 1) / 2) };
+    }
+    const showSummon = activeSummon && (activeSummon.hp > 0
+      || ['summon_hit', 'summon_counter', 'summon_rebirth', 'summon_break'].includes(event?.type));
+    const grandBehindActors = showSummon && activeSummon.isGrand
+      && Object.hasOwn(SUMMON_ART, activeSummon.creatureId);
+    const drawGrandHealth = grandBehindActors
+      ? this.drawSummonSprite(activeSummon, 88, 147, frame, event, progress, true) : null;
+
     const isCastingEvent = ['projectile', 'shield', 'shield-delay', 'heal', 'blast', 'fizzle', 'blackhole-open', 'timestop', 'ascension', 'summon', 'summon_invoke'].includes(event?.type)
       || (event?.type === 'damage' && event.element === 'death');
     const playerPose = isCastingEvent ? 'cast' : event?.type === 'attack' && impact && event.amount > 0 ? 'hurt' : this.state?.player.hp === 0 ? 'dead' : 'idle';
@@ -1300,25 +1167,7 @@ export class Battlefield {
       this.barrierLabel(51, 79, shieldHit ? `กัน ${playerAbsorbed}${shieldBroke ? ` · ${shieldName}แตก` : ''}` : `${shieldName} ${protection.amount}`, shieldHit ? C[9] : C[8]);
     }
 
-    let activeSummon = playing && snap ? snap.summon : (this.state?.player?.summon || this.state?.summon);
-    if (event?.type === 'summon_invoke') {
-      activeSummon = {
-        creatureId: event.creature,
-        name: event.name || event.creature,
-        element: event.element,
-        isGrand: Boolean(event.isGrand),
-        hp: event.hp,
-        maxHp: event.maxHp ?? event.hp,
-      };
-    } else if (event?.type === 'summon_hit' && activeSummon) {
-      activeSummon = {
-        ...activeSummon,
-        hp: Math.max(0, event.hpRemaining ?? (activeSummon.hp - (event.damage ?? 0))),
-      };
-    } else if (event?.type === 'summon_rebirth' && activeSummon) {
-      activeSummon = { ...activeSummon, hp: event.hp ?? Math.ceil((activeSummon.maxHp ?? 1) / 2) };
-    }
-    if (activeSummon && (activeSummon.hp > 0 || ['summon_hit', 'summon_counter', 'summon_rebirth', 'summon_break'].includes(event?.type))) {
+    if (showSummon && !grandBehindActors) {
       this.drawSummonSprite(activeSummon, 88, 147, frame, event, progress);
     }
 
@@ -1494,6 +1343,7 @@ export class Battlefield {
         }
       }
     });
+    drawGrandHealth?.();
 
     if (!this.settings.reducedMotion) {
       for (let i = 0; i < 10; i++) {

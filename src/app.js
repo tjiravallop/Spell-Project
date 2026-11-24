@@ -1469,6 +1469,28 @@ $('battle-canvas').addEventListener('click', event => {
 });
 
 document.addEventListener('click', event => {
+  const detailTrigger = event.target.closest('[data-card-detail]');
+  if (detailTrigger) {
+    event.stopPropagation();
+    event.preventDefault();
+    modals.openCardDetailModal(detailTrigger.dataset.cardDetail, state);
+    audio.play('place');
+  }
+}, true);
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    const detailTrigger = event.target.closest('[data-card-detail]');
+    if (detailTrigger) {
+      event.preventDefault();
+      event.stopPropagation();
+      modals.openCardDetailModal(detailTrigger.dataset.cardDetail, state);
+      audio.play('place');
+    }
+  }
+});
+
+document.addEventListener('click', event => {
   audio.unlock();
   const openInvEl = !busy ? event.target.closest('[data-open-inventory]') : null;
   if (openInvEl && !openInvEl.disabled) {

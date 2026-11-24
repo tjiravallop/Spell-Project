@@ -1,4 +1,4 @@
-import { WORDS, START_WORDS, ELEMENT_LABELS } from '../words.js';
+import { WORDS, START_WORDS, ELEMENT_LABELS, RARITIES, getCardDetails, getCardUpgradeComparison } from '../words.js';
 import { ENEMY_TRAITS } from '../enemy-traits.js';
 import { ENDGAME_ENEMIES } from '../endgame-tower.js';
 import { ACHIEVEMENTS } from './storage-discovery.js';
@@ -21,6 +21,7 @@ import {
   getCardSecondaryTier,
   getCardSecondaryEffect,
   describeCardUpgradeEffect,
+  isAscensionActive,
   nextExpForLevel,
   isSanctuaryUnlocked,
   isSanctuary9Unlocked,
@@ -37,7 +38,7 @@ import {
 } from '../run.js';
 import { icon } from '../icons.js';
 import { MASTER_FORMULAS, canFormPhraseInHand, describeFormulaEffect } from '../combos.js';
-import { $, escape, rarityBadge } from './dom.js';
+import { $, escape, rarityBadge, rarityClass } from './dom.js';
 import { renderItemBelt, renderRoomTrack } from './battle-render.js';
 import { cardFilterControls, applyCardFilters } from './card-filters.js';
 
@@ -479,7 +480,90 @@ export function createModalsController(ctx) {
     }
   }
 
+  function openCardDetailModal(wordId, state = null) {
+    const dialog = $('card-detail-dialog');
+    const content = $('card-detail-content');
+    if (!dialog || !content) return;
+    const pState = state ?? ctx.getState?.() ?? null;
+    const word = WORDS[wordId];
+    if (!word) return;
+    const level = pState ? getCardUpgradeLevel(pState, wordId) : 0;
+    const details = getCardDetails(wordId, level);
+    const secInfo = getCardSecondaryEffect(wordId, Math.max(CARD_SECONDARY_UNLOCK_LEVEL, level));
+    const hasSec = pState && (hasCardSecondaryUpgrade(pState, wordId) || (isAscensionActive?.(pState) && pState.phase === 'battle'));
+    const secUnlocked = level >= CARD_SECONDARY_UNLOCK_LEVEL || hasSec;
+
+    content.innerHTML = `
+      <div class="card-detail-head">
+        <div class="card-detail-emblem">${icon(wordId)}</div>
+        <div class="card-detail-title-block">
+          <div class="card-detail-name">
+            <h3>${escape(details.label)}</h3>
+            <span class="card-detail-lv-badge ${level > 0 ? 'is-upgraded' : ''}">+${level}/${MAX_CARD_UPGRADE}</span>
+          </div>
+          <div class="card-detail-meta-tags">
+            <span class="detail-rarity-pill ${rarityClass(word)}">${escape(RARITIES[word.rarity ?? 'common'])}</span>
+            <span class="detail-role-pill">${escape(details.badge)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-detail-section">
+        <h4 class="card-detail-section-title">ผลลัพธ์ที่ระดับปัจจุบัน (+${level})</h4>
+        <p class="card-detail-desc">${escape(details.description)}</p>
+        <div class="card-detail-formula-box">
+          <span class="formula-label">สูตรการใช้งาน:</span>
+          <code>${escape(details.formula)}</code>
+        </div>
+      </div>
+      <div class="card-detail-grid">
+        <div class="detail-grid-item">
+          <span class="grid-label">ค่าร่าย</span>
+          <strong class="grid-value">${escape(details.cost)}</strong>
+        </div>
+        <div class="detail-grid-item">
+          <span class="grid-label">เป้าหมาย</span>
+          <strong class="grid-value">${escape(details.target)}</strong>
+        </div>
+        <div class="detail-grid-item">
+          <span class="grid-label">ระยะเวลา</span>
+          <strong class="grid-value">${escape(details.duration)}</strong>
+        </div>
+        <div class="detail-grid-item">
+          <span class="grid-label">เงื่อนไข</span>
+          <strong class="grid-value">${escape(details.condition)}</strong>
+        </div>
+      </div>
+      ${secInfo ? `
+        <div class="card-detail-section sec-effect-section ${secUnlocked ? 'is-unlocked' : 'is-locked'}">
+          <div class="sec-effect-head">
+            <h4 class="card-detail-section-title">เอฟเฟกต์รอง (${secUnlocked ? `ปลดล็อกแล้ว · ขั้น ${secInfo.tier}` : 'ปลดล็อกที่ระดับ +7'})</h4>
+            <span class="sec-badge-pill">${escape(secInfo.badge)}</span>
+          </div>
+          <p class="sec-effect-desc">${escape(secInfo.description)}</p>
+        </div>
+      ` : ''}
+      ${level < MAX_CARD_UPGRADE ? `
+        <div class="card-detail-section upg-preview-section">
+          <h4 class="card-detail-section-title">เมื่อตีบวกเป็น +${level + 1}</h4>
+          <p class="upg-preview-desc">⬆ ${escape(getCardUpgradeComparison(wordId, level))}</p>
+        </div>
+      ` : `
+        <div class="card-detail-section upg-preview-section is-maxed">
+          <h4 class="card-detail-section-title">ระดับสูงสุด</h4>
+          <p class="upg-preview-desc">⭐ การ์ดคำนี้ได้รับการตีบวกจนถึงระดับสูงสุด (+10) แล้ว</p>
+        </div>
+      `}
+    `;
+
+    try {
+      if (!dialog.open) dialog.showModal();
+    } catch {
+      dialog.setAttribute('open', '');
+    }
+  }
+
   return {
+    openCardDetailModal,
     initStaticGuide,
     updateGuideButtonBadge,
     renderGrimoire,

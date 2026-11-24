@@ -1,4 +1,4 @@
-import { WORDS, START_WORDS } from '../words.js';
+import { WORDS, START_WORDS, getCardDescription, getCardUpgradeComparison } from '../words.js';
 import {
   MAX_CARD_UPGRADE,
   FLOOR50_BOSS_ROOM,
@@ -36,12 +36,44 @@ export function renderRewards(state, reveal) {
   $('reward-list').innerHTML = state.rewards.map((id, index) => {
     const word = WORDS[id];
     const meta = cardMeta(id);
-    const level = getCardUpgradeLevel(state, id);
+    const isOwned = ownsRewardWord(state, id);
+    const level = isOwned ? getCardUpgradeLevel(state, id) : 0;
     const starter = summonStarterBonus(state, id);
-    const selectText = starter ? `รับอัญเชิญและ${WORDS[starter].label}` : ownsRewardWord(state, id)
-      ? level >= MAX_CARD_UPGRADE ? 'เต็ม +10 · รับ 20 ทอง' : `การ์ดซ้ำ · +${level} → +${level + 1}`
-      : 'คำใหม่ · เก็บเข้าคลัง';
-    return `<button id="reward-${id}" class="reward-card playing-card word-${id} ${rarityClass(word)} ${meta.roleClass}" data-reward="${id}" style="--reveal-delay:${index * 85}ms">${playingCardFace(state, id, { bodyExtra: `<p class="reward-desc">${word.description}</p><span class="reward-select">${selectText}</span>` })}</button>`;
+    const fullDesc = getCardDescription(id, isOwned ? level : 0);
+
+    let statusPill = '';
+    let diffHtml = '';
+    let selectText = '';
+
+    if (starter) {
+      statusPill = `<div class="reward-starter-badge">✨ ชุดเริ่มต้น: อัญเชิญ + ${escape(WORDS[starter].label)} (+0)</div>`;
+      selectText = `รับอัญเชิญและ${WORDS[starter].label}`;
+    } else if (!isOwned) {
+      statusPill = '<div class="reward-status-pill is-new">✨ การ์ดใหม่ (+0)</div>';
+      selectText = 'คำใหม่ · เก็บเข้าคลัง (+0)';
+    } else if (level < MAX_CARD_UPGRADE) {
+      const diffText = getCardUpgradeComparison(id, level);
+      statusPill = `<div class="reward-status-pill is-dup">⬆ การ์ดซ้ำ · +${level} → +${level + 1}</div>`;
+      if (diffText) {
+        diffHtml = `<div class="reward-upg-diff"><span class="diff-arrow">+${level} → +${level + 1}</span> ${escape(diffText)}</div>`;
+      }
+      selectText = `อัปเกรดเป็น +${level + 1}`;
+    } else {
+      statusPill = '<div class="reward-status-pill is-maxed">⭐ เต็ม +10</div>';
+      diffHtml = '<div class="reward-upg-diff is-gold-reward"><span class="diff-gold">💰 รับ +20 ทองทันที</span></div>';
+      selectText = 'เต็ม +10 · รับ 20 ทอง';
+    }
+
+    const bodyExtra = `
+      <div class="reward-card-body">
+        ${statusPill}
+        <p class="reward-desc">${escape(fullDesc)}</p>
+        ${diffHtml}
+      </div>
+      <span class="reward-select">${selectText}</span>
+    `;
+
+    return `<button id="reward-${id}" class="reward-card playing-card word-${id} ${rarityClass(word)} ${meta.roleClass}" data-reward="${id}" style="--reveal-delay:${index * 85}ms">${playingCardFace(state, id, { bodyExtra })}</button>`;
   }).join('');
 }
 

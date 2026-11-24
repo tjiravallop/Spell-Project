@@ -6,7 +6,7 @@ export function initDragDrop(ctx) {
 
   document.addEventListener('pointerdown', event => {
     if (ctx.getBusy() || drag || event.button !== 0) return;
-    if (event.target.closest('[data-remove-slot]')) return;
+    if (event.target.closest('[data-remove-slot], [data-card-detail]')) return;
     const handle = event.target.closest('[data-drag-word], [data-drag-slot]');
     if (!handle || handle.disabled) return;
     const from = handle.dataset.dragSlot === undefined ? null : Number(handle.dataset.dragSlot);

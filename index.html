@@ -72,8 +72,8 @@
           <div id="canvas-impact-layer" class="canvas-impact-layer" aria-hidden="true"></div>
           <div id="combat-numbers" aria-hidden="true"></div>
           <p id="shield-status" class="muted" hidden></p>
-          <aside id="tutorial" class="tutorial" hidden><span id="tutorial-icon"></span><p id="tutorial-text"></p><button id="dismiss-tip" class="text-button" aria-label="ปิดคำแนะนำนี้">×</button></aside>
         </div>
+        <aside id="tutorial" class="tutorial" hidden><span id="tutorial-icon"></span><p id="tutorial-text"></p><button id="dismiss-tip" class="text-button" aria-label="ปิดคำแนะนำนี้">×</button></aside>
         <div id="enemy-list" class="enemy-list" aria-label="เลือกศัตรูและอ่านเจตนา"></div>
       </div>
       <div class="combat-command">
@@ -468,6 +468,18 @@
   </dialog>
   <dialog id="settings-dialog" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-heading"><h2 id="settings-title">พักสักครู่</h2><button class="icon-button" aria-label="ปิดการตั้งค่า" value="close">×</button></div><p class="muted">เกมเป็นเทิร์น คุณมีเวลาคิดเต็มที่</p><label class="setting">เพลง <input id="music-volume" type="range" min="0" max="100" step="1"><output id="music-output"></output></label><label class="check-setting"><input id="music-toggle" type="checkbox">เปิดเสียงดนตรี (BGM)</label><label class="setting">เสียงเอฟเฟกต์ <input id="sfx-volume" type="range" min="0" max="100" step="1"><output id="sfx-output"></output></label><label class="check-setting"><input id="sfx-toggle" type="checkbox">เปิดเอฟเฟกต์เสียง (SFX)</label><label class="setting">เสียงปุ่ม <input id="ui-volume" type="range" min="0" max="100" step="1"><output id="ui-output"></output></label><label class="check-setting"><input id="reduce-motion" type="checkbox">ลดการเคลื่อนไหว</label><label class="check-setting"><input id="show-tips" type="checkbox">แสดงคำแนะนำ</label><label class="setting">ความเร็วต่อสู้ <select id="setting-combat-speed"><option value="1">1x (ปกติ)</option><option value="2">2x (เร็ว)</option><option value="3">3x (เทอร์โบ)</option></select></label><div class="dialog-actions"><button id="mute-all" class="secondary-button" type="button">ปิดเสียงทั้งหมด</button><button class="primary-button" value="close">กลับไปเล่น</button></div><button id="pause-home" class="text-button" type="button">บันทึกแล้วกลับหน้าหลัก</button></form></dialog>
   <dialog id="replace-dialog" aria-labelledby="replace-title" aria-describedby="replace-notice replace-loss-warning"><form method="dialog"><h2 id="replace-title">เริ่มรอบใหม่?</h2><p id="replace-notice">รอบใหม่จะใช้ช่องเซฟปัจจุบัน</p><p id="replace-loss-warning">หากแพ้ก่อนถึงจุดพักชั้น 5 รอบจะจบ และการ์ดสะสมกับสูตรที่ค้นพบจะถูกล้าง</p><div class="dialog-actions"><button class="secondary-button" value="cancel">ยกเลิก</button><button id="confirm-new" class="primary-button" type="button">เริ่มรอบใหม่</button></div></form></dialog>
+  <dialog id="card-detail-dialog" class="game-sheet card-detail-sheet" aria-labelledby="card-detail-title">
+    <form method="dialog">
+      <div class="dialog-heading">
+        <h2 id="card-detail-title">รายละเอียดการ์ดคำ</h2>
+        <button class="icon-button" aria-label="ปิดรายละเอียด" value="close">×</button>
+      </div>
+      <div id="card-detail-content" class="card-detail-content"></div>
+      <div class="dialog-actions">
+        <button class="primary-button" value="close">ปิด</button>
+      </div>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" hidden></div>
   <noscript><p class="storage-warning">เกมนี้ต้องเปิด JavaScript เพื่อประกอบและจำลองคาถา</p></noscript>
 </body>

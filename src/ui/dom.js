@@ -1,4 +1,4 @@
-import { WORDS, RARITIES, CREATURE_WORDS, elementFamily } from '../words.js';
+import { WORDS, RARITIES, CREATURE_WORDS, elementFamily, getCardCapabilityBadge } from '../words.js';
 import {
   UPPER_RESTS,
   getCardUpgradeLevel,
@@ -89,17 +89,20 @@ export function rarityBadge(word) {
   return `<small class="rarity-badge">${RARITIES[word.rarity ?? 'common']}</small>`;
 }
 
-export function playingCardFace(state, id, { headerRight = '', footerSub = '', bodyExtra = '', battle = false } = {}) {
+export function playingCardFace(state, id, { headerRight = '', footerSub = '', bodyExtra = '', battle = false, showInspector = true } = {}) {
   const word = WORDS[id];
   const ascended = battle && isAscensionActive(state);
   const upgLv = ascended ? MAX_CARD_UPGRADE : getCardUpgradeLevel(state, id);
   const hasSec = ascended || hasCardSecondaryUpgrade(state, id);
   const secEffect = hasSec ? getCardSecondaryEffect(id, Math.max(7, upgLv)) : null;
   const upgTags = [];
-  if (upgLv > 0) upgTags.push(`<span class="card-upg-pip stat-pip" title="${escape(describeCardUpgradeEffect(id, upgLv))}">+${upgLv}${ascended ? ' จุติ' : ''}</span>`);
-  if (hasSec && secEffect) upgTags.push(`<span class="card-upg-pip sec-pip" title="${escape(secEffect.description)}">${escape(secEffect.badge)}</span>`);
+  if (upgLv > 0) upgTags.push(`<span class="card-upg-pip stat-pip${ascended ? ' is-ascended' : ''}" title="${escape(describeCardUpgradeEffect(id, upgLv))}">+${upgLv}${ascended ? ' จุติ' : ''}</span>`);
+  if (hasSec && secEffect) upgTags.push(`<span class="card-upg-pip sec-pip" title="${escape(secEffect.description)}"><span class="sec-pip-full">${escape(secEffect.badge)}</span>${battle ? '<span class="sec-pip-compact" aria-label="เอฟเฟกต์รอง">รอง</span>' : ''}</span>`);
   const upgRow = upgTags.length ? `<span class="card-upg-row">${upgTags.join('')}</span>` : '';
-  return `<span class="playing-card-inner ${upgLv > 0 || hasSec ? 'is-upgraded-card' : ''}"><span class="card-corner card-corner-top"><span class="corner-index"><span class="corner-icon">${icon(id)}</span><span class="corner-name">${word.label}${upgLv > 0 ? ` +${upgLv}` : ''}</span></span>${headerRight}</span><span class="card-art-frame"><span class="card-art-ring" aria-hidden="true"></span><span class="card-emblem">${icon(id)}</span></span><span class="card-nameplate"><strong class="card-title">${word.label}${upgLv > 0 ? ` <em class="card-plus">+${upgLv}</em>` : ''}</strong>${rarityBadge(word)}${upgRow}${footerSub}</span>${bodyExtra}<span class="card-corner card-corner-bottom" aria-hidden="true"><span class="corner-index"><span class="corner-icon">${icon(id)}</span><span class="corner-name">${word.label}</span></span></span></span>`;
+  const capBadge = `<span class="card-cap-badge">${escape(getCardCapabilityBadge(id))}</span>`;
+  const infoBtn = showInspector ? `<span class="card-info-trigger" role="button" tabindex="0" data-card-detail="${id}" aria-label="ดูรายละเอียดการ์ด ${escape(word.label)}" title="ดูรายละเอียด">ℹ</span>` : '';
+  const cornerRight = `<span class="card-corner-actions">${infoBtn}${headerRight}</span>`;
+  return `<span class="playing-card-inner ${upgLv > 0 || hasSec ? 'is-upgraded-card' : ''}"><span class="card-corner card-corner-top"><span class="corner-index"><span class="corner-icon">${icon(id)}</span><span class="corner-name">${word.label}${upgLv > 0 ? ` +${upgLv}` : ''}</span></span>${cornerRight}</span><span class="card-art-frame"><span class="card-art-ring" aria-hidden="true"></span><span class="card-emblem">${icon(id)}</span></span><span class="card-nameplate"><strong class="card-title">${word.label}${upgLv > 0 ? ` <em class="card-plus">+${upgLv}</em>` : ''}</strong>${capBadge}${rarityBadge(word)}${upgRow}${footerSub}</span>${bodyExtra}<span class="card-corner card-corner-bottom" aria-hidden="true"><span class="corner-index"><span class="corner-icon">${icon(id)}</span><span class="corner-name">${word.label}</span></span></span></span>`;
 }
 
 let fxRafId = 0;

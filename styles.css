@@ -865,6 +865,290 @@ body.reduced-motion .battlefield-wrap,body.reduced-motion #battle-view{animation
 .card-upg-pip.stat-pip{background:#332612;border:1px solid #d8b46788;color:#ffe094}
 .card-upg-pip.sec-pip{background:#122e2b;border:1px solid #4fb8a688;color:#a6fff0}
 
+/* Card Capability Badge & Corner Actions */
+.card-corner-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.card-info-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(240, 198, 135, 0.35);
+  color: var(--gold, #eed292);
+  font-size: 10px;
+  font-family: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.12s, background 0.12s, border-color 0.12s;
+}
+.card-info-trigger:hover,
+.card-info-trigger:focus-visible {
+  background: rgba(240, 198, 135, 0.28);
+  border-color: var(--gold, #eed292);
+  transform: scale(1.15);
+  outline: none;
+}
+.card-cap-badge {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f6d48a;
+  border: 1px solid rgba(246, 212, 138, 0.28);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Card Detail Dialog (.card-detail-sheet) */
+.card-detail-sheet {
+  max-width: min(520px, calc(100% - 24px));
+  width: 100%;
+  padding: 20px;
+  background: linear-gradient(168deg, #18282b 0%, #101c1e 60%, #0a1214 100%);
+  border: 2px solid var(--line, #334d4a);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.card-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 14px 0 16px;
+  max-height: min(65vh, 520px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.card-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.card-detail-emblem {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1.5px solid var(--gold, #eed292);
+  border-radius: 50%;
+  font-size: 24px;
+}
+.card-detail-title-block {
+  flex: 1;
+  min-width: 0;
+}
+.card-detail-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-detail-name h3 {
+  font-size: 19px;
+  color: var(--text, #f0f6f6);
+  margin: 0;
+}
+.card-detail-lv-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #251d10;
+  border: 1px solid #d8b467aa;
+  color: #ffe094;
+}
+.card-detail-meta-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.detail-rarity-pill {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--rarity, #a88f76);
+  border: 1px solid currentColor;
+}
+.detail-role-pill {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(246, 212, 138, 0.12);
+  color: #f6d48a;
+  border: 1px solid rgba(246, 212, 138, 0.3);
+}
+.card-detail-section {
+  background: rgba(12, 22, 24, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.card-detail-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold, #eed292);
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.card-detail-desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text, #f0f6f6);
+  margin: 0 0 8px;
+}
+.card-detail-formula-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.formula-label {
+  color: var(--muted, #8ea19d);
+}
+.card-detail-formula-box code {
+  color: #79e2d0;
+  font-family: inherit;
+  font-weight: 500;
+}
+.card-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.detail-grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(12, 22, 24, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.grid-label {
+  font-size: 10.5px;
+  color: var(--muted, #8ea19d);
+}
+.grid-value {
+  font-size: 12px;
+  color: var(--text, #f0f6f6);
+}
+.sec-effect-section.is-unlocked {
+  border-color: rgba(79, 184, 166, 0.4);
+  background: rgba(18, 46, 43, 0.35);
+}
+.sec-effect-section.is-locked {
+  opacity: 0.85;
+  border-style: dashed;
+}
+.sec-effect-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.sec-badge-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #122e2b;
+  border: 1px solid #4fb8a688;
+  color: #a6fff0;
+}
+.sec-effect-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text, #f0f6f6);
+  margin: 6px 0 0;
+}
+.upg-preview-desc {
+  font-size: 12.5px;
+  color: #f6d48a;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Reward Screen Enhancements */
+.reward-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 8px;
+  flex: 1;
+}
+.reward-status-pill {
+  display: inline-block;
+  align-self: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  line-height: 1.3;
+}
+.reward-status-pill.is-new {
+  background: rgba(94, 187, 161, 0.2);
+  border: 1px solid #5ebba1;
+  color: #8affdb;
+}
+.reward-status-pill.is-dup {
+  background: rgba(246, 212, 138, 0.16);
+  border: 1px solid #f6d48a;
+  color: #ffe094;
+}
+.reward-status-pill.is-maxed {
+  background: rgba(255, 171, 118, 0.2);
+  border: 1px solid #ffab76;
+  color: #ffd29d;
+}
+.reward-starter-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(210, 171, 255, 0.2);
+  border: 1px solid #d2abff;
+  color: #e9d5ff;
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
+.reward-upg-diff {
+  font-size: 11.5px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  padding: 5px 8px;
+  color: var(--text, #f0f6f6);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+.diff-arrow {
+  color: #ffe094;
+  font-weight: 700;
+}
+.diff-gold {
+  color: #ffd700;
+  font-weight: 700;
+}
+
 /* Global Inventory Dialog (#inventory-dialog) */
 .inventory-nav-btn{border:1px solid #35545c;background:#122125;padding:5px 10px;border-radius:6px;color:#d8f3ec;font-weight:700}
 .inventory-nav-btn:hover{border-color:#68d8c6;background:#172c31}
