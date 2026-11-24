@@ -1332,4 +1332,455 @@ body.reduced-motion .battlefield-wrap,body.reduced-motion #battle-view{animation
   .rift-quota-banner { padding: 8px 10px; }
 }
 
+/* ======================== PHASE 1 RPG GEAR & ARMORY ======================== */
+.shop-choice-text {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  min-width: 0;
+}
+.shop-choice-sub {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+}
+.shop-item-compare {
+  margin: 0;
+  padding: 6px 8px;
+  border-left: 2px solid var(--gold);
+  background: rgba(16, 25, 27, 0.55);
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.sanctuary-armory-panel {
+  display: grid;
+  gap: 12px;
+}
+.armory-header-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.armory-header-bar h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--text);
+}
+.armory-stat-summary {
+  margin: 0;
+  font-size: 12px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+.armory-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.armory-slot-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--raised);
+  align-content: start;
+}
+.armory-slot-card.is-empty {
+  border-style: dashed;
+  background: rgba(23, 35, 38, 0.65);
+}
+.armory-slot-card.is-selected {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px rgba(211, 170, 107, 0.35);
+}
+.armory-slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.armory-slot-label {
+  font-weight: 700;
+  color: var(--text);
+}
+.armory-slot-state {
+  font-variant-numeric: tabular-nums;
+}
+.armory-slot-empty-copy {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.armory-slot-select {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px;
+  border: 1px solid rgba(59, 75, 70, 0.7);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  min-height: 44px;
+}
+.armory-slot-select:hover {
+  border-color: var(--accent);
+}
+.armory-slot-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.armory-slot-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.armory-slot-info strong {
+  font-size: 13px;
+  color: var(--text);
+}
+.armory-slot-info small {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.armory-slot-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+.armory-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.armory-workbench,
+.armory-vault {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel);
+}
+.armory-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.armory-item-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--raised);
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.armory-detail-head h4 {
+  margin: 0 0 2px;
+  font-size: 16px;
+  color: var(--text);
+}
+.armory-item-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.armory-item-summary {
+  margin: 8px 0 4px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+.armory-refine-bonus {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+.armory-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.armory-actions button {
+  min-height: 44px;
+}
+.armory-vault-list {
+  display: grid;
+  gap: 6px;
+  max-height: 290px;
+  overflow-y: auto;
+}
+.armory-vault-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--raised);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.armory-vault-item[aria-pressed="true"] {
+  border-color: var(--gold);
+  background: #27373a;
+}
+.armory-vault-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.armory-vault-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.armory-vault-body strong {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.armory-vault-body small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.armory-vault-meta {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  font-weight: 700;
+}
+.gear-rarity-rare {
+  border-color: #4f7b8a;
+}
+.gear-rarity-special {
+  border-color: #c38dff;
+}
+.gear-rarity-epic {
+  border-color: #ff9d5c;
+  box-shadow: inset 0 0 0 1px rgba(255, 157, 92, 0.22);
+}
+.gear-rarity-legendary {
+  border-color: #f7d472;
+  box-shadow: inset 0 0 0 1px rgba(247, 212, 114, 0.34);
+}
+.inv-gear-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
 
+/* ======================== PHASE 2 GEAR RIFT & VAULT CHEST ======================== */
+.sanctuary-pending-gear-btn {
+  width: min(100%, 232px);
+  border-color: #e7bc6c;
+  background: linear-gradient(180deg, #4b3218 0%, #2d1e0e 100%);
+  color: #ffe8ad;
+  font-weight: 700;
+}
+.sanctuary-pending-gear-btn:hover:not(:disabled) {
+  border-color: #fff0b8;
+  background: linear-gradient(180deg, #5f4020 0%, #3a2713 100%);
+}
+.rift-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.rift-mode-tab {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: 3px;
+  background: var(--raised);
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+.rift-mode-tab[aria-pressed="true"] {
+  border-color: #c38dff;
+  background: linear-gradient(180deg, #3c2164 0%, #24143f 100%);
+  color: #fff2d6;
+}
+.gear-rift-modifiers {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #6b5294;
+  border-radius: 3px;
+  background: #171225;
+}
+.gear-rift-pending-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e7bc6c;
+  border-radius: 3px;
+  background: rgba(75, 50, 24, 0.55);
+  color: #ffe8ad;
+  font-size: 13px;
+  font-weight: 700;
+}
+.gear-rift-modifier-controls {
+  display: grid;
+  gap: 10px;
+}
+.gear-mod-group {
+  display: grid;
+  gap: 6px;
+}
+.gear-mod-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.gear-mod-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gear-mod-btn {
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--raised);
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.gear-mod-btn[aria-pressed="true"] {
+  border-color: #e7bc6c;
+  background: #2f2344;
+  color: #ffe8ad;
+  font-weight: 700;
+}
+.gear-mod-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.gear-orb-btn[aria-pressed="true"] {
+  border-color: #ff9a76;
+  background: #421f2c;
+  color: #ffd8c7;
+}
+.gear-rift-card.is-cleared {
+  border-color: #6a8e72;
+}
+.gear-rift-reward-dialog {
+  max-width: min(760px, calc(100% - 24px));
+}
+.gear-rift-reward-body {
+  display: grid;
+  gap: 12px;
+  padding: 8px 4px 12px;
+}
+.gear-rift-reward-body p {
+  margin: 0;
+  text-align: center;
+}
+.gear-rift-reward-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.gear-rift-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: 3px;
+  background: var(--raised);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.gear-rift-choice:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+}
+.gear-rift-choice-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.gear-rift-choice-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.gear-rift-choice-head strong {
+  display: block;
+  font-size: 14px;
+  color: var(--text);
+}
+.gear-rift-choice-head small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.gear-rift-choice-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text);
+  flex: 1;
+}
+.gear-rift-choice-outcome {
+  display: block;
+  padding: 5px 8px;
+  border: 1px solid rgba(211, 170, 107, 0.45);
+  border-radius: 3px;
+  background: rgba(16, 25, 27, 0.7);
+  color: #ffe39b;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 720px) {
+  .armory-slots,
+  .armory-workspace,
+  .inv-gear-grid,
+  .gear-rift-reward-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .armory-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sanctuary-pending-gear-btn {
+    width: 100%;
+  }
+}

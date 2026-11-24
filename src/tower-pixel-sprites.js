@@ -447,7 +447,165 @@ const DESIGNS = {
 ......sms
 .....s...s
 `],
+  ironforge_automaton: ['brass', 0, `
+..h.......h
+..m..lll..m
+..mslmhmlsm
+.smlmmeemlms
+.lmlmmllmllm
+smhlmaeaamhlm
+smmlmaaaammls
+.mmlmhllmhlm
+.ssmlmmmmms
+...smm..mms
+..smml..lmms
+..ssss..ssss
+`],
+  tempest_blade_seraph: ['wind', 2, `
+.....ahah
+..h..hllh..h
+.hlm.leel.mlh
+hlhlmslmlsmhlh
+.lmlhmahamhlml
+..slhhaeahhls
+...a.lmlml.a
+..al.smlms.la
+..ah..lml..ha
+..a...sms...a
+......s.s
+`],
+  abyssal_tide_colossus: ['water', 0, `
+....h..h..h
+...hlmlmlmlh
+..smlmeemlmls
+.hlmllhhlmllh
+smhlmhaeahmhlm
+smmlmaaaammlms
+.mmlmhaeahmlm
+.slmlmmmmmlms
+..smlmllmms
+...smm..mms
+..smls..slms
+..sss....sss
+`],
+  magma_core_juggernaut: ['fire', 0, `
+..a.......a
+.hal.hhh.lah
+smhlmlmmlhlms
+smmlmeeemlmms
+smhllhaehllhms
+smmlmaaaammlms
+smmlmhaehmmlms
+.smmlmmmmmlms
+..smmlmlmmms
+...smm..mms
+..smml..lmms
+..ssss..ssss
+`],
+  chitin_bastion_behemoth: ['stone', 0, `
+....h.h.h.h
+...hlmlmlmlh
+..hlmmllmmlh
+.slmhlmmlhlms
+smhlmmeemmhlms
+smmlmhlhlmmlms
+smhlmaaaamhlms
+smmlmlmmlmmlms
+.smmlmmmmmlms
+..smms..smms
+..slls..slls
+`],
+  storm_sovereign_drake: ['wind', 1, `
+.a...h..h...a
+ala.hlmmlh.ala
+a.lhmlmmlhlh.a
+..hlmmeemmlh
+.slmhlmmlhlms
+smlmaahhaamlms
+smlmlmhhmlmlms
+.smlmllllmlms
+..smml..lmms
+...sm....ms
+..sll....lls
+`],
+  void_kraken_leviathan: ['ink', 1, `
+....hlmmlh
+...hlmllmlh
+..hlmmllmmlh
+.slmmehhmemls
+.smmlmllmlmms
+..smmhaaamms
+.slmlmmmmmlms
+slm.smlmls.mls
+sm..sm..ms..ms
+s..sm....ms..s
+...s......s
+`],
+  void_rift_tentacle: ['ink', 0, `
+.....hh
+....hlmh
+...slmml
+...smelm
+....smml
+...slmms
+..smmlm
+..smmms
+...smms
+...ssss
+`],
+  nether_forge_overlord: ['fire', 0, `
+..a..h..h..a
+..alhlmmlhla
+...hlmllmlh
+..slmmeemmls
+.smhlmhhmlhms
+smmlmaaammlms
+smmlmhahmmlms
+.smmlmmmmmlms
+..smmlmlmmms
+..smm....mms
+..ssss..ssss
+`],
+  nether_forge_pillar: ['fire', 1, `
+.....aa
+....haah
+...hlmmlh
+...smelms
+...smamms
+...smlmms
+...smamms
+...smmlms
+....smms
+....ssss
+`],
+  eternity_armory_god: ['astral', 2, `
+..a..h.ah..a
+.ala.hlmlh.ala
+..a.hlmllmlh.a
+...slmmeemmls
+.a.smhlmmlhms.a
+ala.smhaaams.ala
+.a.smmlmmlmms.a
+...smlmllmms
+....smmlmms
+.....smms
+......aa
+`],
 };
+
+export const GEAR_RIFT_SPRITE_KINDS = new Set([
+  'ironforge_automaton',
+  'tempest_blade_seraph',
+  'abyssal_tide_colossus',
+  'magma_core_juggernaut',
+  'chitin_bastion_behemoth',
+  'storm_sovereign_drake',
+  'void_kraken_leviathan',
+  'void_rift_tentacle',
+  'nether_forge_overlord',
+  'nether_forge_pillar',
+  'eternity_armory_god',
+]);
 
 const INKS = 'smlhae';
 const atlas = Object.fromEntries(Object.entries(DESIGNS).map(([kind, [material, lift, pixels]]) => {

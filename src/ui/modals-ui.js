@@ -28,6 +28,12 @@ import {
   isSanctuary14Unlocked,
   isSanctuary19Unlocked,
   isSanctuaryPost20Unlocked,
+  GEAR_SLOTS,
+  GEAR_SLOT_LABELS,
+  GEAR_SLOT_ICONS,
+  GEAR_RARITY_LABELS,
+  getEquippedGearEntries,
+  describeGearRefineBonus,
 } from '../run.js';
 import { icon } from '../icons.js';
 import { MASTER_FORMULAS, canFormPhraseInHand, describeFormulaEffect } from '../combos.js';
@@ -261,7 +267,25 @@ export function createModalsController(ctx) {
       return `<article class="relic-draft-card ${owned ? 'is-owned' : ''} ${isEquipped ? 'is-equipped' : ''}"><div class="relic-draft-head"><span class="relic-draft-icon">${relic.icon}</span><div><strong>${escape(relic.name)}</strong><span class="relic-floor-badge">ดรอปจากบอสชั้นที่ ${relic.dropFloor}</span></div></div><p class="relic-draft-desc">${escape(relic.summary)}</p><small class="relic-draft-status">${escape(statusText)}</small></article>`;
     }).join('');
 
+    const equippedGear = getEquippedGearEntries(p);
+    const gearSummaryHtml = GEAR_SLOTS.map(slot => {
+      const entry = equippedGear[slot];
+      if (!entry) {
+        return `<article class="relic-draft-card inv-gear-card is-empty"><div class="relic-draft-head"><span class="relic-draft-icon">${GEAR_SLOT_ICONS[slot]}</span><div><strong>${GEAR_SLOT_LABELS[slot]}</strong><span class="relic-floor-badge">ว่าง</span></div></div><p class="relic-draft-desc">ยังไม่ได้สวมใส่ · ปรับเปลี่ยนและตีบวกได้ที่จุดพัก</p></article>`;
+      }
+      const { def, refine } = entry;
+      const refineCopy = refine > 0 ? ` · โบนัส +${refine}: ${describeGearRefineBonus(def, refine)}` : '';
+      return `<article class="relic-draft-card inv-gear-card is-owned is-equipped gear-rarity-${def.rarity}"><div class="relic-draft-head"><span class="relic-draft-icon">${escape(def.icon)}</span><div><strong>${escape(def.name)}${refine > 0 ? ` +${refine}` : ''}</strong><span class="relic-floor-badge">${GEAR_SLOT_LABELS[slot]} · ${GEAR_RARITY_LABELS[def.rarity]}</span></div></div><p class="relic-draft-desc">${escape(def.summary)}${escape(refineCopy)}</p></article>`;
+    }).join('');
+
     bodyEl.innerHTML = `
+      <section class="inv-section">
+        <div class="inv-section-head">
+          <h3>🛡️ อุปกรณ์สวมใส่ (3 ช่อง)</h3>
+          <span>ซื้อ เปลี่ยน และตีบวกได้ที่จุดพัก</span>
+        </div>
+        <div class="sanctuary-relic-list inv-gear-grid">${gearSummaryHtml}</div>
+      </section>
       <section class="inv-section">
         <div class="inv-section-head"><h3>✨ พรจอมเวทที่ได้รับ</h3></div>
         <div class="sanctuary-relic-list">${blessingsHtml}</div>

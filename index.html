@@ -146,9 +146,11 @@
           <div class="sanctuary-exit">
             <button id="sanctuary-next-room-btn" class="sanctuary-plaque sanctuary-climb" type="button"><span id="sanctuary-next-room-label">ไต่ต่อ</span><span aria-hidden="true">→</span></button>
             <button id="sanctuary-rift-btn" class="sanctuary-plaque sanctuary-rift-btn" type="button" data-sanctuary-menu="rift" aria-haspopup="dialog" hidden><span id="sanctuary-rift-label">🌀 รอยแยก</span><span id="sanctuary-rift-quota" class="rift-btn-quota"></span></button>
+            <button id="sanctuary-pending-gear-btn" class="sanctuary-plaque sanctuary-pending-gear-btn" type="button" hidden>🎁 เปิดหีบศาสตรา</button>
             <button id="sanctuary-map-open" class="sanctuary-plaque sanctuary-map-open" type="button" data-sanctuary-menu="map" aria-haspopup="dialog">เลือกชั้นอื่น</button>
           </div>
           <div class="sanctuary-tools" aria-label="เครื่องมือ">
+            <button id="sanctuary-armory-tab" class="sanctuary-plaque" type="button" data-sanctuary-menu="armory" aria-haspopup="dialog">อุปกรณ์</button>
             <button class="sanctuary-plaque" type="button" data-open-inventory="true" aria-haspopup="dialog">กระเป๋า</button>
             <button id="sanctuary-deck-tab" class="sanctuary-plaque" type="button" data-sanctuary-menu="deck" aria-haspopup="dialog">ชุดคำ</button>
             <button class="sanctuary-plaque" type="button" data-sanctuary-menu="tome" aria-haspopup="dialog">ตำรา</button>
@@ -167,6 +169,10 @@
           <p id="sanctuary-revisit-note" class="muted" hidden>ห้องที่ผ่านแล้วให้ทองและ EXP 20% · บอสไม่ดรอปการ์ดคำซ้ำ · ชนะแล้วกลับจุดพักทันที</p>
         </section>
         <section id="sanctuary-rift-panel" class="sanctuary-panel sanctuary-rift-panel" hidden>
+          <div id="rift-mode-tabs" class="rift-mode-tabs" role="tablist" aria-label="ประเภทดันเจี้ยนรอยแยก">
+            <button type="button" class="rift-mode-tab" data-rift-mode="card" aria-pressed="true">🌀 รอยแยกการ์ดคำ</button>
+            <button type="button" class="rift-mode-tab" data-rift-mode="gear" aria-pressed="false">⚔ รอยแยกศาสตรา</button>
+          </div>
           <div class="rift-quota-banner">
             <div>
               <strong id="rift-quota-title">โควต้ารอยแยกวันนี้</strong>
@@ -174,7 +180,14 @@
             </div>
             <span id="rift-quota-pill" class="rift-quota-pill">0 / 0 รอบ</span>
           </div>
-          <p class="rift-rules-note">สู้ต่อเนื่อง <strong>3 ด่าน</strong> (มินิบอส X8-3 → มินิบอส X9-3 → บอสใหญ่ชั้นหลักสิบ) · ผ่านครบ 3 ด่าน <strong>สุ่มรับการ์ดคำ 1 ใบทันที</strong> ตามเพดานรางวัลของชั้นนั้น (เลือกไม่ได้)</p>
+          <p id="rift-rules-note" class="rift-rules-note">สู้ต่อเนื่อง <strong>3 ด่าน</strong> (มินิบอส X8-3 → มินิบอส X9-3 → บอสใหญ่ชั้นหลักสิบ) · ผ่านครบ 3 ด่าน <strong>สุ่มรับการ์ดคำ 1 ใบทันที</strong> ตามเพดานรางวัลของชั้นนั้น (เลือกไม่ได้)</p>
+          <div id="gear-rift-modifiers" class="gear-rift-modifiers" hidden>
+            <div id="gear-rift-pending-banner" class="gear-rift-pending-banner" hidden>
+              <span>🎁 คุณมีหีบศาสตราที่รอเปิดเลือก 1 จาก 3 ชิ้น</span>
+              <button id="gear-rift-open-pending-btn" type="button" class="primary-button">เปิดหีบรับอุปกรณ์</button>
+            </div>
+            <div id="gear-rift-modifier-controls" class="gear-rift-modifier-controls"></div>
+          </div>
           <div id="rift-tier-list" class="rift-tier-list" aria-label="ระดับรอยแยกมิติ"></div>
         </section>
         <div id="sanctuary-tome-panel" hidden>
@@ -202,6 +215,7 @@
               <div class="shop-detail-body">
                 <h3 id="shop-item-name" tabindex="-1"></h3>
                 <p id="shop-item-description"></p>
+                <p id="shop-item-compare" class="shop-item-compare" hidden></p>
                 <div class="shop-item-meta"><span id="shop-item-stock"></span><span id="shop-item-destination"></span></div>
                 <button id="shop-buy-btn" class="primary-button" type="button">ซื้อ</button>
               </div>
@@ -216,12 +230,66 @@
             <label class="shop-search">ค้นหาสินค้า<input id="shop-search" type="search" placeholder="ชื่อสินค้า" autocomplete="off"></label>
             <div id="shop-categories" class="shop-categories" aria-label="หมวดสินค้า">
               <button type="button" data-shop-category="all" aria-pressed="true">ทั้งหมด</button>
+              <button type="button" data-shop-category="gear" aria-pressed="false">อุปกรณ์</button>
               <button type="button" data-shop-category="restore" aria-pressed="false">ฟื้นฟู</button>
               <button type="button" data-shop-category="battle" aria-pressed="false">ในสนาม</button>
               <button type="button" data-shop-category="forge" aria-pressed="false">ตีบวก</button>
+              <button type="button" data-shop-category="rift" aria-pressed="false">รอยแยก</button>
             </div>
             <div id="sanctuary-shop-list" class="sanctuary-shop-list" aria-label="สินค้า"></div>
             <p id="shop-empty" class="muted" hidden></p>
+          </div>
+        </section>
+
+        <section class="sanctuary-armory-panel" id="sanctuary-armory-panel" hidden>
+          <div class="armory-header-bar">
+            <div>
+              <h3>ช่องสวมใส่อุปกรณ์ (3 ช่อง)</h3>
+              <p id="armory-stat-summary" class="armory-stat-summary">ยังไม่ได้สวมใส่อุปกรณ์ · เลือกซื้อได้ในร้านค้าหมวด “อุปกรณ์”</p>
+            </div>
+            <span id="armory-gold" class="rpg-gold-badge">0 ทอง</span>
+          </div>
+          <div id="armory-slots" class="armory-slots" aria-label="ช่องสวมใส่อุปกรณ์"></div>
+          <div class="armory-workspace">
+            <div id="armory-workbench" class="armory-workbench">
+              <p id="armory-detail-empty" class="muted">เลือกอุปกรณ์จากช่องสวมใส่หรือคลังอุปกรณ์ เพื่อสวมใส่ ตีบวก ขายคืน หรือย่อยเป็นหินตีบวก</p>
+              <div id="armory-detail-body" hidden>
+                <div class="armory-detail-head">
+                  <span id="armory-item-icon" class="armory-item-icon" aria-hidden="true"></span>
+                  <div>
+                    <h4 id="armory-item-name" tabindex="-1"></h4>
+                    <div id="armory-item-meta" class="armory-item-meta"></div>
+                  </div>
+                </div>
+                <p id="armory-item-summary" class="armory-item-summary"></p>
+                <p id="armory-item-refine-bonus" class="armory-refine-bonus"></p>
+                <dl id="armory-refine-terms" class="forge-terms">
+                  <div><dt>โอกาสตีบวก</dt><dd id="armory-refine-chance"></dd></div>
+                  <div><dt>ใช้ต่อครั้ง</dt><dd id="armory-refine-cost"></dd></div>
+                </dl>
+                <div class="armory-actions">
+                  <button id="armory-equip-btn" type="button" class="primary-button">สวมใส่</button>
+                  <button id="armory-refine-btn" type="button" class="secondary-button">ตีบวก</button>
+                  <button id="armory-sell-btn" type="button" class="secondary-button">ขายคืน</button>
+                  <button id="armory-salvage-btn" type="button" class="secondary-button">ย่อยเป็นหิน</button>
+                </div>
+                <p id="armory-result" class="forge-result" role="status" aria-atomic="true"></p>
+              </div>
+            </div>
+            <div class="armory-vault">
+              <div class="forge-library-heading">
+                <h3>คลังอุปกรณ์</h3>
+                <span id="armory-vault-count" class="muted">0 ชิ้น</span>
+              </div>
+              <div id="armory-slot-filters" class="shop-categories" aria-label="กรองตามประเภทอุปกรณ์">
+                <button type="button" data-armory-filter="all" aria-pressed="true">ทั้งหมด</button>
+                <button type="button" data-armory-filter="weapon" aria-pressed="false">อาวุธ</button>
+                <button type="button" data-armory-filter="armor" aria-pressed="false">ชุดคลุม</button>
+                <button type="button" data-armory-filter="accessory" aria-pressed="false">เครื่องประดับ</button>
+              </div>
+              <div id="armory-vault-list" class="armory-vault-list" aria-label="รายการอุปกรณ์ที่มี"></div>
+              <p id="armory-vault-empty" class="muted" hidden>ยังไม่มีอุปกรณ์ในคลัง · แวะร้านค้าหมวด “อุปกรณ์” เพื่อซื้อชิ้นแรก</p>
+            </div>
           </div>
         </section>
 
@@ -385,6 +453,17 @@
     <div class="dialog-actions">
       <button id="rift-reward-again" type="button" class="primary-button">ลงรอยแยกต่อ</button>
       <button id="rift-reward-done" type="button" class="secondary-button">กลับจุดพัก</button>
+    </div>
+  </dialog>
+  <dialog id="gear-rift-reward-dialog" class="game-sheet gear-rift-reward-dialog" aria-labelledby="gear-rift-reward-title">
+    <div class="dialog-heading">
+      <h2 id="gear-rift-reward-title">🎁 หีบศาสตราแห่งรอยแยก</h2>
+      <button id="gear-rift-reward-close" type="button" class="icon-button" aria-label="ปิดหน้าต่างหีบศาสตรา">×</button>
+    </div>
+    <div class="gear-rift-reward-body">
+      <p id="gear-rift-reward-subtitle" class="muted"></p>
+      <div id="gear-rift-reward-choices" class="gear-rift-reward-choices"></div>
+      <p id="gear-rift-reward-hint" class="muted"></p>
     </div>
   </dialog>
   <dialog id="settings-dialog" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-heading"><h2 id="settings-title">พักสักครู่</h2><button class="icon-button" aria-label="ปิดการตั้งค่า" value="close">×</button></div><p class="muted">เกมเป็นเทิร์น คุณมีเวลาคิดเต็มที่</p><label class="setting">เพลง <input id="music-volume" type="range" min="0" max="100" step="1"><output id="music-output"></output></label><label class="check-setting"><input id="music-toggle" type="checkbox">เปิดเสียงดนตรี (BGM)</label><label class="setting">เสียงเอฟเฟกต์ <input id="sfx-volume" type="range" min="0" max="100" step="1"><output id="sfx-output"></output></label><label class="check-setting"><input id="sfx-toggle" type="checkbox">เปิดเอฟเฟกต์เสียง (SFX)</label><label class="setting">เสียงปุ่ม <input id="ui-volume" type="range" min="0" max="100" step="1"><output id="ui-output"></output></label><label class="check-setting"><input id="reduce-motion" type="checkbox">ลดการเคลื่อนไหว</label><label class="check-setting"><input id="show-tips" type="checkbox">แสดงคำแนะนำ</label><label class="setting">ความเร็วต่อสู้ <select id="setting-combat-speed"><option value="1">1x (ปกติ)</option><option value="2">2x (เร็ว)</option><option value="3">3x (เทอร์โบ)</option></select></label><div class="dialog-actions"><button id="mute-all" class="secondary-button" type="button">ปิดเสียงทั้งหมด</button><button class="primary-button" value="close">กลับไปเล่น</button></div><button id="pause-home" class="text-button" type="button">บันทึกแล้วกลับหน้าหลัก</button></form></dialog>

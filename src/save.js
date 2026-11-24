@@ -24,6 +24,8 @@ import {
   encounterMaxHp,
   getEternityShiftAffinity,
   checkEternityPhase2,
+  checkArmoryGodPhase,
+  isBattleWordSpent,
   TOTAL_TOWER_ROOMS,
   UPPER_RESTS,
   openHand,
@@ -39,6 +41,11 @@ import {
   clearLostRunProgress,
   repairEarlyDeck,
   RIFT_TIERS,
+  GEAR_RIFT_BOSS_BY_TIER,
+  getGearRiftStage3Kinds,
+  GEAR_CATALOG,
+  GEAR_SLOTS,
+  MAX_GEAR_REFINE,
 } from './run.js';
 
 export const SAVE_KEY = 'spell-foundry.run.v2';
@@ -100,10 +107,18 @@ export function validateRun(state) {
   if (state.magmaPuddles !== undefined && (state.phase !== 'battle' || !Array.isArray(state.magmaPuddles)
     || new Set(state.magmaPuddles).size !== state.magmaPuddles.length || state.magmaPuddles.some(slot => !integer(slot, 0, 4)))) invalid();
   if (state.blackhole !== undefined && (state.phase !== 'battle' || !object(state.blackhole)
-    || !integer(state.blackhole.slot, 0, 4) || !integer(state.blackhole.power, 30, 3000))) invalid();
+    || !integer(state.blackhole.slot, 0, 4) || !integer(state.blackhole.power, 30, 6000))) invalid();
   if (state.krakenPhase !== undefined && (state.phase !== 'battle' || state.krakenPhase !== 2)) invalid();
   if (state.netherPhase !== undefined && (state.phase !== 'battle' || state.netherPhase !== 2)) invalid();
   if (state.eternityPhase !== undefined && (state.phase !== 'battle' || state.room !== FLOOR100_BOSS_ROOM || state.rift || ![2, 3].includes(state.eternityPhase))) invalid();
+  if (state.armoryGodPhase !== undefined && (state.phase !== 'battle' || state.rift?.type !== 'gear' || state.rift.tier !== 100 || state.rift.stage !== 2 || ![2, 3].includes(state.armoryGodPhase))) invalid();
+  if (state.timestopUses !== undefined && (state.phase !== 'battle' || !integer(state.timestopUses, 0, 5))) invalid();
+  if (state.freeManaUntilTurn !== undefined && (state.phase !== 'battle' || !integer(state.freeManaUntilTurn, 1, state.turn + 5))) invalid();
+  if (state.permanentAscension !== undefined && (state.phase !== 'battle' || typeof state.permanentAscension !== 'boolean')) invalid();
+  if (state.permanentAscensionFree !== undefined && (state.phase !== 'battle' || typeof state.permanentAscensionFree !== 'boolean')) invalid();
+  if (state.phoenixRevivesUsed !== undefined && (state.phase !== 'battle' || !integer(state.phoenixRevivesUsed, 0, 5))) invalid();
+  if (state.armorReviveUsed !== undefined && (state.phase !== 'battle' || typeof state.armorReviveUsed !== 'boolean')) invalid();
+  if (state.hydraEmergencyUsed !== undefined && (state.phase !== 'battle' || typeof state.hydraEmergencyUsed !== 'boolean')) invalid();
   if (state.summon !== undefined && state.summon !== null && (state.phase !== 'battle' || !object(state.summon) || typeof state.summon.creatureId !== 'string' || !integer(state.summon.hp, 0, 10000))) invalid();
   if (!Array.isArray(state.rooms) || state.rooms.length < 1 || state.room >= state.rooms.length || state.rooms.some(room => !Array.isArray(room) || room.length < 1 || room.length > 4 || room.some(kind => !Object.hasOwn(ENEMIES, kind)))) invalid();
   const words = (list, min, max) => Array.isArray(list) && integer(list.length, min, max) && new Set(list).size === list.length && list.every(id => Object.hasOwn(WORDS, id));
@@ -125,6 +140,25 @@ export function validateRun(state) {
     new Set(p.equippedRelics).size !== p.equippedRelics.length ||
     p.equippedRelics.some(id => typeof id !== 'string' || !(p.relics ?? []).includes(id))
   )) invalid();
+  if (p.gearInventory !== undefined) {
+    if (!Array.isArray(p.gearInventory) || p.gearInventory.length > Object.keys(GEAR_CATALOG).length) invalid();
+    const seenGear = new Set();
+    for (const entry of p.gearInventory) {
+      if (!object(entry) || typeof entry.id !== 'string' || !Object.hasOwn(GEAR_CATALOG, entry.id) || seenGear.has(entry.id)) invalid();
+      if (!integer(entry.refine ?? 0, 0, MAX_GEAR_REFINE)) invalid();
+      seenGear.add(entry.id);
+    }
+  }
+  if (p.equippedGear !== undefined) {
+    if (!object(p.equippedGear)) invalid();
+    const ownedGearIds = new Set((p.gearInventory ?? []).map(entry => entry.id));
+    for (const [slot, gearId] of Object.entries(p.equippedGear)) {
+      if (!GEAR_SLOTS.includes(slot)) invalid();
+      if (gearId !== null && gearId !== undefined) {
+        if (typeof gearId !== 'string' || GEAR_CATALOG[gearId]?.slot !== slot || !ownedGearIds.has(gearId)) invalid();
+      }
+    }
+  }
   if (state.clearedRooms !== undefined && (!Array.isArray(state.clearedRooms) || state.clearedRooms.some(r => !integer(r, 0, state.rooms.length - 1)))) invalid();
   if (state.rewardedBossRooms !== undefined && (!Array.isArray(state.rewardedBossRooms) || state.rewardedBossRooms.some(r => !integer(r, 0, state.rooms.length - 1)))) invalid();
   if (state.highestRoom !== undefined && !integer(state.highestRoom, 0, state.rooms.length - 1)) invalid();
@@ -150,6 +184,9 @@ export function validateRun(state) {
     if (
       state.phase !== 'battle'
       || !object(r)
+      || (r.type !== undefined && !['card', 'gear'].includes(r.type))
+      || (r.compassSlot !== undefined && r.compassSlot !== null && !GEAR_SLOTS.includes(r.compassSlot))
+      || (r.instability !== undefined && typeof r.instability !== 'boolean')
       || !RIFT_TIERS.includes(r.tier)
       || !integer(r.stage, 0, 2)
       || !Array.isArray(r.stageRooms)
@@ -159,6 +196,22 @@ export function validateRun(state) {
       || !integer(r.returnRoom, 0, state.rooms.length - 1)
       || !validSanctuary(r.returnSanctuaryFloor)
     ) invalid();
+  }
+  if (state.clearedGearRifts !== undefined) {
+    if (!Array.isArray(state.clearedGearRifts)
+      || new Set(state.clearedGearRifts).size !== state.clearedGearRifts.length
+      || state.clearedGearRifts.some(tier => !RIFT_TIERS.includes(tier))) invalid();
+  }
+  if (state.pendingGearReward !== undefined && state.pendingGearReward !== null) {
+    const pgr = state.pendingGearReward;
+    if (!object(pgr)
+      || !RIFT_TIERS.includes(pgr.tier)
+      || !Array.isArray(pgr.choices)
+      || pgr.choices.length < 1
+      || pgr.choices.length > 3
+      || pgr.choices.some(id => typeof id !== 'string' || !Object.hasOwn(GEAR_CATALOG, id))
+      || (pgr.compassSlot !== undefined && pgr.compassSlot !== null && !GEAR_SLOTS.includes(pgr.compassSlot))
+      || (pgr.instability !== undefined && typeof pgr.instability !== 'boolean')) invalid();
   }
   if (state.replayReturn !== undefined) {
     const rr = state.replayReturn;
@@ -173,7 +226,7 @@ export function validateRun(state) {
   }
   if (p.shield !== null) {
     const shield = p.shield;
-    if (!object(shield) || !shieldEffects.includes(shield.effect) || typeof shield.triggered !== 'boolean' || !integer(shield.expires, state.turn, state.turn + 1) || !Array.isArray(shield.layers) || !integer(shield.layers.length, 1, shield.layerDetails ? 12 : 2) || shield.layers.some(amount => !integer(amount, 1, maxShieldLayerHp))) invalid();
+    if (!object(shield) || !shieldEffects.includes(shield.effect) || typeof shield.triggered !== 'boolean' || !integer(shield.expires, state.turn, state.turn + 1) || !Array.isArray(shield.layers) || !integer(shield.layers.length, 1, shield.layerDetails ? 12 : 4) || shield.layers.some(amount => !integer(amount, 1, maxShieldLayerHp))) invalid();
     if (shield.layerDetails !== undefined && (shield.layerEffects !== undefined || !Array.isArray(shield.layerDetails)
       || shield.layerDetails.length !== shield.layers.length || shield.layerDetails.some(layer => !object(layer)
         || !shieldEffects.includes(layer.effect) || !integer(layer.expires, state.turn, state.turn + 1)
@@ -192,11 +245,16 @@ export function validateRun(state) {
   const completedKraken = state.room === FLOOR80_BOSS_ROOM && !state.rift
     && state.phase === 'sanctuary' && state.enemies?.length === 1
     && state.enemies[0]?.kind === 'abyssal_kraken' && state.enemies[0]?.hp === 0;
-  const expectedKinds = state.krakenPhase === 2 || completedKraken
-    ? ['abyssal_kraken']
-    : (state.eternityPhase === 3 || completedEternity)
-      ? ['eternity_reborn']
-      : state.rooms[state.room];
+  const gearRiftStage3Kinds = state.rift?.type === 'gear' && state.rift.stage === 2
+    ? getGearRiftStage3Kinds(state.rift.tier)
+    : null;
+  const expectedKinds = gearRiftStage3Kinds
+    ? gearRiftStage3Kinds
+    : (state.krakenPhase === 2 || completedKraken)
+      ? ['abyssal_kraken']
+      : (state.eternityPhase === 3 || completedEternity)
+        ? ['eternity_reborn']
+        : state.rooms[state.room];
   if (!Array.isArray(state.enemies) || state.enemies.length !== expectedKinds.length) invalid();
   const slots = new Set();
   state.enemies.forEach((enemy, index) => {
@@ -259,7 +317,7 @@ export function validateRun(state) {
       || !p.words.includes('death') || p.hand.includes('death'))) invalid();
   if (state.legendaryTurns !== undefined && (state.phase !== 'battle' || !object(state.legendaryTurns)
       || Object.entries(state.legendaryTurns).some(([id, castTurn]) =>
-        !BATTLE_LIMITED_WORDS.includes(id) || !integer(castTurn, 1, state.turn - 1) || !p.words.includes(id) || p.hand.includes(id)))) invalid();
+        !BATTLE_LIMITED_WORDS.includes(id) || !integer(castTurn, 1, state.turn - 1) || !p.words.includes(id) || (p.hand.includes(id) && isBattleWordSpent(state, id))))) invalid();
   if (p.maxMana === 10) {
     p.mana += MAX_MANA - p.maxMana;
     p.maxMana = MAX_MANA;
@@ -285,6 +343,8 @@ export function validateRun(state) {
   p.cardUpgrades ??= {};
   p.cardSecondaryUpgrades ??= {};
   p.elementBuffs ??= {};
+  p.gearInventory ??= [];
+  p.equippedGear ??= { weapon: null, armor: null, accessory: null };
   state.clearedRooms ??= [];
   state.rewardedBossRooms ??= [];
   state.highestRoom ??= state.room;
@@ -301,6 +361,8 @@ export function validateRun(state) {
   state.purchasedShopItems ??= [];
   state.riftProgressFloor ??= 0;
   state.riftDaily ??= null;
+  state.clearedGearRifts ??= [];
+  state.pendingGearReward ??= null;
   return state;
 }
 
@@ -369,7 +431,11 @@ export function loadRun(storage) {
         for (const enemy of state.enemies) {
           const rotates = enemy.kind === 'eternity_reborn' || (enemy.kind === 'eternity_overlord' && state.eternityPhase === 2);
           const frozenTurn = state.legendaryTurns?.timestop === state.turn - 1;
-          enemy.affinity = rotates ? getEternityShiftAffinity(state.turn - (frozenTurn ? 1 : 0)) : ENEMIES[enemy.kind]?.affinity ?? null;
+          enemy.affinity = enemy.kind === 'eternity_armory_god'
+            ? (state.armoryGodPhase === 3 ? 'fire' : state.armoryGodPhase === 2 ? 'earth' : null)
+            : rotates
+              ? getEternityShiftAffinity(state.turn - (frozenTurn ? 1 : 0))
+              : ENEMIES[enemy.kind]?.affinity ?? null;
           const maxHp = encounterMaxHp(enemy.kind, state.room);
           if (enemy.maxHp === maxHp) continue;
           if (enemy.kind === 'eternity_overlord' && state.room === FLOOR100_BOSS_ROOM && [10000, 6500].includes(enemy.maxHp) && enemy.hp > 0) {
@@ -384,7 +450,10 @@ export function loadRun(storage) {
           }
           enemy.maxHp = maxHp;
         }
-        if (state.phase === 'battle') checkEternityPhase2(state, null, null, { absorbCouncil: false });
+        if (state.phase === 'battle') {
+          checkEternityPhase2(state, null, null, { absorbCouncil: false });
+          checkArmoryGodPhase(state);
+        }
         if (isSanctuaryPost20Unlocked(state)) unlockUpperTower(state);
         if (state.clearedRooms.includes(FLOOR50_BOSS_ROOM) || state.room > FLOOR50_BOSS_ROOM) unlockEndgameTower(state);
         refreshMiddleTowerRooms(state);

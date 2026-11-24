@@ -6,6 +6,7 @@ import {
   SHOP_ITEMS,
   RELIC_DRAFT_CATALOG,
   getEquippedRelics,
+  getGearEquipmentSignature,
   equipRelic,
   unequipRelic,
   getCardUpgradeLevel,
@@ -41,7 +42,16 @@ import {
   revisitRoom,
   useBattleItem,
   startRiftRun,
+  startGearRiftRun,
+  claimGearRiftReward,
   getRiftDailyStatus,
+  GEAR_RIFT_BOSS_BY_TIER,
+  GEAR_SLOT_LABELS,
+  GEAR_RARITY_LABELS,
+  MAX_GEAR_REFINE,
+  getGearById,
+  getOwnedGearEntry,
+  getGearDuplicateReward,
   ENEMIES,
 } from './run.js';
 import { simulateTurn, estimateWordCost } from './combat.js';
@@ -98,7 +108,12 @@ import {
   renderTutorial,
 } from './ui/battle-render.js';
 import { renderRewards, renderLoadout, renderResult } from './ui/screens-ui.js';
-import { renderSanctuary as renderSanctuaryView, bindSanctuaryEvents, openSanctuaryRiftPanel } from './ui/sanctuary-ui.js';
+import {
+  renderSanctuary as renderSanctuaryView,
+  bindSanctuaryEvents,
+  openSanctuaryRiftPanel,
+  getGearRiftSelectionOptions,
+} from './ui/sanctuary-ui.js';
 import { createModalsController } from './ui/modals-ui.js';
 import { initDragDrop } from './ui/drag-drop.js';
 import { bindCardFilters } from './ui/card-filters.js';
@@ -204,10 +219,11 @@ function getBattleSignature(s = state) {
   const upg = Object.entries(p.cardUpgrades ?? {}).map(([k, v]) => `${k}:${v}`).join(',');
   const sec = Object.keys(p.cardSecondaryUpgrades ?? {}).filter(k => p.cardSecondaryUpgrades[k]).join(',');
   const rel = getEquippedRelics(p).join(',');
+  const gearSig = getGearEquipmentSignature(p);
   const bls = (p.blessings ?? []).join(',');
-  const riftKey = s.rift ? `${s.rift.tier}:${s.rift.stage}` : '';
+  const riftKey = s.rift ? `${s.rift.type ?? 'card'}:${s.rift.tier}:${s.rift.stage}:${s.rift.instability ? 1 : 0}` : '';
   const replayKey = s.replayReturn ? `${s.replayReturn.sanctuaryFloor}:${s.replayReturn.room}` : '';
-  return `${s.seed}|${s.room}|${riftKey}|${replayKey}|${s.turn}|${s.rng}|${s.handRng}|${p.hp}|${p.maxHp}|${p.mana}|${p.maxMana}|${p.level ?? 1}|${p.exp ?? 0}|${p.gold ?? 0}|${cleared}|${upg}|${sec}|${rel}|${bls}|${p.hand.join(',')}|${sh}|${en}|${s.magmaPuddles?.join(',') ?? ''}|${s.blackhole?.slot ?? ''}:${s.blackhole?.power ?? ''}|${Boolean(s.deathSpent)}`;
+  return `${s.seed}|${s.room}|${riftKey}|${replayKey}|${s.turn}|${s.rng}|${s.handRng}|${p.hp}|${p.maxHp}|${p.mana}|${p.maxMana}|${p.level ?? 1}|${p.exp ?? 0}|${p.gold ?? 0}|${cleared}|${upg}|${sec}|${rel}|${gearSig}|${bls}|${p.hand.join(',')}|${sh}|${en}|${s.magmaPuddles?.join(',') ?? ''}|${s.blackhole?.slot ?? ''}:${s.blackhole?.power ?? ''}|${Boolean(s.deathSpent)}`;
 }
 
 function getSimCacheKey(sig, spellInput, t1, t2, allowFizzle) {
@@ -378,6 +394,7 @@ function changeScreen(next) {
   if (next !== 'sanctuary') {
     sanctuaryMenu.close();
     try { $('rift-reward-dialog')?.close(); } catch {}
+    try { $('gear-rift-reward-dialog')?.close(); } catch {}
   }
   if (next !== 'battle') {
     $('combat-numbers').replaceChildren();
@@ -469,6 +486,9 @@ function restore() {
   if (loaded.recovered) toast('กู้การทดลองจากสำเนาสถานะก่อนหน้าแล้ว');
   renderLog();
   render();
+  if (state.phase === 'sanctuary' && state.pendingGearReward) {
+    showGearRiftRewardDialog(state.pendingGearReward);
+  }
 }
 
 function syncSanctuaryEquipped({ requireComplete = false, notifyInvalid = false } = {}) {
@@ -561,11 +581,20 @@ function renderBattle() {
   const specialArtifactName = floorArtifact?.name ?? '';
   if (state.rift) {
     const stageNum = state.rift.stage + 1;
-    $('tower-heading-title').textContent = `🌀 รอยแยกชั้น ${state.rift.tier} · ด่าน ${stageNum}/3`;
-    $('tower-heading-title').title = `รอยแยกมิติระดับชั้น ${state.rift.tier} · ด่าน ${stageNum}/3 (${floorInfo.displayName})`;
-    $('room-subtitle').textContent = stageNum < 3
-      ? `มินิบอส ${floorInfo.code} · ชนะเพื่อไปด่าน ${stageNum + 1}/3`
-      : `บอสใหญ่ชั้น ${state.rift.tier}★ · ชนะเพื่อสุ่มรับการ์ด 1 ใบ (เพดานชั้น ${state.rift.tier})`;
+    if (state.rift.type === 'gear') {
+      const instabTag = state.rift.instability ? ' · แปรปรวน' : '';
+      $('tower-heading-title').textContent = `⚔ รอยแยกศาสตราชั้น ${state.rift.tier} · ด่าน ${stageNum}/3${instabTag}`;
+      $('tower-heading-title').title = `รอยแยกศาสตราชั้น ${state.rift.tier} · ด่าน ${stageNum}/3 (${floorInfo.displayName})`;
+      $('room-subtitle').textContent = stageNum < 3
+        ? `ด่าน ${stageNum}/3 · ชนะเพื่อฟื้นพลังและเข้าสู่ด่าน ${stageNum + 1}/3`
+        : `บอสศาสตราชั้น ${state.rift.tier}★ · ชนะเพื่อเปิดหีบเลือกอุปกรณ์ 1 จาก 3 ชิ้น`;
+    } else {
+      $('tower-heading-title').textContent = `🌀 รอยแยกชั้น ${state.rift.tier} · ด่าน ${stageNum}/3`;
+      $('tower-heading-title').title = `รอยแยกมิติระดับชั้น ${state.rift.tier} · ด่าน ${stageNum}/3 (${floorInfo.displayName})`;
+      $('room-subtitle').textContent = stageNum < 3
+        ? `มินิบอส ${floorInfo.code} · ชนะเพื่อไปด่าน ${stageNum + 1}/3`
+        : `บอสใหญ่ชั้น ${state.rift.tier}★ · ชนะเพื่อสุ่มรับการ์ด 1 ใบ (เพดานชั้น ${state.rift.tier})`;
+    }
   } else {
     $('tower-heading-title').textContent = floorInfo.isBoss ? `บอสชั้น ${floorInfo.floor}` : `ห้อง ${floorInfo.code}`;
     $('tower-heading-title').title = floorInfo.roomRole;
@@ -891,6 +920,57 @@ function showRiftRewardDialog(info) {
   }
 }
 
+function showGearRiftRewardDialog(info = state?.pendingGearReward) {
+  if (!info || !state) return;
+  const dialog = $('gear-rift-reward-dialog');
+  const wrap = $('gear-rift-reward-choices');
+  if (!dialog || !wrap) return;
+
+  const mods = [
+    info.compassSlot ? `เข็มทิศล็อก${GEAR_SLOT_LABELS[info.compassSlot]}` : 'สุ่มครบ 3 ประเภท',
+    info.instability ? 'ลูกแก้วแปรปรวน +20%' : '',
+  ].filter(Boolean).join(' · ');
+  $('gear-rift-reward-title').textContent = `🎁 พิชิตรอยแยกศาสตราชั้น ${info.tier} สำเร็จ!`;
+  $('gear-rift-reward-subtitle').textContent = `เลือกอุปกรณ์ 1 ชิ้นจาก 3 ช่อง (${mods})`;
+
+  const p = state.player;
+  const equippedMap = p.equippedGear ?? {};
+  wrap.innerHTML = (info.choices ?? []).map(gearId => {
+    const gear = getGearById(gearId);
+    if (!gear) return '';
+    const owned = getOwnedGearEntry(p, gear.id);
+    const slotEmpty = !equippedMap[gear.slot];
+    let outcomeLabel = '';
+    if (!owned) {
+      outcomeLabel = slotEmpty ? '✨ ชิ้นใหม่ · สวมใส่ทันที' : '✨ ชิ้นใหม่ · เก็บเข้าคลังอุปกรณ์';
+    } else if (owned.refine < MAX_GEAR_REFINE) {
+      outcomeLabel = `⬆ มีแล้ว (+${owned.refine}) · ตีบวกฟรี +${owned.refine} → +${owned.refine + 1}`;
+    } else {
+      const dup = getGearDuplicateReward(gear);
+      const matName = SHOP_ITEMS[dup.materialId]?.name ?? dup.materialId;
+      outcomeLabel = `💰 เต็ม +5 แล้ว · รับ +${dup.gold} ทอง + ${matName}`;
+    }
+    return `<button type="button" class="gear-rift-choice gear-rarity-${gear.rarity}" data-claim-gear-reward="${gear.id}">
+      <div class="gear-rift-choice-head">
+        <span class="gear-rift-choice-icon" aria-hidden="true">${gear.icon}</span>
+        <div>
+          <strong>${gear.name}</strong>
+          <small>${GEAR_SLOT_LABELS[gear.slot]} · ${GEAR_RARITY_LABELS[gear.rarity]} · ${gear.style}</small>
+        </div>
+      </div>
+      <p class="gear-rift-choice-desc">${gear.summary}</p>
+      <span class="gear-rift-choice-outcome">${outcomeLabel}</span>
+    </button>`;
+  }).join('');
+
+  $('gear-rift-reward-hint').textContent = 'คลิกการ์ดอุปกรณ์ที่ต้องการเพื่อรับรางวัลเข้าคลังทันที (ยังเปิดซ้ำจากจุดพักได้จนกว่าจะเลือก)';
+  try {
+    if (!dialog.open) dialog.showModal();
+  } catch {
+    dialog.setAttribute('open', '');
+  }
+}
+
 function playTurn(result, parsed = null, knownSpell = false, newlyDiscovered = false) {
   const riftStageCleared = Boolean(state.rift && result.summary?.riftStageCleared);
   const openingRoomCleared = riftStageCleared || (!isBossRoom(state) && !isRoomRevisit(state)
@@ -925,7 +1005,7 @@ function playTurn(result, parsed = null, knownSpell = false, newlyDiscovered = f
     else if (state.room === 224) unlockAchievement('boss_90');
     else if (state.room === 249) unlockAchievement('boss_100');
   }
-  if (state.rift && result.summary?.riftStageCleared === 3) {
+  if (state.rift && (result.summary?.riftStageCleared === 3 || result.summary?.riftCleared || result.summary?.gearRiftCleared)) {
     unlockAchievement('rift_clear');
   }
   try {
@@ -1015,10 +1095,15 @@ function finishTurn() {
   }
   const fallback = result.summary?.fellToFloor ?? (result.summary?.fellToFloor4 ? 4 : null);
   const riftCleared = result.summary?.riftCleared ?? null;
+  const gearRiftCleared = result.summary?.gearRiftCleared ?? null;
   const riftFailed = result.summary?.riftFailed ?? null;
   const riftStageCleared = result.summary?.riftStageCleared ?? null;
   if (riftCleared) {
     collection = [...state.collection];
+    setCastFx(null);
+    audio.play('win');
+    words = [];
+  } else if (gearRiftCleared) {
     setCastFx(null);
     audio.play('win');
     words = [];
@@ -1065,6 +1150,8 @@ function finishTurn() {
   render();
   if (riftCleared) {
     showRiftRewardDialog(riftCleared);
+  } else if (gearRiftCleared) {
+    showGearRiftRewardDialog(gearRiftCleared);
   } else if (state.phase === 'battle') {
     if (state.player.hand.length > getHandLimit(state.player)) { selectedDiscardIndices.clear(); $('discard-cards').querySelector('button')?.focus({ preventScroll: true }); updateDiscardUI(); }
     else focusAfterRender($('cast-button').disabled ? 'guard-button' : 'cast-button');
@@ -1246,7 +1333,7 @@ $('sanctuary-menu')?.querySelector('.sanctuary-menu-head button')?.addEventListe
   sanctuaryMenu.close();
 });
 
-for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu', 'discard-panel', 'rift-reward-dialog']) {
+for (const id of ['battle-tools', 'settings-dialog', 'sanctuary-menu', 'discard-panel', 'rift-reward-dialog', 'gear-rift-reward-dialog']) {
   const dialog = $(id);
   if (!dialog) continue;
   dialog.addEventListener('click', event => {
@@ -1280,6 +1367,19 @@ $('rift-reward-again')?.addEventListener('click', () => {
   $('rift-reward-dialog').removeAttribute('open');
   openSanctuaryRiftPanel(sanctuaryCtx);
   audio.play('place');
+});
+$('gear-rift-reward-close')?.addEventListener('click', () => {
+  try { $('gear-rift-reward-dialog').close(); } catch {}
+  $('gear-rift-reward-dialog').removeAttribute('open');
+});
+$('sanctuary-pending-gear-btn')?.addEventListener('click', () => {
+  if (state?.pendingGearReward) showGearRiftRewardDialog(state.pendingGearReward);
+});
+$('gear-rift-open-pending-btn')?.addEventListener('click', () => {
+  if (state?.pendingGearReward) {
+    sanctuaryMenu.close();
+    showGearRiftRewardDialog(state.pendingGearReward);
+  }
 });
 $('reopen-discard-btn')?.addEventListener('click', () => {
   try {
@@ -1426,6 +1526,9 @@ document.addEventListener('click', event => {
       if (res.summary?.riftCleared) {
         $('battle-tools').close();
         showRiftRewardDialog(res.summary.riftCleared);
+      } else if (res.summary?.gearRiftCleared) {
+        $('battle-tools').close();
+        showGearRiftRewardDialog(res.summary.gearRiftCleared);
       } else if (res.summary?.riftStageCleared) {
         toast(`🌀 ผ่านรอยแยกด่าน ${res.summary.riftStageCleared}/3! เข้าสู่ด่านถัดไป`);
       } else if (res.summary?.revisitReturnedToSanctuary !== undefined) {
@@ -1509,6 +1612,45 @@ document.addEventListener('click', event => {
     } catch (error) { toast(error.message); }
     return;
   }
+  if (button.dataset.enterGearRift !== undefined) {
+    if (state?.phase === 'sanctuary' && !syncSanctuaryEquipped({ requireComplete: true, notifyInvalid: true })) return;
+    const tier = Number(button.dataset.enterGearRift);
+    const useKey = button.dataset.gearRiftUseKey === 'true';
+    const sel = getGearRiftSelectionOptions();
+    try {
+      state = startGearRiftRun(state, tier, { ...sel, useKey });
+      equipped = [...state.player.words];
+      recentRelicDropId = null;
+      $('battle-tools').close();
+      sanctuaryMenu.close();
+      words = []; selectedSlot = null; secondTargetId = null; targetId = state.enemies[0]?.id ?? null; lastEvents = [];
+      persist(); audio.play('discover'); renderLog(); render();
+      toast(`⚔ เข้าสู่รอยแยกศาสตราชั้น ${tier} · ด่าน 1/3!`);
+    } catch (error) { toast(error.message); }
+    return;
+  }
+  if (button.dataset.claimGearReward !== undefined) {
+    const gearId = button.dataset.claimGearReward;
+    try {
+      const res = claimGearRiftReward(state, gearId);
+      state = res.state;
+      persist();
+      try { $('gear-rift-reward-dialog').close(); } catch {}
+      $('gear-rift-reward-dialog').removeAttribute('open');
+      audio.play(res.outcome === 'auto-refine' ? 'forge' : 'win');
+      render();
+      updateInventoryNavBadge(state);
+      if (res.outcome === 'new') {
+        toast(`✨ ได้รับ “${res.gear.name}”${res.autoEquipped ? ` · สวมใส่ช่อง${GEAR_SLOT_LABELS[res.gear.slot]}ทันที` : ' · เก็บเข้าคลังอุปกรณ์'}`);
+      } else if (res.outcome === 'auto-refine') {
+        toast(`⬆ มี “${res.gear.name}” แล้ว · ตีบวกฟรี +${res.prevRefine} → +${res.newRefine}!`);
+      } else {
+        const matName = res.materialId ? (SHOP_ITEMS[res.materialId]?.name ?? res.materialId) : '';
+        toast(`💰 “${res.gear.name}” เต็ม +5 แล้ว · รับ +${res.goldGained} ทอง${matName ? ` + ${matName}` : ''}`);
+      }
+    } catch (error) { toast(error.message); }
+    return;
+  }
   if (button.dataset.revisitRoom !== undefined) {
     if (state?.phase === 'sanctuary' && !syncSanctuaryEquipped({ requireComplete: true, notifyInvalid: true })) return;
     const targetRoom = Number(button.dataset.revisitRoom);
@@ -1573,6 +1715,8 @@ document.addEventListener('click', event => {
       render();
       if (res.summary?.riftCleared) {
         showRiftRewardDialog(res.summary.riftCleared);
+      } else if (res.summary?.gearRiftCleared) {
+        showGearRiftRewardDialog(res.summary.gearRiftCleared);
       } else if (res.summary?.riftStageCleared) {
         toast(`🌀 ผ่านรอยแยกด่าน ${res.summary.riftStageCleared}/3! เข้าสู่ด่านถัดไป`);
       } else if (res.summary?.revisitReturnedToSanctuary !== undefined) {

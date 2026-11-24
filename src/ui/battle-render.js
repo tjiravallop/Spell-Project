@@ -376,7 +376,7 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
   $('enemy-list').innerHTML = visibleEnemies.map(enemy => {
     const base = ENEMIES[enemy.kind];
     const trait = ENEMY_TRAITS[enemy.kind];
-    const action = intent(enemy, state.turn, state.enemies, state.room);
+    const action = intent(enemy, state.turn, state.enemies, state.room, Boolean(state.rift?.instability));
     const after = forecast?.ok ? forecast.summary.enemyHp[enemy.id] : null;
     const finalHp = forecast?.ok ? forecast.summary.finalEnemyHp[enemy.id] : null;
     const status = forecast?.ok ? forecast.summary.enemyStatus[enemy.id] : enemy;
@@ -500,6 +500,50 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
         : 'เฟส 3 ร่างจุตินิรันดร์ · สลับธาตุทุกเทิร์น · ต้านทานคาถาซ้ำ −50% · ม่านสะท้อน 10 · ตีจุดอ่อนทลายผลึก +100 แท้ / −3 เกราะ / −1 ม่าน & หยุดย้อนเวลา! · บท 4 เปิดช่อง +35%';
       badges.push(`<span class="enemy-badge badge-burn" title="${bossHint}">เฟส 3 ร่างจุติ · สลับธาตุ · สะท้อน 10</span>`);
       badges.push(`<span class="enemy-badge ${isShattered ? 'badge-push' : 'badge-chill'}" title="${bossHint}">${isShattered ? 'ผลึกแตก (เวลาหยุด)' : 'ตีจุดอ่อน +100 · หยุดเวลา'}</span>`);
+    } else if (enemy.kind === 'storm_sovereign_drake') {
+      const isGrounded = (status.groundedUntil ?? enemy.groundedUntil ?? 0) >= state.turn;
+      bossHint = isGrounded
+        ? 'ลงกราวด์แล้ว · ประจุพายุไม่ช็อตคืนจนจบเทิร์นนี้'
+        : 'ประจุพายุสะท้อน 4 ดาเมจเมื่อยังมีเกราะ (ใช้ธาตุดินลงกราวด์หรือเจาะเกราะ) · บท 4 มหาพายุ AoE & เปิดช่อง +35%';
+      badges.push(`<span class="enemy-badge ${isGrounded ? 'badge-armor' : 'badge-ward'}" title="${bossHint}">${isGrounded ? 'ลงกราวด์แล้ว' : 'ประจุพายุ 4'}</span>`);
+    } else if (enemy.kind === 'void_rift_tentacle') {
+      bossHint = 'หนวดมิติคุ้มกันเลเวียธาน · ตราบใดที่หนวดยังอยู่ เลเวียธานเป็นอมตะ! · สูบมานา −1 MP';
+      badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">คุ้มกันบอส · −1 MP</span>`);
+    } else if (enemy.kind === 'void_kraken_leviathan') {
+      const liveTentacles = state.enemies.filter(ally => ally.kind === 'void_rift_tentacle' && ally.hp > 0).length;
+      const isShocked = (status.abyssalShockUntil ?? enemy.abyssalShockUntil ?? 0) >= state.turn;
+      if (liveTentacles > 0) {
+        bossHint = `เกราะมิติอมตะ · โค่นหนวดมิติที่เหลือ ${liveTentacles} เส้นก่อนจึงจะทำความเสียหายเลเวียธานได้!`;
+        badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">อมตะ · เหลือหนวด ${liveTentacles}</span>`);
+      } else {
+        bossHint = isShocked
+          ? 'ผิวน้ำมิติถูกช็อตแล้ว! (−2 เกราะจนจบเทิร์นนี้ · โดนสายฟ้า +15 ดาเมจแท้)'
+          : 'ผิวน้ำนำไฟฟ้า · โดนสายฟ้า +15 ดาเมจแท้ & ลดเกราะ −2 · บท 2 ฟื้น +80 HP · บท 4 เปิดช่อง +35%';
+        badges.push(`<span class="enemy-badge ${isShocked ? 'badge-push' : 'badge-chill'}" title="${bossHint}">${isShocked ? 'ช็อตแล้ว −2 เกราะ' : 'นำไฟฟ้า +15 / −2 เกราะ'}</span>`);
+      }
+    } else if (enemy.kind === 'nether_forge_pillar') {
+      bossHint = 'เสาเตาหลอมเนเธอร์ · ลดดาเมจจอมอสูรเตาหลอม −20% ต่อต้น และเสริมม่าน +1 ให้บอส · โค่นครบ 3 ต้นเพื่อเปิดช่องบอส!';
+      badges.push(`<span class="enemy-badge badge-armor" title="${bossHint}">ลดดาเมจบอส −20% · ม่านบอส</span>`);
+    } else if (enemy.kind === 'nether_forge_overlord') {
+      const liveForgePillars = state.enemies.filter(ally => ally.kind === 'nether_forge_pillar' && ally.hp > 0).length;
+      const isPurged = (status.netherPurgeUntil ?? enemy.netherPurgeUntil ?? 0) >= state.turn;
+      if (liveForgePillars > 0) {
+        bossHint = `เตาหลอมพิทักษ์ · เสาที่เหลือ ${liveForgePillars} ต้นลดดาเมจบอส −${liveForgePillars * 20}% และเสริมหลอมสูบวิญญาณ +30 HP · โค่นครบ 3 ต้นเพื่อเปิดช่อง +35%!`;
+        badges.push(`<span class="enemy-badge badge-armor" title="${bossHint}">เตาหลอม −${liveForgePillars * 20}% · สูบ 30</span>`);
+      } else {
+        bossHint = isPurged
+          ? 'ชำระมลทินแล้ว! (−2 เกราะจนจบเทิร์นนี้)'
+          : 'เสาเตาหลอมพังหมดแล้ว · ใช้ธาตุไฟหรือสายฟ้าเพื่อชำระมลทิน (−2 เกราะ)';
+        badges.push(`<span class="enemy-badge ${isPurged ? 'badge-push' : 'badge-burn'}" title="${bossHint}">${isPurged ? 'ชำระมลทินแล้ว' : 'ไฟ·สายฟ้าชำระ −2 เกราะ'}</span>`);
+      }
+    } else if (enemy.kind === 'eternity_armory_god') {
+      const armoryPhase = state.armoryGodPhase ?? (enemy.hp <= 2500 ? 3 : enemy.hp <= 5000 ? 2 : 1);
+      bossHint = armoryPhase === 3
+        ? 'เฟส 3/3 โอเวอร์ไดรฟ์ศาสตรานิรันดร์ · ทะลุเกราะกายหนัก & ต้านทานคาถาซ้ำ −50% · บท 4 เปิดช่อง +35%'
+        : armoryPhase === 2
+          ? 'เฟส 2/3 ม่านศาสตราสะท้อน · สะท้อน 10 ดาเมจทุกครั้งที่โดนคาถา · เข้าเฟส 3 เมื่อ HP ≤ 2,500'
+          : 'เฟส 1/3 มหาเทพอารักษ์คลังศาสตรา · ต้านทานคาถาซ้ำ −50% · เข้าเฟส 2 (สะท้อน 10) เมื่อ HP ≤ 5,000';
+      badges.push(`<span class="enemy-badge ${armoryPhase === 3 ? 'badge-burn' : armoryPhase === 2 ? 'badge-ward' : 'badge-armor'}" title="${bossHint}">เฟส ${armoryPhase}/3${armoryPhase === 2 ? ' · สะท้อน 10' : armoryPhase === 3 ? ' · โอเวอร์ไดรฟ์' : ''}</span>`);
     }
     if (status.chill > 0) badges.push(`<span class="enemy-badge badge-chill">❄ หนาว −${status.chill}</span>`);
     if (status.freeze > 0) badges.push(`<span class="enemy-badge badge-freeze">🧊 แช่แข็ง ${status.freeze}</span>`);
@@ -959,7 +1003,7 @@ export function renderForecast({ state, words, busy }, parsed, forecast, knownSp
   let headline = `ทำความเสียหาย ${s.damage} · รับความเสียหาย ${s.incoming} · HP เหลือ ${s.hp}`;
   if (fallback !== null) headline = `จะแพ้ศึกและกลับ${restLocationLabel(fallback)}`;
   else if (s.phase === 'lost') headline = 'HP จะเหลือ 0 และรอบจะจบ';
-  else if (s.eternityPhase && s.phase === 'battle') headline = `บอสจะเข้าสู่เฟส ${s.eternityPhase}/3 · ทำความเสียหาย ${s.damage} · HP เหลือ ${s.hp}`;
+  else if ((s.eternityPhase || s.armoryGodPhase) && s.phase === 'battle') headline = `บอสจะเข้าสู่เฟส ${s.eternityPhase || s.armoryGodPhase}/3 · ทำความเสียหาย ${s.damage} · HP เหลือ ${s.hp}`;
   else if (s.phase === 'won') headline = `ชนะศึก · HP เหลือ ${s.hp}`;
   else if (s.phase === 'reward') headline = `ชนะศึกและได้เลือกการ์ดคำ · HP เหลือ ${s.hp}`;
   else if (s.nextRoom !== state.room || s.phase === 'sanctuary') headline = `ชนะศึก${s.roomRecovery ? ` · ฟื้น HP ${s.roomRecovery}` : ''} · HP เหลือ ${s.hp}`;

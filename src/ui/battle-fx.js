@@ -647,26 +647,34 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         changeAnimatedPlayerHp(-event.amount);
         const sourceEnemy = state?.enemies?.find(candidate => candidate.id === event.source);
         const sourceKind = event.sourceKind ?? sourceEnemy?.kind;
-        const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(sourceKind));
+        const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(sourceKind));
         const isUltimate = Boolean(event.ultimate || (isSpecialBoss && (event.rawAttack ?? 0) >= 15));
         if (isUltimate) pulseBossUltimateImpact(sourceKind, 'attack', event.source);
         pulsePlayerHud(event.amount > 0 ? 'hit' : 'shield');
         if (isUltimate) {
           const skillName = sourceKind === 'eternity_reborn'
             ? '✨ มหาเทพจุตินิรันดร์ซัดซูเปอร์โนวาดับจักรวาล!'
-            : sourceKind === 'eternity_overlord'
-              ? '🌌 มหาเทพอนันตกาลปลดปล่อยคลื่นทำลายกาลอวกาศ!'
-              : sourceKind === 'nether_dread_lord'
-                ? '💀 จอมอสูรนรกานต์ซัดเปลวเพลิงพิพากษา!'
-                : sourceKind === 'abyssal_kraken'
-                  ? '🌊 มหาคราเค่นซัดสึนามิบาดาล!'
-                  : sourceKind === 'tempest_archon'
-                    ? '⚡ จ้าวพายุฟาดอสุนีพิพากษา!'
-                    : sourceKind === 'thunder_drake_emperor'
-                      ? '⚡ มังกรอสุนีฟาดมหาประจุดารา!'
-                      : sourceKind === 'volcano_colossus'
-                        ? '🌋 ยักษ์ภูเขาไฟทุบแมกมาพิโรธ!'
-                        : '💥 จ้าวอัคคีทุบพิพากษาเพลิง!';
+            : sourceKind === 'eternity_armory_god'
+              ? '👑 มหาเทพอารักษ์คลังศาสตราพิพากษาคลื่นศาสตรานิรันดร์!'
+              : sourceKind === 'eternity_overlord'
+                ? '🌌 มหาเทพอนันตกาลปลดปล่อยคลื่นทำลายกาลอวกาศ!'
+                : sourceKind === 'nether_forge_overlord'
+                  ? '🔥 จอมอสูรเตาหลอมเนเธอร์ปะทุคลื่นเตาหลอม!'
+                  : sourceKind === 'nether_dread_lord'
+                    ? '💀 จอมอสูรนรกานต์ซัดเปลวเพลิงพิพากษา!'
+                    : sourceKind === 'void_kraken_leviathan'
+                      ? '🐙 เลเวียธานหมึกมืดซัดวังวนกลืนมิติ!'
+                      : sourceKind === 'abyssal_kraken'
+                        ? '🌊 มหาคราเค่นซัดสึนามิบาดาล!'
+                        : sourceKind === 'storm_sovereign_drake'
+                          ? '⚡ มังกรฟ้าอสุนีบาตฟาดมหาพายุประจุดารา!'
+                          : sourceKind === 'tempest_archon'
+                            ? '⚡ จ้าวพายุฟาดอสุนีพิพากษา!'
+                            : sourceKind === 'thunder_drake_emperor'
+                              ? '⚡ มังกรอสุนีฟาดมหาประจุดารา!'
+                              : sourceKind === 'volcano_colossus'
+                                ? '🌋 ยักษ์ภูเขาไฟทุบแมกมาพิโรธ!'
+                                : '💥 จ้าวอัคคีทุบพิพากษาเพลิง!';
           status.textContent = event.amount > 0
             ? `${skillName} เสีย ${event.amount} HP`
             : `${skillName} โล่ต้านไว้ได้ ${event.absorbed}`;
@@ -687,9 +695,9 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         }
         audio.play('discover');
         triggerCameraScreenShake('boss-ultimate', event.sourceKind ?? 'abyssal_kraken');
-        const phaseTheme = (event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn')
-          ? (event.eternity?.phase === 2 ? 'ice' : 'grand')
-          : event.sourceKind === 'nether_dread_lord'
+        const phaseTheme = (event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn' || event.sourceKind === 'eternity_armory_god')
+          ? (event.eternity?.phase === 2 || event.phase === 2 ? 'ice' : 'grand')
+          : (event.sourceKind === 'nether_dread_lord' || event.sourceKind === 'nether_forge_overlord')
             ? 'death'
             : 'water';
         pulseElementalOverlay(phaseTheme, 65, 58, { grand: true, withVignette: true });

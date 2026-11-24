@@ -4,7 +4,7 @@ import { elementFamily } from './words.js';
 import { middleSprites } from './middle-sprites.js';
 import { loadSpriteArt, spriteFrame } from './sprite-art.js';
 import { drawTowerFittings, towerArtPalette, towerEnemyArt } from './tower-enemy-art.js';
-import { drawNewTowerSprite } from './tower-pixel-sprites.js';
+import { drawNewTowerSprite, GEAR_RIFT_SPRITE_KINDS } from './tower-pixel-sprites.js';
 
 export const PALETTE = ['#10191b', '#172326', '#203033', '#2b3d3c', '#3b4b46', '#536454', '#718063', '#9da77c', '#cbd5a1', '#eff0c4', '#332d2b', '#514036', '#765740', '#a57a50', '#d3aa6b', '#efd19a', '#4d3036', '#7b464c', '#b46c67', '#e29d83', '#3d374e', '#60516f', '#907ba6', '#bca5d2', '#335250', '#53857b', '#8bb7a0', '#b7d9bd', '#7e512e', '#b98745', '#e4b659', '#f5db87'];
 const C = PALETTE;
@@ -15,6 +15,8 @@ export const LARGE_BOSS_KINDS = new Set([
   'seal_curator', 'crown_archivist',
   'gate_weaver', 'mirror_regent', 'seam_warden', 'loom_sovereign',
   'volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn',
+  'ironforge_automaton', 'tempest_blade_seraph', 'abyssal_tide_colossus', 'magma_core_juggernaut', 'chitin_bastion_behemoth',
+  'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god',
 ]);
 const arcaneBeamSheets = new Map();
 const arcaneBeam = {
@@ -445,6 +447,9 @@ export class Battlefield {
     }
     const palette = originalKind === 'wizard' ? C : (alternate ? this.alternateEnemyPalette : this.enemyPalette) ?? C;
     const idleFrame = this.settings.reducedMotion ? 0 : frame;
+    if (GEAR_RIFT_SPRITE_KINDS.has(originalKind)) {
+      if (drawNewTowerSprite(originalKind, r, palette, pose, idleFrame, this.settings.reducedMotion, alternate)) return;
+    }
     if (this.artFloor >= 6) {
       if (drawNewTowerSprite(originalKind, r, palette, pose, idleFrame, this.settings.reducedMotion, alternate)) return;
       if (Object.hasOwn(towerEnemyArt, originalKind)) {

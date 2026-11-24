@@ -14,6 +14,66 @@ import {
   buildEndgameTowerRooms,
 } from './endgame-tower.js';
 export { KRAKEN_TENTACLE_KINDS, NETHER_PILLAR_KINDS, ETERNITY_SHIFT_AFFINITIES, ETERNITY_PHASE_HP };
+import {
+  GEAR_SLOTS,
+  GEAR_SLOT_LABELS,
+  GEAR_SLOT_ICONS,
+  GEAR_RARITY_LABELS,
+  MAX_GEAR_REFINE,
+  GEAR_CATALOG,
+  GEAR_LIST,
+  GEAR_RIFT_DROP_RATES,
+  getGearById,
+  getGearListBySlot,
+  getAvailableGearRarities,
+  getGearRiftDropRates,
+  rollGearRiftChoices,
+  getGearDuplicateReward,
+  getOwnedGear,
+  getEquippedGear,
+  getOwnedGearEntry,
+  getEquippedGearEntries,
+  getGearRefineCost,
+  getGearRefineSuccessRate,
+  getGearRefineMaterialId,
+  getGearSellPrice,
+  getGearSalvageReward,
+  getGearRefineBonuses,
+  describeGearRefineBonus,
+  computeGearModifiers,
+  getGearEquipmentSignature,
+  summarizeActiveGearStats,
+} from './gear.js';
+export {
+  GEAR_SLOTS,
+  GEAR_SLOT_LABELS,
+  GEAR_SLOT_ICONS,
+  GEAR_RARITY_LABELS,
+  MAX_GEAR_REFINE,
+  GEAR_CATALOG,
+  GEAR_LIST,
+  GEAR_RIFT_DROP_RATES,
+  getGearById,
+  getGearListBySlot,
+  getAvailableGearRarities,
+  getGearRiftDropRates,
+  rollGearRiftChoices,
+  getGearDuplicateReward,
+  getOwnedGear,
+  getEquippedGear,
+  getOwnedGearEntry,
+  getEquippedGearEntries,
+  getGearRefineCost,
+  getGearRefineSuccessRate,
+  getGearRefineMaterialId,
+  getGearSellPrice,
+  getGearSalvageReward,
+  getGearRefineBonuses,
+  describeGearRefineBonus,
+  computeGearModifiers,
+  getGearEquipmentSignature,
+  summarizeActiveGearStats,
+};
 
 export function getEternityShiftAffinity(turn) {
   return ETERNITY_SHIFT_AFFINITIES[turn % 4];
@@ -57,7 +117,51 @@ export const ENEMIES = Object.freeze({
   ...RIFT_ENEMIES,
   ...MIDDLE_ENEMIES,
   ...ENDGAME_ENEMIES,
+  ironforge_automaton: { name: 'มหาโกเลมเตาหลอมเหล็กกล้า', hp: 290, armor: 4, ward: 0, attack: 14, color: '#e4ad5d', exp: 260, gold: 210, isBoss: true, isGearRiftBoss: true, affinity: 'fire' },
+  tempest_blade_seraph: { name: 'เซราฟดาบพายุอสุนี', hp: 420, armor: 2, ward: 1, attack: 20, color: '#a0cec6', exp: 380, gold: 310, isBoss: true, isGearRiftBoss: true, affinity: 'wind' },
+  abyssal_tide_colossus: { name: 'ไททันกระแสน้ำวนกลืนสมุทร', hp: 620, armor: 3, ward: 2, attack: 28, color: '#71b6b3', exp: 520, gold: 420, isBoss: true, isGearRiftBoss: true, affinity: 'water' },
+  magma_core_juggernaut: { name: 'จักเกอร์นอทแก่นเพลิงปะทุ', hp: 960, armor: 4, ward: 1, attack: 38, color: '#e17743', exp: 740, gold: 580, isBoss: true, isGearRiftBoss: true, affinity: 'fire' },
+  chitin_bastion_behemoth: { name: 'เบฮีมอธปราการกระดองเหล็ก', hp: 1450, armor: 6, ward: 0, attack: 48, color: '#9da57e', exp: 1050, gold: 820, isBoss: true, isGearRiftBoss: true, affinity: 'earth' },
+  storm_sovereign_drake: { name: 'มังกรฟ้าอสุนีบาตมหาพายุ', hp: 2600, armor: 5, ward: 2, attack: 58, color: '#a0cec6', exp: 1400, gold: 1050, isBoss: true, isGearRiftBoss: true, affinity: 'lightning' },
+  void_rift_tentacle: { name: 'หนวดมิตินรกานต์', hp: 450, armor: 3, ward: 1, attack: 34, color: '#7d5885', exp: 180, gold: 140, isBoss: true, isGearRiftBoss: true, affinity: 'water' },
+  void_kraken_leviathan: { name: 'เลเวียธานหมึกมืดกลืนมิติ', hp: 3600, armor: 5, ward: 2, attack: 68, color: '#b381a5', exp: 1850, gold: 1400, isBoss: true, isGearRiftBoss: true, affinity: 'water' },
+  nether_forge_pillar: { name: 'เสาเตาหลอมเนเธอร์', hp: 750, armor: 4, ward: 1, attack: 42, color: '#aa473a', exp: 240, gold: 180, isBoss: true, isGearRiftBoss: true, affinity: 'fire' },
+  nether_forge_overlord: { name: 'จอมราชันเตาหลอมเนเธอร์', hp: 5400, armor: 6, ward: 1, attack: 80, color: '#e17743', exp: 2400, gold: 1850, isBoss: true, isGearRiftBoss: true, repeatReduction: 50, affinity: 'fire' },
+  eternity_armory_god: { name: 'มหาเทพอารักษ์คลังศาสตรานิรันดร์', hp: 7500, armor: 7, ward: 2, attack: 94, color: '#c3ddfc', exp: 3600, gold: 2800, isBoss: true, isGearRiftBoss: true, repeatReduction: 50, affinity: 'lightning' },
 });
+
+export const ARMORY_GOD_PHASE_THRESHOLDS = Object.freeze([5000, 2500]);
+
+export const GEAR_RIFT_BOSS_BY_TIER = Object.freeze({
+  20: 'ironforge_automaton',
+  30: 'tempest_blade_seraph',
+  40: 'abyssal_tide_colossus',
+  50: 'magma_core_juggernaut',
+  60: 'chitin_bastion_behemoth',
+  70: 'storm_sovereign_drake',
+  80: 'void_kraken_leviathan',
+  90: 'nether_forge_overlord',
+  100: 'eternity_armory_god',
+});
+
+export function getGearRiftStage3Kinds(tier) {
+  if (tier === 80) return ['void_rift_tentacle', 'void_rift_tentacle', 'void_kraken_leviathan', 'void_rift_tentacle'];
+  if (tier === 90) return ['nether_forge_pillar', 'nether_forge_pillar', 'nether_forge_overlord', 'nether_forge_pillar'];
+  const boss = GEAR_RIFT_BOSS_BY_TIER[tier];
+  return boss ? [boss] : null;
+}
+
+export function clearPhase3BattleFlags(state) {
+  if (!state) return;
+  delete state.armoryGodPhase;
+  delete state.timestopUses;
+  delete state.freeManaUntilTurn;
+  delete state.permanentAscension;
+  delete state.permanentAscensionFree;
+  delete state.phoenixRevivesUsed;
+  delete state.armorReviveUsed;
+  delete state.hydraEmergencyUsed;
+}
 
 export const REVISIT_REWARD_RATE = 0.2;
 export const MAX_BELT_ITEMS = 3;
@@ -181,6 +285,41 @@ export const SHOP_ITEMS = Object.freeze({
     description: 'จั่วจากชุดคำที่พกเพิ่มสูงสุด 2 ใบโดยไม่เกิน 10 ใบในมือ ใช้ได้ในศึกโดยไม่เสียเทิร์น',
   },
   ...ENDGAME_SHOP_ITEMS,
+  rift_key_tier1: {
+    id: 'rift_key_tier1', name: 'กุญแจรอยแยกชั้นต้น', icon: '🗝️', cost: 80, oneTime: false,
+    vaultOnly: true, category: 'rift', minFloor: 20, badge: 'เข้าศาสตรา เทียร์ 20–40',
+    description: 'ใช้เปิดทางเข้าสู่รอยแยกแห่งศาสตรา เทียร์ 20–40 เพิ่มเติมได้แม้โควต้าประจำวันจะหมดแล้ว',
+  },
+  rift_key_tier2: {
+    id: 'rift_key_tier2', name: 'กุญแจรอยแยกชั้นกลาง', icon: '🔑', cost: 180, oneTime: false,
+    vaultOnly: true, category: 'rift', minFloor: 50, badge: 'เข้าศาสตรา เทียร์ 50–70',
+    description: 'ใช้เปิดทางเข้าสู่รอยแยกแห่งศาสตรา เทียร์ 50–70 เพิ่มเติมได้แม้โควต้าประจำวันจะหมดแล้ว',
+  },
+  rift_key_tier3: {
+    id: 'rift_key_tier3', name: 'กุญแจรอยแยกชั้นสูง', icon: '🗝️', cost: 350, oneTime: false,
+    vaultOnly: true, category: 'rift', minFloor: 70, badge: 'เข้าศาสตรา เทียร์ 80–100',
+    description: 'ใช้เปิดทางเข้าสู่รอยแยกแห่งศาสตรา เทียร์ 80–100 เพิ่มเติมได้แม้โควต้าประจำวันจะหมดแล้ว',
+  },
+  compass_weapon_focus: {
+    id: 'compass_weapon_focus', name: 'เข็มทิศล็อกอาวุธ', icon: '🧭', cost: 60, oneTime: false,
+    vaultOnly: true, category: 'rift', minFloor: 20, badge: 'หีบศาสตราออกอาวุธ 100%',
+    description: 'ใช้ก่อนเข้ารอยแยกแห่งศาสตราเพื่อบังคับให้หีบสมบัติ 3 ตัวเลือกออกเฉพาะหมวดอาวุธ',
+  },
+  compass_armor_focus: {
+    id: 'compass_armor_focus', name: 'เข็มทิศล็อกชุดคลุม', icon: '🧭', cost: 60, oneTime: false,
+    vaultOnly: true, category: 'rift', minFloor: 20, badge: 'หีบศาสตราออกชุดคลุม 100%',
+    description: 'ใช้ก่อนเข้ารอยแยกแห่งศาสตราเพื่อบังคับให้หีบสมบัติ 3 ตัวเลือกออกเฉพาะหมวดชุดคลุม',
+  },
+  compass_trinket_focus: {
+    id: 'compass_trinket_focus', name: 'เข็มทิศล็อกเครื่องราง', icon: '🧭', cost: 60, oneTime: false,
+    vaultOnly: true, category: 'rift', minFloor: 20, badge: 'หีบศาสตราออกเครื่องราง 100%',
+    description: 'ใช้ก่อนเข้ารอยแยกแห่งศาสตราเพื่อบังคับให้หีบสมบัติ 3 ตัวเลือกออกเฉพาะหมวดเครื่องราง',
+  },
+  orb_rift_instability: {
+    id: 'orb_rift_instability', name: 'ลูกแก้วแปรปรวนมิติ', icon: '🔮', cost: 100, oneTime: false,
+    vaultOnly: true, category: 'rift', minFloor: 40, badge: 'บอสแกร่งขึ้น · โอกาสระดับสูง +20%',
+    description: 'เร่งความเข้มข้นรอยแยกแห่งศาสตรา: ศัตรูได้เกราะ +1 และโจมตีแรงขึ้น +15% แต่เพิ่มโอกาสออกอุปกรณ์ระดับสูงขึ้น +20%',
+  },
 });
 
 export const BLESSING_CATALOG = Object.freeze({
@@ -230,7 +369,14 @@ export const BLESSING_CATALOG = Object.freeze({
 
 export function getAvailableShopItems(state) {
   const purchased = state?.purchasedShopItems ?? [];
-  const currentFloor = state?.room != null ? (getFloorInfo(state.room)?.floor ?? 1) : 1;
+  const totalRooms = state?.rooms?.length;
+  const roomFloor = state?.room != null ? (getFloorInfo(state.room, totalRooms)?.floor ?? 1) : 1;
+  const highestFloor = state?.highestRoom != null ? (getFloorInfo(state.highestRoom, totalRooms)?.floor ?? 1) : 1;
+  const sanctuaryFloor = state?.sanctuaryUnlocked || state?.phase === 'sanctuary' ? resolveSanctuaryNumericFloor(state) : 1;
+  const clearedMaxFloor = (state?.clearedRooms?.length ?? 0) > 0
+    ? Math.max(...state.clearedRooms.map(r => getFloorInfo(r, totalRooms)?.floor ?? 1))
+    : 1;
+  const currentFloor = Math.max(roomFloor, highestFloor, sanctuaryFloor, clearedMaxFloor);
   return Object.values(SHOP_ITEMS).filter(item => {
     if (item.oneTime && purchased.includes(item.id)) return false;
     if (item.minFloor && currentFloor < item.minFloor) return false;
@@ -247,13 +393,49 @@ export function hasCardSecondaryUpgrade(state, wordId) {
   return lv >= CARD_SECONDARY_UNLOCK_LEVEL || Boolean(state?.player?.cardSecondaryUpgrades?.[wordId]);
 }
 
-export const isAscensionActive = state => state?.phase === 'battle' && state.legendaryTurns?.ascension === state.turn - 1;
-export const isBattleWordSpent = (state, id) => id === 'death' ? Boolean(state.deathSpent) : Object.hasOwn(state.legendaryTurns ?? {}, id);
+export const isAscensionActive = state => state?.phase === 'battle'
+  && (state.legendaryTurns?.ascension === state.turn - 1 || Boolean(state.permanentAscensionFree));
+export const isAscensionUpgradesActive = state => isAscensionActive(state)
+  || (state?.phase === 'battle' && Boolean(state.permanentAscension));
+export const isBattleWordSpent = (state, id) => {
+  if (id === 'death') return Boolean(state?.deathSpent);
+  if (id === 'timestop') {
+    const extraUses = computeGearModifiers(state?.player).timestopExtraUses ?? 0;
+    const used = state?.timestopUses ?? (Object.hasOwn(state?.legendaryTurns ?? {}, 'timestop') ? 1 : 0);
+    return used >= 1 + extraUses;
+  }
+  return Object.hasOwn(state?.legendaryTurns ?? {}, id);
+};
 
 export function battleSpellCost(state, parsed) {
   const { form, resource } = parsed.spell;
   if (isAscensionActive(state) || (form === 'fill' && resource === 'mana' && hasCardSecondaryUpgrade(state, 'mana'))) return 0;
-  return form === 'ascension' ? ascensionCost(getCardUpgradeLevel(state, 'ascension')) : parsed.cost;
+  if (state?.phase === 'battle' && (state.freeManaUntilTurn ?? 0) >= state.turn) return 0;
+  let cost = form === 'ascension' ? ascensionCost(getCardUpgradeLevel(state, 'ascension')) : parsed.cost;
+  const gearMods = computeGearModifiers(state?.player);
+  if (gearMods.shockstreamFreeIf3Wet && parsed.ids?.includes('shockstream')) {
+    const wetCount = (state?.enemies ?? []).filter(e => e.hp > 0 && (e.wetUntil ?? 0) >= (state?.turn ?? 1)).length;
+    if (wetCount >= 3) return 0;
+  }
+  if (gearMods.barrageCostDiscountPct > 0 && parsed.spell.barrage) {
+    cost = Math.max(2, Math.round(cost * (100 - gearMods.barrageCostDiscountPct) / 100));
+  }
+  if (gearMods.pairCostReduction > 0 && parsed.ids?.includes('pair')) {
+    cost = Math.max(2, cost - gearMods.pairCostReduction);
+  }
+  if (gearMods.dualFusionCostDiscount > 0 && parsed.ids?.some(id => FUSED_ELEMENTS.includes(id))) {
+    cost = Math.max(5, cost - gearMods.dualFusionCostDiscount);
+  }
+  if (gearMods.blackholeCostDiscount > 0 && form === 'blackhole') {
+    cost = Math.max(5, cost - gearMods.blackholeCostDiscount);
+  }
+  if (gearMods.highCostDiscount > 0 && cost >= 6) {
+    cost = Math.max(2, cost - gearMods.highCostDiscount);
+  }
+  if (gearMods.iceCostDiscount > 0 && parsed.ids?.some(id => ['ice', 'heman', 'frostvolt', 'permafrost', 'chillgale'].includes(id))) {
+    cost = Math.max(2, cost - gearMods.iceCostDiscount);
+  }
+  return cost;
 }
 
 export function getCardUpgradeCost(currentLevel = 0, wordOrRarity = 'common') {
@@ -1764,11 +1946,17 @@ export function equipRelic(original, relicId) {
 }
 
 export function getHandLimit(player) {
-  return HAND_LIMIT + (getEquippedRelics(player).includes('crown_of_eternity_100') ? 2 : 0);
+  const gearMods = computeGearModifiers(player);
+  return HAND_LIMIT
+    + (getEquippedRelics(player).includes('crown_of_eternity_100') ? 2 : 0)
+    + (gearMods.handLimitBonus ?? 0);
 }
 
 export function getMaxMana(player) {
-  return (player?.maxMana ?? MAX_MANA) + (getEquippedRelics(player).includes('crown_of_eternity_100') ? 3 : 0);
+  const gearMods = computeGearModifiers(player);
+  return (player?.maxMana ?? MAX_MANA)
+    + (getEquippedRelics(player).includes('crown_of_eternity_100') ? 3 : 0)
+    + (gearMods.maxManaBonus ?? 0);
 }
 
 export function unequipRelic(original, relicId) {
@@ -1888,9 +2076,46 @@ export function encounterMaxHp(kind, room) {
 }
 
 export function eternityDamageLimit(state, enemy) {
+  if (enemy.kind === 'eternity_armory_god') {
+    if (!state.armoryGodPhase) return Math.max(0, enemy.hp - ARMORY_GOD_PHASE_THRESHOLDS[0]);
+    if (state.armoryGodPhase === 2) return Math.max(0, enemy.hp - ARMORY_GOD_PHASE_THRESHOLDS[1]);
+    return enemy.hp;
+  }
   return state.room === FLOOR100_BOSS_ROOM && !state.rift && !state.eternityPhase && enemy.kind === 'eternity_overlord'
     ? Math.max(0, enemy.hp - ETERNITY_PHASE_HP[1])
     : enemy.hp;
+}
+
+export function checkArmoryGodPhase(state, summary = null, events = null) {
+  const boss = state.enemies?.find(e => e.kind === 'eternity_armory_god' && e.hp > 0);
+  if (!boss) return false;
+  if (!state.armoryGodPhase && boss.hp <= ARMORY_GOD_PHASE_THRESHOLDS[0]) {
+    state.armoryGodPhase = 2;
+    boss.armor = 8;
+    boss.ward = 2;
+    boss.affinity = 'earth';
+    delete boss.readForm;
+    if (events) events.push({ type: 'armory-phase', phase: 2, target: boss.id });
+    if (summary) {
+      summary.armoryGodPhase = 2;
+      summary.sequence?.push('🛡️ มหาเทพอารักษ์คลังศาสตราเข้าสู่เฟส 2/3 (เกราะปราการ · สะท้อน 10 ดาเมจต่อฮิต!)');
+    }
+    return true;
+  }
+  if (state.armoryGodPhase === 2 && boss.hp <= ARMORY_GOD_PHASE_THRESHOLDS[1]) {
+    state.armoryGodPhase = 3;
+    boss.armor = 5;
+    boss.ward = 1;
+    boss.affinity = 'fire';
+    delete boss.readForm;
+    if (events) events.push({ type: 'armory-phase', phase: 3, target: boss.id });
+    if (summary) {
+      summary.armoryGodPhase = 3;
+      summary.sequence?.push('👑 มหาเทพอารักษ์คลังศาสตราเข้าสู่เฟส 3/3 (มงกุฎจุติ · พลังโจมตีทะลุเกราะเต็มพิกัด!)');
+    }
+    return true;
+  }
+  return false;
 }
 
 export function eternityHealth(state, phase = state.eternityPhase ?? 1, hp = null) {
@@ -2283,6 +2508,76 @@ export function prepareEnemies(state) {
       enemy.armor = phase === 1 ? 6 : phase === 2 ? 7 : phase === 3 ? 5 : 0;
       enemy.affinity = getEternityShiftAffinity(state.turn);
     }
+    if (enemy.kind === 'ironforge_automaton') {
+      const phase = state.turn % 3;
+      enemy.ward = 0;
+      enemy.armor = phase === 1 ? 4 : phase === 2 ? 5 : 2;
+    }
+    if (enemy.kind === 'tempest_blade_seraph') {
+      const phase = state.turn % 3;
+      enemy.ward = enemy.hp > 0 && phase === 1 ? 1 : 0;
+      enemy.armor = phase === 1 ? 2 : phase === 2 ? 2 : 1;
+    }
+    if (enemy.kind === 'abyssal_tide_colossus') {
+      const phase = state.turn % 3;
+      enemy.ward = enemy.hp > 0 && phase === 1 ? 2 : 0;
+      enemy.armor = phase === 1 ? 3 : phase === 2 ? 4 : 1;
+    }
+    if (enemy.kind === 'magma_core_juggernaut') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && phase === 1 ? 1 : 0;
+      enemy.armor = phase === 1 ? 4 : phase === 2 ? 5 : phase === 3 ? 3 : 0;
+    }
+    if (enemy.kind === 'chitin_bastion_behemoth') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && phase === 2 ? 1 : 0;
+      enemy.armor = phase === 1 ? 6 : phase === 2 ? 7 : phase === 3 ? 5 : 0;
+    }
+    if (enemy.kind === 'storm_sovereign_drake') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && phase === 1 ? 2 : enemy.hp > 0 && phase === 2 ? 1 : 0;
+      enemy.armor = phase === 1 ? 5 : phase === 2 ? 6 : phase === 3 ? 4 : 0;
+    }
+    if (enemy.kind === 'void_rift_tentacle') {
+      const phase = state.turn % 3;
+      enemy.ward = enemy.hp > 0 && phase === 1 ? 1 : 0;
+      enemy.armor = phase === 0 ? 2 : 3;
+    }
+    if (enemy.kind === 'void_kraken_leviathan') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 2) ? 2 : 0;
+      enemy.armor = phase === 1 ? 5 : phase === 2 ? 6 : phase === 3 ? 4 : 0;
+    }
+    if (enemy.kind === 'nether_forge_pillar') {
+      const phase = state.turn % 3;
+      enemy.ward = enemy.hp > 0 && phase === 1 ? 1 : 0;
+      enemy.armor = phase === 0 ? 3 : 4;
+    }
+    if (enemy.kind === 'nether_forge_overlord') {
+      const phase = state.turn % 4;
+      enemy.ward = enemy.hp > 0 && phase === 1 ? 1 : 0;
+      enemy.armor = phase === 1 ? 6 : phase === 2 ? 7 : phase === 3 ? 5 : 0;
+    }
+    if (enemy.kind === 'eternity_armory_god') {
+      const phase = state.turn % 4;
+      const bossPhase = state.armoryGodPhase ?? 1;
+      if (bossPhase === 2) {
+        enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 2) ? 2 : 0;
+        enemy.armor = phase === 0 ? 3 : 8;
+        enemy.affinity = 'earth';
+      } else if (bossPhase === 3) {
+        enemy.ward = enemy.hp > 0 && phase === 1 ? 1 : 0;
+        enemy.armor = phase === 0 ? 0 : 5;
+        enemy.affinity = 'fire';
+      } else {
+        enemy.ward = enemy.hp > 0 && phase === 1 ? 2 : 0;
+        enemy.armor = phase === 1 ? 6 : phase === 2 ? 7 : phase === 3 ? 5 : 0;
+        enemy.affinity = state.turn % 2 === 1 ? 'lightning' : 'fire';
+      }
+    }
+    if (state.rift?.instability && enemy.hp > 0) {
+      enemy.armor = Math.min(10, enemy.armor + 1);
+    }
     if (enemy.magmaArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
     if (enemy.abyssalShockUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
     if (enemy.netherPurgeUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - 2);
@@ -2293,6 +2588,10 @@ export function prepareEnemies(state) {
     }
     if (enemy.permanentArmorShred) enemy.armor = Math.max(0, enemy.armor - enemy.permanentArmorShred);
     else if (enemy.earthArmorUntil >= state.turn) enemy.armor = Math.max(0, enemy.armor - (enemy.earthArmorShred ?? 1));
+    const playerGear = computeGearModifiers(state.player);
+    if (playerGear.turnStartEnemyArmorShred > 0 && enemy.hp > 0) {
+      enemy.armor = Math.max(0, enemy.armor - playerGear.turnStartEnemyArmorShred);
+    }
     if (enemy.summonWardBreakUntil === state.turn) enemy.ward = 0;
     if (enemy.wardGrant) {
       if (enemy.hp > 0) enemy.ward = Math.min(3, enemy.ward + enemy.wardGrant);
@@ -2524,25 +2823,37 @@ export function enterRoom(state) {
   delete state.krakenPhase;
   delete state.netherPhase;
   delete state.eternityPhase;
+  clearPhase3BattleFlags(state);
   state.turn = 1;
   state.phase = 'battle';
   state.player.mana = getMaxMana(state.player);
   const blessings = state.player.blessings ?? [];
+  const gearMods = computeGearModifiers(state.player);
+  const startLayers = [];
   if (blessings.includes('blessing_aegis')) {
-    state.player.shield = { layers: [6], expires: 2, effect: null, triggered: false };
+    startLayers.push({ hp: 6, expires: 2, effect: null, triggered: false });
   } else if (blessings.includes('blessing_frost')) {
-    state.player.shield = { layers: [4], expires: 2, effect: 'ice', triggered: false };
-  } else {
-    state.player.shield = null;
+    startLayers.push({ hp: 4, expires: 2, effect: 'ice', triggered: false });
   }
+  if (gearMods.startShield > 0) {
+    startLayers.push({ hp: gearMods.startShield, expires: 2, effect: null, triggered: false });
+  }
+  if (gearMods.startShieldLayers3x10) {
+    for (let i = 0; i < 3; i++) startLayers.push({ hp: 10, expires: 2, effect: null, triggered: false });
+  }
+  state.player.shield = startLayers.length ? makeShield(startLayers) : null;
   state.player.elementBuffs = {};
-  state.enemies = state.rooms[state.room].map((kind, index) => createEnemy(kind, index, state.room));
+  const gearRiftStage3Kinds = state.rift?.type === 'gear' && state.rift.stage === 2
+    ? getGearRiftStage3Kinds(state.rift.tier)
+    : null;
+  const enemyKinds = gearRiftStage3Kinds ?? state.rooms[state.room];
+  state.enemies = enemyKinds.map((kind, index) => createEnemy(kind, index, state.room));
   const roomFloor = getFloorInfo(state.room, state.rooms.length).floor;
   if (SPACED_FLOORS.has(roomFloor) || ENDGAME_SPACED_FLOORS.has(roomFloor)) {
     const slots = { 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4] }[state.enemies.length];
     if (slots) state.enemies.forEach((enemy, index) => { enemy.slot = slots[index]; });
   }
-  if (state.room >= FLOOR21_START_ROOM) prepareEnemies(state);
+  if (state.room >= FLOOR21_START_ROOM || state.rift?.type === 'gear' || state.rift?.instability || gearMods.turnStartEnemyArmorShred > 0) prepareEnemies(state);
   state.rewards = [];
   state.pendingBlessings = [];
   state.pendingTargetRoom = null;
@@ -2734,7 +3045,7 @@ export function createRun(seed = String(Date.now()), tutorial = false, collectio
   const state = {
     version: 2, rulesVersion: 3, hpCurveVersion: 1, seed: String(seed), rng: seedNumber(seed), tutorial,
     room: 0, highestRoom: 0, clearedRooms: [], rewardedBossRooms: [],
-    riftProgressFloor: 0, riftDaily: null,
+    riftProgressFloor: 0, riftDaily: null, clearedGearRifts: [], pendingGearReward: null,
     sanctuaryRested: false, sanctuaryFloor: 5,
     sanctuaryUnlocked: false,
     sanctuary9Unlocked: false, sanctuaryPost10Unlocked: false,
@@ -2745,6 +3056,7 @@ export function createRun(seed = String(Date.now()), tutorial = false, collectio
     player: {
       hp: 36, maxHp: 36, mana: MAX_MANA, maxMana: MAX_MANA,
       level: 1, exp: 0, gold: 0, items: [], stash: [], relics: [], blessings: [], cardUpgrades: {}, cardSecondaryUpgrades: {},
+      gearInventory: [], equippedGear: { weapon: null, armor: null, accessory: null },
       words: [...START_WORDS], shield: null, elementBuffs: {},
     },
     stats: { casts: 0, damage: 0, blocked: 0, turns: 0, discovered: [] },
@@ -2906,6 +3218,39 @@ export function recordClearedFloorProgress(state, roomIndex = state.room) {
   }
 }
 
+export function getRiftKeyIdForTier(tier) {
+  if (tier <= 40) return 'rift_key_tier1';
+  if (tier <= 70) return 'rift_key_tier2';
+  return 'rift_key_tier3';
+}
+
+export function getCompassItemIdForSlot(slot) {
+  return {
+    weapon: 'compass_weapon_focus',
+    armor: 'compass_armor_focus',
+    accessory: 'compass_trinket_focus',
+  }[slot] ?? null;
+}
+
+export function countOwnedShopItem(player, itemId) {
+  if (!player || !itemId) return 0;
+  let count = 0;
+  for (const id of player.stash ?? []) if (id === itemId) count += 1;
+  for (const id of player.items ?? []) if (id === itemId) count += 1;
+  return count;
+}
+
+function consumeOwnedShopItem(player, itemId) {
+  for (const source of ['stash', 'items']) {
+    const idx = player?.[source]?.indexOf(itemId) ?? -1;
+    if (idx >= 0) {
+      player[source].splice(idx, 1);
+      return true;
+    }
+  }
+  return false;
+}
+
 export function startRiftRun(original, tier, now = new Date()) {
   if (!original || original.phase !== 'sanctuary') {
     throw new Error('เข้าดันเจี้ยนรอยแยกได้จากจุดพักเท่านั้น');
@@ -2926,6 +3271,7 @@ export function startRiftRun(original, tier, now = new Date()) {
   state.riftProgressFloor = Math.max(state.riftProgressFloor ?? 0, status.cap);
   state.riftDaily = { date: status.date, used: status.used + 1 };
   state.rift = {
+    type: 'card',
     tier,
     stage: 0,
     stageRooms,
@@ -2936,12 +3282,137 @@ export function startRiftRun(original, tier, now = new Date()) {
   return enterRoom(state);
 }
 
+export function startGearRiftRun(original, tier, options = {}, now = new Date()) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('เข้ารอยแยกแห่งศาสตราได้จากจุดพักเท่านั้น');
+  }
+  if (original.pendingGearReward) {
+    throw new Error('ยังมีหีบศาสตราที่ยังไม่ได้เลือกรับ · กรุณาเปิดรับอุปกรณ์ก่อนเข้าดันเจี้ยนรอบใหม่');
+  }
+  if (!RIFT_TIERS.includes(tier)) {
+    throw new Error('ไม่พบระดับรอยแยกศาสตราที่เลือก');
+  }
+  if (!isRiftTierUnlocked(original, tier)) {
+    throw new Error(`ต้องผ่านบอสใหญ่ชั้น ${tier} ก่อนเพื่อปลดล็อกรอยแยกศาสตรานี้`);
+  }
+  const compassSlot = options.compassSlot ?? null;
+  if (compassSlot !== null && !GEAR_SLOTS.includes(compassSlot)) {
+    throw new Error('หมวดเข็มทิศไม่ถูกต้อง');
+  }
+  const instability = Boolean(options.instability);
+  const status = getRiftDailyStatus(original, now);
+  const keyId = getRiftKeyIdForTier(tier);
+  const hasKey = countOwnedShopItem(original.player, keyId) > 0;
+  const useKey = Boolean(options.useKey) || status.remaining <= 0;
+
+  if (useKey && !hasKey) {
+    const keyName = SHOP_ITEMS[keyId]?.name ?? keyId;
+    throw new Error(`โควต้ารอยแยกวันนี้หมดแล้ว (${status.remaining}/${status.cap}) และยังไม่มี “${keyName}” ในคลัง`);
+  }
+
+  const compassItemId = compassSlot ? getCompassItemIdForSlot(compassSlot) : null;
+  if (compassItemId && countOwnedShopItem(original.player, compassItemId) <= 0) {
+    throw new Error(`ไม่มี “${SHOP_ITEMS[compassItemId]?.name ?? compassItemId}” ในคลังไอเทม`);
+  }
+  if (instability && countOwnedShopItem(original.player, 'orb_rift_instability') <= 0) {
+    throw new Error('ไม่มี “ลูกแก้วแปรปรวนมิติ” ในคลังไอเทม');
+  }
+
+  const state = structuredClone(original);
+  delete state.replayReturn;
+  const stageRooms = getRiftStageRooms(tier);
+  state.riftProgressFloor = Math.max(state.riftProgressFloor ?? 0, status.cap);
+  if (useKey) {
+    consumeOwnedShopItem(state.player, keyId);
+  } else {
+    state.riftDaily = { date: status.date, used: status.used + 1 };
+  }
+  if (compassItemId) consumeOwnedShopItem(state.player, compassItemId);
+  if (instability) consumeOwnedShopItem(state.player, 'orb_rift_instability');
+
+  state.rift = {
+    type: 'gear',
+    tier,
+    stage: 0,
+    stageRooms,
+    returnRoom: original.room,
+    returnSanctuaryFloor: original.sanctuaryFloor ?? 5,
+    compassSlot,
+    instability,
+  };
+  state.room = stageRooms[0];
+  return enterRoom(state);
+}
+
+export function claimGearRiftReward(original, gearId) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('เปิดรับหีบศาสตราได้เฉพาะที่จุดพักเท่านั้น');
+  }
+  const pending = original.pendingGearReward;
+  if (!pending || !Array.isArray(pending.choices) || !pending.choices.includes(gearId)) {
+    throw new Error('ไม่พบอุปกรณ์ที่เลือกในหีบศาสตราปัจจุบัน');
+  }
+  const gear = getGearById(gearId);
+  if (!gear) throw new Error('ไม่พบข้อมูลอุปกรณ์ชิ้นนี้');
+
+  const state = structuredClone(original);
+  const p = state.player;
+  p.gold ??= 0;
+  p.stash ??= [];
+  p.gearInventory ??= [];
+  p.equippedGear ??= { weapon: null, armor: null, accessory: null };
+
+  const prevMods = computeGearModifiers(p);
+  const existing = p.gearInventory.find(entry => entry.id === gearId);
+  let outcome = 'new';
+  let prevRefine = existing?.refine ?? 0;
+  let newRefine = prevRefine;
+  let autoEquipped = false;
+  let goldGained = 0;
+  let materialId = null;
+  let stashFullBonusGold = 0;
+
+  if (!existing) {
+    p.gearInventory.push({ id: gearId, refine: 0 });
+    if (!p.equippedGear[gear.slot]) {
+      p.equippedGear[gear.slot] = gearId;
+      autoEquipped = true;
+    }
+    outcome = 'new';
+  } else if (prevRefine < MAX_GEAR_REFINE) {
+    existing.refine = prevRefine + 1;
+    newRefine = existing.refine;
+    outcome = 'auto-refine';
+  } else {
+    const dup = getGearDuplicateReward(gear);
+    goldGained = dup.gold;
+    p.gold += goldGained;
+    if (dup.materialId) {
+      if (p.stash.length < MAX_STASH_ITEMS) {
+        p.stash.push(dup.materialId);
+        materialId = dup.materialId;
+      } else {
+        stashFullBonusGold = 40;
+        p.gold += stashFullBonusGold;
+        goldGained += stashFullBonusGold;
+      }
+    }
+    outcome = 'overcap';
+  }
+
+  const nextMods = computeGearModifiers(p);
+  syncPlayerGearStats(p, prevMods, nextMods);
+  state.pendingGearReward = null;
+  return { state, gear, outcome, prevRefine, newRefine, autoEquipped, goldGained, materialId, stashFullBonusGold, tier: pending.tier };
+}
+
 export function resolveRiftBattleVictory(state, summary, events) {
   const rift = state.rift;
   delete state.magmaPuddles;
   delete state.blackhole;
   delete state.deathSpent;
   delete state.legendaryTurns;
+  clearPhase3BattleFlags(state);
 
   if (rift.stage < rift.stageRooms.length - 1) {
     const healAmount = Math.max(12, Math.round(state.player.maxHp * 0.2));
@@ -2955,8 +3426,48 @@ export function resolveRiftBattleVictory(state, summary, events) {
     return state;
   }
 
-  // Stage 3/3 cleared — automatically draw and grant 1 random card from this tier's ceiling pool
   const tier = rift.tier;
+  const returnRoom = rift.returnRoom;
+  const returnSanctuaryFloor = rift.returnSanctuaryFloor ?? 5;
+
+  if (rift.type === 'gear') {
+    state.clearedGearRifts ??= [];
+    if (!state.clearedGearRifts.includes(tier)) state.clearedGearRifts.push(tier);
+    const choices = rollGearRiftChoices(() => random(state), tier, {
+      compassSlot: rift.compassSlot ?? null,
+      instability: Boolean(rift.instability),
+    });
+    const pendingReward = {
+      tier,
+      choices,
+      compassSlot: rift.compassSlot ?? null,
+      instability: Boolean(rift.instability),
+    };
+    state.pendingGearReward = pendingReward;
+
+    delete state.rift;
+    state.room = returnRoom;
+    state.sanctuaryFloor = returnSanctuaryFloor;
+    state.sanctuaryUnlocked = true;
+    state.sanctuaryRested = false;
+    state.phase = 'sanctuary';
+    state.turn = 1;
+    state.player.mana = getMaxMana(state.player);
+    state.player.shield = null;
+    state.player.elementBuffs = {};
+    state.rewards = [];
+    state.enemies = (state.rooms?.[state.room] ?? []).map((kind, index) => {
+      const enemy = createEnemy(kind, index, state.room);
+      enemy.hp = 0;
+      return enemy;
+    });
+
+    summary.gearRiftCleared = pendingReward;
+    events.push({ type: 'gear-rift-reward', ...pendingReward });
+    return state;
+  }
+
+  // Stage 3/3 cleared — Card Rift: automatically draw and grant 1 random card from this tier's ceiling pool
   const pool = getRiftRewardPool(state, tier);
   const wordId = drawRewardForFloor(state, pool, tier);
   const wasOwned = ownsRewardWord(state, wordId);
@@ -2986,8 +3497,6 @@ export function resolveRiftBattleVictory(state, summary, events) {
     }
   }
 
-  const returnRoom = rift.returnRoom;
-  const returnSanctuaryFloor = rift.returnSanctuaryFloor ?? 5;
   delete state.rift;
   state.room = returnRoom;
   state.sanctuaryFloor = returnSanctuaryFloor;
@@ -3296,6 +3805,7 @@ function resetPlayerForSanctuaryFallback(state) {
   delete state.blackhole;
   delete state.deathSpent;
   delete state.legendaryTurns;
+  clearPhase3BattleFlags(state);
   state.turn = 1;
   state.player.hp = Math.max(10, Math.ceil(state.player.maxHp * 0.5));
   state.player.mana = getMaxMana(state.player);
@@ -3528,6 +4038,7 @@ export function enterSanctuary(original, options = {}) {
   delete state.blackhole;
   delete state.deathSpent;
   delete state.legendaryTurns;
+  clearPhase3BattleFlags(state);
   return state;
 }
 
@@ -3571,6 +4082,255 @@ export function buyShopItem(original, itemId) {
     state.purchasedShopItems.push(itemId);
   }
   return state;
+}
+
+function resolveSanctuaryNumericFloor(state) {
+  const sf = state?.sanctuaryFloor;
+  if (typeof sf === 'number') return sf;
+  if (typeof sf === 'string') {
+    const match = /(\d+)/.exec(sf);
+    if (match) return Number(match[1]);
+  }
+  const highestRoom = Math.max(state?.highestRoom ?? 0, state?.room ?? 0);
+  return getFloorInfo(highestRoom, state?.rooms?.length)?.floor ?? 5;
+}
+
+function syncPlayerGearStats(player, prevMods, nextMods) {
+  const hpDelta = (nextMods.maxHpBonus ?? 0) - (prevMods.maxHpBonus ?? 0);
+  if (hpDelta !== 0) {
+    player.maxHp = Math.max(36, Math.min(5000, (player.maxHp ?? 36) + hpDelta));
+    if (hpDelta > 0) {
+      player.hp = Math.min(player.maxHp, (player.hp ?? 1) + hpDelta);
+    } else {
+      player.hp = Math.max(1, Math.min(player.maxHp, player.hp ?? 1));
+    }
+  }
+  const nextMaxMana = getMaxMana(player);
+  const mpDelta = (nextMods.maxManaBonus ?? 0) - (prevMods.maxManaBonus ?? 0);
+  if (mpDelta > 0) {
+    player.mana = Math.min(nextMaxMana, (player.mana ?? 0) + mpDelta);
+  } else {
+    player.mana = Math.min(nextMaxMana, player.mana ?? 0);
+  }
+}
+
+export function getSanctuaryGearStock(state) {
+  const floor = Math.max(5, resolveSanctuaryNumericFloor(state));
+  const seedKey = `${state?.seed ?? 'seed'}:gear-shop:${state?.sanctuaryFloor ?? floor}`;
+  const rngState = { rng: seedNumber(seedKey) };
+  const ownedIds = new Set(getOwnedGear(state?.player).map(entry => entry.id));
+
+  return GEAR_SLOTS.map(slot => {
+    const unlocked = GEAR_LIST.filter(g => g.slot === slot && ['common', 'rare'].includes(g.rarity) && g.unlockFloor <= floor);
+    const pool = unlocked.length ? unlocked : GEAR_LIST.filter(g => g.slot === slot && g.rarity === 'common');
+    const unowned = pool.filter(g => !ownedIds.has(g.id));
+    const candidates = unowned.length ? unowned : pool;
+    const rareCandidates = floor >= 35 ? candidates.filter(g => g.rarity === 'rare') : [];
+    const weighted = rareCandidates.length && random(rngState) < 0.65 ? rareCandidates : candidates;
+    const chosen = weighted[Math.floor(random(rngState) * weighted.length)] ?? pool[0];
+    return chosen;
+  }).filter(Boolean);
+}
+
+export function getSanctuaryVaultGear(state) {
+  const floor = resolveSanctuaryNumericFloor(state);
+  if (floor < 50) return null;
+  const seedKey = `${state?.seed ?? 'seed'}:gear-vault:${state?.sanctuaryFloor ?? floor}`;
+  const rngState = { rng: seedNumber(seedKey) };
+  const ownedIds = new Set(getOwnedGear(state?.player).map(entry => entry.id));
+  const pool = GEAR_LIST.filter(g => g.rarity === 'special' && g.unlockFloor <= floor);
+  if (!pool.length) return null;
+  const unowned = pool.filter(g => !ownedIds.has(g.id));
+  const candidates = unowned.length ? unowned : pool;
+  return candidates[Math.floor(random(rngState) * candidates.length)] ?? pool[0];
+}
+
+export function buyGearItem(original, gearId) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('ซื้ออุปกรณ์ได้เฉพาะในร้านค้าที่จุดพักเท่านั้น');
+  }
+  const gear = getGearById(gearId);
+  if (!gear) throw new Error('ไม่พบอุปกรณ์ชิ้นนี้ในระบบ');
+  const state = structuredClone(original);
+  const p = state.player;
+  p.gold ??= 0;
+  p.gearInventory ??= [];
+  p.equippedGear ??= { weapon: null, armor: null, accessory: null };
+  if (p.gearInventory.some(entry => entry.id === gearId)) {
+    throw new Error(`คุณมี “${gear.name}” อยู่ในคลังอุปกรณ์แล้ว`);
+  }
+  if (p.gold < gear.price) {
+    throw new Error(`ทองไม่พอ · ต้องใช้ ${gear.price} ทอง (มีอยู่ ${p.gold} ทอง)`);
+  }
+  const prevMods = computeGearModifiers(p);
+  p.gold -= gear.price;
+  p.gearInventory.push({ id: gearId, refine: 0 });
+  let autoEquipped = false;
+  if (!p.equippedGear[gear.slot]) {
+    p.equippedGear[gear.slot] = gearId;
+    autoEquipped = true;
+  }
+  const nextMods = computeGearModifiers(p);
+  syncPlayerGearStats(p, prevMods, nextMods);
+  return { state, gear, autoEquipped };
+}
+
+export function equipGearItem(original, gearId) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('เปลี่ยนอุปกรณ์ได้เฉพาะในจุดพักเท่านั้น');
+  }
+  const gear = getGearById(gearId);
+  if (!gear) throw new Error('ไม่พบอุปกรณ์ชิ้นนี้');
+  const state = structuredClone(original);
+  const p = state.player;
+  p.gearInventory ??= [];
+  p.equippedGear ??= { weapon: null, armor: null, accessory: null };
+  if (!p.gearInventory.some(entry => entry.id === gearId)) {
+    throw new Error(`ยังไม่ได้ครอบครอง “${gear.name}”`);
+  }
+  if (p.equippedGear[gear.slot] === gearId) {
+    throw new Error(`สวมใส่ “${gear.name}” อยู่แล้ว`);
+  }
+  const prevMods = computeGearModifiers(p);
+  p.equippedGear[gear.slot] = gearId;
+  const nextMods = computeGearModifiers(p);
+  syncPlayerGearStats(p, prevMods, nextMods);
+  return state;
+}
+
+export function unequipGearItem(original, slot) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('ถอดอุปกรณ์ได้เฉพาะในจุดพักเท่านั้น');
+  }
+  if (!GEAR_SLOTS.includes(slot)) throw new Error('ไม่พบช่องอุปกรณ์นี้');
+  const state = structuredClone(original);
+  const p = state.player;
+  p.equippedGear ??= { weapon: null, armor: null, accessory: null };
+  if (!p.equippedGear[slot]) {
+    throw new Error(`ช่อง${GEAR_SLOT_LABELS[slot]}ว่างอยู่แล้ว`);
+  }
+  const prevMods = computeGearModifiers(p);
+  p.equippedGear[slot] = null;
+  const nextMods = computeGearModifiers(p);
+  syncPlayerGearStats(p, prevMods, nextMods);
+  return state;
+}
+
+function findGearRefineMaterial(player, materialId) {
+  if (!materialId) return null;
+  for (const source of ['stash', 'items']) {
+    const idx = player[source]?.indexOf(materialId) ?? -1;
+    if (idx >= 0) return { id: materialId, source, index: idx };
+  }
+  return null;
+}
+
+export function refineGearItem(original, gearId) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('ตีบวกอุปกรณ์ได้เฉพาะที่จุดพักเท่านั้น');
+  }
+  const gear = getGearById(gearId);
+  if (!gear) throw new Error('ไม่พบอุปกรณ์ชิ้นนี้');
+  const state = structuredClone(original);
+  const p = state.player;
+  p.gold ??= 0;
+  p.items ??= [];
+  p.stash ??= [];
+  p.gearInventory ??= [];
+  p.equippedGear ??= { weapon: null, armor: null, accessory: null };
+  const entry = p.gearInventory.find(item => item.id === gearId);
+  if (!entry) throw new Error(`ยังไม่ได้ครอบครอง “${gear.name}”`);
+  const currentRefine = entry.refine ?? 0;
+  if (currentRefine >= MAX_GEAR_REFINE) {
+    throw new Error(`“${gear.name}” ตีบวกเต็มระดับ +${MAX_GEAR_REFINE} แล้ว`);
+  }
+  const cost = getGearRefineCost(gear, currentRefine);
+  if (p.gold < cost) {
+    throw new Error(`ทองไม่พอ · ต้องใช้ ${cost} ทอง (มีอยู่ ${p.gold} ทอง)`);
+  }
+  const reqMatId = getGearRefineMaterialId(currentRefine);
+  const foundMat = findGearRefineMaterial(p, reqMatId);
+  if (reqMatId && !foundMat) {
+    const matName = SHOP_ITEMS[reqMatId]?.name ?? reqMatId;
+    throw new Error(`ต้องใช้ “${matName}” ในคลังเพื่อตีบวกเป็น +${currentRefine + 1}`);
+  }
+
+  const prevMods = computeGearModifiers(p);
+  p.gold -= cost;
+  if (foundMat) {
+    p[foundMat.source].splice(foundMat.index, 1);
+  }
+  const rate = getGearRefineSuccessRate(currentRefine);
+  const roll = random(state) * 100;
+  const succeeded = roll < rate;
+  if (succeeded) {
+    entry.refine = currentRefine + 1;
+    const nextMods = computeGearModifiers(p);
+    syncPlayerGearStats(p, prevMods, nextMods);
+  }
+  return {
+    state,
+    gearId,
+    failed: !succeeded,
+    attemptedRefine: currentRefine + 1,
+    newRefine: entry.refine,
+    rate,
+    cost,
+    materialUsed: foundMat?.id ?? null,
+  };
+}
+
+export function sellGearItem(original, gearId) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('ขายคืนอุปกรณ์ได้เฉพาะที่จุดพักเท่านั้น');
+  }
+  const gear = getGearById(gearId);
+  if (!gear) throw new Error('ไม่พบอุปกรณ์ชิ้นนี้');
+  const state = structuredClone(original);
+  const p = state.player;
+  p.gold ??= 0;
+  p.gearInventory ??= [];
+  p.equippedGear ??= { weapon: null, armor: null, accessory: null };
+  const idx = p.gearInventory.findIndex(item => item.id === gearId);
+  if (idx < 0) throw new Error(`ไม่พบ “${gear.name}” ในคลังอุปกรณ์`);
+  const prevMods = computeGearModifiers(p);
+  const [removed] = p.gearInventory.splice(idx, 1);
+  if (p.equippedGear[gear.slot] === gearId) {
+    p.equippedGear[gear.slot] = null;
+  }
+  const goldGained = getGearSellPrice(gear, removed.refine ?? 0);
+  p.gold += goldGained;
+  const nextMods = computeGearModifiers(p);
+  syncPlayerGearStats(p, prevMods, nextMods);
+  return { state, gearId, goldGained };
+}
+
+export function salvageGearItem(original, gearId) {
+  if (!original || original.phase !== 'sanctuary') {
+    throw new Error('ย่อยอุปกรณ์ได้เฉพาะที่จุดพักเท่านั้น');
+  }
+  const gear = getGearById(gearId);
+  if (!gear) throw new Error('ไม่พบอุปกรณ์ชิ้นนี้');
+  const state = structuredClone(original);
+  const p = state.player;
+  p.stash ??= [];
+  p.gearInventory ??= [];
+  p.equippedGear ??= { weapon: null, armor: null, accessory: null };
+  if (p.stash.length >= MAX_STASH_ITEMS) {
+    throw new Error(`คลังเก็บของสำรองเต็ม (${MAX_STASH_ITEMS}/${MAX_STASH_ITEMS}) · เคลียร์ช่องว่างก่อนย่อยอุปกรณ์`);
+  }
+  const idx = p.gearInventory.findIndex(item => item.id === gearId);
+  if (idx < 0) throw new Error(`ไม่พบ “${gear.name}” ในคลังอุปกรณ์`);
+  const prevMods = computeGearModifiers(p);
+  const [removed] = p.gearInventory.splice(idx, 1);
+  if (p.equippedGear[gear.slot] === gearId) {
+    p.equippedGear[gear.slot] = null;
+  }
+  const reward = getGearSalvageReward(gear, removed.refine ?? 0);
+  p.stash.push(reward.materialId);
+  const nextMods = computeGearModifiers(p);
+  syncPlayerGearStats(p, prevMods, nextMods);
+  return { state, gearId, materialId: reward.materialId, count: reward.count };
 }
 
 export function moveBeltToStash(original, beltIndex) {
@@ -3907,6 +4667,7 @@ export function completeRevisitVictoryToSanctuary(state, summary = null) {
   delete state.krakenPhase;
   delete state.netherPhase;
   delete state.eternityPhase;
+  clearPhase3BattleFlags(state);
   state.phase = 'sanctuary';
   state.turn = 1;
   state.player.shield = null;
@@ -4032,6 +4793,7 @@ export function useBattleItem(original, beltIndex) {
       delete state.krakenPhase;
       delete state.netherPhase;
       delete state.eternityPhase;
+      clearPhase3BattleFlags(state);
       if (!state.clearedRooms.includes(state.room)) state.clearedRooms.push(state.room);
       recordClearedFloorProgress(state, state.room);
       state.highestRoom = Math.max(state.highestRoom ?? 0, Math.min(state.rooms.length - 1, state.room + 1));
@@ -4233,10 +4995,11 @@ export function enemyClimaxBonus(turn, room) {
   return 1 + Math.floor(sinceStart / (room >= FLOOR31_START_ROOM ? 2 : 1));
 }
 
-export function intent(enemy, turn, enemies = [], room = 0) {
+export function intent(enemy, turn, enemies = [], room = 0, instability = false) {
   if (enemy.hp <= 0) return { type: 'dead', amount: 0, label: 'ปราบแล้ว' };
   const cycle = turn % 3;
   const profile = ENEMIES[enemy.kind];
+  const scaleInstab = val => instability ? Math.round(val * 1.15) : val;
   if (enemy.kind === 'ink_ray' && cycle === 2) {
     const next = Math.max(0, 12 + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
     return { type: 'charge', amount: 0, shortLabel: `พุ่ง ${next}`, label: `รวบปีกเตรียมพุ่ง ${next} เทิร์นถัดไป` };
@@ -4411,6 +5174,46 @@ export function intent(enemy, turn, enemies = [], room = 0) {
   if (enemy.kind === 'eternity_reborn' && turn % 4 === 3) {
     return { type: 'charge', amount: 0, label: 'รวบรวมดาราจักรดับสูญ · เทิร์นหน้าซัดซูเปอร์โนวา 188!' };
   }
+  // Phase 2 Gear Rift Tier Bosses (Tiers 20–60) charge turns
+  if (enemy.kind === 'ironforge_automaton' && cycle === 2) {
+    const next = Math.max(0, scaleInstab(20) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `แรงดัน ${next}`, label: `อัดแรงดันไอน้ำ · เทิร์นหน้าสลายโล่ −6 และทุบ ${next}!` };
+  }
+  if (enemy.kind === 'tempest_blade_seraph' && cycle === 2) {
+    const next = Math.max(0, scaleInstab(32) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `คมดาบ ${next}`, label: `เร่งกระแสลมอสุนี · เทิร์นหน้าผ่าทะลวงเกราะ ${next}!` };
+  }
+  if (enemy.kind === 'abyssal_tide_colossus' && cycle === 2) {
+    const next = Math.max(0, scaleInstab(44) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `สึนามิ ${next}`, label: `ก่อตัวมหาคลื่นยักษ์ · เทิร์นหน้ากวาดสึนามิ AoE ${next}!` };
+  }
+  if (enemy.kind === 'magma_core_juggernaut' && turn % 4 === 3) {
+    const next = Math.max(0, scaleInstab(62) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `ปะทุ ${next}`, label: `สะสมแรงดันปล่องภูเขาไฟ · เทิร์นหน้าปะทุ AoE ${next} + แอ่งแมกมา!` };
+  }
+  if (enemy.kind === 'chitin_bastion_behemoth' && turn % 4 === 3) {
+    const next = Math.max(0, scaleInstab(76) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `แผ่นดินไหว ${next}`, label: `อัดแรงสั่นสะเทือนปฐพี · เทิร์นหน้ากวาด AoE ${next}!` };
+  }
+  // Phase 3 Gear Rift Tier Bosses (Tiers 70–100) charge turns
+  if (enemy.kind === 'storm_sovereign_drake' && turn % 4 === 3) {
+    const next = Math.max(0, scaleInstab(92) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `มหาพายุ ${next}`, label: `ชาร์จมหาพายุประจุดารา · เทิร์นหน้าฟาดสายฟ้า AoE ${next}!` };
+  }
+  if (enemy.kind === 'void_kraken_leviathan' && turn % 4 === 3) {
+    const next = Math.max(0, scaleInstab(108) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `วังวน ${next}`, label: `รวบรวมวังวนกลืนมิติ · เทิร์นหน้ากวาด AoE ${next}!` };
+  }
+  if (enemy.kind === 'nether_forge_overlord' && turn % 4 === 3) {
+    const next = Math.max(0, scaleInstab(124) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `หลอมนรก ${next}`, label: `สะสมเพลิงเตาหลอมนรกานต์ · เทิร์นหน้าปะทุ AoE ${next} + แอ่งแมกมา!` };
+  }
+  if (enemy.kind === 'eternity_armory_god' && turn % 4 === 3) {
+    const bossPhase = enemy.hp <= ARMORY_GOD_PHASE_THRESHOLDS[1] ? 3 : enemy.hp <= ARMORY_GOD_PHASE_THRESHOLDS[0] ? 2 : 1;
+    const rawNext = bossPhase === 3 ? 156 : bossPhase === 2 ? 132 : 118;
+    const next = Math.max(0, scaleInstab(rawNext) + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+    return { type: 'charge', amount: 0, shortLabel: `พิพากษา ${next}`, label: `รวบรวมคลังศาสตรานิรันดร์ (เฟส ${bossPhase}/3) · เทิร์นหน้ากวาด AoE ${next}!` };
+  }
   if (enemy.kind === 'support' && turn % 2 === 1) return { type: 'heal', amount: 3, label: 'ฟื้น HP พวกเดียวกัน 3' };
   if (enemy.kind === 'chrono_sage' && turn % 2 === 1) return { type: 'heal', amount: 5, label: 'ฟื้น HP พวกเดียวกัน 5' };
   if (enemy.freeze > 0) return { type: 'frozen', amount: 0, label: 'แช่แข็ง · ข้ามการโจมตี' };
@@ -4483,6 +5286,47 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     if (turn % 4 === 0) base = 188;
     else if (turn % 4 === 2) base = 112;
   }
+  else if (enemy.kind === 'ironforge_automaton' && cycle === 0) {
+    base = 20;
+  }
+  else if (enemy.kind === 'tempest_blade_seraph' && cycle === 0) {
+    base = 32;
+  }
+  else if (enemy.kind === 'abyssal_tide_colossus' && cycle === 0) {
+    base = 44;
+  }
+  else if (enemy.kind === 'magma_core_juggernaut') {
+    if (turn % 4 === 0) base = 62;
+    else if (turn % 4 === 2) base = 44;
+  }
+  else if (enemy.kind === 'chitin_bastion_behemoth') {
+    if (turn % 4 === 0) base = 76;
+    else if (turn % 4 === 2) base = 42;
+  }
+  else if (enemy.kind === 'storm_sovereign_drake') {
+    if (turn % 4 === 0) base = (enemy.groundedUntil ?? 0) >= turn ? 62 : 92;
+    else if (turn % 4 === 2) base = 66;
+  }
+  else if (enemy.kind === 'void_rift_tentacle' && cycle === 0) {
+    base = 44;
+  }
+  else if (enemy.kind === 'void_kraken_leviathan') {
+    if (turn % 4 === 0) base = 108;
+    else if (turn % 4 === 2) base = 76;
+  }
+  else if (enemy.kind === 'nether_forge_pillar' && cycle === 0) {
+    base = 54;
+  }
+  else if (enemy.kind === 'nether_forge_overlord') {
+    if (turn % 4 === 0) base = 124;
+    else if (turn % 4 === 2) base = 88;
+  }
+  else if (enemy.kind === 'eternity_armory_god') {
+    const bossPhase = enemy.hp <= ARMORY_GOD_PHASE_THRESHOLDS[1] ? 3 : enemy.hp <= ARMORY_GOD_PHASE_THRESHOLDS[0] ? 2 : 1;
+    if (turn % 4 === 0) base = bossPhase === 3 ? 156 : bossPhase === 2 ? 132 : 118;
+    else if (turn % 4 === 2) base = bossPhase === 3 ? 124 : bossPhase === 2 ? 104 : 98;
+    else base = bossPhase === 3 ? 114 : bossPhase === 2 ? 96 : 94;
+  }
   const loomAllies = enemy.kind === 'loom_sovereign' && room === FLOOR50_BOSS_ROOM && cycle === 2
     ? enemies.filter(other => other.hp > 0 && other.id !== enemy.id).length : 0;
   const eternityAllies = enemy.kind === 'eternity_overlord' && room === FLOOR100_BOSS_ROOM && turn % 4 === 2
@@ -4491,7 +5335,176 @@ export function intent(enemy, turn, enemies = [], room = 0) {
     ? (enemy.eternityAbsorbed ?? 0) * 12 : 0;
   const netherDoomBonus = enemy.kind === 'nether_dread_lord' && enemies.some(other => other.kind === 'nether_doom_pillar' && other.hp > 0) ? 18 : 0;
   base += loomAllies * 3 + eternityAllies * 10 + eternityAbsorbedBonus + netherDoomBonus;
+  base = scaleInstab(base);
   const amount = Math.max(0, base + enemyClimaxBonus(turn, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
+  if (enemy.kind === 'ironforge_automaton' && cycle === 0) {
+    return {
+      type: 'attack',
+      amount,
+      steamBurst: 6,
+      shortLabel: `ไอน้ำ ${amount} · โล่−6`,
+      label: `ระเบิดไอน้ำ! สลายโล่ผู้เล่น −6 ก่อนทุบ ${amount} ดาเมจ`,
+    };
+  }
+  if (enemy.kind === 'tempest_blade_seraph' && cycle === 0) {
+    return {
+      type: 'attack',
+      amount,
+      pierceArmor: 2,
+      shortLabel: `ผ่าเกราะ ${amount}`,
+      label: `เพลงดาบอสุนีโจมตี ${amount} (ทะลุเกราะกาย 2 หน่วย!)`,
+    };
+  }
+  if (enemy.kind === 'abyssal_tide_colossus' && cycle === 0) {
+    return {
+      type: 'attack',
+      amount,
+      aoe: true,
+      shortLabel: `สึนามิ AoE ${amount}`,
+      label: `สึนามิกลืนสมุทร! โจมตี AoE กวาดทั้งแนวหน้า ${amount} ดาเมจ`,
+    };
+  }
+  if (enemy.kind === 'magma_core_juggernaut' && turn % 4 === 0) {
+    return {
+      type: 'attack',
+      amount,
+      aoe: true,
+      spawnMagma: true,
+      shortLabel: `ปะทุ AoE ${amount}`,
+      label: `แก่นเพลิงปะทุ! โจมตี AoE ${amount} + ทิ้งแอ่งแมกมาบนสนาม (แก่นเปิดรับดาเมจ +35%)`,
+    };
+  }
+  if (enemy.kind === 'chitin_bastion_behemoth' && turn % 4 === 0) {
+    return {
+      type: 'attack',
+      amount,
+      aoe: true,
+      shortLabel: `แผ่นดินไหว AoE ${amount}`,
+      label: `แผ่นดินไหวทลายปราการ! โจมตี AoE ${amount} (กระดองเปิดรับดาเมจ +35%)`,
+    };
+  }
+  if (enemy.kind === 'storm_sovereign_drake') {
+    if (turn % 4 === 0) {
+      return {
+        type: 'attack',
+        amount,
+        aoe: true,
+        pierceArmor: 4,
+        shortLabel: `มหาพายุ AoE ${amount}`,
+        label: `มหาพายุประจุดารา! ฟาดสายฟ้า AoE ${amount} ทะลุเกราะกาย 4 (เปิดช่องรับดาเมจ +35%)`,
+      };
+    }
+    if (turn % 4 === 2) {
+      return {
+        type: 'attack',
+        amount,
+        pierceArmor: 3,
+        shortLabel: `พายุสายฟ้า ${amount}`,
+        label: `คลื่นพายุสายฟ้าโจมตี ${amount} (ทะลุเกราะกาย 3 หน่วย!)`,
+      };
+    }
+  }
+  if (enemy.kind === 'void_rift_tentacle' && cycle === 0) {
+    return {
+      type: 'attack',
+      amount,
+      manaDrain: 1,
+      shortLabel: `ฟาด ${amount} · −1 MP`,
+      label: `หนวดมิตินรกานต์ฟาด ${amount} + สูบมานา −1 MP`,
+    };
+  }
+  if (enemy.kind === 'void_kraken_leviathan') {
+    if (turn % 4 === 0) {
+      return {
+        type: 'attack',
+        amount,
+        aoe: true,
+        shortLabel: `วังวน AoE ${amount}`,
+        label: `วังวนกลืนมิติ! กวาด AoE ${amount} ดาเมจ (แก่นเปิดรับดาเมจ +35%)`,
+      };
+    }
+    if (turn % 4 === 1) {
+      return {
+        type: 'attack',
+        amount,
+        manaDrain: 2,
+        shortLabel: `ฟาด ${amount} · −2 MP`,
+        label: `เลเวียธานฟาดกระแสน้ำมืด ${amount} + สูบมานา −2 MP`,
+      };
+    }
+    if (turn % 4 === 2) {
+      return {
+        type: 'attack',
+        amount,
+        selfHeal: 80,
+        shortLabel: `ฟาด ${amount} · ฟื้น 80`,
+        label: `เลเวียธานฟาด ${amount} และดูดซับน้ำบาดาลฟื้น +80 HP`,
+      };
+    }
+  }
+  if (enemy.kind === 'nether_forge_pillar' && cycle === 0) {
+    return {
+      type: 'attack',
+      amount,
+      grantBossWard: 'nether_forge_overlord',
+      shortLabel: `ปะทุ ${amount} · ม่านบอส`,
+      label: `เสาเตาหลอมปะทุ ${amount} และเสริมม่านให้จอมราชัน +1`,
+    };
+  }
+  if (enemy.kind === 'nether_forge_overlord') {
+    const liveForgePillars = enemies.filter(other => other.kind === 'nether_forge_pillar' && other.hp > 0).length;
+    const soulDrain = liveForgePillars > 0 ? 30 : 0;
+    if (turn % 4 === 0) {
+      return {
+        type: 'attack',
+        amount,
+        aoe: true,
+        spawnMagma: true,
+        ...(soulDrain ? { soulDrain } : {}),
+        shortLabel: `เตาหลอม AoE ${amount}`,
+        label: `เตาหลอมนรกานต์ปะทุ AoE ${amount} + แอ่งแมกมา${soulDrain ? ` + หลอมสูบวิญญาณ ${soulDrain}` : ''}`,
+      };
+    }
+    if (soulDrain) {
+      return {
+        type: 'attack',
+        amount,
+        soulDrain,
+        shortLabel: `ทุบ ${amount} · สูบ ${soulDrain}`,
+        label: `ค้อนนรกานต์ทุบ ${amount} + หลอมสูบวิญญาณฟื้นบอส ${soulDrain} HP`,
+      };
+    }
+  }
+  if (enemy.kind === 'eternity_armory_god') {
+    const bossPhase = enemy.hp <= ARMORY_GOD_PHASE_THRESHOLDS[1] ? 3 : enemy.hp <= ARMORY_GOD_PHASE_THRESHOLDS[0] ? 2 : 1;
+    if (turn % 4 === 0) {
+      return {
+        type: 'attack',
+        amount,
+        aoe: true,
+        pierceArmor: bossPhase === 3 ? 6 : 3,
+        shortLabel: `พิพากษา AoE ${amount}`,
+        label: `มหาพิพากษาคลังศาสตรา (เฟส ${bossPhase}/3)! กวาด AoE ${amount} ทะลุเกราะกาย ${bossPhase === 3 ? 6 : 3}`,
+      };
+    }
+    if (turn % 4 === 2) {
+      return {
+        type: 'attack',
+        amount,
+        pierceArmor: 4,
+        manaDrain: 2,
+        shortLabel: `ศาสตรา ${amount} · −2 MP`,
+        label: `ศาสตรานิรันดร์ฟาด ${amount} ทะลุเกราะกาย 4 + สูบมานา −2 MP`,
+      };
+    }
+    return {
+      type: 'attack',
+      amount,
+      pierceArmor: bossPhase === 3 ? 5 : 2,
+      shortLabel: `ฟาด ${amount} (เฟส ${bossPhase})`,
+      label: `มหาเทพอารักษ์ฟาดศาสตรา ${amount} (เฟส ${bossPhase}/3)`,
+    };
+  }
   if (enemy.kind === 'eternity_reborn' && turn % 4 === 1) {
     return {
       type: 'attack',
