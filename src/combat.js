@@ -133,7 +133,7 @@ export const WORD_BASE_COST = Object.freeze({
   seal: 2,
   dispel: 2,
   brace: 1,
-  summon: 1,
+  summon: WORDS.summon.cost,
   ...Object.fromEntries(CREATURE_WORDS.map(id => [id, CREATURE_STATS[id]?.cost ?? 1])),
 });
 
@@ -4177,7 +4177,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       const missing = Math.max(0, getHandLimit(player) - player.hand.length);
       if (missing > 0) drawCards(state, missing);
     } else {
-      drawCards(state, undefined, guard || spell?.form === 'summon');
+      drawCards(state);
     }
     const turnRegen = getTurnManaRegen(state.room) + gear.turnStartManaBonus;
     const maxManaCap = getMaxMana(player);

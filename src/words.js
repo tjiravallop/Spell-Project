@@ -120,10 +120,10 @@ export const WORDS = Object.freeze({
     rarity: 'common',
     label: 'อัญเชิญ',
     glyph: '⛧',
-    cost: 1,
+    cost: 3,
     role: 'summon',
     description: 'เปิดประตูมิติอัญเชิญสิ่งมีชีวิตมายืนแนวหน้า รับดาเมจเดี่ยวและสวนครั้งแรกที่เสีย HP ถ้ารอดจะตีตามเทิร์นถัดไป ม่านที่สัตว์ตีจะหยุดฟื้น 1 เทิร์น',
-    formula: '1 มานา + ค่าสัตว์ + ค่าธาตุ · ทวิเทิร์น',
+    formula: '3 มานา + ค่าสัตว์ + ค่าธาตุ · ทวิเทิร์น',
   },
   ...Object.fromEntries(
     Object.entries(CREATURE_STATS).map(([id, stats]) => [

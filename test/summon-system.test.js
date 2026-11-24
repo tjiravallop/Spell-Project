@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WORDS, CREATURE_WORDS, CREATURE_STATS, parseSpell } from '../src/words.js';
-import { createRun, createEnemy, enterRoom, enterSanctuary, updateSanctuaryLoadout, revisitRoom, FLOOR5_START_ROOM, makeRewards, chooseReward, equipWords, getRewardPoolForRoom, getCardSecondaryEffect, hasCardSecondaryUpgrade, battleSpellCost } from '../src/run.js';
+import { createRun, createEnemy, enterRoom, enterSanctuary, updateSanctuaryLoadout, revisitRoom, FLOOR5_START_ROOM, makeRewards, chooseReward, equipWords, getRewardPoolForRoom, getCardSecondaryEffect, hasCardSecondaryUpgrade, battleSpellCost, drawCards } from '../src/run.js';
 import { simulateTurn } from '../src/combat.js';
 import { validateRun, saveRun, loadRun, SAVE_KEY } from '../src/save.js';
 import { Battlefield } from '../src/render.js';
@@ -9,7 +9,7 @@ import { Battlefield } from '../src/render.js';
 test('Summon System: Grammar, Syntax, and Parsing', () => {
   // 1. Verify summon card and all 27 creatures exist in WORDS
   assert.equal(WORDS.summon.label, 'อัญเชิญ');
-  assert.equal(WORDS.summon.cost, 1);
+  assert.equal(WORDS.summon.cost, 3);
   assert.equal(CREATURE_WORDS.length, 27);
   for (const cid of CREATURE_WORDS) {
     assert.ok(WORDS[cid], `Creature ${cid} must exist in WORDS`);
@@ -21,7 +21,7 @@ test('Summon System: Grammar, Syntax, and Parsing', () => {
   assert.ok(p2.ok);
   assert.equal(p2.spell.form, 'summon');
   assert.equal(p2.spell.creature, 'dog');
-  assert.equal(p2.spell.cost, 1 + WORDS.dog.cost); // 1 + 2 = 3
+  assert.equal(p2.spell.cost, WORDS.summon.cost + WORDS.dog.cost); // 3 + 1 = 4
 
   // 3. 3-word formula: summon + creature + element
   const p3 = parseSpell(['summon', 'golem', 'fire']);
@@ -29,7 +29,7 @@ test('Summon System: Grammar, Syntax, and Parsing', () => {
   assert.equal(p3.spell.form, 'summon');
   assert.equal(p3.spell.creature, 'golem');
   assert.equal(p3.spell.element, 'fire');
-  assert.equal(p3.spell.cost, 1 + WORDS.golem.cost + WORDS.fire.cost); // 1 + 4 + 2 = 7
+  assert.equal(p3.spell.cost, WORDS.summon.cost + WORDS.golem.cost + WORDS.fire.cost); // 3 + 4 + 2 = 9
 
   // 4. 4-word formula: grand + summon + creature + element
   const p4 = parseSpell(['grand', 'summon', 'golem', 'fire']);
@@ -38,8 +38,8 @@ test('Summon System: Grammar, Syntax, and Parsing', () => {
   assert.equal(p4.spell.creature, 'golem');
   assert.equal(p4.spell.element, 'fire');
   assert.equal(p4.spell.grand, true);
-  const baseCost = 1 + WORDS.golem.cost + WORDS.fire.cost;
-  assert.equal(p4.spell.cost, Math.ceil(baseCost * 1.5)); // Math.ceil(7 * 1.5) = 11
+  const baseCost = WORDS.summon.cost + WORDS.golem.cost + WORDS.fire.cost;
+  assert.equal(p4.spell.cost, Math.ceil(baseCost * 1.5)); // Math.ceil(9 * 1.5) = 14
 
   // 5. Invalid sequences should fail
   assert.ok(!parseSpell(['summon']).ok);
@@ -309,8 +309,8 @@ test('Summon starter reward unlocks the pair and the loaded deck keeps access to
   assert.ok(state.player.hand.includes('dog'));
   const next = simulateTurn(state, ['summon', 'dog']);
   assert.ok(next.ok);
-  assert.ok(next.state.player.hand.includes('summon'));
-  assert.ok(next.state.player.hand.includes('dog'));
+  assert.ok(next.state.player.hand.length > 0);
+  assert.ok(next.state.player.hand.every(w => state.player.words.includes(w)));
 });
 
 test('Summon strike applies one tower bonus without mutating the input target', () => {
@@ -572,5 +572,45 @@ test('Pure summon deck without attack forms is valid in Sanctuary, loadout, open
     () => updateSanctuaryLoadout(sanct, ['summon', 'fire', 'ice', 'shield', 'pair', 'heal', 'self']),
     /อัญเชิญ/,
   );
+});
+
+test('Summon Base Cost 3 MP and Weighted In-Combat Draw', () => {
+  // 1. Verify 4 formulas
+  const f1 = parseSpell(['summon', 'dog']);
+  assert.equal(f1.cost, 4);
+  const f2 = parseSpell(['summon', 'dog', 'fire']);
+  assert.equal(f2.cost, 6);
+  const f3 = parseSpell(['summon', 'gargoyle']);
+  assert.equal(f3.cost, 8);
+  const f4 = parseSpell(['grand', 'summon', 'dog', 'fire']);
+  assert.equal(f4.cost, 9);
+
+  // 2. Reject if short 1 MP
+  const s = createRun('cost-verify', false);
+  s.player.words = ['grand', 'summon', 'dog', 'fire'];
+  s.player.hand = ['grand', 'summon', 'dog', 'fire'];
+  s.player.mana = 8; // needs 9
+  s.enemies = [{ id: 'e1', kind: 'striker', hp: 30, maxHp: 30, armor: 0, slot: 0 }];
+  const r = simulateTurn(s, ['grand', 'summon', 'dog', 'fire'], 'e1');
+  assert.equal(r.ok, false);
+  assert.ok(r.error.includes('9'));
+
+  // 3. Opening hand guarantees summon + creature, but mid-battle draw is weighted random
+  const deck = ['shot', 'fire', 'ice', 'shield', 'pair', 'summon', 'dog'];
+  const run = createRun('draw-guarantee-check', false);
+  run.player.words = deck;
+  run.room = 0;
+  enterRoom(run);
+  assert.ok(run.player.hand.includes('summon'));
+  assert.ok(run.player.hand.includes('dog'));
+
+  // Mid battle draw does not force summon
+  const midState = {
+    player: { words: deck, hand: [] },
+    handRng: 42
+  };
+  drawCards(midState, 3);
+  assert.equal(midState.player.hand.length, 3);
+  assert.ok(midState.player.hand.every(w => deck.includes(w)));
 });
 

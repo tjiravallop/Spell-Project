@@ -2374,17 +2374,24 @@ export function openHand(state) {
   state.handRng = draw.rng;
 }
 
-export function drawCards(state, count = TURN_DRAW, prepareSummon = false) {
+export function drawCards(state, count = TURN_DRAW) {
   const { hand } = state.player;
   const deck = activeBattleDeck(state);
+  if (!deck.length) return;
   const draw = { rng: state.handRng };
-  const companions = prepareSummon ? deck.filter(id => CREATURE_WORDS.includes(id)) : [];
+  const totalWeight = deck.reduce((sum, id) => sum + (id === 'summon' || ATTACK_FORMS.includes(id) ? 1.2 : 1.0), 0);
   for (let i = 0; i < count; i++) {
-    const drawn = pick(draw, deck);
-    if (companions.length && deck.includes('summon') && !hand.includes('summon')) hand.push('summon');
-    else if (companions.length && deck.includes('summon') && !hand.some(id => CREATURE_WORDS.includes(id))) {
-      hand.push(companions[Math.floor(deck.indexOf(drawn) * companions.length / deck.length)]);
-    } else hand.push(drawn);
+    let roll = random(draw) * totalWeight;
+    let selected = deck[deck.length - 1];
+    for (const id of deck) {
+      const weight = (id === 'summon' || ATTACK_FORMS.includes(id)) ? 1.2 : 1.0;
+      if (roll < weight) {
+        selected = id;
+        break;
+      }
+      roll -= weight;
+    }
+    hand.push(selected);
   }
   state.handRng = draw.rng;
 }
@@ -4852,10 +4859,7 @@ export function useBattleItem(original, beltIndex) {
     if (!manaGain && !drawCount) throw new Error('มานาและการ์ดในมือเต็มอยู่แล้ว');
     p.mana += manaGain;
     if (drawCount > 0) {
-      const deck = activeBattleDeck(state);
-      const draw = { rng: state.handRng };
-      for (let i = 0; i < drawCount; i++) p.hand.push(pick(draw, deck));
-      state.handRng = draw.rng;
+      drawCards(state, drawCount);
     }
     const parts = [
       manaGain ? `ฟื้น +${manaGain} MP` : '',
@@ -4884,10 +4888,7 @@ export function useBattleItem(original, beltIndex) {
   } else if (itemId === 'draw_pages') {
     const amount = Math.min(2, Math.max(0, handLimit - p.hand.length));
     if (!amount) throw new Error('มือเต็มแล้ว ต้องมีที่ว่างก่อนจั่ว');
-    const deck = activeBattleDeck(state);
-    const draw = { rng: state.handRng };
-    for (let i = 0; i < amount; i++) p.hand.push(pick(draw, deck));
-    state.handRng = draw.rng;
+    drawCards(state, amount);
     effectText = `เปิดหน้าตำราเรียกคำ · จั่วเพิ่ม ${amount} ใบ`;
   } else if (itemId === 'aegis_shard') {
     p.shield = makeShield([...shieldLayers(p.shield), { hp: 6, expires: state.turn + 1, effect: null, triggered: false }]);
