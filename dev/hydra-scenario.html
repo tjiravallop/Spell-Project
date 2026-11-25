@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Summon gameplay fixture</title>
+</head>
+<body>
+  <h1>Summon gameplay fixture</h1>
+  <p id="status" role="status">Preparing a test battle…</p>
+  <script type="module">
+    import { makeSummonScenario, FIXTURE_SEED } from './hydra-scenario.js';
+    import { loadRun, loadSettings, saveRun, storeSettings, SAVE_KEY } from '../src/save.js';
+
+    const status = document.querySelector('#status');
+    try {
+      if (location.hostname !== '127.0.0.1' || location.port !== '4196') {
+        throw new Error('Open this fixture on the isolated 127.0.0.1:4196 test origin.');
+      }
+      const previous = loadRun();
+      if ((previous.state && previous.state.seed !== FIXTURE_SEED)
+        || (!previous.state && localStorage.getItem(SAVE_KEY))) {
+        throw new Error('This test origin already contains another run.');
+      }
+      const params = new URLSearchParams(location.search);
+      const requested = params.get('creature');
+      const creature = ['golem', 'siren', 'skeleton', 'behemoth', 'kraken', 'gargoyle'].includes(requested) ? requested : 'hydra';
+      const saved = saveRun(makeSummonScenario(creature, {
+        grand: params.get('form') !== 'normal',
+        element: params.get('element'),
+        encounter: params.get('encounter'),
+        action: params.get('action'),
+      }));
+      if (!saved.ok) throw new Error(saved.error);
+      storeSettings({ ...loadSettings(), reducedMotion: false, combatSpeed: 1, tips: false, muted: true });
+      const target = new URL('/', location.origin);
+      target.search = new URLSearchParams({
+        [`${creature}Art`]: params.get('version') === '1' ? 'v1' : 'v2',
+        summonSize: 'v2',
+        fusionVisuals: 'v2',
+      });
+      location.replace(target);
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  </script>
+</body>
+</html>

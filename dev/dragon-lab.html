@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Summon Size &amp; Creature Prototype Lab · Spell Foundry</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../battle-ui.css">
+  <style>
+    :root { color-scheme: dark; font: 15px/1.45 system-ui, sans-serif; color: #eff0d6; background: #10191b; accent-color: #e4b659; }
+    * { box-sizing: border-box; }
+    body { max-width: 96rem; margin: auto; padding: 1.25rem clamp(1rem, 3vw, 2.5rem); }
+    header { border-bottom: 1px solid #536454; padding-bottom: .85rem; }
+    h1 { font: 700 1.85rem/1.15 Georgia, serif; margin: 0 0 .35rem; }
+    p { color: #bbcaaf; margin: 0; }
+    form { display: flex; align-items: end; flex-wrap: wrap; margin: 1rem 0; gap: .65rem 1rem; }
+    label { display: grid; gap: .25rem; font-size: .85rem; }
+    label[hidden] { display: none; }
+    label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: .4rem; min-height: 2.3rem; }
+    select, input[type="number"] { min-height: 2.3rem; padding: .25rem .5rem; font: inherit; color: inherit; background: #203033; border: 1px solid #718063; border-radius: 4px; width: auto; }
+    input[type="number"] { width: 5.5rem; }
+    :focus-visible { outline: 2px solid #f5db87; outline-offset: 3px; }
+    output { display: block; color: #bbcaaf; margin-bottom: .5rem; }
+    article { border-top: 1px solid #536454; margin-top: 1rem; padding-top: .75rem; }
+    h2 { font-size: 1.05rem; margin: 0 0 .4rem; color: #f5db87; }
+    .meta { color: #bbcaaf; font-size: .82rem; margin-bottom: .5rem; }
+    .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--sample-width)), max-content)); gap: .75rem; }
+    .lineup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: .85rem; }
+    figure { min-width: 0; margin: 0; }
+    figcaption { color: #bbcaaf; font-size: .82rem; margin-bottom: .25rem; }
+    .frame { position: relative; overflow-x: auto; outline: 1px solid #3b4b46; outline-offset: -1px; background: #12101a; }
+    .lab-scene { position: relative; width: var(--scene-width, var(--sample-width)); }
+    .lab-scene canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+    .lab-hud { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+    .lab-hud #enemy-list { position: absolute; inset: 0; }
+    .indexed-master { margin: 1rem 0; padding: .6rem .75rem; border: 1px solid #536454; }
+    .indexed-views { display: flex; flex-wrap: wrap; align-items: start; gap: 1rem; padding-top: .6rem; }
+    .indexed-views canvas { display: block; image-rendering: pixelated; background: #171323; }
+    .material-keys { display: flex; flex-wrap: wrap; gap: .35rem .75rem; padding: 0; list-style: none; }
+    .material-keys span { display: inline-block; width: .7rem; height: .7rem; margin-right: .3rem; border: 1px solid #c0a9cd; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Summon Size V2 &amp; Creature Prototype Lab</h1>
+    <p>All 27 species (XS → XXL) with actual player reference, production Battlefield renderer, Fusion Palette V2, and Adaptive Summon HUD.</p>
+  </header>
+  <form id="controls">
+    <label>Mode
+      <select name="mode">
+        <option value="lineup">All 27 Species Lineup (XS → XXL)</option>
+        <option value="species">Single Species (V1 vs V2 Size)</option>
+        <option value="dragon-elements">Dragon V1 vs V2 (All Elements)</option>
+        <option value="phoenix-elements">Phoenix V1 vs V2</option>
+        <option value="hydra-elements">Hydra V1 vs V2</option>
+        <option value="behemoth-elements">Behemoth V1 vs V2</option>
+        <option value="kraken-elements">Kraken V1 vs V2</option>
+        <option value="golem-elements">Golem V1 vs V2</option>
+        <option value="siren-elements">Siren V1 vs V2</option>
+        <option value="eagle-elements">Eagle V1 vs V2</option>
+        <option value="bird-elements">Bird V1 vs V2</option>
+        <option value="bat-elements">Bat V1 vs V2</option>
+        <option value="hornet-elements">Hornet V1 vs V2</option>
+        <option value="wolf-elements">Wolf V1 vs V2</option>
+        <option value="skeleton-elements">Skeleton V1 vs V2</option>
+        <option value="gargoyle-elements">Gargoyle V1 vs V2</option>
+        <option value="hydra-benchmarks">V2 prototype size comparison</option>
+      </select>
+    </label>
+    <label>Species <select name="species"></select></label>
+    <label>Summon <select name="summon"><option>Normal</option><option>Grand</option></select></label>
+    <label>View
+      <select name="zoom"><option value="1">Native battlefield · 1×</option><option value="2">Enlarged · 2×</option><option value="3">Detail · 3×</option></select>
+    </label>
+    <label>Motion frame <select name="pose"></select></label>
+    <label>Element <select name="element"><option value="uninfused">Uninfused</option></select></label>
+    <label>Normal scale <input type="number" name="normalScale" step="0.05" min="0.4" max="3"></label>
+    <label>Grand scale <input type="number" name="grandScale" step="0.05" min="1" max="4.5"></label>
+    <label><input type="checkbox" name="dragonV2" checked> Dragon V2</label>
+    <label><input type="checkbox" name="marks" checked> Marks</label>
+    <label><input type="checkbox" name="aura" checked> Aura &amp; particles</label>
+    <label><input type="checkbox" name="showHud" checked> Show HUD</label>
+  </form>
+  <output id="status" aria-live="polite">Loading battlefield…</output>
+  <details id="hydra-master" class="indexed-master" hidden>
+    <summary>Hydra indexed master and material keys</summary>
+    <div class="indexed-views"></div>
+    <ul class="material-keys"></ul>
+  </details>
+  <details id="behemoth-master" class="indexed-master" hidden>
+    <summary>Behemoth indexed master and material keys</summary>
+    <div class="indexed-views"></div>
+    <ul class="material-keys"></ul>
+  </details>
+  <details id="kraken-master" class="indexed-master" hidden>
+    <summary>Kraken indexed master and material keys</summary>
+    <div class="indexed-views"></div>
+    <ul class="material-keys"></ul>
+  </details>
+  <main id="previews" aria-label="Summon size comparisons"></main>
+  <script type="module">
+    import { Battlefield, getSummonAnchor, getSummonBounds } from '../src/render.js';
+    import { FUSION_SUMMON_PALETTES } from '../src/summon-palettes.js';
+    import { SUMMON_ART, DRAGON_ART_V2, HYDRA_ART_V2, BEHEMOTH_ART_V2, KRAKEN_ART_V2, drawSummonArt, resolveSummonArt } from '../src/summon-art.js';
+    import { CREATURE_15_27_V2 } from '../src/creature-15-27-art-v2.js';
+    import { SUMMON_SIZE_V2, getOpaqueBounds, resolveCreatureScale } from '../src/summon-sizes.js';
+    import { renderSummonCardHtml, positionSummonCard } from '../src/ui/battle-render.js';
+
+    const ORDER = { XS: 0, S: 1, M: 2, L: 3, XL: 4, XXL: 5 };
+    const speciesList = Object.keys(SUMMON_SIZE_V2).sort((a, b) =>
+      ORDER[SUMMON_SIZE_V2[a].sizeClass] - ORDER[SUMMON_SIZE_V2[b].sizeClass]
+    );
+    const form = document.querySelector('#controls');
+    const { mode, species, summon, zoom, pose, element, normalScale, grandScale, dragonV2, marks, aura, showHud } = form.elements;
+    const previews = document.querySelector('#previews');
+    const status = document.querySelector('#status');
+    const stage = document.createElement('canvas');
+    stage.width = 320;
+    stage.height = 180;
+    const battlefield = new Battlefield(stage, { reducedMotion: true });
+    cancelAnimationFrame(battlefield.raf);
+    battlefield.ctx.imageSmoothingEnabled = false;
+
+    const elements = ['uninfused', ...Object.keys(FUSION_SUMMON_PALETTES),
+      'fire', 'ice', 'lightning', 'earth', 'water', 'wind', 'akki', 'heman'];
+    const title = id => id[0].toUpperCase() + id.slice(1);
+    const poses = {
+      'Idle': [null, 0, 0],
+      'Grand arrival peak': ['summon_invoke', 0.28, 0],
+      'Strike lunge': ['summon_strike', 0.5, 0],
+      'Counter lunge': ['summon_counter', 0.5, 0],
+      'Hit recoil': ['summon_hit', 0.65, 1],
+      'Defeat': ['summon_break', 0.5, 0],
+    };
+    for (const id of speciesList) species.add(new Option(`${SUMMON_SIZE_V2[id].sizeClass} · ${title(id)}`, id));
+    species.value = 'dragon';
+    for (const name of Object.keys(poses)) pose.add(new Option(name, name));
+    for (const id of elements) if (id !== 'uninfused') element.add(new Option(title(id), id));
+    const allElements = new Option('All prototype elements', 'all-elements');
+    element.add(allElements, 0);
+    const prototype = new URLSearchParams(location.search).get('prototype');
+    const batchPrototypes = ['eagle', 'bird', 'bat', 'hornet', 'wolf',
+      ...Object.keys(CREATURE_15_27_V2)];
+    for (const id of Object.keys(CREATURE_15_27_V2)) {
+      mode.add(new Option(`${title(id)} V1 vs V2`, `${id}-elements`));
+    }
+    const indexedPrototypes = ['phoenix', 'hydra', 'behemoth', 'kraken', 'gargoyle', 'golem', 'siren', 'skeleton', ...batchPrototypes];
+    if (indexedPrototypes.includes(prototype)) {
+      mode.value = `${prototype}-elements`;
+      element.value = batchPrototypes.includes(prototype) ? 'uninfused' : allElements.value;
+    }
+
+    function syncScaleInputs() {
+      const spec = SUMMON_SIZE_V2[species.value];
+      normalScale.value = spec.normalScale;
+      grandScale.value = spec.grandScale;
+    }
+    syncScaleInputs();
+    species.addEventListener('change', syncScaleInputs);
+
+    function renderBattleSample(creatureId, elemId, isGrand, options) {
+      const art = resolveSummonArt(creatureId, options);
+      const opaque = getOpaqueBounds(art);
+      const scale = resolveCreatureScale(creatureId, isGrand, art, options);
+      const summonObj = { creatureId, element: elemId === 'uninfused' ? null : elemId, isGrand, name: title(creatureId), hp: isGrand ? 90 : 60, maxHp: isGrand ? 90 : 60, counter: 20, strike: 25 };
+
+      const width = stage.width;
+      const height = stage.height;
+      const figure = document.createElement('figure');
+      const bounds = getSummonBounds(summonObj, options);
+      const renW = Math.round(art.width * scale);
+      const renH = Math.round(art.height * scale);
+      const opW = Math.round((opaque.maxX + 1) * scale) - Math.round(opaque.minX * scale);
+      const opH = Math.round((opaque.maxY + 1) * scale) - Math.round(opaque.minY * scale);
+      const caption = document.createElement('figcaption');
+      const version = indexedPrototypes.includes(creatureId) && mode.value === `${creatureId}-elements`
+        ? `${title(creatureId)} V${options[`${creatureId}V2`] ? 2 : 1}` : options.sizeV2 ? 'Size V2' : 'Current';
+      const opaqueTop = bounds.top + Math.round(opaque.minY * scale);
+      caption.textContent = `${version} · ${scale.toFixed(2)}× · tpl ${renW}×${renH} · opaque ${opW}×${opH} · top Y${opaqueTop}`;
+
+      const frame = document.createElement('div');
+      frame.className = 'frame';
+      if (indexedPrototypes.includes(creatureId) && mode.value === `${creatureId}-elements` && zoom.value !== '1') {
+        frame.tabIndex = 0;
+        frame.setAttribute('aria-label', 'Scrollable enlarged battlefield');
+      }
+      const scene = document.createElement('div');
+      scene.className = 'lab-scene battle-scene';
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.imageSmoothingEnabled = false;
+
+      battlefield.ctx.drawImage(battlefield.background, 0, 0);
+      battlefield.settings.reducedMotion = !indexedPrototypes.includes(creatureId);
+      battlefield.summonVisuals = { ...options, v2: true, marks: marks.checked, aura: aura.checked, previewTime: 0 };
+      const [type, progress, motionFrame] = poses[pose.value];
+      const anchor = getSummonAnchor(summonObj, options);
+      const event = type ? { type } : null;
+      if (isGrand) {
+        battlefield.drawSummonSprite(summonObj, anchor.x, anchor.baseline, motionFrame, event, progress, true);
+        battlefield.sprite('wizard', 51, 147, motionFrame, 'idle');
+      } else {
+        battlefield.sprite('wizard', 51, 147, motionFrame, 'idle');
+        battlefield.drawSummonSprite(summonObj, anchor.x, anchor.baseline, motionFrame, event, progress, false);
+      }
+      battlefield.sprite('striker', 216, 146, motionFrame, 'idle');
+      ctx.drawImage(stage, 0, 0);
+
+      scene.append(canvas);
+      if (showHud.checked) {
+        const hudWrap = document.createElement('div');
+        hudWrap.className = 'lab-hud';
+        const list = document.createElement('div');
+        list.id = 'enemy-list';
+        list.innerHTML = renderSummonCardHtml(summonObj, options);
+        hudWrap.append(list);
+        scene.append(hudWrap);
+        requestAnimationFrame(() => positionSummonCard(list));
+      }
+      frame.append(scene);
+      figure.append(caption, frame);
+      return figure;
+    }
+
+    function showIndexedMaster(section, master) {
+      const colorKeys = Object.fromEntries(Object.keys(master.colors).map((key, i) => [
+        key, key === 'ink' ? master.colors.ink : `hsl(${(i * 137.5) % 360} 70% ${i % 2 ? 65 : 43}%)`,
+      ]));
+      for (const [label, art, zoom] of [
+        [`Native ${master.width}×${master.height}`, master, 1],
+        ['Indexed color · 3×', master, 3],
+        ['Material keys · 3×', { ...master, colors: colorKeys }, 3],
+      ]) {
+        const figure = document.createElement('figure');
+        const caption = document.createElement('figcaption');
+        caption.textContent = label;
+        const canvas = document.createElement('canvas');
+        canvas.width = art.width;
+        canvas.height = art.height;
+        canvas.style.width = `${art.width * zoom}px`;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        drawSummonArt(ctx, art, 0, 0, 1, null);
+        figure.append(caption, canvas);
+        section.querySelector('.indexed-views').append(figure);
+      }
+      for (const [key, color] of Object.entries(colorKeys)) {
+        const item = document.createElement('li');
+        const swatch = document.createElement('span');
+        swatch.style.background = color;
+        item.append(swatch, key);
+        section.querySelector('.material-keys').append(item);
+      }
+    }
+    const hydraMaster = document.querySelector('#hydra-master');
+    const behemothMaster = document.querySelector('#behemoth-master');
+    const krakenMaster = document.querySelector('#kraken-master');
+    showIndexedMaster(hydraMaster, HYDRA_ART_V2);
+    showIndexedMaster(behemothMaster, BEHEMOTH_ART_V2);
+    showIndexedMaster(krakenMaster, KRAKEN_ART_V2);
+
+    function render() {
+      const creature = mode.value.replace('-elements', '');
+      const benchmarks = mode.value === 'hydra-benchmarks';
+      const prototypeComparison = indexedPrototypes.includes(creature);
+      hydraMaster.hidden = creature !== 'hydra';
+      behemothMaster.hidden = creature !== 'behemoth';
+      krakenMaster.hidden = creature !== 'kraken';
+      allElements.hidden = !prototypeComparison;
+      if (!prototypeComparison && element.value === allElements.value) element.value = 'uninfused';
+      for (const control of [species, normalScale, grandScale, dragonV2]) {
+        control.closest('label').hidden = prototypeComparison || benchmarks;
+      }
+      const isGrand = summon.value === 'Grand';
+      const z = Number(zoom.value);
+      const prototypeDetail = prototypeComparison && z > 1;
+      const detailWidth = { phoenix: 184, hydra: 205, behemoth: 225, kraken: 225, golem: 178, siren: 169, eagle: 178, bird: 178, bat: 178, hornet: 178, wolf: 178, skeleton: 171, gargoyle: 190 }[creature];
+      previews.style.setProperty('--sample-width', `${(prototypeDetail ? (detailWidth ?? 178) : 320) * z}px`);
+      if (prototypeDetail) previews.style.setProperty('--scene-width', `${320 * z}px`);
+      else previews.style.removeProperty('--scene-width');
+      pose.options[1].disabled = !isGrand;
+      if (pose.options[1].disabled && pose.selectedIndex === 1) pose.selectedIndex = 0;
+
+      if (benchmarks) {
+        const grid = document.createElement('div');
+        grid.className = 'lineup-grid';
+        const benchmarkSpecies = ['dragon', ...indexedPrototypes];
+        for (const cid of benchmarkSpecies) {
+          const section = document.createElement('article');
+          const heading = document.createElement('h2');
+          heading.textContent = `${title(cid)} V2 · ${SUMMON_SIZE_V2[cid].sizeClass}`;
+          section.append(heading, renderBattleSample(cid, element.value, isGrand, { [`${cid}V2`]: true, sizeV2: true }));
+          grid.append(section);
+        }
+        previews.replaceChildren(grid);
+        status.textContent = `${benchmarkSpecies.length} prototypes · ${summon.value} · 32 px player reference`;
+        return;
+      }
+
+      if (mode.value === 'lineup') {
+        const grid = document.createElement('div');
+        grid.className = 'lineup-grid';
+        previews.style.setProperty('--sample-width', `${320 * Math.min(z, 2)}px`);
+        for (const cid of speciesList) {
+          const section = document.createElement('article');
+          const spec = SUMMON_SIZE_V2[cid];
+          const h = document.createElement('h2');
+          h.textContent = `${spec.sizeClass} · ${title(cid)}`;
+          const pair = document.createElement('div');
+          pair.className = 'pair';
+          pair.append(renderBattleSample(cid, element.value, isGrand, { dragonV2: dragonV2.checked, sizeV2: true }));
+          section.append(h, pair);
+          grid.append(section);
+        }
+        previews.replaceChildren(grid);
+        status.textContent = `Lineup: all 27 species (XS → XXL) · ${summon.value} · ${pose.value}`;
+        return;
+      }
+
+      if (mode.value === 'species') {
+        const cid = species.value;
+        const spec = SUMMON_SIZE_V2[cid];
+        const art = cid === 'dragon' && dragonV2.checked ? DRAGON_ART_V2 : SUMMON_ART[cid];
+        const opaque = getOpaqueBounds(art);
+        const section = document.createElement('article');
+        const h = document.createElement('h2');
+        h.textContent = `${spec.sizeClass} · ${title(cid)} (${summon.value})`;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = `Template: ${art.width}×${art.height} · Opaque: ${opaque.width}×${opaque.height} · V2 Normal: ${spec.normalScale}× · V2 Grand: ${spec.grandScale}×`;
+        const pair = document.createElement('div');
+        pair.className = 'pair';
+        pair.append(
+          renderBattleSample(cid, element.value, isGrand, { dragonV2: dragonV2.checked, sizeV2: false }),
+          renderBattleSample(cid, element.value, isGrand, { dragonV2: dragonV2.checked, sizeV2: true }),
+        );
+        section.append(h, meta, pair);
+        previews.replaceChildren(section);
+        status.textContent = `Comparing Current vs Size V2 for ${title(cid)} (${summon.value})`;
+        return;
+      }
+
+      const selected = prototypeComparison
+        ? element.value === allElements.value ? elements : [element.value]
+        : element.value === 'uninfused' ? ['uninfused', ...Object.keys(FUSION_SUMMON_PALETTES)] : [element.value];
+      const sections = selected.map(el => {
+        const section = document.createElement('article');
+        const h = document.createElement('h2');
+        h.textContent = title(el);
+        const pair = document.createElement('div');
+        pair.className = 'pair';
+        pair.append(
+          renderBattleSample(creature, el, isGrand, { sizeV2: true }),
+          renderBattleSample(creature, el, isGrand, { [`${creature}V2`]: true, sizeV2: true }),
+        );
+        section.append(h, pair);
+        return section;
+      });
+      previews.replaceChildren(...sections);
+      const count = selected.length === 1 ? '1 element' : `${selected.length} elements`;
+      status.textContent = `${title(creature)} V1 vs V2 (${count}) · ${summon.value} · Size V2`;
+    }
+
+    form.addEventListener('change', render);
+    form.addEventListener('submit', e => e.preventDefault());
+    render();
+    window.addEventListener('load', render, { once: true });
+  </script>
+</body>
+</html>

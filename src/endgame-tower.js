@@ -1,10 +1,10 @@
 // Floors 51–100 Endgame Tower Expansion: Monsters, Encounters, Relics, and High-Tier Shop Items
 
-export const KRAKEN_TENTACLE_KINDS = Object.freeze([
-  'kraken_ward_tentacle',
-  'kraken_heal_tentacle',
-  'kraken_ink_tentacle',
-  'kraken_crush_tentacle',
+export const CTHULHU_TENTACLE_KINDS = Object.freeze([
+  'cthulhu_ward_tentacle',
+  'cthulhu_heal_tentacle',
+  'cthulhu_ink_tentacle',
+  'cthulhu_crush_tentacle',
 ]);
 
 export const NETHER_PILLAR_KINDS = Object.freeze([
@@ -42,15 +42,15 @@ export const ENDGAME_ENEMIES = {
   blizzard_wolf: { name: 'พญาหมาป่าเหมันต์', hp: 540, armor: 2, ward: 0, attack: 54, color: '#a2d2ff', exp: 80, gold: 68, affinity: 'ice' },
   glacial_hydra: { name: 'ไฮดราน้ำแข็งพันปี', hp: 3000, armor: 4, ward: 2, attack: 62, color: '#90e0ef', exp: 210, gold: 200, isBoss: true, swapTurn: 2, wardTurn: 1, heavy: 92, affinity: 'ice' },
 
-  // --- Floors 76–80: Toxic Overgrowth & Abyssal Trench (Floor 80★ Water Kraken Boss 💧) ---
+  // --- Floors 76–80: Toxic Overgrowth & Abyssal Trench (Floor 80★ Water Abyssal Cthulhu Boss 💧) ---
   venom_spore_beast: { name: 'อสูรสปอร์พิษ', hp: 640, armor: 3, ward: 1, attack: 54, color: '#588157', exp: 86, gold: 74, affinity: 'earth' },
   crag_titan_sentinel: { name: 'ทมิฬศิลายักษ์', hp: 760, armor: 6, ward: 0, attack: 50, color: '#344e41', exp: 90, gold: 78, affinity: 'earth' },
   ancient_chitin_behemoth: { name: 'เบฮีมอธเกราะปฐพี', hp: 4600, armor: 6, ward: 2, attack: 70, color: '#3a5a40', exp: 280, gold: 260, isBoss: true, swapTurn: 1, wardTurn: 2, heavy: 104, repeatReduction: 70, affinity: 'earth' },
-  kraken_ward_tentacle: { name: 'หนวดม่านวารี', hp: 1000, armor: 4, ward: 1, attack: 38, color: '#00b4d8', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
-  kraken_heal_tentacle: { name: 'หนวดฟื้นสมุทร', hp: 950, armor: 3, ward: 0, attack: 34, color: '#2ec4b6', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
-  kraken_ink_tentacle: { name: 'หนวดหมึกดำบาดาล', hp: 1050, armor: 3, ward: 0, attack: 42, color: '#5a189a', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
-  kraken_crush_tentacle: { name: 'หนวดยักษ์บดขยี้', hp: 1250, armor: 5, ward: 0, attack: 52, color: '#023e8a', exp: 45, gold: 40, isBoss: true, affinity: 'water' },
-  abyssal_kraken: { name: 'มหาคราเค่นแห่งห้วงบาดาล', hp: 4600, armor: 5, ward: 1, attack: 72, color: '#0077b6', exp: 280, gold: 260, isBoss: true, affinity: 'water' },
+  cthulhu_ward_tentacle: { name: 'หนวดม่านพิทักษ์', hp: 1000, armor: 4, ward: 1, attack: 38, color: '#00b4d8', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
+  cthulhu_heal_tentacle: { name: 'หนวดฟื้นชีพ', hp: 950, armor: 3, ward: 0, attack: 34, color: '#2ec4b6', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
+  cthulhu_ink_tentacle: { name: 'หนวดหมึกกลืนเวท', hp: 1050, armor: 3, ward: 0, attack: 42, color: '#5a189a', exp: 40, gold: 35, isBoss: true, affinity: 'water' },
+  cthulhu_crush_tentacle: { name: 'หนวดบดขยี้', hp: 1250, armor: 5, ward: 0, attack: 52, color: '#023e8a', exp: 45, gold: 40, isBoss: true, affinity: 'water' },
+  abyssal_cthulhu: { name: 'มหาเทพอสูรแห่งห้วงบาดาล', hp: 4600, armor: 5, ward: 1, attack: 72, color: '#0077b6', exp: 280, gold: 260, isBoss: true, affinity: 'water' },
 
   // --- Floors 81–85: Solar Citadel (Fire/Light 🔥) ---
   solar_sentinel: { name: 'หุ่นสุริยันพิฆาต', hp: 880, armor: 4, ward: 1, attack: 64, color: '#fb8500', exp: 94, gold: 80, distanceAttack: true, affinity: 'fire' },
@@ -386,8 +386,8 @@ export function buildEndgameTowerRooms(p) {
     p([['venom_spore_beast', 'crag_titan_sentinel', 'venom_spore_beast'], ['crag_titan_sentinel', 'venom_spore_beast', 'crag_titan_sentinel']]),
     ['ancient_chitin_behemoth', 'venom_spore_beast', 'crag_titan_sentinel'], // 79-3 boss
 
-    // Floor 80★ Major Boss (room 199): 4 Kraken Tentacles -> True Abyssal Kraken Phase 2
-    ['kraken_ward_tentacle', 'kraken_heal_tentacle', 'kraken_ink_tentacle', 'kraken_crush_tentacle'],
+    // Floor 80★ Major Boss (room 199): 4 Abyssal Tentacles -> Abyssal Cthulhu Phase 2
+    ['cthulhu_ward_tentacle', 'cthulhu_heal_tentacle', 'cthulhu_ink_tentacle', 'cthulhu_crush_tentacle'],
 
     // === ZONE 9: Floors 81–84 (rooms 200–211, Solar Citadel 🔥) ===
     ['solar_sentinel', 'radiant_phoenix'],

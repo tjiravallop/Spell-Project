@@ -2,7 +2,7 @@ import { WORDS, elementFamily, ELEMENT_ICONS, ELEMENT_LABELS } from '../words.js
 import { ETERNITY_PHASE_HP, ETERNITY_FIRST_FORM_HP, eternityHealth, ENEMIES, RELIC_DRAFT_CATALOG, getMaxMana } from '../run.js';
 import { damageLabel, fizzleLabel, wardLabel } from '../render.js';
 import { $, queueFxClassRestart, upperCheckpoint, checkpointFloor } from './dom.js';
-import { renderSummonCardHtml } from './battle-render.js';
+import { renderSummonCardHtml, positionSummonCard } from './battle-render.js';
 
 export const CAMERA_SHAKE_CLASSES = [
   'camera-shake-damage',
@@ -223,11 +223,29 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
       return;
     }
     if (!existing) {
+      const html = renderSummonCardHtml(animSummon, {
+        dragonV2: Boolean(getBattlefield?.()?.summonVisuals?.dragonV2),
+        phoenixV2: Boolean(getBattlefield?.()?.summonVisuals?.phoenixV2),
+        hydraV2: Boolean(getBattlefield?.()?.summonVisuals?.hydraV2),
+        behemothV2: Boolean(getBattlefield?.()?.summonVisuals?.behemothV2),
+        krakenV2: Boolean(getBattlefield?.()?.summonVisuals?.krakenV2),
+        gargoyleV2: Boolean(getBattlefield?.()?.summonVisuals?.gargoyleV2),
+        skeletonV2: Boolean(getBattlefield?.()?.summonVisuals?.skeletonV2),
+        eagleV2: Boolean(getBattlefield?.()?.summonVisuals?.eagleV2),
+        birdV2: Boolean(getBattlefield?.()?.summonVisuals?.birdV2),
+        batV2: Boolean(getBattlefield?.()?.summonVisuals?.batV2),
+        hornetV2: Boolean(getBattlefield?.()?.summonVisuals?.hornetV2),
+        wolfV2: Boolean(getBattlefield?.()?.summonVisuals?.wolfV2),
+        sirenV2: Boolean(getBattlefield?.()?.summonVisuals?.sirenV2),
+        golemV2: Boolean(getBattlefield?.()?.summonVisuals?.golemV2),
+        sizeV2: Boolean(getBattlefield?.()?.summonVisuals?.sizeV2),
+      });
       if (typeof list.insertAdjacentHTML === 'function') {
-        list.insertAdjacentHTML('afterbegin', renderSummonCardHtml(animSummon));
+        list.insertAdjacentHTML('afterbegin', html);
       } else {
-        list.innerHTML = renderSummonCardHtml(animSummon) + (list.innerHTML ?? '');
+        list.innerHTML = html + (list.innerHTML ?? '');
       }
+      positionSummonCard(list);
       const created = list.querySelector('.summon-card');
       if (created) {
         created.classList.toggle('dead', !(animSummon.hp > 0));
@@ -339,7 +357,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     if (getSettings().reducedMotion) return;
     const wrap = $('battlefield-wrap') ?? document.querySelector('.battlefield-wrap');
     const battleView = $('battle-view');
-    const isStorm = bossKind === 'tempest_archon' || bossKind === 'thunder_drake_emperor' || bossKind === 'abyssal_kraken';
+    const isStorm = bossKind === 'tempest_archon' || bossKind === 'thunder_drake_emperor' || bossKind === 'abyssal_cthulhu';
     const wrapClass = intensity === 'boss-ultimate'
       ? (isStorm ? 'camera-shake-boss-ultimate-storm' : 'camera-shake-boss-ultimate-fire')
       : intensity === 'boss-heavy'
@@ -363,7 +381,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
     if (!layer || getSettings().reducedMotion) return;
     const state = getState();
     const battlefield = getBattlefield();
-    const isStorm = bossKind === 'tempest_archon' || bossKind === 'thunder_drake_emperor' || bossKind === 'abyssal_kraken';
+    const isStorm = bossKind === 'tempest_archon' || bossKind === 'thunder_drake_emperor' || bossKind === 'abyssal_cthulhu';
     const themeClass = isStorm ? 'elem-boss-ultimate-storm' : 'elem-boss-ultimate-fire';
     let impactX = targetXOverride ?? 16;
     let impactY = 66;
@@ -726,7 +744,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
         if (event.manaDrain > 0) changeAnimatedPlayerMana(-event.manaDrain);
         const sourceEnemy = state?.enemies?.find(candidate => candidate.id === event.source);
         const sourceKind = event.sourceKind ?? sourceEnemy?.kind;
-        const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(sourceKind));
+        const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_cthulhu', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(sourceKind));
         const isUltimate = Boolean(event.ultimate || (isSpecialBoss && (event.rawAttack ?? 0) >= 15));
         if (isUltimate) pulseBossUltimateImpact(sourceKind, 'attack', event.source, hitsSummon && !(event.amount > 0) ? 27.5 : 16);
         if (event.amount > 0) pulsePlayerHud('hit');
@@ -744,8 +762,8 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
                     ? '💀 จอมอสูรนรกานต์ซัดเปลวเพลิงพิพากษา!'
                     : sourceKind === 'void_kraken_leviathan'
                       ? '🐙 เลเวียธานหมึกมืดซัดวังวนกลืนมิติ!'
-                      : sourceKind === 'abyssal_kraken'
-                        ? '🌊 มหาคราเค่นซัดสึนามิบาดาล!'
+                      : sourceKind === 'abyssal_cthulhu'
+                        ? '🌊 มหาเทพอสูรแห่งห้วงบาดาลซัดสึนามิบาดาล!'
                         : sourceKind === 'storm_sovereign_drake'
                           ? '⚡ มังกรฟ้าอสุนีบาตฟาดมหาพายุประจุดารา!'
                           : sourceKind === 'tempest_archon'
@@ -781,7 +799,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
           queueFxClassRestart($('eternity-meter'), ['is-shifting'], 'is-shifting');
         }
         audio.play('discover');
-        triggerCameraScreenShake('boss-ultimate', event.sourceKind ?? 'abyssal_kraken');
+        triggerCameraScreenShake('boss-ultimate', event.sourceKind ?? 'abyssal_cthulhu');
         const phaseTheme = (event.sourceKind === 'eternity_overlord' || event.sourceKind === 'eternity_reborn' || event.sourceKind === 'eternity_armory_god')
           ? (event.eternity?.phase === 2 || event.phase === 2 ? 'ice' : 'grand')
           : (event.sourceKind === 'nether_dread_lord' || event.sourceKind === 'nether_forge_overlord')
@@ -862,7 +880,7 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
       case 'charge': {
         const sourceEnemy = state?.enemies?.find(candidate => candidate.id === event.source);
         const sourceKind = event.sourceKind ?? sourceEnemy?.kind;
-        const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(sourceKind));
+        const isSpecialBoss = Boolean(event.specialBoss || ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_cthulhu', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(sourceKind));
         if (isSpecialBoss) {
           triggerCameraScreenShake('boss-heavy', sourceKind);
           pulseBossUltimateImpact(sourceKind, 'charge', event.source);
@@ -872,8 +890,8 @@ export function createBattleFxController({ getState, getTargetId, getSettings, g
               ? '🌌 มหาเทพอนันตกาลรวบรวมพลังงานกาลอวกาศ · เตรียมปลดปล่อยคลื่นทำลาย 152 ดาเมจ!'
               : sourceKind === 'nether_dread_lord'
                 ? '💀 จอมอสูรนรกานต์รวบรวมเปลวเพลิงนรกานต์ · เตรียมซัด 128 ดาเมจ!'
-                : sourceKind === 'abyssal_kraken'
-                  ? '🌊 มหาคราเค่นรวบรวมคลื่นห้วงบาดาล · เตรียมซัดสึนามิ 108 ดาเมจ!'
+                : sourceKind === 'abyssal_cthulhu'
+                  ? '🌊 มหาเทพอสูรแห่งห้วงบาดาลรวบรวมคลื่นห้วงบาดาล · เตรียมซัดสึนามิ 108 ดาเมจ!'
                   : sourceKind === 'tempest_archon'
                     ? '⚡ จ้าวพายุรวมประจุอสุนี · เตรียมฟาดมหาพิพากษา 20 ดาเมจ!'
                     : sourceKind === 'ember_overlord'

@@ -58,9 +58,9 @@ import {
   completeRevisitVictoryToSanctuary,
   isSanctuaryUnlocked,
   random,
-  KRAKEN_TENTACLE_KINDS,
+  CTHULHU_TENTACLE_KINDS,
   NETHER_PILLAR_KINDS,
-  triggerKrakenPhase2,
+  triggerCthulhuPhase2,
   checkNetherPhase2,
   checkEternityPhase2,
   checkArmoryGodPhase,
@@ -854,9 +854,9 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       }
     }
     const hasLightningElement = elements.some(id => getElementComponents(id).includes('lightning'));
-    const canShockKraken = enemy.kind === 'abyssal_kraken'
+    const canShockCthulhu = enemy.kind === 'abyssal_cthulhu'
       || (enemy.kind === 'void_kraken_leviathan' && !live().some(ally => ally.kind === 'void_rift_tentacle'));
-    if (canShockKraken && hasLightningElement && enemy.hp > 0) {
+    if (canShockCthulhu && hasLightningElement && enemy.hp > 0) {
       damage(enemy, 15, 'lightning', enemy.armor);
       const alreadyShocked = enemy.abyssalShockUntil >= turn + 1;
       enemy.abyssalShockUntil = turn + 1;
@@ -3343,13 +3343,13 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       delete enemy.obscured;
       const attackerBase = ENEMIES[enemy.kind];
       const isBossAttacker = Boolean(attackerBase?.isBoss || isBossRoom(state));
-      const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'ironforge_automaton', 'tempest_blade_seraph', 'abyssal_tide_colossus', 'magma_core_juggernaut', 'chitin_bastion_behemoth', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(enemy.kind);
+      const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_cthulhu', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'ironforge_automaton', 'tempest_blade_seraph', 'abyssal_tide_colossus', 'magma_core_juggernaut', 'chitin_bastion_behemoth', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(enemy.kind);
       const isUltimateSkill = Boolean(action.aoe);
       const isHeavyAttack = Boolean(
         action.amount >= 6 ||
         (isBossAttacker && (
           action.amount >= 5 ||
-          ['sentinel', 'storm_titan', 'ember_overlord', 'astral_sentinel', 'thunder_colossus', 'tempest_archon', 'kraken_crush_tentacle', 'abyssal_kraken', 'nether_doom_pillar', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'ironforge_automaton', 'tempest_blade_seraph', 'abyssal_tide_colossus', 'magma_core_juggernaut', 'chitin_bastion_behemoth', 'storm_sovereign_drake', 'void_rift_tentacle', 'void_kraken_leviathan', 'nether_forge_pillar', 'nether_forge_overlord', 'eternity_armory_god'].includes(enemy.kind) ||
+          ['sentinel', 'storm_titan', 'ember_overlord', 'astral_sentinel', 'thunder_colossus', 'tempest_archon', 'cthulhu_crush_tentacle', 'abyssal_cthulhu', 'nether_doom_pillar', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'ironforge_automaton', 'tempest_blade_seraph', 'abyssal_tide_colossus', 'magma_core_juggernaut', 'chitin_bastion_behemoth', 'storm_sovereign_drake', 'void_rift_tentacle', 'void_kraken_leviathan', 'nether_forge_pillar', 'nether_forge_overlord', 'eternity_armory_god'].includes(enemy.kind) ||
           (['boss', 'arch_codex', 'elder_grimoire', 'nexus_codex'].includes(enemy.kind) && turn % 3 === 2) ||
           (['mirror_mage', 'eclipse_mage'].includes(enemy.kind) && turn % 3 !== 1)
         ))
@@ -4013,7 +4013,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
           summary.sequence.push(`จ้าวพายุชาร์จประจุฟื้น +${regen} HP`);
         }
       }
-      const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'ironforge_automaton', 'tempest_blade_seraph', 'abyssal_tide_colossus', 'magma_core_juggernaut', 'chitin_bastion_behemoth', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(enemy.kind);
+      const isSpecialBoss = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'abyssal_cthulhu', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'ironforge_automaton', 'tempest_blade_seraph', 'abyssal_tide_colossus', 'magma_core_juggernaut', 'chitin_bastion_behemoth', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(enemy.kind);
       events.push({
         type: 'charge',
         label: action.label,
@@ -4080,11 +4080,11 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       if (!state.stats.discovered.includes(phrase)) state.stats.discovered.push(phrase);
     }
   }
-  const krakenPhase2Triggered = player.hp > 0 && !live().length
-    && !state.krakenPhase && state.enemies.some(enemy => KRAKEN_TENTACLE_KINDS.includes(enemy.kind));
-  if (krakenPhase2Triggered) {
+  const cthulhuPhase2Triggered = player.hp > 0 && !live().length
+    && !state.cthulhuPhase && state.enemies.some(enemy => CTHULHU_TENTACLE_KINDS.includes(enemy.kind));
+  if (cthulhuPhase2Triggered) {
     nextMagmaPuddles.clear();
-    triggerKrakenPhase2(state, summary, events);
+    triggerCthulhuPhase2(state, summary, events);
   }
   const eternityPhase3Triggered = player.hp > 0 && !live().length
     && state.room === FLOOR100_BOSS_ROOM && state.eternityPhase !== 3
@@ -4098,7 +4098,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
     delete state.blackhole;
     delete state.deathSpent;
     delete state.legendaryTurns;
-    delete state.krakenPhase;
+    delete state.cthulhuPhase;
     delete state.netherPhase;
     delete state.eternityPhase;
     clearPhase3BattleFlags(state);
@@ -4125,7 +4125,7 @@ export function simulateTurn(original, spellInput, targetId, secondTargetId = ta
       delete state.blackhole;
       delete state.deathSpent;
       delete state.legendaryTurns;
-      delete state.krakenPhase;
+      delete state.cthulhuPhase;
       delete state.netherPhase;
       delete state.eternityPhase;
       clearPhase3BattleFlags(state);

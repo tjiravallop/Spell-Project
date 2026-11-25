@@ -7,13 +7,13 @@ import {
   ENDGAME_RELICS,
   ENDGAME_SHOP_ITEMS,
   ENDGAME_SPACED_FLOORS,
-  KRAKEN_TENTACLE_KINDS,
+  CTHULHU_TENTACLE_KINDS,
   NETHER_PILLAR_KINDS,
   ETERNITY_SHIFT_AFFINITIES,
   ETERNITY_PHASE_HP,
   buildEndgameTowerRooms,
 } from './endgame-tower.js';
-export { KRAKEN_TENTACLE_KINDS, NETHER_PILLAR_KINDS, ETERNITY_SHIFT_AFFINITIES, ETERNITY_PHASE_HP };
+export { CTHULHU_TENTACLE_KINDS, NETHER_PILLAR_KINDS, ETERNITY_SHIFT_AFFINITIES, ETERNITY_PHASE_HP };
 import {
   GEAR_SLOTS,
   GEAR_SLOT_LABELS,
@@ -2493,7 +2493,7 @@ export function prepareEnemies(state) {
       enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
       enemy.armor = phase === 1 ? 5 : phase === 2 ? 7 : phase === 3 ? 4 : 2;
     }
-    if (enemy.kind === 'abyssal_kraken') {
+    if (enemy.kind === 'abyssal_cthulhu') {
       const phase = state.turn % 4;
       enemy.ward = enemy.hp > 0 && (phase === 1 || phase === 3) ? 1 : 0;
       enemy.armor = phase === 1 ? 5 : phase === 2 ? 6 : phase === 3 ? 4 : 0;
@@ -2673,29 +2673,29 @@ export function checkNetherPhase2(state, summary = null, events = null) {
   return false;
 }
 
-export function triggerKrakenPhase2(state, summary = null, events = null) {
-  state.krakenPhase = 2;
+export function triggerCthulhuPhase2(state, summary = null, events = null) {
+  state.cthulhuPhase = 2;
   delete state.magmaPuddles;
   delete state.blackhole;
-  const kraken = createEnemy('abyssal_kraken', 0);
-  kraken.slot = 2;
-  state.enemies = [kraken];
+  const cthulhu = createEnemy('abyssal_cthulhu', 0);
+  cthulhu.slot = 2;
+  state.enemies = [cthulhu];
   if (events) {
     events.push({
       type: 'boss-phase',
-      source: kraken.id,
-      sourceKind: 'abyssal_kraken',
+      source: cthulhu.id,
+      sourceKind: 'abyssal_cthulhu',
       phase: 2,
-      label: '🐙 หนวดทั้งสี่ขาดสะบั้น! มหาคราเค่นแห่งห้วงบาดาลปรากฏร่างจริง!',
+      label: '🐙 หนวดทั้งสี่ขาดสะบั้น! มหาเทพอสูรแห่งห้วงบาดาลปรากฏร่างจริง!',
     });
   }
   if (summary) {
-    summary.krakenPhase2 = true;
+    summary.cthulhuPhase2 = true;
     if (Array.isArray(summary.sequence)) {
-      summary.sequence.push('🐙 หนวดทั้งสี่ขาดสะบั้น! มหาคราเค่นแห่งห้วงบาดาล (4,600 HP) โผล่ขึ้นจากห้วงบาดาล!');
+      summary.sequence.push('🐙 หนวดทั้งสี่ขาดสะบั้น! มหาเทพอสูรแห่งห้วงบาดาล (4,600 HP) โผล่ขึ้นจากห้วงบาดาล!');
     }
   }
-  return kraken;
+  return cthulhu;
 }
 
 export function checkEternityPhase2(state, summary = null, events = null, { absorbCouncil = true } = {}) {
@@ -2827,7 +2827,7 @@ export function enterRoom(state) {
   delete state.blackhole;
   delete state.deathSpent;
   delete state.legendaryTurns;
-  delete state.krakenPhase;
+  delete state.cthulhuPhase;
   delete state.netherPhase;
   delete state.eternityPhase;
   clearPhase3BattleFlags(state);
@@ -4671,7 +4671,7 @@ export function completeRevisitVictoryToSanctuary(state, summary = null) {
   state.sanctuaryUnlocked = true;
   state.sanctuaryFloor = targetFloor;
   state.sanctuaryRested = false;
-  delete state.krakenPhase;
+  delete state.cthulhuPhase;
   delete state.netherPhase;
   delete state.eternityPhase;
   clearPhase3BattleFlags(state);
@@ -4779,8 +4779,8 @@ export function useBattleItem(original, beltIndex) {
     checkNetherPhase2(state, summary, events);
     checkEternityPhase2(state, summary, events);
     if (state.enemies.every(e => e.hp <= 0)) {
-      if (!state.krakenPhase && state.enemies.some(e => KRAKEN_TENTACLE_KINDS.includes(e.kind))) {
-        triggerKrakenPhase2(state, summary, events);
+      if (!state.cthulhuPhase && state.enemies.some(e => CTHULHU_TENTACLE_KINDS.includes(e.kind))) {
+        triggerCthulhuPhase2(state, summary, events);
         prepareEnemies(state);
         return totalDmg;
       }
@@ -4797,7 +4797,7 @@ export function useBattleItem(original, beltIndex) {
       delete state.blackhole;
       delete state.deathSpent;
       delete state.legendaryTurns;
-      delete state.krakenPhase;
+      delete state.cthulhuPhase;
       delete state.netherPhase;
       delete state.eternityPhase;
       clearPhase3BattleFlags(state);
@@ -5026,8 +5026,8 @@ export function intent(enemy, turn, enemies = [], room = 0, instability = false)
         : { type: 'ward-grant', amount: 1, target: target.id, shortLabel: `ม่าน #${target.slot + 1}`, label: `ถักม่าน 1 ชั้นให้เพื่อนช่อง ${target.slot + 1} ในเทิร์นถัดไป` };
     }
   }
-  // Floor 80★ Kraken Tentacles (Phase 1): distinct cooldown roles
-  if (enemy.kind === 'kraken_ward_tentacle' && turn % 2 === 1) {
+  // Floor 80★ Abyssal Cthulhu Tentacles (Phase 1): distinct cooldown roles
+  if (enemy.kind === 'cthulhu_ward_tentacle' && turn % 2 === 1) {
     const allies = enemies.filter(other => other.id !== enemy.id && other.hp > 0);
     if (allies.length) {
       if (enemy.sealed) return { type: 'sealed', amount: 0, label: 'ติดผนึก · ข้ามการกางม่านให้หนวดอื่น' };
@@ -5040,7 +5040,7 @@ export function intent(enemy, turn, enemies = [], room = 0, instability = false)
       };
     }
   }
-  if (enemy.kind === 'kraken_heal_tentacle' && turn % 2 === 0) {
+  if (enemy.kind === 'cthulhu_heal_tentacle' && turn % 2 === 0) {
     const injured = enemies
       .filter(other => other.hp > 0 && other.hp < other.maxHp)
       .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || a.slot - b.slot)[0];
@@ -5055,10 +5055,10 @@ export function intent(enemy, turn, enemies = [], room = 0, instability = false)
       };
     }
   }
-  if (enemy.kind === 'kraken_crush_tentacle' && cycle === 2) {
+  if (enemy.kind === 'cthulhu_crush_tentacle' && cycle === 2) {
     if (enemy.freeze > 0) return { type: 'frozen', amount: 0, label: 'แช่แข็ง · ข้ามการชาร์จ' };
     const next = Math.max(0, 92 + enemyClimaxBonus(turn + 1, room) - (enemy.chill || 0) - (enemy.obscured ? 4 : 0));
-    return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `ยกหนวดยักษ์บดขยี้ · เทิร์นหน้าฟาดหนัก ${next}!` };
+    return { type: 'charge', amount: 0, shortLabel: `ชาร์จ ${next}`, label: `ยกหนวดบดขยี้ · เทิร์นหน้าฟาดหนัก ${next}!` };
   }
   // Floor 90★ Nether Dread Lord Tri-Pillar Pact: distinct pillar cooldown roles
   if (enemy.kind === 'nether_leech_pillar' && turn % 2 === 1) {
@@ -5107,7 +5107,7 @@ export function intent(enemy, turn, enemies = [], room = 0, instability = false)
       };
     }
   }
-  const isMajorClimaxRelease = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind) && turn % 4 === 0;
+  const isMajorClimaxRelease = ['ember_overlord', 'tempest_archon', 'volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_cthulhu', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'].includes(enemy.kind) && turn % 4 === 0;
   if (!isMajorClimaxRelease && profile.swapTurn === cycle) {
     const target = enemies.filter(other => other.hp > 0 && other.id !== enemy.id)
       .sort((a, b) => Math.abs(b.slot - enemy.slot) - Math.abs(a.slot - enemy.slot) || a.slot - b.slot)[0];
@@ -5162,7 +5162,7 @@ export function intent(enemy, turn, enemies = [], room = 0, instability = false)
   if (enemy.kind === 'ancient_chitin_behemoth' && turn % 4 === 3) {
     return { type: 'charge', amount: 0, label: 'สะเทือนธรณีปฐมกาล · เทิร์นหน้ากระแทก 104!' };
   }
-  if (enemy.kind === 'abyssal_kraken' && turn % 4 === 3) {
+  if (enemy.kind === 'abyssal_cthulhu' && turn % 4 === 3) {
     return { type: 'charge', amount: 0, label: 'รวบรวมมหาคลื่นสึนามิบาดาล · เทิร์นหน้าซัด 108!' };
   }
   if (enemy.kind === 'nether_dread_lord' && turn % 4 === 3) {
@@ -5265,11 +5265,11 @@ export function intent(enemy, turn, enemies = [], room = 0, instability = false)
     if (turn % 4 === 0) base = 104;
     else if (turn % 4 === 2) base = 58;
   }
-  else if (enemy.kind === 'abyssal_kraken') {
+  else if (enemy.kind === 'abyssal_cthulhu') {
     if (turn % 4 === 0) base = 108;
     else if (turn % 4 === 2) base = 58;
   }
-  else if (enemy.kind === 'kraken_crush_tentacle' && cycle === 0) {
+  else if (enemy.kind === 'cthulhu_crush_tentacle' && cycle === 0) {
     base = 92;
   }
   else if (enemy.kind === 'nether_dread_lord') {
@@ -5527,16 +5527,16 @@ export function intent(enemy, turn, enemies = [], room = 0, instability = false)
         : `ย้อนกาลเวลาโจมตี ${amount} และฟื้นฟู +400 HP (ตีจุดอ่อนเพื่อทลายผลึกและหยุดเวลา!)`,
     };
   }
-  if (enemy.kind === 'kraken_ink_tentacle' && cycle === 2) {
+  if (enemy.kind === 'cthulhu_ink_tentacle' && cycle === 2) {
     return {
       type: 'attack',
       amount,
       manaDrain: 2,
       shortLabel: `หมึก ${amount} · −2 MP`,
-      label: `พ่นหมึกดำบาดาลโจมตี ${amount} + สูบมานา −2 MP · คูลดาวน์ 3 เทิร์น`,
+      label: `พ่นหมึกกลืนเวทโจมตี ${amount} + สูบมานา −2 MP · คูลดาวน์ 3 เทิร์น`,
     };
   }
-  if (enemy.kind === 'abyssal_kraken' && turn % 4 === 2) {
+  if (enemy.kind === 'abyssal_cthulhu' && turn % 4 === 2) {
     return {
       type: 'attack',
       amount,

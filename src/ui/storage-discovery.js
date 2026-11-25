@@ -15,7 +15,7 @@ export const ACHIEVEMENTS = Object.freeze([
   { id: 'boss_10', name: 'ผู้ดับเพลิงผลาญ', desc: 'พิชิตบอสใหญ่ Ember Overlord ประจำชั้น 10', icon: '🔥' },
   { id: 'boss_20', name: 'ผู้สยบพายุคลั่ง', desc: 'พิชิตบอสใหญ่ Tempest Archon ประจำชั้น 20', icon: '🌪' },
   { id: 'boss_50', name: 'ผู้ฉีกม่านด้ายดารา', desc: 'พิชิตบอสใหญ่ Loom Sovereign ประจำชั้น 50', icon: '👑' },
-  { id: 'boss_80', name: 'ผู้สะกดหมึกสมุทร', desc: 'พิชิตบอสใหญ่ Abyssal Kraken ประจำชั้น 80', icon: '🐙' },
+  { id: 'boss_80', name: 'ผู้สะกดอสูรบาดาล', desc: 'พิชิตบอสใหญ่ Abyssal Cthulhu ประจำชั้น 80', icon: '🐙' },
   { id: 'boss_90', name: 'ผู้ทำลายพันธสัญญา', desc: 'พิชิตบอสใหญ่ Nether Dread Lord ประจำชั้น 90', icon: '💀' },
   { id: 'boss_100', name: 'จอมเวทแห่งอนันตกาล', desc: 'พิชิตมหาเทพ Eternity Overlord & Reborn ประจำชั้น 100', icon: '👑' },
   { id: 'rift_clear', name: 'ผู้ผ่ารอยแยกมิติ', desc: 'พิชิตด่านท้าทาย Rift Dungeon ครบ 3 สเตจ', icon: '🌀' },

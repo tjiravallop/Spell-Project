@@ -71,7 +71,7 @@ test('Endgame Tower Structure: 250 rooms, correct boss rooms and 10 elemental zo
   // Check boss room encounters
   assert.deepEqual(state.rooms[FLOOR60_BOSS_ROOM], ['volcano_colossus', 'magma_tortoise', 'cinder_drake', 'magma_tortoise']);
   assert.deepEqual(state.rooms[FLOOR70_BOSS_ROOM], ['thunder_drake_emperor', 'sand_stalker', 'spark_wraith', 'sand_stalker']);
-  assert.deepEqual(state.rooms[FLOOR80_BOSS_ROOM], ['kraken_ward_tentacle', 'kraken_heal_tentacle', 'kraken_ink_tentacle', 'kraken_crush_tentacle']);
+  assert.deepEqual(state.rooms[FLOOR80_BOSS_ROOM], ['cthulhu_ward_tentacle', 'cthulhu_heal_tentacle', 'cthulhu_ink_tentacle', 'cthulhu_crush_tentacle']);
   assert.deepEqual(state.rooms[FLOOR90_BOSS_ROOM], ['nether_dread_lord', 'nether_leech_pillar', 'nether_curse_pillar', 'nether_doom_pillar']);
   assert.deepEqual(state.rooms[FLOOR100_BOSS_ROOM], ['eternity_overlord', 'zenith_templar', 'chronos_keeper', 'chaos_weaver']);
 
@@ -130,7 +130,7 @@ test('Endgame Monsters: All 39 monsters have authentic stats, traits, and Canvas
   }
 
   // Verify large boss kinds includes all major endgame bosses (including Floor 80 Abyssal Kraken and Floor 100 Phase 3 Eternity Reborn)
-  const expectedBosses = ['volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'];
+  const expectedBosses = ['volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_cthulhu', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn'];
   for (const b of expectedBosses) {
     assert.ok(LARGE_BOSS_KINDS.has(b), `LARGE_BOSS_KINDS must have ${b}`);
   }
@@ -139,7 +139,7 @@ test('Endgame Monsters: All 39 monsters have authentic stats, traits, and Canvas
 test('Endgame Boss Intents: Bosses 60, 70, 80, 90, 100 charge and heavy strike mechanics', () => {
   const b60 = createEnemy('volcano_colossus');
   const b70 = createEnemy('thunder_drake_emperor');
-  const b80 = createEnemy('abyssal_kraken');
+  const b80 = createEnemy('abyssal_cthulhu');
   const b90 = createEnemy('nether_dread_lord');
   const b100 = createEnemy('eternity_overlord');
 
@@ -693,9 +693,9 @@ test('Endgame Rebalance (Option 1): progressive EXP >Lv80, 10,000 HP Floor 100 b
   assert.equal(migratedP3.state.enemies[0].hp, 2250);
 });
 
-test('Floor 80 Boss (Abyssal Kraken): Phase 1 four distinct Water tentacles -> Phase 2 True Body, cooldowns, conductivity passive, and save roundtrip', () => {
+test('Floor 80 Boss (Abyssal Cthulhu): Phase 1 four distinct Water tentacles -> Phase 2 True Body, cooldowns, conductivity passive, and save roundtrip', () => {
   const storage = new MemoryStorage();
-  const base = createRun('f80-kraken-test');
+  const base = createRun('f80-cthulhu-test');
   base.room = FLOOR80_BOSS_ROOM;
   base.collection = ['lightning', 'akki', 'seal', 'wave'];
   base.player.words = ['shot', 'wave', 'fire', 'ice', 'lightning', 'akki', 'shield'];
@@ -773,7 +773,7 @@ test('Floor 80 Boss (Abyssal Kraken): Phase 1 four distinct Water tentacles -> P
   // Turn 3 Crush tentacle delivers 92 heavy crush
   assert.equal(intent(base.enemies[3], 3, base.enemies, FLOOR80_BOSS_ROOM).amount, 92);
 
-  // Phase 1 -> Phase 2 transition via Spell: killing all 4 tentacles spawns abyssal_kraken (4600 HP)
+  // Phase 1 -> Phase 2 transition via Spell: killing all 4 tentacles spawns abyssal_cthulhu (4600 HP)
   const phaseTriggerState = structuredClone(base);
   phaseTriggerState.magmaPuddles = [0, 1];
   for (const t of phaseTriggerState.enemies) {
@@ -784,20 +784,20 @@ test('Floor 80 Boss (Abyssal Kraken): Phase 1 four distinct Water tentacles -> P
   const p2Res = simulateTurn(phaseTriggerState, ['wave', 'lightning'], 'enemy-0');
   assert.equal(p2Res.ok, true);
   assert.equal(p2Res.state.phase, 'battle', 'Killing 4 tentacles must NOT end the battle');
-  assert.equal(p2Res.state.krakenPhase, 2);
+  assert.equal(p2Res.state.cthulhuPhase, 2);
   assert.equal(p2Res.state.enemies.length, 1);
-  assert.equal(p2Res.state.enemies[0].kind, 'abyssal_kraken');
+  assert.equal(p2Res.state.enemies[0].kind, 'abyssal_cthulhu');
   assert.equal(p2Res.state.enemies[0].hp, 4600);
   assert.equal(p2Res.state.enemies[0].slot, 2);
   assert.equal(p2Res.state.magmaPuddles, undefined, 'Phase 2 surge should wash away magma puddles');
-  assert.ok(p2Res.events.some(e => e.type === 'boss-phase' && e.sourceKind === 'abyssal_kraken'));
+  assert.ok(p2Res.events.some(e => e.type === 'boss-phase' && e.sourceKind === 'abyssal_cthulhu'));
 
   // Phase 2 save/load roundtrip must succeed cleanly
   assert.equal(saveRun(p2Res.state, storage).ok, true);
   const loadedP2 = loadRun(storage);
   assert.equal(loadedP2.ok, true, `Phase 2 save should load cleanly: ${loadedP2.error}`);
-  assert.equal(loadedP2.state.krakenPhase, 2);
-  assert.equal(loadedP2.state.enemies[0].kind, 'abyssal_kraken');
+  assert.equal(loadedP2.state.cthulhuPhase, 2);
+  assert.equal(loadedP2.state.enemies[0].kind, 'abyssal_cthulhu');
 
   // Phase 1 -> Phase 2 transition via Battle Consumable Item (supernova_core)
   const itemTriggerState = structuredClone(base);
@@ -810,8 +810,8 @@ test('Floor 80 Boss (Abyssal Kraken): Phase 1 four distinct Water tentacles -> P
   const itemRes = useBattleItem(itemTriggerState, 0);
   assert.equal(itemRes.ok, true);
   assert.equal(itemRes.state.phase, 'battle', 'Consumable finishing 4 tentacles must trigger Phase 2');
-  assert.equal(itemRes.state.krakenPhase, 2);
-  assert.equal(itemRes.state.enemies[0].kind, 'abyssal_kraken');
+  assert.equal(itemRes.state.cthulhuPhase, 2);
+  assert.equal(itemRes.state.enemies[0].kind, 'abyssal_cthulhu');
 
   // Phase 2 Kraken 4-turn schedule & mechanics
   const krakenState = structuredClone(p2Res.state);
@@ -873,7 +873,7 @@ test('Floor 80 Boss (Abyssal Kraken): Phase 1 four distinct Water tentacles -> P
   const dmgKT4 = simulateTurn(kT4Exp, ['shot', 'ice'], 'enemy-0').summary.damage;
   assert.ok(dmgKT4 > dmgKT2, `Kraken Turn 4 exposed damage (${dmgKT4}) should exceed turn 2 (${dmgKT2})`);
 
-  // Defeating Phase 2 Abyssal Kraken clears krakenPhase, drops gaia_emblem_80, and advances to post80 sanctuary
+  // Defeating Phase 2 Abyssal Cthulhu clears cthulhuPhase, drops gaia_emblem_80, and advances to post80 sanctuary
   const finishState = structuredClone(krakenState);
   finishState.turn = 4;
   finishState.enemies[0].hp = 1;
@@ -881,7 +881,7 @@ test('Floor 80 Boss (Abyssal Kraken): Phase 1 four distinct Water tentacles -> P
   finishState.enemies[0].ward = 0;
   const winRes = simulateTurn(finishState, ['shot', 'ice'], 'enemy-0');
   assert.equal(winRes.ok, true);
-  assert.equal(winRes.state.krakenPhase, undefined);
+  assert.equal(winRes.state.cthulhuPhase, undefined);
   assert.equal(winRes.state.phase, 'sanctuary');
   assert.equal(winRes.state.sanctuaryFloor, 'post80');
   assert.ok(winRes.state.player.relics.includes('gaia_emblem_80'));

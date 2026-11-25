@@ -1,3 +1,19 @@
+import { DRAGON_V2_GRID, DRAGON_V2_MATERIALS } from './dragon-art-v2.js';
+import { PHOENIX_V2_GRID, PHOENIX_V2_MATERIALS } from './phoenix-art-v2.js';
+import { HYDRA_V2_GRID, HYDRA_V2_MATERIALS } from './hydra-art-v2.js';
+import { BEHEMOTH_V2_GRID, BEHEMOTH_V2_MATERIALS } from './behemoth-art-v2.js';
+import { KRAKEN_V2_GRID, KRAKEN_V2_MATERIALS } from './kraken-art-v2.js';
+import { GARGOYLE_V2_GRID, GARGOYLE_V2_MATERIALS } from './gargoyle-art-v2.js';
+import { SKELETON_V2_GRID, SKELETON_V2_MATERIALS } from './skeleton-art-v2.js';
+import { EAGLE_V2_GRID, EAGLE_V2_MATERIALS } from './eagle-art-v2.js';
+import { BIRD_V2_GRID, BIRD_V2_MATERIALS } from './bird-art-v2.js';
+import { BAT_V2_GRID, BAT_V2_MATERIALS } from './bat-art-v2.js';
+import { HORNET_V2_GRID, HORNET_V2_MATERIALS } from './hornet-art-v2.js';
+import { WOLF_V2_GRID, WOLF_V2_MATERIALS } from './wolf-art-v2.js';
+import { CREATURE_15_27_V2 } from './creature-15-27-art-v2.js';
+import { SUMMON_SIZE_V2 } from './summon-sizes.js';
+import { SIREN_V2_GRID, SIREN_V2_MATERIALS } from './siren-art-v2.js';
+import { GOLEM_V2_GRID, GOLEM_V2_MATERIALS } from './golem-art-v2.js';
 
 function pixelArt(width, height, colors, paint, { grandScale, lift = 0 }) {
   const pixels = Array.from({ length: height }, () => Array(width).fill(null));
@@ -563,12 +579,105 @@ export const SUMMON_ART = Object.freeze({
   }, { grandScale: 2.35 }),
 });
 
+function indexedSummonArt(original, grid, materials) {
+  const pixels = grid.map(row => Array.from(row, key => materials[key]?.[0] ?? null));
+  return {
+    ...original,
+    width: grid[0].length,
+    height: grid.length,
+    colors: Object.fromEntries(Object.values(materials)),
+    pixels,
+    rows: pixels.map(pixelSpans),
+  };
+}
+
+export const DRAGON_ART_V2 = indexedSummonArt(SUMMON_ART.dragon, DRAGON_V2_GRID, DRAGON_V2_MATERIALS);
+export const PHOENIX_ART_V2 = indexedSummonArt(SUMMON_ART.phoenix, PHOENIX_V2_GRID, PHOENIX_V2_MATERIALS);
+export const HYDRA_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.hydra, grandScale: 1.75, markAnchor: { x: 0.51, y: 0.72 },
+}, HYDRA_V2_GRID, HYDRA_V2_MATERIALS);
+export const BEHEMOTH_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.behemoth, grandScale: 1.5, markAnchor: { x: 0.42, y: 0.47 },
+}, BEHEMOTH_V2_GRID, BEHEMOTH_V2_MATERIALS);
+export const KRAKEN_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.kraken, grandScale: 1.53, markAnchor: { x: 0.42, y: 0.23 },
+}, KRAKEN_V2_GRID, KRAKEN_V2_MATERIALS);
+export const GARGOYLE_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.gargoyle, grandScale: 1.75, markAnchor: { x: 0.61, y: 0.64 },
+}, GARGOYLE_V2_GRID, GARGOYLE_V2_MATERIALS);
+
+export const GOLEM_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.golem, grandScale: 1.94, markAnchor: { x: 0.59, y: 0.48 },
+}, GOLEM_V2_GRID, GOLEM_V2_MATERIALS);
+
+export const SIREN_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.siren, grandScale: 1.90, markAnchor: { x: 0.59, y: 0.76 },
+}, SIREN_V2_GRID, SIREN_V2_MATERIALS);
+
+export const SKELETON_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.skeleton, grandScale: 1.93, markAnchor: { x: 0.67, y: 0.41 },
+}, SKELETON_V2_GRID, SKELETON_V2_MATERIALS);
+
+export const EAGLE_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.eagle, grandScale: 2.22, markAnchor: { x: 0.56, y: 0.66 },
+}, EAGLE_V2_GRID, EAGLE_V2_MATERIALS);
+
+export const BIRD_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.bird, grandScale: 1.90, markAnchor: { x: 0.48, y: 0.52 },
+}, BIRD_V2_GRID, BIRD_V2_MATERIALS);
+
+export const BAT_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.bat, grandScale: 1.55, markAnchor: { x: 0.53, y: 0.7 },
+}, BAT_V2_GRID, BAT_V2_MATERIALS);
+
+export const HORNET_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.hornet, grandScale: 1.57, markAnchor: { x: 0.37, y: 0.69 },
+}, HORNET_V2_GRID, HORNET_V2_MATERIALS);
+
+export const WOLF_ART_V2 = indexedSummonArt({
+  ...SUMMON_ART.wolf, grandScale: 2.06, markAnchor: { x: 0.56, y: 0.48 },
+}, WOLF_V2_GRID, WOLF_V2_MATERIALS);
+
+const finalCreaturePrototypes = Object.fromEntries(
+  Object.entries(CREATURE_15_27_V2).map(([id, { grid, materials, markAnchor }]) => [
+    id, indexedSummonArt({
+      ...SUMMON_ART[id], grandScale: SUMMON_SIZE_V2[id].templateV2.grandScale, markAnchor,
+    }, grid, materials),
+  ]),
+);
+
+export function resolveSummonArt(id, { dragonV2, phoenixV2, hydraV2, behemothV2, krakenV2, gargoyleV2, golemV2, sirenV2, eagleV2, birdV2, batV2, hornetV2, wolfV2, skeletonV2, ...creatureOptions } = {}) {
+  if (Object.hasOwn(finalCreaturePrototypes, id) && creatureOptions[`${id}V2`]) return finalCreaturePrototypes[id];
+  if (id === 'dragon' && dragonV2) return DRAGON_ART_V2;
+  if (id === 'phoenix' && phoenixV2) return PHOENIX_ART_V2;
+  if (id === 'hydra' && hydraV2) return HYDRA_ART_V2;
+  if (id === 'behemoth' && behemothV2) return BEHEMOTH_ART_V2;
+  if (id === 'kraken' && krakenV2) return KRAKEN_ART_V2;
+  if (id === 'gargoyle' && gargoyleV2) return GARGOYLE_ART_V2;
+  if (id === 'golem' && golemV2) return GOLEM_ART_V2;
+  if (id === 'siren' && sirenV2) return SIREN_ART_V2;
+  if (id === 'eagle' && eagleV2) return EAGLE_ART_V2;
+  if (id === 'bird' && birdV2) return BIRD_ART_V2;
+  if (id === 'bat' && batV2) return BAT_ART_V2;
+  if (id === 'hornet' && hornetV2) return HORNET_ART_V2;
+  if (id === 'wolf' && wolfV2) return WOLF_ART_V2;
+  if (id === 'skeleton' && skeletonV2) return SKELETON_ART_V2;
+  return Object.hasOwn(SUMMON_ART, id) ? SUMMON_ART[id] : null;
+}
+
 const elementalVariants = new WeakMap();
 const isBodyMaterial = material => material && !['ink', 'spark', 'core'].includes(material);
 const rgb = hex => [1, 3, 5].map(start => parseInt(hex.slice(start, start + 2), 16));
 const luminance = ([r, g, b]) => 0.213 * r + 0.715 * g + 0.072 * b;
 const mix = (a, b, ratio) => a.map((channel, i) => channel * (1 - ratio) + b[i] * ratio);
 const toHex = channels => '#' + channels.map(channel => Math.round(channel).toString(16).padStart(2, '0')).join('');
+const linearRgb = hex => rgb(hex).map(channel => {
+  const srgb = channel / 255;
+  return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+});
+const fromLinear = channels => toHex(channels.map(channel =>
+  255 * (channel <= 0.0031308 ? channel * 12.92 : 1.055 * channel ** (1 / 2.4) - 0.055)
+));
 
 function placeElementMark(art, palette) {
   if (!palette.summonMark) return [];
@@ -584,12 +693,14 @@ function fitElementMark(art, stencil, colors) {
   ).filter(Boolean));
   const width = stencil[0].length;
   const height = stencil.length;
+  const markX = art.width * (art.markAnchor?.x ?? 0.44);
+  const markY = art.height * (art.markAnchor?.y ?? 0.52);
   let bestDistance = Infinity;
   let origin;
   for (let y = 0; y <= art.height - height; y++) {
     for (let x = 0; x <= art.width - width; x++) {
-      const distance = (x + (width - 1) / 2 - art.width * 0.44) ** 2
-        + (y + (height - 1) / 2 - art.height * 0.52) ** 2;
+      const distance = (x + (width - 1) / 2 - markX) ** 2
+        + (y + (height - 1) / 2 - markY) ** 2;
       if (distance >= bestDistance) continue;
       // Keep the mark inside the body and clear of outlines and existing glints.
       if (!pattern.every(([dx, dy]) => isBodyMaterial(art.pixels[y + dy][x + dx]))) continue;
@@ -602,9 +713,27 @@ function fitElementMark(art, stencil, colors) {
   return pattern.map(([dx, dy, color]) => [x + dx, y + dy, color]);
 }
 
-function tintMaterials(art, palette, tint) {
+function tintMaterials(art, palette) {
+  const colors = { ...art.colors, spark: palette.spark ?? palette.primary, core: palette.core };
+  if (palette.midtone) {
+    const [shadow, midtone, highlight] = [palette.shadow, palette.midtone, palette.highlight].map(linearRgb);
+    const materials = Object.entries(art.colors).filter(([material]) => isBodyMaterial(material))
+      .map(([material, hex]) => [material, luminance(linearRgb(hex))]);
+    if (!materials.length) return colors;
+    const values = materials.map(([, value]) => value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    for (const [material, value] of materials) {
+      // Normalize body luminance only. Ink and emissive pixels have independent colors.
+      const t = max === min ? 0.5 : (value - min) / (max - min);
+      const shade = t <= 0.5 ? mix(shadow, midtone, t * 2) : mix(midtone, highlight, t * 2 - 1);
+      colors[material] = fromLinear(shade);
+    }
+    return colors;
+  }
+
+  const tint = rgb(palette.summonTint ?? palette.primary);
   const tintLightness = luminance(tint);
-  const colors = { ...art.colors, spark: palette.primary, core: palette.core };
   for (const [material, hex] of Object.entries(art.colors)) {
     if (!isBodyMaterial(material)) continue;
     const base = rgb(hex);
@@ -624,7 +753,7 @@ function elementVariantFor(art, palette) {
   }
   if (variants.has(palette)) return variants.get(palette);
 
-  const colors = tintMaterials(art, palette, rgb(palette.summonTint ?? palette.primary));
+  const colors = tintMaterials(art, palette);
   const rows = art.rows.map(row =>
     row.map(([material, start, end]) => [colors[material], start, end]));
   const variant = { rows, mark: placeElementMark(art, palette) };
@@ -632,7 +761,7 @@ function elementVariantFor(art, palette) {
   return variant;
 }
 
-export function drawSummonArt(ctx, art, left, top, scale, elementPalette) {
+export function drawSummonArt(ctx, art, left, top, scale, elementPalette, showMark = true) {
   const variant = elementPalette ? elementVariantFor(art, elementPalette) : null;
   for (const [row, spans] of (variant?.rows ?? art.rows).entries()) {
     const y = Math.round(row * scale);
@@ -643,7 +772,7 @@ export function drawSummonArt(ctx, art, left, top, scale, elementPalette) {
       ctx.fillRect(left + x, top + y, Math.round(end * scale) - x, height);
     }
   }
-  if (!variant) return;
+  if (!variant || !showMark) return;
   for (const [column, row, color] of variant.mark) {
     const x = Math.round(column * scale);
     const y = Math.round(row * scale);

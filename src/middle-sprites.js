@@ -1084,9 +1084,9 @@ export const middleSprites = {
     }
   },
 
-  // --- Floor 80★: Abyssal Kraken (4 Tentacles Phase 1 + True Body Phase 2, Water 💧) ---
-  kraken_ward_tentacle(r, c, pose, frame) {
-    // หนวดม่านวารี (Ward Tentacle - glowing prism water barrier coil)
+  // --- Floor 80★: Abyssal Cthulhu (4 Tentacles Phase 1 + True Body Phase 2, Water 💧) ---
+  cthulhu_ward_tentacle(r, c, pose, frame) {
+    // หนวดม่านพิทักษ์ (Abyssal Ward Tentacle - glowing prism water barrier coil)
     const atk = pose === 'attack';
     const sway = atk ? -2 : [0, 1, 0, -1][frame % 4];
     const pulse = atk ? c[9] : frame % 2 ? c[27] : c[26];
@@ -1108,8 +1108,8 @@ export const middleSprites = {
       r(1, 5, 30, 2, c[9]); r(2, 17, 28, 2, c[27]);
     }
   },
-  kraken_heal_tentacle(r, c, pose, frame) {
-    // หนวดฟื้นสมุทร (Heal Tentacle - cradling luminous oceanic pearl)
+  cthulhu_heal_tentacle(r, c, pose, frame) {
+    // หนวดฟื้นชีพ (Abyssal Heal Tentacle - cradling luminous oceanic pearl)
     const atk = pose === 'attack';
     const bob = atk ? -2 : [0, -1, 0, 1][frame % 4];
     const orbCore = atk ? c[9] : frame % 2 ? c[8] : c[27];
@@ -1131,8 +1131,8 @@ export const middleSprites = {
       r(8, 10, 16, 2, c[9]); r(15, 3, 2, 14, c[8]);
     }
   },
-  kraken_ink_tentacle(r, c, pose, frame) {
-    // หนวดหมึกดำบาดาล (Ink Siphon Tentacle - dark violet abyssal stalk dripping ink)
+  cthulhu_ink_tentacle(r, c, pose, frame) {
+    // หนวดหมึกกลืนเวท (Abyssal Ink Tentacle - dark violet abyssal stalk dripping ink)
     const atk = pose === 'attack';
     const sway = atk ? -3 : [0, -1, 0, 1][frame % 4];
     const dropY = (frame % 4) * 2;
@@ -1152,8 +1152,8 @@ export const middleSprites = {
       r(0, 7, 10, 4, c[0]); r(1, 8, 8, 2, c[23]); r(0, 13, 7, 3, c[21]);
     }
   },
-  kraken_crush_tentacle(r, c, pose, frame) {
-    // หนวดยักษ์บดขยี้ (Colossal Armored Crush Tentacle - thick spined slammer)
+  cthulhu_crush_tentacle(r, c, pose, frame) {
+    // หนวดบดขยี้ (Abyssal Crush Tentacle - thick spined slammer)
     const atk = pose === 'attack';
     const lunge = atk ? -4 : 0;
     const lift = atk ? 3 : frame % 2 ? -1 : 0;
@@ -1173,8 +1173,8 @@ export const middleSprites = {
       r(0, 18, 12, 12, c[27]); r(2, 20, 8, 8, c[9]); // Crushing wave slam
     }
   },
-  abyssal_kraken(r, c, pose, frame) {
-    // มหาคราเค่นแห่งห้วงบาดาล (Abyssal Kraken True Body - Floor 80★ Phase 2 Boss, auto 2x scale)
+  abyssal_cthulhu(r, c, pose, frame) {
+    // มหาเทพอสูรแห่งห้วงบาดาล (Abyssal Cthulhu True Body - Floor 80★ Phase 2 Boss, auto 2x scale)
     const atk = pose === 'attack';
     const floatY = [0, -1, 0, 1][frame % 4];
     const eyeGlow = atk ? c[9] : frame % 2 ? c[31] : c[30];

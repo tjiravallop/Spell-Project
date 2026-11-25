@@ -108,7 +108,7 @@ export function validateRun(state) {
     || new Set(state.magmaPuddles).size !== state.magmaPuddles.length || state.magmaPuddles.some(slot => !integer(slot, 0, 4)))) invalid();
   if (state.blackhole !== undefined && (state.phase !== 'battle' || !object(state.blackhole)
     || !integer(state.blackhole.slot, 0, 4) || !integer(state.blackhole.power, 30, 6000))) invalid();
-  if (state.krakenPhase !== undefined && (state.phase !== 'battle' || state.krakenPhase !== 2)) invalid();
+  if (state.cthulhuPhase !== undefined && (state.phase !== 'battle' || state.cthulhuPhase !== 2)) invalid();
   if (state.netherPhase !== undefined && (state.phase !== 'battle' || state.netherPhase !== 2)) invalid();
   if (state.eternityPhase !== undefined && (state.phase !== 'battle' || state.room !== FLOOR100_BOSS_ROOM || state.rift || ![2, 3].includes(state.eternityPhase))) invalid();
   if (state.armoryGodPhase !== undefined && (state.phase !== 'battle' || state.rift?.type !== 'gear' || state.rift.tier !== 100 || state.rift.stage !== 2 || ![2, 3].includes(state.armoryGodPhase))) invalid();
@@ -242,16 +242,16 @@ export function validateRun(state) {
   const completedEternity = state.room === FLOOR100_BOSS_ROOM && !state.rift
     && (state.phase === 'won' || state.phase === 'sanctuary')
     && state.enemies?.length === 1 && state.enemies[0]?.kind === 'eternity_reborn' && state.enemies[0]?.hp === 0;
-  const completedKraken = state.room === FLOOR80_BOSS_ROOM && !state.rift
+  const completedCthulhu = state.room === FLOOR80_BOSS_ROOM && !state.rift
     && state.phase === 'sanctuary' && state.enemies?.length === 1
-    && state.enemies[0]?.kind === 'abyssal_kraken' && state.enemies[0]?.hp === 0;
+    && state.enemies[0]?.kind === 'abyssal_cthulhu' && state.enemies[0]?.hp === 0;
   const gearRiftStage3Kinds = state.rift?.type === 'gear' && state.rift.stage === 2
     ? getGearRiftStage3Kinds(state.rift.tier)
     : null;
   const expectedKinds = gearRiftStage3Kinds
     ? gearRiftStage3Kinds
-    : (state.krakenPhase === 2 || completedKraken)
-      ? ['abyssal_kraken']
+    : (state.cthulhuPhase === 2 || completedCthulhu)
+      ? ['abyssal_cthulhu']
       : (state.eternityPhase === 3 || completedEternity)
         ? ['eternity_reborn']
         : state.rooms[state.room];

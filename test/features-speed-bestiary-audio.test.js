@@ -105,14 +105,14 @@ test('Item 3 - Grimoire Compendium: Bestiary definitions & persistence', () => {
     assert.ok(initialBestiary instanceof Set);
     assert.equal(initialBestiary.size, 0);
 
-    const testSet = new Set(['goblin', 'ember_overlord', 'abyssal_kraken', 'eternity_overlord']);
+    const testSet = new Set(['goblin', 'ember_overlord', 'abyssal_cthulhu', 'eternity_overlord']);
     saveAccountBestiary(testSet);
 
     const restored = loadAccountBestiary();
     assert.equal(restored.size, 4);
     assert.ok(restored.has('goblin'));
     assert.ok(restored.has('ember_overlord'));
-    assert.ok(restored.has('abyssal_kraken'));
+    assert.ok(restored.has('abyssal_cthulhu'));
     assert.ok(restored.has('eternity_overlord'));
     assert.ok(!restored.has('void_devourer'));
   } finally {
@@ -214,8 +214,8 @@ test('Item 4 - Retro 16-bit Web Audio: SFX synthesizers and presets execute clea
     { type: 'attack', sourceKind: 'goblin', amount: 0, absorbed: 4 }, // Full shield block (trash)
     { type: 'attack', sourceKind: 'sentinel', amount: 7, absorbed: 0, isBoss: true, heavy: true },
     { type: 'attack', sourceKind: 'sentinel', amount: 0, absorbed: 7, isBoss: true, heavy: true }, // Heavy shield block
-    { type: 'attack', sourceKind: 'abyssal_kraken', amount: 12, specialBoss: true },
-    { type: 'attack', sourceKind: 'kraken_siphon_tentacle', amount: 4, manaDrain: 2 },
+    { type: 'attack', sourceKind: 'abyssal_cthulhu', amount: 12, specialBoss: true },
+    { type: 'attack', sourceKind: 'cthulhu_ink_tentacle', amount: 4, manaDrain: 2 },
     { type: 'charge', sourceKind: 'ember_overlord', specialBoss: true },
     { type: 'charge', sourceKind: 'charger', isBoss: false },
     { type: 'charge', sourceKind: 'sentinel', isBoss: true },

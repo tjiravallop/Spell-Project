@@ -17,7 +17,7 @@ export const RIFT_SPELL_BONUS = 25;
 export const RIFT_EXPOSED_BONUS = 35;
 export const isRiftBossExposed = (kind, turn) => Boolean(
   (RIFT_ENEMIES[kind]?.isBoss && turn % 3 === 0)
-  || (['volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'magma_core_juggernaut', 'chitin_bastion_behemoth', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(kind) && turn % 4 === 0)
+  || (['volcano_colossus', 'thunder_drake_emperor', 'ancient_chitin_behemoth', 'abyssal_cthulhu', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn', 'magma_core_juggernaut', 'chitin_bastion_behemoth', 'storm_sovereign_drake', 'void_kraken_leviathan', 'nether_forge_overlord', 'eternity_armory_god'].includes(kind) && turn % 4 === 0)
 );
 
 // Floors 1-30: 0%, Floors 31-50: +25% (unchanged), Floors 51-100: progressive Endgame Arcane Resonance

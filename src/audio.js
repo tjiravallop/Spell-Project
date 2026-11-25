@@ -3,7 +3,7 @@ import { elementFamily, FUSION_COMPONENTS } from './words.js';
 export const MAJOR_BOSS_KINDS = new Set([
   'ember_overlord', 'tempest_archon', 'crown_archivist', 'mirror_regent',
   'loom_sovereign', 'volcano_colossus', 'thunder_drake_emperor',
-  'abyssal_kraken', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn',
+  'abyssal_cthulhu', 'nether_dread_lord', 'eternity_overlord', 'eternity_reborn',
 ]);
 
 export const MINI_BOSS_KINDS = new Set([
@@ -12,7 +12,7 @@ export const MINI_BOSS_KINDS = new Set([
   'flame_viper', 'rime_gargoyle', 'ice_maiden', 'shock_sentinel', 'lightning_stalker',
   'gale_strider', 'wind_dancer', 'dune_beast', 'coral_scuttler', 'tide_lurker',
   'spark_wraith', 'ancient_chitin_behemoth', 'venom_spore_beast', 'crag_titan_sentinel',
-  'kraken_ward_tentacle', 'kraken_heal_tentacle', 'kraken_ink_tentacle', 'kraken_crush_tentacle',
+  'cthulhu_ward_tentacle', 'cthulhu_heal_tentacle', 'cthulhu_ink_tentacle', 'cthulhu_crush_tentacle',
   'nether_leech_pillar', 'nether_curse_pillar', 'nether_doom_pillar',
   'dread_reaper', 'void_devourer', 'zenith_templar', 'chronos_keeper', 'chaos_weaver',
 ]);

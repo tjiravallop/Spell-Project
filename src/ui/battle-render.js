@@ -42,6 +42,9 @@ import { icon } from '../icons.js';
 import { RIFT_EXPOSED_BONUS, isRiftBossExposed } from '../upper-tower.js';
 import { MIDDLE_ENEMIES } from '../middle-tower.js';
 import { getBattleStory } from '../story.js';
+import { getSummonHudLayout } from '../render.js';
+import { resolveBossArt } from '../boss-art-v2.js';
+import { resolveBossLayer } from '../boss-sizes.js';
 import { ENEMY_TRAITS } from '../enemy-traits.js';
 import { canFormCardsInHand, canFormPhraseInHand, describeFormulaEffect } from '../combos.js';
 import {
@@ -349,7 +352,16 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
   const xPositions = battlefield.positions();
   const positions = new Map(state.enemies.map((enemy, index) => [enemy.id, xPositions[index]]));
   const visibleEnemies = [...state.enemies].sort((a, b) => a.slot - b.slot).filter(enemy => enemy.hp > 0);
-  $('enemy-list').innerHTML = visibleEnemies.map(enemy => {
+  const isRearBossEncounter = visibleEnemies.some(
+    enemy => resolveBossArt(enemy.kind, battlefield?.bossVisuals) && resolveBossLayer(enemy.kind, battlefield?.bossVisuals) === 'rear',
+  );
+  const rearMinionTotal = isRearBossEncounter ? visibleEnemies.filter(e => !ENEMIES[e.kind]?.isBoss).length : 0;
+  const hudEl = $('major-boss-hud');
+  const hudCards = [];
+  const cardHtml = [];
+  let rearMinionCounter = 0;
+
+  for (const enemy of visibleEnemies) {
     const base = ENEMIES[enemy.kind];
     const trait = ENEMY_TRAITS[enemy.kind];
     const action = intent(enemy, state.turn, state.enemies, state.room, Boolean(state.rift?.instability));
@@ -409,19 +421,19 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
         ? 'ลงกราวด์แล้ว · เกราะมหาประจุดาราไม่ช็อตคืนจนจบเทิร์นนี้'
         : 'เกราะมหาประจุดารา · สะท้อนสายฟ้า 4 เมื่อมีเกราะ หากไม่ใช้ธาตุดิน (ลงกราวด์) หรือคำว่าเจาะ · เปิดช่อง +35% ในบทที่ 4';
       badges.push(`<span class="enemy-badge ${isGrounded ? 'badge-armor' : 'badge-ward'}" title="${bossHint}">${isGrounded ? 'ลงกราวด์แล้ว' : 'ประจุดารา 4'}</span>`);
-    } else if (enemy.kind === 'kraken_ward_tentacle') {
+    } else if (enemy.kind === 'cthulhu_ward_tentacle') {
       bossHint = 'เฟส 1/2 · คูลดาวน์ 2 เทิร์น: เทิร์นคี่กางม่าน +1 ให้หนวดอื่นทุกเส้น (ผนึกหยุดได้) · ปราบหนวดครบ 4 เส้นเพื่อเรียกร่างจริง';
       badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">ม่านทุก 2 เทิร์น</span>`);
-    } else if (enemy.kind === 'kraken_heal_tentacle') {
+    } else if (enemy.kind === 'cthulhu_heal_tentacle') {
       bossHint = 'เฟส 1/2 · คูลดาวน์ 2 เทิร์น: เทิร์นคู่ฟื้นหนวดที่ HP% ต่ำสุด +220 HP (อัคคีลดฮีลครึ่งหนึ่ง)';
       badges.push(`<span class="enemy-badge badge-chill" title="${bossHint}">ฮีล +220</span>`);
-    } else if (enemy.kind === 'kraken_ink_tentacle') {
-      bossHint = 'เฟส 1/2 · คูลดาวน์ 3 เทิร์น: พ่นหมึกดำ 42 ดาเมจ + สูบมานา −2 MP';
+    } else if (enemy.kind === 'cthulhu_ink_tentacle') {
+      bossHint = 'เฟส 1/2 · คูลดาวน์ 3 เทิร์น: พ่นหมึกกลืนเวท 42 ดาเมจ + สูบมานา −2 MP';
       badges.push(`<span class="enemy-badge badge-ward" title="${bossHint}">สูบ −2 MP</span>`);
-    } else if (enemy.kind === 'kraken_crush_tentacle') {
+    } else if (enemy.kind === 'cthulhu_crush_tentacle') {
       bossHint = 'เฟส 1/2 · วัฏจักร 3 เทิร์น: โจมตี 52 → ชาร์จพลัง → ฟาดบดขยี้ 92 ดาเมจ!';
       badges.push(`<span class="enemy-badge badge-push" title="${bossHint}">ชาร์จ 92</span>`);
-    } else if (enemy.kind === 'abyssal_kraken') {
+    } else if (enemy.kind === 'abyssal_cthulhu') {
       const isShocked = (status.abyssalShockUntil ?? enemy.abyssalShockUntil ?? 0) >= state.turn;
       bossHint = isShocked
         ? 'ผิวน้ำบาดาลนำไฟฟ้า · ถูกช็อตแล้ว! เกราะลด −2 จนจบเทิร์นนี้ (โดนสายฟ้า +15 ดาเมจแท้)'
@@ -553,17 +565,67 @@ export function renderEnemies({ state, battlefield, targetId, busy }, forecast) 
         : projectedAction.shortLabel && projectedAction.shortLabel !== action.shortLabel ? ` → ${projectedAction.shortLabel}`
           : action.type === 'attack' && projectedAction.type === 'attack' && projectedAction.amount !== action.amount ? ` → ${projectedAction.amount}` : '';
     const middleLane = Object.hasOwn(MIDDLE_ENEMIES, enemy.kind) ? ` data-middle-lane="${enemy.slot % 2}"` : '';
-    const crowdLane = state.room >= FLOOR21_START_ROOM && visibleEnemies.length >= 3 ? ` data-crowd-lane="${enemy.slot % 2}"` : '';
+    const crowdLane = !isRearBossEncounter && state.room >= FLOOR21_START_ROOM && visibleEnemies.length >= 3 ? ` data-crowd-lane="${enemy.slot % 2}"` : '';
+    const isRearMinion = isRearBossEncounter && !ENEMIES[enemy.kind]?.isBoss;
+    const rearMinionIdx = isRearMinion ? rearMinionCounter++ : -1;
+    const rearMinionAttr = isRearMinion ? ` data-rear-boss-minion="${rearMinionIdx}" data-rear-boss-count="${rearMinionTotal}"` : '';
+    const cardX = isRearMinion
+      ? (rearMinionTotal >= 3
+        ? [144, 214, 282][Math.min(2, rearMinionIdx)]
+        : (rearMinionIdx === 0 ? Math.min(positions.get(enemy.id), 182) : Math.max(positions.get(enemy.id), 266)))
+      : positions.get(enemy.id);
+    const cardY = isRearMinion ? 98 : (ENEMIES[enemy.kind]?.isBoss ? 42 : 56);
     const hpPct = `${Math.max(0, Math.min(100, enemy.hp / enemy.maxHp * 100))}%`;
-    return `<button type="button" id="target-${enemy.id}" class="enemy-card enemy-kind-${enemy.kind} ${targetId === enemy.id ? 'target' : ''}" style="--enemy-x:${positions.get(enemy.id) / 3.2}%;--enemy-y:${ENEMIES[enemy.kind]?.isBoss ? 42 : 56}%" data-target="${enemy.id}"${middleLane}${crowdLane} aria-pressed="${targetId === enemy.id}" ${busy ? 'disabled' : ''} title="${escape(description)}" aria-label="${escape(description)}${escape(projectedLabel)} เกราะ ${armorText} ม่าน ${enemy.ward}"><span class="enemy-mobile-heading"><strong>${escape(base.name)}</strong><small data-enemy-slot-label>ช่อง ${enemy.slot + 1}</small></span><span class="enemy-intent intent-${intentClass}">${intentLabel}${projectedLabel}</span><span class="enemy-hp-text">${enemy.hp}/${enemy.maxHp}${predicted !== null && predicted !== enemy.hp ? ` <em>→ ${predicted}</em>` : ''}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${hpPct}"></i><i class="enemy-hp-fill" style="width:${hpPct}"></i></span><span class="enemy-info">${badges.join('')}</span></button>`;
-  }).join('');
+    const isBossV2Hud = Boolean(hudEl && resolveBossArt(enemy.kind, battlefield?.bossVisuals));
+    if (isBossV2Hud) {
+      hudCards.push(`<button type="button" id="target-${enemy.id}" class="major-boss-hud enemy-kind-${enemy.kind} ${targetId === enemy.id ? 'target' : ''}" data-target="${enemy.id}" aria-pressed="${targetId === enemy.id}" ${busy ? 'disabled' : ''} title="${escape(description)}" aria-label="${escape(description)}${escape(projectedLabel)} เกราะ ${armorText} ม่าน ${enemy.ward}"><span class="major-boss-hud-title"><strong>${escape(base.name)}</strong><span class="enemy-intent intent-${intentClass}">${intentLabel}${projectedLabel}</span></span><span class="major-boss-hud-hp"><span class="enemy-hp-text">${enemy.hp}/${enemy.maxHp}${predicted !== null && predicted !== enemy.hp ? ` <em>→ ${predicted}</em>` : ''}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${hpPct}"></i><i class="enemy-hp-fill" style="width:${hpPct}"></i></span></span><span class="enemy-info">${badges.join('')}</span></button>`);
+    } else {
+      cardHtml.push(`<button type="button" id="target-${enemy.id}" class="enemy-card enemy-kind-${enemy.kind} ${targetId === enemy.id ? 'target' : ''}" style="--enemy-x:${cardX / 3.2}%;--enemy-y:${cardY}%" data-target="${enemy.id}"${middleLane}${crowdLane}${rearMinionAttr} aria-pressed="${targetId === enemy.id}" ${busy ? 'disabled' : ''} title="${escape(description)}" aria-label="${escape(description)}${escape(projectedLabel)} เกราะ ${armorText} ม่าน ${enemy.ward}"><span class="enemy-mobile-heading"><strong>${escape(base.name)}</strong><small data-enemy-slot-label>ช่อง ${enemy.slot + 1}</small></span><span class="enemy-intent intent-${intentClass}">${intentLabel}${projectedLabel}</span><span class="enemy-hp-text">${enemy.hp}/${enemy.maxHp}${predicted !== null && predicted !== enemy.hp ? ` <em>→ ${predicted}</em>` : ''}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${hpPct}"></i><i class="enemy-hp-fill" style="width:${hpPct}"></i></span><span class="enemy-info">${badges.join('')}</span></button>`);
+    }
+  }
+
+  if (hudEl) {
+    hudEl.hidden = hudCards.length === 0;
+    hudEl.innerHTML = hudCards.join('');
+  }
+  $('enemy-list').innerHTML = cardHtml.join('');
 
   if (state.player?.summon && state.player.summon.hp > 0) {
-    $('enemy-list').innerHTML = renderSummonCardHtml(state.player.summon) + $('enemy-list').innerHTML;
+    const list = $('enemy-list');
+    list.innerHTML = renderSummonCardHtml(state.player.summon, {
+      dragonV2: Boolean(battlefield?.summonVisuals?.dragonV2),
+      phoenixV2: Boolean(battlefield?.summonVisuals?.phoenixV2),
+      hydraV2: Boolean(battlefield?.summonVisuals?.hydraV2),
+      behemothV2: Boolean(battlefield?.summonVisuals?.behemothV2),
+      krakenV2: Boolean(battlefield?.summonVisuals?.krakenV2),
+      gargoyleV2: Boolean(battlefield?.summonVisuals?.gargoyleV2),
+      skeletonV2: Boolean(battlefield?.summonVisuals?.skeletonV2),
+      eagleV2: Boolean(battlefield?.summonVisuals?.eagleV2),
+      birdV2: Boolean(battlefield?.summonVisuals?.birdV2),
+      batV2: Boolean(battlefield?.summonVisuals?.batV2),
+      hornetV2: Boolean(battlefield?.summonVisuals?.hornetV2),
+      wolfV2: Boolean(battlefield?.summonVisuals?.wolfV2),
+      sirenV2: Boolean(battlefield?.summonVisuals?.sirenV2),
+      golemV2: Boolean(battlefield?.summonVisuals?.golemV2),
+      sizeV2: Boolean(battlefield?.summonVisuals?.sizeV2),
+    }) + list.innerHTML;
+    positionSummonCard(list);
   }
 }
 
-export function renderSummonCardHtml(s) {
+export function positionSummonCard(list = $('enemy-list')) {
+  const card = list?.querySelector?.('.summon-card');
+  const scene = list?.closest?.('.battle-scene');
+  if (!card || !scene || typeof card.getBoundingClientRect !== 'function') return;
+  if (card.dataset.summonHudPlacement !== 'above') return;
+  const cardRect = card.getBoundingClientRect();
+  const sceneRect = scene.getBoundingClientRect();
+  if (cardRect.height > 0 && sceneRect.height > 0 && cardRect.top < sceneRect.top + 4) {
+    card.dataset.summonHudPlacement = 'side';
+  }
+}
+
+export function renderSummonCardHtml(s, options = {}) {
   if (!s || !(s.hp > 0)) return '';
   const elemLabel = s.element ? (ELEMENT_LABELS[s.element] || WORDS[s.element]?.label || s.element) : 'ไร้ธาตุ';
   const summonBadges = [
@@ -575,7 +637,8 @@ export function renderSummonCardHtml(s) {
   ].filter(Boolean).join('');
   const maxHp = Math.max(1, s.maxHp ?? s.hp);
   const sHpPct = `${Math.max(0, Math.min(100, (s.hp / maxHp) * 100))}%`;
-  return `<div class="enemy-card summon-card" data-summon-card="true" style="--enemy-x:27.5%;--enemy-y:54%;border:1px solid #ffd700;box-shadow:0 0 8px rgba(255,215,0,0.3);pointer-events:none;" title="${escape(s.name)} · แนวหน้าคุ้มกัน"><span class="enemy-mobile-heading"><strong>⭐ ${escape(s.name)}</strong><small>แนวหน้า</small></span><span class="enemy-intent intent-attack">🛡️ คุ้มกันผู้เล่น</span><span class="enemy-hp-text">${s.hp}/${maxHp}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${sHpPct}"></i><i class="enemy-hp-fill" style="width:${sHpPct};background:#4ade80;"></i></span><span class="enemy-info">${summonBadges}</span></div>`;
+  const layout = getSummonHudLayout(s, options);
+  return `<div class="enemy-card summon-card" data-summon-card="true" data-summon-hud-placement="${layout.placement}" style="--enemy-x:${layout.aboveX}%;--enemy-y:${layout.aboveY}%;--summon-side-x:${layout.sideX}%;--summon-side-y:${layout.sideY}%;border:1px solid #ffd700;box-shadow:0 0 8px rgba(255,215,0,0.3);pointer-events:none;" title="${escape(s.name)} · แนวหน้าคุ้มกัน"><span class="enemy-mobile-heading"><strong>⭐ ${escape(s.name)}</strong><small>แนวหน้า</small></span><span class="enemy-intent intent-attack">🛡️ คุ้มกันผู้เล่น</span><span class="enemy-hp-text">${s.hp}/${maxHp}</span><span class="enemy-hp"><i class="enemy-hp-trail" style="width:${sHpPct}"></i><i class="enemy-hp-fill" style="width:${sHpPct};background:#4ade80;"></i></span><span class="enemy-info">${summonBadges}</span></div>`;
 }
 
 let lastRenderedSlotState = { room: null, words: [] };

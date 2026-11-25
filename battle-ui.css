@@ -294,12 +294,94 @@ body.reduced-motion .combat-number { animation-name: combat-number-fade; filter:
   box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
   pointer-events: none;
   background: #1d182bf5;
+  max-width: min(176px, 28%);
+  padding: 3px 6px;
+}
+#enemy-list .summon-card[data-summon-hud-placement="side"] {
+  left: var(--summon-side-x);
+  top: var(--summon-side-y);
+  translate: 0 0;
+}
+.major-boss-hud-bar {
+  margin: 0 0 6px;
+}
+.major-boss-hud {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(140px, 1.2fr) auto;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 7px 12px;
+  border: 1px solid #766381;
+  border-radius: 6px;
+  background: #171426f5;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease, opacity 220ms ease;
+}
+.major-boss-hud:hover:not(:disabled) { background: #2a1e39; }
+.major-boss-hud.target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 3px 12px #120b21cc;
+}
+.major-boss-hud:has(.intent-heavy):not(:disabled):not(.target) {
+  border-color: rgba(255, 138, 132, .82);
+  animation: enemy-threat-pulse 1.8s ease-in-out infinite;
+}
+.major-boss-hud:has(.intent-charge):not(:disabled):not(.target) {
+  border-color: rgba(158, 217, 255, .78);
+  animation: enemy-charge-pulse 1.9s ease-in-out infinite;
+}
+.major-boss-hud.dead { opacity: .45; }
+.major-boss-hud-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.major-boss-hud-title strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f5db87;
+  white-space: nowrap;
+}
+.major-boss-hud-hp {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.major-boss-hud-hp .enemy-hp-text {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.major-boss-hud-hp .enemy-hp {
+  height: 5px;
+  margin-top: 0;
+}
+.major-boss-hud .enemy-info {
+  margin-top: 0;
+  justify-content: flex-end;
+  gap: 4px 6px;
+}
+@media (max-width: 720px) {
+  .major-boss-hud {
+    grid-template-columns: 1fr;
+    gap: 5px;
+    padding: 7px 9px;
+  }
+  .major-boss-hud .enemy-info {
+    justify-content: flex-start;
+  }
 }
 #enemy-list .summon-card .enemy-intent {
   color: #ffe082;
 }
 #enemy-list .enemy-card[data-crowd-lane="0"] { top: 47%; }
 #enemy-list .enemy-card[data-crowd-lane="1"] { top: min(calc(47% + 72px), 96%); }
+#enemy-list .enemy-card[data-rear-boss-minion] { top: 98%; }
+#enemy-list .enemy-card[data-rear-boss-count="3"] { max-width: min(116px, 20%); padding: 3px 4px; font-size: 11px; }
 #enemy-list .enemy-intent {
   display: flex;
   align-items: center;
